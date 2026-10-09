@@ -3,8 +3,8 @@ import { batches, sourceHash } from '../util';
 import { isDigitalSet, mapSet } from './map';
 import { mapLimit, putJson, readText, type TcgdexClient } from './source';
 import type { TcgdexCard, TcgdexSet } from './types';
+import { addStats, ZERO } from '../scryfall/write';
 import {
-  addStats,
   failRun,
   finishRun,
   importCardChunk,
@@ -128,8 +128,6 @@ export function planSets(
       detailHash: info.detailHash,
     }));
 }
-
-const ZERO: WriteStats = { inserted: 0, updated: 0, unchanged: 0 };
 
 export async function runTcgdexImport(deps: ImportDeps, step: StepRunner, opts: ImportOptions) {
   const runId = await step('start run', () =>

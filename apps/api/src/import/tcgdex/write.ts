@@ -8,7 +8,19 @@ import {
   sets,
 } from '../../db/schema';
 import { batches, sourceHash } from '../util';
-import type { Db } from '../scryfall/write';
+import {
+  addStats,
+  BATCH_SIZE,
+  excluded,
+  failRun,
+  finishRun,
+  touched,
+  wasInserted,
+  writeStats,
+  ZERO,
+  type Db,
+  type WriteStats,
+} from '../scryfall/write';
 import {
   mapCard,
   mapLocalization,
@@ -20,42 +32,12 @@ import {
 import type { TcgdexCard } from './types';
 
 // Database writes of the TCGdex import. Every write is an upsert keyed on a unique constraint that
-// leaves the row (and its updated_at) alone when the source hash is unchanged. `finishRun` and
-// `failRun` (the catalog_version bump) are the Scryfall importer's: nothing in them is specific to
-// a source.
+// leaves the row (and its updated_at) alone when the source hash is unchanged. The run bookkeeping
+// (`finishRun` bumps catalog_version) and the write helpers are the Scryfall importer's.
 
-export { failRun, finishRun } from '../scryfall/write';
-export type { Db };
+export { BATCH_SIZE, failRun, finishRun, type Db, type WriteStats };
 
 const GAME = 'pokemon';
-/** Rows per upsert and per transaction (a chunk of the pipeline is smaller). */
-export const BATCH_SIZE = 500;
-
-export interface WriteStats {
-  inserted: number;
-  updated: number;
-  unchanged: number;
-}
-
-const ZERO: WriteStats = { inserted: 0, updated: 0, unchanged: 0 };
-const excluded = (column: string) => sql.raw(`excluded."${column}"`);
-/** Set on insert and on a real change only (the setWhere of every upsert below). */
-const touched = { updatedAt: sql`now()` };
-/** `xmax = 0` holds for a row this statement inserted, not for one it updated. */
-const wasInserted = { inserted: sql<boolean>`(xmax = 0)` };
-
-export function writeStats(returned: { inserted: boolean }[], total: number): WriteStats {
-  const inserted = returned.filter((r) => r.inserted).length;
-  return { inserted, updated: returned.length - inserted, unchanged: total - returned.length };
-}
-
-export function addStats(a: WriteStats, b: WriteStats): WriteStats {
-  return {
-    inserted: a.inserted + b.inserted,
-    updated: a.updated + b.updated,
-    unchanged: a.unchanged + b.unchanged,
-  };
-}
 
 export async function startRun(db: Db, kind: 'full' | 'delta' | 'images'): Promise<string> {
   const [run] = await db
@@ -284,6 +266,8 @@ export async function importCardChunk(db: Db, chunk: CardChunk): Promise<CardChu
         if (!cardId) throw new Error(`card ${card.id} missing after upsert`);
         return {
           ...print,
+          // One Pokémon card is one print: no variants.
+          variant: '',
           setId: set.id,
           cardId,
           sourceHash: await sourceHash({ print, oracleKey: card.id }),
@@ -294,7 +278,7 @@ export async function importCardChunk(db: Db, chunk: CardChunk): Promise<CardChu
       .insert(prints)
       .values(printValues)
       .onConflictDoUpdate({
-        target: [prints.setId, prints.number],
+        target: [prints.setId, prints.number, prints.variant],
         set: {
           cardId: excluded('card_id'),
           rarity: excluded('rarity'),
@@ -318,6 +302,7 @@ export async function importCardChunk(db: Db, chunk: CardChunk): Promise<CardChu
           .where(
             and(
               eq(prints.setId, set.id),
+              eq(prints.variant, ''),
               inArray(
                 prints.number,
                 printValues.map((p) => p.number),
