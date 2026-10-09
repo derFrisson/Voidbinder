@@ -1,5 +1,5 @@
 import { createApp, type App } from './app';
-import { createPlatform, startScryfallImport, startTcgdexImport } from './platform/cloudflare';
+import { appDeps, startScryfallImport, startTcgdexImport } from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
@@ -9,12 +9,7 @@ let app: App | undefined;
 export default {
   fetch(request, env, ctx) {
     // One app per isolate: the vars never change within it, the platform opens per request.
-    app ??= createApp({
-      appUrl: env.APP_URL,
-      version: env.VERSION,
-      adminToken: env.ADMIN_TOKEN,
-      openPlatform: () => createPlatform(env),
-    });
+    app ??= createApp(appDeps(env));
     return app.fetch(request, env, ctx);
   },
 

@@ -4,6 +4,7 @@ import { ErrorResponseSchema } from '@voidbinder/shared/api';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { unstable_readConfig } from 'wrangler';
 import { z } from 'zod';
 import type { AppEnv } from './app';
 import { notFound, onError, throwOnInvalid } from './middleware/errors';
@@ -57,6 +58,12 @@ describe('errors', () => {
     .get('/teapot', () => {
       throw new HTTPException(409, { message: 'Already there' });
     })
+    .get('/private', () => {
+      throw new HTTPException(401, {
+        message: 'Sign in first',
+        res: new Response('plain', { status: 401, headers: { 'WWW-Authenticate': 'Bearer' } }),
+      });
+    })
     .get('/boom', () => {
       throw new Error('secret detail');
     })
@@ -83,6 +90,16 @@ describe('errors', () => {
     });
   });
 
+  it('keeps the headers of an HTTPException response but answers with the JSON error', async () => {
+    const res = await app.request('/private');
+    expect(res.status).toBe(401);
+    expect(res.headers.get('WWW-Authenticate')).toBe('Bearer');
+    expect(res.headers.get('Content-Type')).toMatch(/^application\/json/);
+    expect(await res.json()).toEqual({
+      error: { code: 'unauthorized', message: 'Sign in first', requestId: 'r2' },
+    });
+  });
+
   it('never leaks the message or stack of an unexpected error', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
     const res = await app.request('/boom');
@@ -97,14 +114,27 @@ describe('errors', () => {
 });
 
 describe('CORS', () => {
-  it('admits the app origin and Expo web dev with credentials, nothing else', async () => {
-    const app = testApp();
+  it('admits the app origin and the extra origins with credentials, nothing else', async () => {
+    const app = testApp({ extraOrigins: ['http://localhost:8081'] });
     for (const origin of ['https://app.example.test', 'http://localhost:8081']) {
       const res = await app.request('/health', { headers: { Origin: origin } });
       expect(res.headers.get('Access-Control-Allow-Origin')).toBe(origin);
       expect(res.headers.get('Access-Control-Allow-Credentials')).toBe('true');
     }
     const res = await app.request('/health', { headers: { Origin: 'https://evil.example' } });
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+
+  it('admits Expo web dev only where wrangler.jsonc sets CORS_EXTRA_ORIGINS: never in prod', async () => {
+    const vars = (env?: string) =>
+      unstable_readConfig({ config: 'wrangler.jsonc', env }, { hideWarnings: true }).vars;
+    expect(vars().CORS_EXTRA_ORIGINS).toBe('http://localhost:8081');
+    expect(vars('dev').CORS_EXTRA_ORIGINS).toBe('http://localhost:8081');
+    expect(vars('prod')).not.toHaveProperty('CORS_EXTRA_ORIGINS');
+
+    const res = await testApp().request('/health', {
+      headers: { Origin: 'http://localhost:8081' },
+    });
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });
