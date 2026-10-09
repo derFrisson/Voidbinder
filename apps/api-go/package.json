@@ -1,0 +1,13 @@
+{
+  "name": "@voidbinder/api-go",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "go run ./cmd/api",
+    "build": "go build -trimpath -o dist/api ./cmd/api",
+    "typecheck": "go vet ./...",
+    "lint": "test -z \"$(gofmt -l .)\" && go vet ./...",
+    "test": "go test ./..."
+  }
+}
