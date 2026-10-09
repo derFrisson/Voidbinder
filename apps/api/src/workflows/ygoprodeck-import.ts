@@ -33,6 +33,8 @@ export class YgoprodeckImportWorkflow extends WorkflowEntrypoint<Env> {
         languages: LANGUAGES,
       },
     );
+    // VB-57: once its PR is merged, the last step is the daily image delta through its mirror
+    // step helper, `mirrorStepFor('yugioh')` (the mirror downloads each image once).
     return { runId, stats };
   }
 }

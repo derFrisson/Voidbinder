@@ -17,7 +17,7 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                   |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations              |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                 |
-| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck); see Importers                                                     |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck); see Importers                                         |
 | `src/workflows/`             | Cloudflare Workflows that run the importers                                                     |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                      |
 | `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`             |
@@ -275,38 +275,28 @@ its steps show in the dashboard or with
 
 ### YGOPRODeck (Yu-Gi-Oh!)
 
-`src/import/ygoprodeck/` follows the same shape (Workflow `src/workflows/ygoprodeck-import.ts`, binding
-`YGOPRODECK_IMPORT`, `POST /admin/import/ygoprodeck`, daily cron prod 03:30 UTC and dev 05:00 UTC, one
-instance `ygoprodeck-<date>`; `src/index.ts` maps the cron expression to the source). The whole
-catalog is one `cardinfo.php?misc=yes` answer (English) plus `cardinfo.php?language=de`, and one
-`cardsets.php`: three requests per run, far below the guide's 20 per second (an IP above it is
-blocked for an hour), never one per card. The answers are chunked, so each is read whole,
-gzip-compressed into R2 (`raw/<env>/ygoprodeck/<date>/cardinfo_{en,de}.json.gz`, `cardsets.json`)
-and split by a streaming scanner into `work/<env>/ygoprodeck/<run id>/cardinfo_<lang>/*.jsonl`
-chunks of 1000 cards, one step per chunk. Images are never fetched: the URLs of the first
-artwork are in the print's `external_ids` (`image_url`, `image_url_small`) for the image mirror
-(VB-57). Prices (`set_price`, `card_prices`) stay in the raw dump for VB-30.
-
-Mapping: `sets.code` is the lowercase set code (`lob`; the catalog API looks sets up lowercase), the printed one is in `external_ids.set_code`. `cards.oracle_key` is the card's id, `type_line` its `type`, `attributes` the stats (`rank`
-instead of `level` for Xyz, `?` for a `?` ATK/DEF), `legalities` the TCG and OCG ban list status
-(`Unlimited` when the card is in that format without an entry; `goat` only when listed). A print is
-one set code and number (`LOB`, `EN001`); the source lists a code once per rarity, so the first
-rarity is `prints.rarity` and all are in `external_ids.rarities`, and finishes are always
-`['normal']` (the source gives rarities, not finishes). A language variant (`LOB-DE001`, `OP13-PT006`)
-folds into the English print of the same number (`external_ids.variants`); one without an English
-print is a print of its own (`DE099`, `external_ids.language`). Every print gets an `en`
-localization and, from the German list, a `de` one (`name`, `desc`). `cardsets.php` lists some codes
-twice (anniversary editions): the earliest release is the set, the others `external_ids.editions`.
-Skipped and counted in `stats.skipped`: cards in no set (`noSets`) and a print whose code another card
-already holds (`codeConflicts`, the source lists a few codes for two cards; the first keeps it). A
-set the list lacks (`DB49`, a code without a dash is its own set and number) is created from the
-card's `set_name`. Resuming, `source_hash`, `catalog_version`, the 409 on a running import and the
-chunk cleanup work as for Scryfall. Locally:
-
-```sh
-pnpm --filter api dev
-curl -X POST -H 'Authorization: Bearer local-dev-admin-token' localhost:8787/admin/import/ygoprodeck
-```
+`src/import/ygoprodeck/` has the Scryfall shape (Workflow `src/workflows/ygoprodeck-import.ts`,
+binding `YGOPRODECK_IMPORT`, `POST /admin/import/ygoprodeck`, one instance `ygoprodeck-<date>`
+from the daily cron, prod 03:30 and dev 05:00 UTC; `CRON_SOURCES` in `src/import/schedule.ts` maps
+every cron to its source). A run makes three requests, `cardinfo.php?misc=yes` (English),
+`cardinfo.php?language=de` and `cardsets.php`, far below the guide's 20 per second and never one
+per card; the answers go gzip-compressed to `raw/<env>/ygoprodeck/<date>/` in R2 and are split
+into chunks of 1000 cards, one step each. `sets.code` is the lowercase set code (`lob`, the
+printed one in `external_ids.set_code`), and every grouping keys on it; a code listed twice in
+`cardsets.php` (anniversary editions) is one set with the others in `external_ids.editions`.
+`cards.oracle_key` is the card's id, `attributes` its stats (`rank` for Xyz, `?` for a `?`
+ATK/DEF), `legalities` the TCG/OCG ban list. A print is one set code, number and rarity, because
+a code in another rarity is another physical card: `prints.variant` is the rarity slug
+(`secret-rare`), `prints.rarity` the display name, finishes always `['normal']`, and the same
+code and rarity listed twice stays one print. A language variant (`LOB-DE001`) folds into the
+English print of the same number and rarity (`external_ids.variants`), one without it is a print
+of its own (`external_ids.language`); every print gets an `en` and a `de` localization. Images are
+never fetched here: the source URLs sit in `external_ids` for the mirror (VB-57) and the API does
+not serve them. Skipped and counted in `stats.skipped`: cards in no set and prints whose code and
+rarity another card already holds (the first keeps it); the first 50 of those are listed in
+`stats.codeConflicts` (`<code> <rarity>: <card id>`) for cleaning by hand. Follow-up: when the
+source moves a code to another card, the print stays with the old one until it is moved by hand.
+Locally, `POST /admin/import/ygoprodeck` as for Scryfall.
 
 ## Deploy
 
