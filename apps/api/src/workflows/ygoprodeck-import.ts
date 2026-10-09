@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runYgoprodeckImport } from '../import/ygoprodeck/pipeline';
 import { ygoprodeckImportDeps } from '../platform/cloudflare';
+import { mirrorStepFor } from './mirror-images';
 
 /** Every step: three retries with backoff; a download is one request of a few MB. */
 const STEP = {
@@ -33,8 +34,8 @@ export class YgoprodeckImportWorkflow extends WorkflowEntrypoint<Env> {
         languages: LANGUAGES,
       },
     );
-    // VB-57: once its PR is merged, the last step is the daily image delta through its mirror
-    // step helper, `mirrorStepFor('yugioh')` (the mirror downloads each image once).
-    return { runId, stats };
+    // Last step (VB-57): the oldest pending Yu-Gi-Oh! images, at most 500.
+    const images = await mirrorStepFor('yugioh')(this.env, step);
+    return { runId, stats, images };
   }
 }
