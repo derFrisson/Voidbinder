@@ -37,6 +37,14 @@ plain `pnpm build` output. Deploys run from Max's workstation with his `wrangler
 apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod`.
   `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset.
+- **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
+  site token, read by `astro build` and baked into the static pages (it is public in the HTML).
+  Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create
+  one Web Analytics site per environment in the Cloudflare dashboard (Web Analytics, add a site,
+  manual JS snippet: the workers.dev host for `dev`, `voidbinder.de` for `prod`, with automatic
+  injection off) and pass its token to the build:
+  `PUBLIC_CF_ANALYTICS_TOKEN=<token> pnpm --filter site deploy:dev|prod`. See
+  [site/seo.md](site/seo.md).
 - **GitHub:** no secrets are needed yet. CI does not deploy; a scoped Cloudflare API token is added
   only when CI deploys are introduced.
 

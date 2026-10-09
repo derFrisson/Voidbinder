@@ -1,0 +1,7 @@
+---
+// Astro serves /en/404 for missing pages under /en/ (a localized error route needs a literal
+// locale folder, `[locale]/404.astro` would not be picked up).
+import NotFound from '../../components/NotFound.astro';
+---
+
+<NotFound locale="en" />
