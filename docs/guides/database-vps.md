@@ -1111,6 +1111,33 @@ prints `0` (the app role can read the migrated table). Same for `-d voidbinder` 
   message is a different one, the published port reaches the container from another address;
   see the loopback part of the section 4 **If it fails** list.
 
+**Alternative: apply migrations from the VPS itself.** When the workstation that holds the repo
+has SSH access to the VPS but no tunnel at hand (Claude's case in Sprint 2), the same migrations run
+on the VPS through a throwaway Node container. One-time setup **on the VPS**: clone the repository
+to `~/voidbinder` and store the `voidbinder_migrate` connection URLs in
+`~/.config/voidbinder/pg.env` (mode 600; `read -rs` asks for the password without showing it):
+
+```sh
+git clone https://github.com/derFrisson/Voidbinder.git ~/voidbinder
+umask 077; mkdir -p ~/.config/voidbinder; read -rs PW
+printf 'PG_MIGRATE_URL_DEV=postgres://voidbinder_migrate:%s@127.0.0.1:5432/voidbinder_dev?sslmode=no-verify\nPG_MIGRATE_URL_PROD=postgres://voidbinder_migrate:%s@127.0.0.1:5432/voidbinder?sslmode=no-verify\n' "$PW" "$PW" > ~/.config/voidbinder/pg.env
+unset PW
+```
+
+Then, per app and database:
+
+```sh
+~/voidbinder/scripts/vps/migrate.sh site dev    # or: api dev, site prod, api prod
+```
+
+The script pulls `main`, installs the app's dependencies into a cached pnpm store volume and runs
+`pnpm --filter <app> db:migrate` with the matching URL. It uses the host network, so the
+connection reaches the container from `172.30.0.1` like any other host connection and matches the
+`hostssl … voidbinder_migrate` line in `pg_hba.conf`; nothing is trusted without the password. The
+`prod` database gets migrations only after Max's go.
+
+**verify:** the run ends with `migrations applied successfully!`; a second run is a no-op.
+
 **Preview: price history (arrives with VB-30).** The app migrations create the tables. The price
 pipeline (VB-30) will turn `prices_daily` into a hypertable with compression, roughly as below.
 Column names are placeholders until VB-30 fixes the schema; a hypertable's primary key and unique
