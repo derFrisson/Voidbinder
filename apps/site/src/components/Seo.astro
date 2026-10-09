@@ -1,0 +1,80 @@
+---
+// Everything a page tells search engines and link previews: title, description, canonical,
+// hreflang, Open Graph, Twitter card, JSON-LD. The site URL is `site` in astro.config.mjs.
+import { defaultLocale, links, locales, localePath, t, type Locale } from '../i18n';
+import { ogImagePath, ogImageSize } from '../seo';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** Error pages: kept out of the index and the sitemap. */
+  noindex?: boolean;
+}
+
+const { locale, title, description, noindex = false } = Astro.props;
+const site = Astro.site;
+if (!site) throw new Error('`site` is missing in astro.config.mjs');
+const d = t(locale);
+const path = Astro.url.pathname;
+const url = (p: string) => new URL(p, site).href;
+const isHome = /^\/(de|en)\/?$/.test(path);
+const ogImage = url(ogImagePath(path));
+const otherLocales = locales.filter((l) => l !== locale);
+
+// ponytail: structured data stays to what is true today; no offers, prices or ratings.
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': url('/#organization'),
+      name: 'Voidbinder',
+      url: url('/'),
+      sameAs: [links.github],
+    },
+    {
+      '@type': 'SoftwareApplication',
+      name: 'Voidbinder',
+      url: url(`/${locale}/`),
+      description: d.meta.description,
+      inLanguage: d.meta.lang,
+      applicationCategory: 'LifestyleApplication',
+      operatingSystem: 'iOS, Android, Web',
+      creativeWorkStatus: 'Pre-alpha',
+      license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+      isAccessibleForFree: true,
+      publisher: { '@id': url('/#organization') },
+    },
+  ],
+};
+---
+
+<title>{title}</title>
+<meta name="description" content={description} />
+{noindex && <meta name="robots" content="noindex" />}
+<link rel="canonical" href={url(path)} />
+{locales.map((l) => <link rel="alternate" hreflang={l} href={url(localePath(path, l))} />)}
+<link
+  rel="alternate"
+  hreflang="x-default"
+  href={url(isHome ? '/' : localePath(path, defaultLocale))}
+/>
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Voidbinder" />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={url(path)} />
+<meta property="og:locale" content={d.meta.ogLocale} />
+{otherLocales.map((l) => <meta property="og:locale:alternate" content={t(l).meta.ogLocale} />)}
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:type" content="image/png" />
+<meta property="og:image:width" content={String(ogImageSize.width)} />
+<meta property="og:image:height" content={String(ogImageSize.height)} />
+<meta property="og:image:alt" content={title} />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={title} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="theme-color" content="#080808" />
+<script type="application/ld+json" set:html={JSON.stringify(jsonLd).replaceAll('<', '\\u003c')} />
