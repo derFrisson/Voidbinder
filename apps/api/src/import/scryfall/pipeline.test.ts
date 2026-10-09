@@ -31,7 +31,7 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
   const steps: string[] = [];
   const run = (fake: FakeScryfall = {}, blobs = new MemoryBlobStore()) =>
     runScryfallImport(
-      { fetch: fakeScryfall(fake), blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
+      { fetch: fakeScryfall(fake), raw: blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
       (name, fn) => (steps.push(name), fn()),
       { env: 'dev', date: '2026-10-09', languages: ['en', 'de'] },
     );

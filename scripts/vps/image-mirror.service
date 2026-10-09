@@ -1,0 +1,21 @@
+# Nightly card image mirror (VB-57), a systemd user unit for `ubuntu` on the database VPS; started
+# by image-mirror.timer. Installation and the DBS switch: docs/guides/database-vps.md, section 11.
+# Runs the databases one after the other (never two mirrors at once): each run adds the missing
+# images and, with --sm, the 320 px copy of the rows the import Workflows stored as orig only.
+# --verify reuses the objects another database's run already stored (the keys are shared).
+[Unit]
+Description=Voidbinder card image mirror
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The databases to mirror, in order: "dev" until Max's go for prod, then "prod dev".
+Environment=DBS=dev
+Environment=PATH=%h/.local/share/fnm/aliases/default/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/voidbinder
+ExecStartPre=/usr/bin/git pull --ff-only -q
+ExecStartPre=/bin/sh -c 'pnpm install --frozen-lockfile --filter api >/dev/null'
+ExecStart=/bin/sh -c 'rc=0; for db in $$DBS; do pnpm --silent --filter api mirror-images \
+  --env-file %h/.config/voidbinder/r2.env --env-file %h/.config/voidbinder/pg.env \
+  --db "$$db" --sm --verify || rc=1; done; exit $$rc'

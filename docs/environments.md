@@ -91,7 +91,10 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   (prefix of the import's R2 keys, `raw/<env>/…` and `work/<env>/…`: `local`, `dev`, `prod`, so the
   environments sharing the bucket never touch each other's dumps), `VERSION`.
 - **API bindings** besides `HYPERDRIVE`, `HYPERDRIVE_CACHED` (catalog reads only, see Database) and
-  the `CATALOG` R2 bucket: `SCRYFALL_IMPORT`, the Workflow `voidbinder-scryfall-import-dev` /
+  two R2 buckets (EU jurisdiction, shared by all environments): `CATALOG` → `voidbinder-catalog`,
+  public through `img.voidbinder.de` and written with `images/` keys only (the Worker refuses any
+  other key), and `RAW` → `voidbinder-raw`, private, for the imports' raw dumps and work chunks.
+  Then `SCRYFALL_IMPORT`, the Workflow `voidbinder-scryfall-import-dev` /
   `voidbinder-scryfall-import` (class `ScryfallImportWorkflow`), started daily by the cron trigger
   (prod 03:00 UTC, dev 04:30 UTC). The API sets `limits.cpu_ms` to 300000 for it (Workers Paid).
   `EMAIL` (`send_email`, sender `hello@voidbinder.de`) sends the auth mails.

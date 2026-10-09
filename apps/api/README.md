@@ -12,12 +12,12 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | ---------------------------- | ----------------------------------------------------------------------------------------------- |
 | `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                                |
 | `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)              |
-| `src/routes/`                | Routes: `GET /health`, `GET/PATCH/DELETE /me`, `GET /catalog/**`, `POST /admin/import/scryfall` |
+| `src/routes/`                | Routes: `GET /health`, `GET/PATCH/DELETE /me`, `GET /catalog/**`, `POST /admin/import/<source>` |
 | `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client                    |
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                   |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations              |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                 |
-| `src/import/`                | Catalog importers (Scryfall); see Importers                                                     |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck); see Importers                                         |
 | `src/workflows/`             | Cloudflare Workflows that run the importers                                                     |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                      |
 | `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`             |
@@ -30,9 +30,10 @@ Request and response schemas (Zod) live in `packages/shared/src/api` and are imp
 
 `packages/core/src/platform` defines `CardStore`, `BlobStore`, `VectorIndex` and `JobQueue`.
 The Cloudflare implementations live in `src/platform/cloudflare`: `DrizzleCardStore`
-(`drizzle-card-store.ts`, PostgreSQL via Hyperdrive), `R2BlobStore` (`r2-blob-store.ts`, the
-`CATALOG` bucket) and `WorkflowJobQueue` (`workflow-job-queue.ts`, a job type per Workflow
-binding). `VectorIndex` (VB-37) is an interface only so far.
+(`drizzle-card-store.ts`, PostgreSQL via Hyperdrive), `R2BlobStore` (`r2-blob-store.ts`: the
+public `CATALOG` bucket for `images/`, the private `RAW` bucket for the import's dumps) and
+`WorkflowJobQueue` (`workflow-job-queue.ts`, a job type per Workflow binding). `VectorIndex`
+(VB-37) is an interface only so far.
 
 `createPlatform(env)` opens two per-request pools: one on `HYPERDRIVE` (caching disabled, for
 everything) and one on `HYPERDRIVE_CACHED` (reads cached up to 300 s, for the catalog and price
@@ -208,8 +209,7 @@ Migrate before deploying code that needs the new schema.
 
 ### Scryfall (Magic)
 
-`src/import/scryfall/` imports Scryfall's bulk data; it is the pattern for the Yu-Gi-Oh! and
-Pokémon importers. `pipeline.ts` runs these steps, each retried on its own:
+`src/import/scryfall/` imports Scryfall's bulk data; it is the pattern for the other importers. `pipeline.ts` runs these steps, each retried on its own:
 
 1. `start run`: a row in `import_runs` (`running`).
 2. `bulk index`: `GET https://api.scryfall.com/bulk-data` for today's file URLs.
@@ -233,8 +233,10 @@ faces, and a batch never replaces stored faces with fewer, so the print order do
 art series, digital-only cards and sets, token sets. Reversible cards map to the card of their front
 face. Old School legality is per print at Scryfall and is not kept on the card.
 
-R2 layout (bucket `voidbinder-catalog`, shared by all environments; `<env>` is the `IMPORT_ENV`
-var: `local` for `wrangler dev`, `dev`, `prod`):
+R2 layout (the private bucket `voidbinder-raw`, binding `RAW`, shared by all environments;
+`<env>` is the `IMPORT_ENV` var: `local` for `wrangler dev`, `dev`, `prod`). The raw dumps never
+go to the public `voidbinder-catalog` (`CATALOG`): republishing them breaks Scryfall's terms, and
+its `R2BlobStore` refuses every key outside `images/`.
 
 | Key                                                        | What                                        |
 | ---------------------------------------------------------- | ------------------------------------------- |
@@ -273,6 +275,79 @@ about 90 s and its result is in `import_runs`. On `dev` the orchestrator trigger
 against `https://voidbinder-api-dev.frisson.workers.dev` with the deployed token; the instance and
 its steps show in the dashboard or with
 `pnpm exec wrangler workflows instances list voidbinder-scryfall-import-dev`.
+
+### YGOPRODeck (Yu-Gi-Oh!)
+
+`src/import/ygoprodeck/` has the Scryfall shape (Workflow `src/workflows/ygoprodeck-import.ts`,
+binding `YGOPRODECK_IMPORT`, `POST /admin/import/ygoprodeck`, one instance `ygoprodeck-<date>`
+from the daily cron, prod 03:30 and dev 05:00 UTC; `CRON_SOURCES` in `src/import/schedule.ts` maps
+every cron to its source). A run makes three requests, `cardinfo.php?misc=yes` (English),
+`cardinfo.php?language=de` and `cardsets.php`, far below the guide's 20 per second and never one
+per card; the answers go gzip-compressed to `raw/<env>/ygoprodeck/<date>/` in `RAW` and are split
+into chunks of 1000 cards, one step each. `sets.code` is the lowercase set code (`lob`, the
+printed one in `external_ids.set_code`), and every grouping keys on it; a code listed twice in
+`cardsets.php` (anniversary editions) is one set with the others in `external_ids.editions`.
+`cards.oracle_key` is the card's id, `attributes` its stats (`rank` for Xyz, `?` for a `?`
+ATK/DEF), `legalities` the TCG/OCG ban list. A print is one set code, number and rarity, because
+a code in another rarity is another physical card: `prints.variant` is the rarity slug
+(`secret-rare`), `prints.rarity` the display name, finishes always `['normal']`, and the same
+code and rarity listed twice stays one print. A language variant (`LOB-DE001`) folds into the
+English print of the same number and rarity (`external_ids.variants`), one without it is a print
+of its own (`external_ids.language`); every print gets an `en` and a `de` localization. Images are
+never fetched here: the source URLs sit in `external_ids` for the mirror (VB-57) and the API does
+not serve them. Skipped and counted in `stats.skipped`: cards in no set and prints whose code and
+rarity another card already holds (the first keeps it); the first 50 of those are listed in
+`stats.codeConflicts` (`<code> <rarity>: <card id>`) for cleaning by hand. Follow-up: when the
+source moves a code to another card, the print stays with the old one until it is moved by hand.
+Locally, `POST /admin/import/ygoprodeck` as for Scryfall.
+
+## Card images
+
+`src/import/images.ts` (VB-57) copies every print's source image into the `CATALOG` bucket, which
+is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
+`normal`, `png`; only once Scryfall has the high-res scan, `highres_image`, and never its
+missing-image placeholder), YGOPRODeck `image_url`, TCGdex `tcgdex_images.high` (the keys of
+`external_ids` the importers fill). A low-res Magic image stays unmirrored and the API serves
+Scryfall's URL until a later run finds the scan.
+
+| Key                                          | What                                          |
+| -------------------------------------------- | --------------------------------------------- |
+| `images/<game>/<sourceId>/<lang>/orig.<ext>` | The source file unchanged, its content type   |
+| `images/<game>/<sourceId>/<lang>/sm.webp`    | 320 px wide WebP, same aspect, never enlarged |
+
+`<sourceId>` is the source's stable id, never a database id, so `dev` and `prod` share the
+objects and a re-import never changes a key: the Scryfall card id (`mtg`), the YGOPRODeck image
+id from `image_url` (`yugioh`, one artwork shared by its set prints), the TCGdex card id
+(`pokemon`, e.g. `swsh3-136`). Both carry `Cache-Control: public, max-age=31536000, immutable`.
+
+`prints.image_key` (English) and `print_localizations.image_key` hold the `sm` key once that copy
+exists and the `orig` key until then, so `imageUrl` is the small copy whenever there is one,
+without a request to R2 (`hasSm`). Rows that share a source URL share one object pair (a print
+and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are rate limited per
+source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s); a 429 stops the run once the
+images in flight are stored, a failed image is logged and keeps its key (or none), so the next
+run retries it. Every run is an `import_runs` row with source and kind `images`, and only one
+runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image
+mirror is running").
+
+Two transports share that logic:
+
+- **VPS script:** `scripts/mirror-images.ts`, a Node script run on the database VPS
+  ([runbook section 11](../../docs/guides/database-vps.md#11-image-mirror)) with the S3 API and
+  `sharp`, `orig` and `sm`: the bulk load once, then nightly at 05:30 UTC with `--sm`, which also
+  adds the `sm` copy to the rows the delta stored as `orig` only (read back from the bucket, not
+  the source).
+- **Daily delta:** the last step of each import Workflow, `mirrorStepFor(game)` in
+  `src/workflows/mirror-images.ts`, mirrors the game's oldest pending rows (Magic and Pokémon
+  2000, Yu-Gi-Oh! 500; rows without a usable source image are skipped in the query, never
+  counted against the cap) with the R2 binding, `orig` only, so failures, days over the cap and
+  new localizations are retried daily. A 429 or a running mirror fails the step without retries;
+  any failure is logged and leaves the import `ok`.
+
+The catalog responses build `imageUrl` from `IMAGE_BASE_URL` + `image_key` and fall back to the
+source URL until the image is mirrored. `GET /catalog/cards/:id` and `GET /catalog/prints/:id`
+also carry `copyright`, the game's line from `@voidbinder/shared/notices` (which also exports the
+per-game notices and the Scryfall attribution); the card page shows it with the print's `artist`.
 
 ## Deploy
 

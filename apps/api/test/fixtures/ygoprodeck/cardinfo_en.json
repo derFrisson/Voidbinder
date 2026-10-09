@@ -1,0 +1,1533 @@
+{
+  "data": [
+    {
+      "id": 89631139,
+      "name": "Blue-Eyes White Dragon",
+      "typeline": ["Dragon", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "This legendary dragon is a powerful engine of destruction. Virtually invincible, very few have faced this awesome creature and lived to tell the tale.",
+      "race": "Dragon",
+      "atk": 3000,
+      "def": 2500,
+      "level": 8,
+      "attribute": "LIGHT",
+      "archetype": "Blue-Eyes",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/blue-eyes-white-dragon-7485",
+      "card_sets": [
+        {
+          "set_name": "2022 Tin of the Pharaoh's Gods",
+          "set_code": "MP22-EN266",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        },
+        {
+          "set_name": "Legend of Blue Eyes White Dragon",
+          "set_code": "LOB-EN001",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "Legend of Blue Eyes White Dragon (25th Anniversary Edition)",
+          "set_code": "LOB-EN001",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "Legend of Blue Eyes White Dragon",
+          "set_code": "LOB-DE001",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": ""
+        }
+      ],
+      "card_images": [
+        {
+          "id": 89631139,
+          "image_url": "https://images.ygoprodeck.com/images/cards/89631139.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/89631139.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/89631139.jpg"
+        },
+        {
+          "id": 89631140,
+          "image_url": "https://images.ygoprodeck.com/images/cards/89631140.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/89631140.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/89631140.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "Speed Duel",
+            "OCG GOAT",
+            "Duel Links",
+            "Speed Duel",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "treated_as": "Blue-Eyes White Dragon",
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-03-06",
+          "konami_id": 4007,
+          "has_effect": 0
+        }
+      ]
+    },
+    {
+      "id": 46986420,
+      "name": "Dark Magician",
+      "typeline": ["Spellcaster", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "''The ultimate wizard in terms of attack and defense.''",
+      "race": "Spellcaster",
+      "atk": 2500,
+      "def": 2100,
+      "level": 7,
+      "attribute": "DARK",
+      "archetype": "Dark Magician",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/dark-magician-4003",
+      "card_sets": [
+        {
+          "set_name": "2016 Mega-Tins",
+          "set_code": "CT13-EN003",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "2016 Mega-Tins",
+          "set_code": "ct13-EN003",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "2017 Mega-Tins",
+          "set_code": "CT14-EN001",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        },
+        {
+          "set_name": "Booster Pack Collectors Tins 2002",
+          "set_code": "BPT-001",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 46986420,
+          "image_url": "https://images.ygoprodeck.com/images/cards/46986420.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/46986420.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/46986420.jpg"
+        },
+        {
+          "id": 46986421,
+          "image_url": "https://images.ygoprodeck.com/images/cards/46986421.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/46986421.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/46986421.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "Speed Duel",
+            "OCG GOAT",
+            "Duel Links",
+            "Speed Duel",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "treated_as": "Dark Magician",
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-02-04",
+          "konami_id": 4041,
+          "has_effect": 0
+        }
+      ]
+    },
+    {
+      "id": 55144522,
+      "name": "Pot of Greed",
+      "type": "Spell Card",
+      "humanReadableCardType": "Normal Spell",
+      "frameType": "spell",
+      "desc": "Draw 2 cards.",
+      "race": "Normal",
+      "archetype": "Greed",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/pot-of-greed-4698",
+      "card_sets": [
+        {
+          "set_name": "2025 Mega-Pack Tin",
+          "set_code": "MP25-EN050",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)"
+        },
+        {
+          "set_name": "Battle Pack 2: War of the Giants",
+          "set_code": "BP02-EN129",
+          "set_rarity": "Mosaic Rare",
+          "set_rarity_code": "(MSR)"
+        },
+        {
+          "set_name": "Battle Pack 2: War of the Giants",
+          "set_code": "BP02-EN129",
+          "set_rarity": "Rare",
+          "set_rarity_code": "(R)"
+        }
+      ],
+      "banlist_info": { "ban_tcg": "Forbidden", "ban_ocg": "Forbidden", "ban_goat": "Limited" },
+      "card_images": [
+        {
+          "id": 55144522,
+          "image_url": "https://images.ygoprodeck.com/images/cards/55144522.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/55144522.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/55144522.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-05-27",
+          "konami_id": 4844,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 5318639,
+      "name": "Mystical Space Typhoon",
+      "type": "Spell Card",
+      "humanReadableCardType": "Quick-Play Spell",
+      "frameType": "spell",
+      "desc": "Target 1 Spell/Trap on the field; destroy that target.",
+      "race": "Quick-Play",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/mystical-space-typhoon-470",
+      "card_sets": [
+        {
+          "set_name": "2-Player Starter Deck: Yuya & Declan",
+          "set_code": "YS15-END13",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "2-Player Starter Deck: Yuya & Declan",
+          "set_code": "YS15-ENY13",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "2-Player Starter Set",
+          "set_code": "STAX-EN024",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "banlist_info": { "ban_goat": "Limited" },
+      "card_images": [
+        {
+          "id": 5318639,
+          "image_url": "https://images.ygoprodeck.com/images/cards/5318639.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/5318639.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/5318639.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "Speed Duel",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-09-16",
+          "ocg_date": "2000-04-20",
+          "konami_id": 4909,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 15308295,
+      "name": "Abyss Actor - Comic Relief",
+      "typeline": ["Fiend", "Pendulum", "Effect"],
+      "type": "Pendulum Effect Monster",
+      "humanReadableCardType": "Pendulum Effect Monster",
+      "frameType": "effect_pendulum",
+      "desc": "[ Pendulum Effect ] \nYou can target 1 \"Abyss Actor\" Pendulum Monster you control and 1 monster your opponent controls; switch control of both monsters, then destroy this card. You can only use this effect of \"Abyss Actor - Comic Relief\" once per turn.\n\n[ Monster Effect ] \nYou take no battle damage from attacks involving this card. Once per turn, during your Standby Phase: Give control of this card to your opponent. Once per turn, if control of this face-up card changes: Activate this effect; the owner of this card can destroy 1 Set \"Abyss Script\" Spell in their Spell & Trap Zone.",
+      "race": "Fiend",
+      "pend_desc": "You can target 1 \"Abyss Actor\" Pendulum Monster you control and 1 monster your opponent controls; switch control of both monsters, then destroy this card. You can only use this effect of \"Abyss Actor - Comic Relief\" once per turn.",
+      "monster_desc": "You take no battle damage from attacks involving this card. Once per turn, during your Standby Phase: Give control of this card to your opponent. Once per turn, if control of this face-up card changes: Activate this effect; the owner of this card can destroy 1 Set \"Abyss Script\" Spell in their Spell & Trap Zone.",
+      "atk": 1000,
+      "def": 2000,
+      "level": 3,
+      "attribute": "DARK",
+      "archetype": "Abyss Actor",
+      "scale": 8,
+      "ygoprodeck_url": "https://ygoprodeck.com/card/abyss-actor-comic-relief-9564",
+      "card_sets": [
+        {
+          "set_name": "Legendary Duelists: Season 2",
+          "set_code": "LDS2-EN061",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Legendary Duelists: White Dragon Abyss",
+          "set_code": "LED3-EN046",
+          "set_rarity": "Rare",
+          "set_rarity_code": "(R)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 15308295,
+          "image_url": "https://images.ygoprodeck.com/images/cards/15308295.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/15308295.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/15308295.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["Duel Links", "Common Charity", "TCG", "OCG", "Master Duel"],
+          "tcg_date": "2018-09-27",
+          "ocg_date": "2018-06-09",
+          "konami_id": 13863,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 4731783,
+      "name": "A Bao A Qu, the Lightless Shadow",
+      "typeline": ["Fiend", "Link", "Effect"],
+      "type": "Link Monster",
+      "humanReadableCardType": "Link Effect Monster",
+      "frameType": "link",
+      "desc": "2+ monsters, including a Fiend monster\r\nDuring the Main Phase (Quick Effect): You can discard 1 card, then activate 1 of these effects;\r\n\u25cf Destroy 1 card on the field.\r\n\u25cf Banish this card (until the End Phase), and if you do, Special Summon 1 LIGHT or DARK monster from your GY.\r\nDuring your Standby Phase: You can draw cards equal to the number of different Monster Types in your GY, then place cards from your hand on the bottom of the Deck in any order, equal to the number of cards you drew. You can only use each effect of \"A Bao A Qu, the Lightless Shadow\" once per turn.",
+      "race": "Fiend",
+      "atk": 2800,
+      "def": null,
+      "level": null,
+      "attribute": "DARK",
+      "linkval": 4,
+      "linkmarkers": ["Left", "Right", "Bottom-Left", "Bottom-Right"],
+      "ygoprodeck_url": "https://ygoprodeck.com/card/a-bao-a-qu-the-lightless-shadow-14802",
+      "card_sets": [
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN038",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN038",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN038",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 4731783,
+          "image_url": "https://images.ygoprodeck.com/images/cards/4731783.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/4731783.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/4731783.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["TCG", "OCG", "Master Duel"],
+          "tcg_date": "2025-01-23",
+          "ocg_date": "2024-10-26",
+          "konami_id": 20786,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 6983839,
+      "name": "Tornado Dragon",
+      "typeline": ["Wyrm", "Xyz", "Effect"],
+      "type": "XYZ Monster",
+      "humanReadableCardType": "Xyz Effect Monster",
+      "frameType": "xyz",
+      "desc": "2 Level 4 monsters\nOnce per turn (Quick Effect): You can detach 1 material from this card, then target 1 Spell/Trap on the field; destroy it.",
+      "race": "Wyrm",
+      "atk": 2100,
+      "def": 2000,
+      "level": 4,
+      "attribute": "WIND",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/tornado-dragon-8538",
+      "card_sets": [
+        {
+          "set_name": "Battles of Legend: Relentless Revenge",
+          "set_code": "BLRR-EN084",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        },
+        {
+          "set_name": "Crossover Breakers",
+          "set_code": "CRBR-EN013",
+          "set_rarity": "Rare",
+          "set_rarity_code": "(R)"
+        },
+        {
+          "set_name": "Crossover Breakers",
+          "set_code": "CRBR-EN013",
+          "set_rarity": "Super Rare",
+          "set_rarity_code": "(SR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 6983839,
+          "image_url": "https://images.ygoprodeck.com/images/cards/6983839.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/6983839.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/6983839.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["Duel Links", "Common Charity", "TCG", "OCG", "Master Duel"],
+          "tcg_date": "2017-05-04",
+          "ocg_date": "2017-09-09",
+          "konami_id": 13019,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 45236142,
+      "name": "Advanced Crystal Beast Cobalt Eagle",
+      "typeline": ["Winged Beast", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If \"Advanced Dark\" is not in a Field Zone, send this monster to the GY. You can send this card from your hand or field to the GY; add 1 \"Advanced Dark\" from your Deck to your hand. Once per turn: You can target 1 \"Advanced Crystal Beast\" card you control; return it to the hand or place it on top of the Deck. If this face-up card is destroyed in a Monster Zone, you can place it face-up in your Spell & Trap Zone as a Continuous Spell, instead of sending it to the GY.",
+      "race": "Winged Beast",
+      "atk": 1400,
+      "def": 800,
+      "level": 4,
+      "attribute": "WIND",
+      "archetype": "Advanced Crystal Beast",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/advanced-crystal-beast-cobalt-eagle-13306",
+      "card_sets": [
+        {
+          "set_name": "Battles of Legend: Crystal Revenge",
+          "set_code": "BLCR-EN015",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        },
+        {
+          "set_name": "Battles of Legend: Crystal Revenge",
+          "set_code": "BLCR-EN016",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 45236142,
+          "image_url": "https://images.ygoprodeck.com/images/cards/45236142.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/45236142.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/45236142.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["TCG", "OCG", "Master Duel"],
+          "tcg_date": "2022-11-17",
+          "ocg_date": "2022-06-11",
+          "konami_id": 17633,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 71620241,
+      "name": "Advanced Crystal Beast Sapphire Pegasus",
+      "typeline": ["Beast", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If \"Advanced Dark\" is not in a Field Zone, send this monster to the GY. If this card is Summoned: You can place 1 of your \"Advanced Crystal Beast\" monsters that is banished, or in your hand, Deck, or GY, face-up in your Spell & Trap Zone as a Continuous Spell. If this face-up card is destroyed in a Monster Zone, you can place it face-up in your Spell & Trap Zone as a Continuous Spell, instead of sending it to the GY.",
+      "race": "Beast",
+      "atk": 1800,
+      "def": 1200,
+      "level": 4,
+      "attribute": "WIND",
+      "archetype": "Advanced Crystal Beast",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/advanced-crystal-beast-sapphire-pegasus-13309",
+      "card_sets": [
+        {
+          "set_name": "Battles of Legend: Crystal Revenge",
+          "set_code": "BLCR-EN015",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        },
+        {
+          "set_name": "Battles of Legend: Crystal Revenge",
+          "set_code": "BLCR-EN016",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 71620241,
+          "image_url": "https://images.ygoprodeck.com/images/cards/71620241.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/71620241.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/71620241.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["TCG", "OCG", "Master Duel"],
+          "tcg_date": "2022-11-17",
+          "ocg_date": "2022-06-11",
+          "konami_id": 17634,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 1561110,
+      "name": "ABC-Dragon Buster",
+      "typeline": ["Machine", "Fusion", "Effect"],
+      "type": "Fusion Monster",
+      "humanReadableCardType": "Fusion Effect Monster",
+      "frameType": "fusion",
+      "desc": "\"A-Assault Core\" + \"B-Buster Drake\" + \"C-Crush Wyvern\"\r\nMust first be Special Summoned (from your Extra Deck) by banishing the above cards you control and/or from your GY. (You do not use \"Polymerization\".) Once per turn (Quick Effect): You can discard 1 card, then target 1 card on the field; banish it. During your opponent's turn (Quick Effect): You can Tribute this card, then target 3 of your banished LIGHT Machine Union monsters with different names; Special Summon them.",
+      "race": "Machine",
+      "atk": 3000,
+      "def": 2800,
+      "level": 8,
+      "attribute": "LIGHT",
+      "archetype": "ABC",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/abc-dragon-buster-137",
+      "card_sets": [
+        {
+          "set_name": "OTS Tournament Pack 13",
+          "set_code": "OP13-EN006",
+          "set_rarity": "Super Rare",
+          "set_rarity_code": "(SR)"
+        },
+        {
+          "set_name": "OTS Tournament Pack 13 (POR)",
+          "set_code": "OP13-PT006",
+          "set_rarity": "Super Rare",
+          "set_rarity_code": "(SR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 1561110,
+          "image_url": "https://images.ygoprodeck.com/images/cards/1561110.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/1561110.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/1561110.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["Duel Links", "TCG", "OCG", "Master Duel"],
+          "tcg_date": "2016-10-20",
+          "ocg_date": "2016-06-18",
+          "konami_id": 12590,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 36280194,
+      "name": "Backup Soldier",
+      "type": "Trap Card",
+      "humanReadableCardType": "Normal Trap",
+      "frameType": "trap",
+      "desc": "While there are 5 or more monsters in your Graveyard: Target up to 3 non-Effect Monsters with 1500 or less ATK in your Graveyard; add them to your hand.",
+      "race": "Normal",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/backup-soldier-3066",
+      "card_sets": [
+        {
+          "set_name": "Dark Beginning 1",
+          "set_code": "DB1-EN082",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Dark Beginning 1",
+          "set_code": "DB49",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Legendary Decks II",
+          "set_code": "LDK2-ENY39",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 36280194,
+          "image_url": "https://images.ygoprodeck.com/images/cards/36280194.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/36280194.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/36280194.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-10-20",
+          "ocg_date": "2000-09-28",
+          "konami_id": 4953,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 53129443,
+      "name": "Dark Hole",
+      "type": "Spell Card",
+      "humanReadableCardType": "Normal Spell",
+      "frameType": "spell",
+      "desc": "Destroy all monsters on the field.",
+      "race": "Normal",
+      "archetype": "Hole",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/dark-hole-4525",
+      "card_sets": [
+        {
+          "set_name": "2-Player Starter Deck: Yuya & Declan",
+          "set_code": "YS15-ENY12",
+          "set_rarity": "Super Rare",
+          "set_rarity_code": "(SR)"
+        },
+        {
+          "set_name": "2-Player Starter Set",
+          "set_code": "STAS-EN024",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "2025 Mega-Pack Tin",
+          "set_code": "MP25-EN130",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        }
+      ],
+      "banlist_info": { "ban_goat": "Forbidden" },
+      "card_images": [
+        {
+          "id": 53129443,
+          "image_url": "https://images.ygoprodeck.com/images/cards/53129443.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/53129443.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/53129443.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "staple": "Yes",
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-02-04",
+          "konami_id": 4342,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 12580477,
+      "name": "Raigeki",
+      "type": "Spell Card",
+      "humanReadableCardType": "Normal Spell",
+      "frameType": "spell",
+      "desc": "Destroy all monsters your opponent controls.",
+      "race": "Normal",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/raigeki-1087",
+      "card_sets": [
+        {
+          "set_name": "2019 Gold Sarcophagus Tin",
+          "set_code": "TN19-EN010",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        },
+        {
+          "set_name": "2025 Mega-Pack Tin",
+          "set_code": "MP25-EN015",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)"
+        },
+        {
+          "set_name": "25th Anniversary Tin: Dueling Mirrors",
+          "set_code": "MP24-EN056",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        },
+        {
+          "set_name": "Legend of Blue Eyes White Dragon",
+          "set_code": "LOB-DE099",
+          "set_rarity": "Super Rare",
+          "set_rarity_code": ""
+        }
+      ],
+      "banlist_info": { "ban_goat": "Forbidden" },
+      "card_images": [
+        {
+          "id": 12580477,
+          "image_url": "https://images.ygoprodeck.com/images/cards/12580477.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/12580477.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/12580477.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "staple": "Yes",
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Edison",
+            "Common Charity",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-03-06",
+          "konami_id": 4343,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 83764719,
+      "name": "Monster Reborn",
+      "type": "Spell Card",
+      "humanReadableCardType": "Normal Spell",
+      "frameType": "spell",
+      "desc": "Target 1 monster in either GY; Special Summon it.",
+      "race": "Normal",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/monster-reborn-7027",
+      "card_sets": [
+        {
+          "set_name": "2019 Gold Sarcophagus Tin",
+          "set_code": "TN19-EN011",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        },
+        {
+          "set_name": "25th Anniversary Ultimate Kaiba Set",
+          "set_code": "KC01-EN037",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "Battle Pack 2: War of the Giants",
+          "set_code": "BP02-EN128",
+          "set_rarity": "Mosaic Rare",
+          "set_rarity_code": "(MSR)"
+        }
+      ],
+      "banlist_info": { "ban_tcg": "Limited", "ban_ocg": "Limited", "ban_goat": "Forbidden" },
+      "card_images": [
+        {
+          "id": 83764719,
+          "image_url": "https://images.ygoprodeck.com/images/cards/83764719.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/83764719.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/83764719.jpg"
+        },
+        {
+          "id": 83764718,
+          "image_url": "https://images.ygoprodeck.com/images/cards/83764718.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/83764718.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/83764718.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "staple": "Yes",
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "Speed Duel",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "treated_as": "Monster Reborn",
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-03-27",
+          "konami_id": 4842,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 71625222,
+      "name": "Time Wizard",
+      "typeline": ["Spellcaster", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Once per turn: You can toss a coin and call it. If you call it right, destroy all monsters your opponent controls. If you call it wrong, destroy as many monsters you control as possible, and if you do, take damage equal to half the total ATK those destroyed monsters had while face-up on the field.",
+      "race": "Spellcaster",
+      "atk": 500,
+      "def": 400,
+      "level": 2,
+      "attribute": "LIGHT",
+      "archetype": "Magician",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/time-wizard-6017",
+      "card_sets": [
+        {
+          "set_name": "Dark Beginning 2",
+          "set_code": "DB2-EN038",
+          "set_rarity": "Super Rare",
+          "set_rarity_code": "(SR)"
+        },
+        {
+          "set_name": "Dark Legends",
+          "set_code": "DLG1-EN036",
+          "set_rarity": "Rare",
+          "set_rarity_code": "(R)"
+        },
+        {
+          "set_name": "Duel Terminal 3",
+          "set_code": "DT03-EN004",
+          "set_rarity": "Duel Terminal Normal Parallel Rare",
+          "set_rarity_code": "(DNPR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 71625222,
+          "image_url": "https://images.ygoprodeck.com/images/cards/71625222.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/71625222.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/71625222.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "Speed Duel",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2004-12-01",
+          "ocg_date": "1999-08-26",
+          "konami_id": 4022,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 74677427,
+      "name": "Red-Eyes Black Dragon",
+      "typeline": ["Dragon", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "''A ferocious dragon with a deadly attack.''",
+      "race": "Dragon",
+      "atk": 2400,
+      "def": 2000,
+      "level": 7,
+      "attribute": "DARK",
+      "archetype": "Red-Eyes",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/red-eyes-black-dragon-6276",
+      "card_sets": [
+        {
+          "set_name": "2022 Tin of the Pharaoh's Gods",
+          "set_code": "MP22-EN267",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        },
+        {
+          "set_name": "25th Anniversary Tin: Dueling Heroes",
+          "set_code": "TN23-EN003",
+          "set_rarity": "Quarter Century Secret Rare",
+          "set_rarity_code": ""
+        },
+        {
+          "set_name": "Anniversary Pack",
+          "set_code": "YAP1-EN002",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 74677427,
+          "image_url": "https://images.ygoprodeck.com/images/cards/74677427.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/74677427.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/74677427.jpg"
+        },
+        {
+          "id": 74677422,
+          "image_url": "https://images.ygoprodeck.com/images/cards/74677422.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/74677422.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/74677422.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "OCG GOAT",
+            "Duel Links",
+            "Speed Duel",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "treated_as": "Red-Eyes B. Dragon",
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-05-27",
+          "konami_id": 4088,
+          "has_effect": 0
+        }
+      ]
+    },
+    {
+      "id": 33396948,
+      "name": "Exodia the Forbidden One",
+      "typeline": ["Spellcaster", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "If you have \"Right Leg of the Forbidden One\", \"Left Leg of the Forbidden One\", \"Right Arm of the Forbidden One\" and \"Left Arm of the Forbidden One\" in addition to this card in your hand, you win the Duel.",
+      "race": "Spellcaster",
+      "atk": 1000,
+      "def": 1000,
+      "level": 3,
+      "attribute": "DARK",
+      "archetype": "Exodia",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/exodia-the-forbidden-one-2835",
+      "card_sets": [
+        {
+          "set_name": "25th Anniversary Tin: Dueling Heroes",
+          "set_code": "TN23-EN002",
+          "set_rarity": "Quarter Century Secret Rare",
+          "set_rarity_code": ""
+        },
+        {
+          "set_name": "Battles of Legend: Crystal Revenge",
+          "set_code": "BLCR-EN101",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)"
+        },
+        {
+          "set_name": "Battles of Legend: Glorious Gallery",
+          "set_code": "BLGG-EN002",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)"
+        }
+      ],
+      "banlist_info": { "ban_tcg": "Limited", "ban_ocg": "Limited", "ban_goat": "Limited" },
+      "card_images": [
+        {
+          "id": 33396948,
+          "image_url": "https://images.ygoprodeck.com/images/cards/33396948.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/33396948.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/33396948.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-08-26",
+          "konami_id": 4027,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 7902349,
+      "name": "Left Arm of the Forbidden One",
+      "typeline": ["Spellcaster", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "A forbidden left arm sealed by magic. Whosoever breaks this seal will know infinite power.",
+      "race": "Spellcaster",
+      "atk": 200,
+      "def": 300,
+      "level": 1,
+      "attribute": "DARK",
+      "archetype": "Exodia",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/left-arm-of-the-forbidden-one-675",
+      "card_sets": [
+        {
+          "set_name": "25th Anniversary Tin: Dueling Mirrors",
+          "set_code": "MP24-EN005",
+          "set_rarity": "Quarter Century Secret Rare",
+          "set_rarity_code": ""
+        },
+        {
+          "set_name": "Battles of Legend: Crystal Revenge",
+          "set_code": "BLCR-EN105",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)"
+        },
+        {
+          "set_name": "Dark Beginning 1",
+          "set_code": "DB1-EN138",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "banlist_info": { "ban_tcg": "Limited", "ban_ocg": "Limited", "ban_goat": "Limited" },
+      "card_images": [
+        {
+          "id": 7902349,
+          "image_url": "https://images.ygoprodeck.com/images/cards/7902349.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/7902349.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/7902349.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-03-08",
+          "ocg_date": "1999-08-05",
+          "konami_id": 4026,
+          "has_effect": 0
+        }
+      ]
+    },
+    {
+      "id": 1861629,
+      "name": "Decode Talker",
+      "typeline": ["Cyberse", "Link", "Effect"],
+      "type": "Link Monster",
+      "humanReadableCardType": "Link Effect Monster",
+      "frameType": "link",
+      "desc": "2+ Effect Monsters\r\nGains 500 ATK for each monster it points to. When your opponent activates a card or effect that targets a card(s) you control (Quick Effect): You can Tribute 1 monster this card points to; negate the activation, and if you do, destroy that card.",
+      "race": "Cyberse",
+      "atk": 2300,
+      "def": null,
+      "level": 0,
+      "attribute": "DARK",
+      "archetype": "Code Talker",
+      "linkval": 3,
+      "linkmarkers": ["Top", "Bottom-Left", "Bottom-Right"],
+      "ygoprodeck_url": "https://ygoprodeck.com/card/decode-talker-8433",
+      "card_sets": [
+        {
+          "set_name": "Duel Devastator",
+          "set_code": "DUDE-EN023",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "Duel Power",
+          "set_code": "DUPO-EN106",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "OTS Tournament Pack 6",
+          "set_code": "OP06-EN001",
+          "set_rarity": "Ultimate Rare",
+          "set_rarity_code": "(UtR)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 1861629,
+          "image_url": "https://images.ygoprodeck.com/images/cards/1861629.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/1861629.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/1861629.jpg"
+        },
+        {
+          "id": 1861630,
+          "image_url": "https://images.ygoprodeck.com/images/cards/1861630.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/1861630.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/1861630.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["Common Charity", "Duel Links", "TCG", "OCG", "Master Duel"],
+          "treated_as": "Decode Talker",
+          "tcg_date": "2017-07-20",
+          "ocg_date": "2017-03-25",
+          "konami_id": 13036,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 21844576,
+      "name": "Elemental HERO Avian",
+      "typeline": ["Warrior", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "A winged Elemental HERO who wheels through the sky and manipulates the wind. His signature move, Featherbreak, gives villainy a blow from sky-high.",
+      "race": "Warrior",
+      "atk": 1000,
+      "def": 1000,
+      "level": 3,
+      "attribute": "WIND",
+      "archetype": "Elemental HERO",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/elemental-hero-avian-1881",
+      "card_sets": [
+        {
+          "set_name": "Dark Revelation Volume 3",
+          "set_code": "DR3-EN181",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Duelist Pack: Jaden Yuki",
+          "set_code": "DP1-EN001",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "HERO Strike Structure Deck",
+          "set_code": "SDHS-EN006",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 21844576,
+          "image_url": "https://images.ygoprodeck.com/images/cards/21844576.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/21844576.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/21844576.jpg"
+        },
+        {
+          "id": 21844577,
+          "image_url": "https://images.ygoprodeck.com/images/cards/21844577.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/21844577.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/21844577.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "OCG GOAT",
+            "Duel Links",
+            "Speed Duel",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "treated_as": "Elemental HERO Avian",
+          "tcg_date": "2005-05-28",
+          "ocg_date": "2004-12-18",
+          "konami_id": 6310,
+          "has_effect": 0
+        }
+      ]
+    },
+    {
+      "id": 14558127,
+      "name": "Ash Blossom & Joyous Spring",
+      "typeline": ["Zombie", "Tuner", "Effect"],
+      "type": "Tuner Monster",
+      "humanReadableCardType": "Tuner Effect Monster",
+      "frameType": "effect",
+      "desc": "When a card or effect is activated that includes any of these effects (Quick Effect): You can discard this card; negate that effect.\r\n\u25cf Add a card from the Deck to the hand.\r\n\u25cf Special Summon from the Deck.\r\n\u25cf Send a card from the Deck to the GY.\r\nYou can only use this effect of \"Ash Blossom & Joyous Spring\" once per turn.",
+      "race": "Zombie",
+      "atk": 0,
+      "def": 1800,
+      "level": 3,
+      "attribute": "FIRE",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/ash-blossom-joyous-spring-8554",
+      "card_sets": [
+        {
+          "set_name": "2022 Tin of the Pharaoh's Gods",
+          "set_code": "MP22-EN257",
+          "set_rarity": "Prismatic Secret Rare",
+          "set_rarity_code": "(PScR)"
+        },
+        {
+          "set_name": "25th Anniversary Rarity Collection",
+          "set_code": "RA01-EN008",
+          "set_rarity": "Collector's Rare",
+          "set_rarity_code": "(CR)"
+        },
+        {
+          "set_name": "25th Anniversary Rarity Collection",
+          "set_code": "RA01-EN008",
+          "set_rarity": "Platinum Secret Rare",
+          "set_rarity_code": "(PS)"
+        }
+      ],
+      "banlist_info": { "ban_ocg": "Semi-Limited" },
+      "card_images": [
+        {
+          "id": 14558127,
+          "image_url": "https://images.ygoprodeck.com/images/cards/14558127.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/14558127.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/14558127.jpg"
+        },
+        {
+          "id": 14558128,
+          "image_url": "https://images.ygoprodeck.com/images/cards/14558128.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/14558128.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/14558128.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "staple": "Yes",
+          "formats": ["Common Charity", "TCG", "OCG", "Master Duel"],
+          "treated_as": "Ash Blossom & Joyous Spring",
+          "tcg_date": "2017-05-04",
+          "ocg_date": "2017-01-14",
+          "konami_id": 12950,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 12206212,
+      "name": "Harpie Lady Sisters",
+      "typeline": ["Winged Beast", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "Cannot be Normal Summoned/Set. Must first be Special Summoned with \"Elegant Egotist\".",
+      "race": "Winged Beast",
+      "atk": 1950,
+      "def": 2100,
+      "level": 6,
+      "attribute": "WIND",
+      "archetype": "Harpie",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/harpie-lady-sisters-1052",
+      "card_sets": [
+        {
+          "set_name": "Dark Beginning 1",
+          "set_code": "DB1-EN146",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Dark Beginning 1",
+          "set_code": "DB43",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Dark Legends",
+          "set_code": "DLG1-EN027",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 12206212,
+          "image_url": "https://images.ygoprodeck.com/images/cards/12206212.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/12206212.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/12206212.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "GOAT",
+            "Speed Duel",
+            "OCG GOAT",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2002-06-26",
+          "ocg_date": "1999-07-22",
+          "konami_id": 4069,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 28601770,
+      "name": "Mist Archfiend",
+      "typeline": ["Fiend", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "You can Normal Summon this card without Tributing. Once per turn, during the End Phase, if this card was Summoned this way: Destroy this card, and if you do, take 1000 damage.",
+      "race": "Fiend",
+      "atk": 2400,
+      "def": 0,
+      "level": 5,
+      "attribute": "DARK",
+      "archetype": "Archfiend",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/mist-archfiend-2436",
+      "card_sets": [
+        {
+          "set_name": "Speed Duel GX: Duelists of Shadows",
+          "set_code": "SGX3-ENE10",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 28601770,
+          "image_url": "https://images.ygoprodeck.com/images/cards/28601770.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/28601770.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/28601770.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "Speed Duel",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2007-05-16",
+          "ocg_date": "2007-03-08",
+          "konami_id": 7149,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 24508238,
+      "name": "D.D. Crow",
+      "typeline": ["Winged Beast", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "(Quick Effect): You can discard this card to the GY, then target 1 card in your opponent's GY; banish that target.",
+      "race": "Winged Beast",
+      "atk": 100,
+      "def": 100,
+      "level": 1,
+      "attribute": "DARK",
+      "archetype": "D.D.",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/d-d-crow-2116",
+      "card_sets": [
+        {
+          "set_name": "Speed Duel GX: Duelists of Shadows",
+          "set_code": "SGX3-ENE10",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 24508238,
+          "image_url": "https://images.ygoprodeck.com/images/cards/24508238.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/24508238.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/24508238.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": [
+            "Speed Duel",
+            "Duel Links",
+            "Common Charity",
+            "Edison",
+            "TCG",
+            "OCG",
+            "Master Duel"
+          ],
+          "tcg_date": "2007-02-28",
+          "ocg_date": "2006-11-16",
+          "konami_id": 6980,
+          "has_effect": 1
+        }
+      ]
+    },
+    {
+      "id": 10678778,
+      "name": "Aegaion the Sea Castrum",
+      "typeline": ["Machine", "Xyz", "Effect"],
+      "type": "XYZ Monster",
+      "humanReadableCardType": "Xyz Effect Monster",
+      "frameType": "xyz",
+      "desc": "2 Level 8 monsters\nDuring either player's turn: You can banish 1 random face-down monster from your opponent's Extra Deck, face-up, and if you do, this card's ATK becomes equal to the banished monster's. During either player's turn: You can detach 1 Xyz Material from this card, then target 1 of your opponent's banished Fusion, Synchro, or Xyz Monsters; return it to the Extra Deck, and if you do, destroy 1 monster your opponent controls with the same monster card type (Fusion, Synchro, or Xyz). You can only use each effect of \"Aegaion the Sea Castrum\" once per turn.",
+      "race": "Machine",
+      "atk": -1,
+      "def": 3000,
+      "level": 8,
+      "attribute": "WATER",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/aegaion-the-sea-castrum-922",
+      "card_sets": [
+        {
+          "set_name": "2016 Mega-Tin Mega Pack",
+          "set_code": "MP16-EN213",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        },
+        {
+          "set_name": "Breakers of Shadow",
+          "set_code": "BOSH-EN055",
+          "set_rarity": "Common",
+          "set_rarity_code": "(C)"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 10678778,
+          "image_url": "https://images.ygoprodeck.com/images/cards/10678778.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/10678778.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/10678778.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["Common Charity", "TCG", "OCG", "Master Duel"],
+          "tcg_date": "2016-01-14",
+          "ocg_date": "2015-10-17",
+          "konami_id": 12163,
+          "has_effect": 1,
+          "question_atk": 1
+        }
+      ]
+    },
+    {
+      "id": 27553701,
+      "name": "Absolute King - Megaplunder",
+      "typeline": ["Dinosaur", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "''The king of dinosaurs that rules over the Earth. Its mighty roar makes its foes tremble in fear!''",
+      "race": "Dinosaur",
+      "atk": 2000,
+      "def": 1500,
+      "level": 6,
+      "attribute": "EARTH",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/absolute-king-megaplunder-14055",
+      "card_images": [
+        {
+          "id": 27553701,
+          "image_url": "https://images.ygoprodeck.com/images/cards/27553701.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/27553701.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/27553701.jpg"
+        }
+      ],
+      "misc_info": [
+        { "formats": ["OCG"], "ocg_date": "2023-04-03", "konami_id": 18676, "has_effect": 1 }
+      ]
+    },
+    {
+      "id": 149694341,
+      "name": "???",
+      "type": "Spell Card",
+      "humanReadableCardType": "Normal Spell",
+      "frameType": "spell",
+      "desc": "This card is used as a placeholder in tournament deck profiles. The card(s) were intentionally left unrevealed by the player.",
+      "race": "Normal",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/placeholder-15961",
+      "card_images": [
+        {
+          "id": 149694341,
+          "image_url": "https://images.ygoprodeck.com/images/cards/149694341.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/149694341.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/149694341.jpg"
+        },
+        {
+          "id": 149694343,
+          "image_url": "https://images.ygoprodeck.com/images/cards/149694343.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/149694343.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/149694343.jpg"
+        }
+      ],
+      "misc_info": [
+        {
+          "formats": ["TCG", "OCG"],
+          "tcg_date": "1990-01-01",
+          "ocg_date": "1990-01-01",
+          "has_effect": 1
+        }
+      ]
+    }
+  ]
+}

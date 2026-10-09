@@ -16,6 +16,10 @@
     "./api": {
       "types": "./dist/api/index.d.ts",
       "default": "./dist/api/index.js"
+    },
+    "./notices": {
+      "types": "./dist/notices.d.ts",
+      "default": "./dist/notices.js"
     }
   },
   "files": [

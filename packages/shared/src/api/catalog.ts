@@ -53,6 +53,8 @@ export const PrintSummarySchema = z.object({
   id: z.uuid(),
   cardId: z.uuid(),
   number: z.string(),
+  /** '' or, where one number exists in several rarities (Yu-Gi-Oh!), the rarity slug. */
+  variant: z.string(),
   /** Name in `?lang=`, falling back to English. */
   name: z.string(),
   rarity: z.string().nullable(),
@@ -61,7 +63,10 @@ export const PrintSummarySchema = z.object({
 });
 export type PrintSummary = z.infer<typeof PrintSummarySchema>;
 
-/** `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`. */
+/**
+ * `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`. Sorted by number or name,
+ * the variants of a number follow each other.
+ */
 export const SetPageResponseSchema = z.object({
   set: SetSummarySchema.extend({ game: GameSchema }),
   prints: z.array(PrintSummarySchema),
@@ -97,6 +102,8 @@ export const PrintDetailSchema = z.object({
   cardId: z.uuid(),
   set: z.object({ game: GameSchema, code: z.string(), name: z.string() }),
   number: z.string(),
+  /** '' or, where one number exists in several rarities (Yu-Gi-Oh!), the rarity slug. */
+  variant: z.string(),
   rarity: z.string().nullable(),
   finishes: z.array(z.string()),
   artist: z.string().nullable(),
@@ -112,11 +119,17 @@ export type PrintDetail = z.infer<typeof PrintDetailSchema>;
 export const CardResponseSchema = z.object({
   card: CardSchema,
   prints: z.array(PrintDetailSchema),
+  /** The game's copyright line (`@voidbinder/shared/notices`), shown with a print's `artist`. */
+  copyright: z.string(),
 });
 export type CardResponse = z.infer<typeof CardResponseSchema>;
 
 /** `GET /catalog/prints/:id`. */
-export const PrintResponseSchema = z.object({ print: PrintDetailSchema, card: CardSchema });
+export const PrintResponseSchema = z.object({
+  print: PrintDetailSchema,
+  card: CardSchema,
+  copyright: z.string(),
+});
 export type PrintResponse = z.infer<typeof PrintResponseSchema>;
 
 /** `POST /admin/import/scryfall`: 202 once the import Workflow is queued. */

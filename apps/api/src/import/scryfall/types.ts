@@ -38,6 +38,9 @@ export interface ScryfallCard {
   collector_number: string;
   rarity?: string;
   artist?: string;
+  /** High-res scan or not; `image_status`: `highres_scan`, `lowres`, `placeholder`, `missing`. */
+  highres_image?: boolean;
+  image_status?: string;
   released_at?: string;
   image_uris?: ScryfallImageUris;
   multiverse_ids?: number[];

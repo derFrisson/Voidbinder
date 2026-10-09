@@ -1,6 +1,7 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { AppDeps, Platform } from '../../app';
+import type { MirrorDeps } from '../../import/images';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
@@ -32,6 +33,12 @@ function openPool(connectionString: string): Pool {
   return pool;
 }
 
+/**
+ * The public `CATALOG` bucket (img.voidbinder.de) holds card images only; anything else (raw
+ * source dumps, whose republication breaks the sources' terms) goes to the private `RAW` bucket.
+ */
+const catalogImages = (env: Env) => new R2BlobStore(env.CATALOG, 'images/');
+
 export function createPlatform(env: Env): Platform {
   const pool = openPool(env.HYPERDRIVE.connectionString);
   const cachedPool = env.HYPERDRIVE_CACHED
@@ -44,8 +51,11 @@ export function createPlatform(env: Env): Platform {
       catalogDb: drizzle(cachedPool),
       imageBaseUrl: env.IMAGE_BASE_URL,
     }),
-    blobStore: new R2BlobStore(env.CATALOG),
-    jobQueue: new WorkflowJobQueue({ 'scryfall-import': env.SCRYFALL_IMPORT }),
+    blobStore: catalogImages(env),
+    jobQueue: new WorkflowJobQueue({
+      'scryfall-import': env.SCRYFALL_IMPORT,
+      'ygoprodeck-import': env.YGOPRODECK_IMPORT,
+    }),
     db,
     close: async () => {
       await Promise.all(cachedPool === pool ? [pool.end()] : [pool.end(), cachedPool.end()]);
@@ -88,17 +98,31 @@ export async function withDatabase<T>(
   }
 }
 
-/** What the Scryfall import Workflow works with: `fetch`, the `CATALOG` bucket, a pool per step. */
+/** What the import Workflows work with: `fetch`, the private `RAW` bucket, a pool per step. */
 export function scryfallImportDeps(env: Env): ImportDeps {
   return {
     fetch: (input, init) => fetch(input, init),
-    blobs: new R2BlobStore(env.CATALOG),
+    raw: new R2BlobStore(env.RAW),
     withDb: (fn) => withDatabase(env, fn),
   };
+}
+
+/** What the YGOPRODeck import Workflow works with: the same as the Scryfall one. */
+export const ygoprodeckImportDeps = scryfallImportDeps;
+
+/** Starts a YGOPRODeck import instance; an `id` makes it unique (the cron's one per day). */
+export async function startYgoprodeckImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.YGOPRODECK_IMPORT.create(id ? { id } : {});
+  log('info', { message: 'workflow started', job: 'ygoprodeck-import', instanceId: instance.id });
 }
 
 /** Starts a Scryfall import instance; an `id` makes it unique (the cron's one per day). */
 export async function startScryfallImport(env: Env, id?: string): Promise<void> {
   const instance = await env.SCRYFALL_IMPORT.create(id ? { id } : {});
   log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
+}
+
+/** The image mirror's daily delta (VB-57): `orig` only, into `CATALOG`; the VPS adds `sm`. */
+export function imageMirrorDeps(env: Env): MirrorDeps {
+  return { fetch: (input, init) => fetch(input, init), store: catalogImages(env), log };
 }

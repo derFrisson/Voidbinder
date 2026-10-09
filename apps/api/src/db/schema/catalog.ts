@@ -100,7 +100,11 @@ export const cards = pgTable(
   ],
 );
 
-/** One row per set + collector number; language and finish are dimensions of prices, not prints. */
+/**
+ * One row per set + collector number + variant; language and finish are dimensions of prices, not
+ * prints. `variant` is '' for Magic and Pokémon; Yu-Gi-Oh! prints one code in several rarities,
+ * each a card of its own, so its variant is the rarity slug (`secret-rare`).
+ */
 export const prints = pgTable(
   'prints',
   {
@@ -113,6 +117,7 @@ export const prints = pgTable(
       .references(() => sets.id),
     /** Collector number as printed. */
     number: text('number').notNull(),
+    variant: text('variant').notNull().default(''),
     rarity: text('rarity'),
     /** 'normal' | 'foil' | 'etched' | 'holo' | 'reverse' | 'first_edition' | … */
     finishes: text('finishes')
@@ -128,7 +133,7 @@ export const prints = pgTable(
     ...timestamps,
   },
   (t) => [
-    unique('prints_set_id_number_key').on(t.setId, t.number),
+    unique('prints_set_id_number_variant_key').on(t.setId, t.number, t.variant),
     index('prints_card_id_idx').on(t.cardId),
     index('prints_set_id_idx').on(t.setId),
     // Price mapping (VB-30) looks prints up by TCGplayer product id.

@@ -38,6 +38,7 @@ account ID (also in `apps/site/wrangler.jsonc`) and your Worker URL instead.
 | [8. Operations](#8-operations)                                                                      | 10 min now, then monthly  |
 | [9. Security notes](#9-security-notes)                                                              | 5 min                     |
 | [10. Done](#10-done)                                                                                | 10 min                    |
+| [11. Image mirror](#11-image-mirror)                                                                | 15 min, then 2 to 4 h     |
 
 Versions checked on 2026-10-09:
 
@@ -1827,3 +1828,154 @@ Then check that all of this is true:
 - [ ] The OVH snapshot above is taken.
 - [ ] Every entry of the table in section 0 is in the password manager folder `Voidbinder DB`,
       and none of them is in the repository.
+
+## 11. Image mirror
+
+The card images (Magic from Scryfall, Pokémon from TCGdex, Yu-Gi-Oh! from YGOPRODeck) are copied
+once into the R2 bucket `voidbinder-catalog` (EU jurisdiction) and served from `img.voidbinder.de`.
+`apps/api/scripts/mirror-images.ts` runs here, not on the workstation: it downloads each image,
+stores it as `images/<game>/<source id>/<lang>/orig.<ext>` plus a 320 px WebP copy `sm.webp`
+and writes the key into `prints.image_key` / `print_localizations.image_key`. The keys use the
+source's ids, so `dev` and `prod` share the objects. Each import Workflow then mirrors the oldest
+pending images of its game itself (up to 2000 a day, `orig` only), and a nightly timer here adds
+the `sm` copies and retries failures. Details: `apps/api/README.md`, "Card images".
+
+**Node 24.** Skip if `node -v` already prints `v24.…`. Otherwise install it with
+[fnm](https://github.com/Schniz/fnm) as `ubuntu` (no root needed), then pnpm through Corepack:
+
+```sh
+curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+export PATH="$HOME/.local/share/fnm:$PATH"; eval "$(fnm env --shell bash)"
+fnm install 24 && fnm default 24
+corepack enable
+```
+
+**Repository and dependencies.** The clone from section 5 ("Alternative: apply migrations from
+the VPS itself"); if it is missing,
+`git clone https://github.com/derFrisson/Voidbinder.git ~/voidbinder`.
+
+```sh
+cd ~/voidbinder && git pull --ff-only && pnpm install --filter api
+```
+
+**R2 credentials.** In the Cloudflare dashboard: R2 → Manage API tokens → Create API token,
+permission **Object Read & Write**, only the bucket `voidbinder-catalog`, jurisdiction EU. Store
+the values in the password manager (`Voidbinder R2 image mirror`) and on the VPS, mode 600:
+
+```sh
+umask 077; mkdir -p ~/.config/voidbinder; read -rs KEY_ID; read -rs SECRET
+printf 'R2_ACCESS_KEY_ID=%s\nR2_SECRET_ACCESS_KEY=%s\n' "$KEY_ID" "$SECRET" \
+  > ~/.config/voidbinder/r2.env
+echo 'R2_ENDPOINT=https://<account-id>.eu.r2.cloudflarestorage.com' >> ~/.config/voidbinder/r2.env
+echo 'R2_BUCKET=voidbinder-catalog' >> ~/.config/voidbinder/r2.env
+unset KEY_ID SECRET; ls -l ~/.config/voidbinder/r2.env   # -rw-------
+```
+
+**Database role.** The mirror logs in as `voidbinder_mirror`, which can read the catalog, set the
+image keys and record its run, nothing else. `postgres` creates the login; the table grants come
+from the tables' owner `voidbinder_migrate` (`SET ROLE`):
+
+```sh
+docker exec -i voidbinder-db psql -U postgres -v ON_ERROR_STOP=1 <<'EOF'
+CREATE ROLE voidbinder_mirror LOGIN;
+GRANT CONNECT ON DATABASE voidbinder_dev, voidbinder TO voidbinder_mirror;
+EOF
+
+for db in voidbinder_dev voidbinder; do
+docker exec -i voidbinder-db psql -U postgres -d "$db" -v ON_ERROR_STOP=1 <<'EOF'
+SET ROLE voidbinder_migrate;
+GRANT USAGE ON SCHEMA public TO voidbinder_mirror;
+GRANT SELECT ON sets, prints, print_localizations TO voidbinder_mirror;
+GRANT UPDATE (image_key) ON prints, print_localizations TO voidbinder_mirror;
+GRANT SELECT, INSERT, UPDATE ON import_runs TO voidbinder_mirror;
+EOF
+done
+docker exec -it voidbinder-db psql -U postgres -c '\password voidbinder_mirror'
+```
+
+The password like the others (`openssl rand -base64 32 | tr -d '/+='`, password manager entry
+`voidbinder_mirror`). `import_runs` has a generated UUID key, so no sequence grant is needed. Add
+this line to `/opt/voidbinder-db/pg_hba.conf` (section 4) and reload:
+
+```text
+hostssl  voidbinder_dev,voidbinder voidbinder_mirror   172.30.0.1/32   scram-sha-256
+```
+
+```sh
+docker exec voidbinder-db psql -U postgres -c 'select pg_reload_conf()'
+```
+
+Then add its URLs to `~/.config/voidbinder/pg.env` (mode 600, next to `PG_MIGRATE_URL_*`):
+
+```sh
+read -rs PW; U="postgres://voidbinder_mirror:$PW@127.0.0.1:5432"; Q='sslmode=no-verify'
+echo "PG_MIRROR_URL_DEV=$U/voidbinder_dev?$Q" >> ~/.config/voidbinder/pg.env
+echo "PG_MIRROR_URL_PROD=$U/voidbinder?$Q" >> ~/.config/voidbinder/pg.env
+unset PW U Q
+```
+
+**Run.** `--db dev|prod` takes `PG_MIRROR_URL_DEV` / `PG_MIRROR_URL_PROD` (without `--db` the
+script uses `DATABASE_URL`). Start with a dry run, then a short real one, then the full run in
+`tmux` so it survives a dropped SSH session:
+
+```sh
+cd ~/voidbinder
+ENV="--env-file $HOME/.config/voidbinder/r2.env --env-file $HOME/.config/voidbinder/pg.env"
+pnpm --filter api mirror-images $ENV --db dev --game mtg --limit 200 --dry-run
+pnpm --filter api mirror-images $ENV --db dev --game mtg --limit 200
+tmux new -s mirror
+pnpm --filter api mirror-images $ENV --db dev 2>&1 | tee ~/mirror-$(date +%F).log
+```
+
+Options: `--game mtg|pokemon|yugioh` (default all), `--limit N` (rows: a print or a localization,
+oldest first), `--concurrency N` (parallel downloads, default 8), `--sm` (also add the 320 px copy
+to rows that have only `orig`, read from the bucket), `--verify` (`HEAD` the objects first and
+skip the download when they exist: after a crash, and for the second database, whose objects the
+first one stored), `--dry-run` (read and plan only, logs a sample of keys). `--db prod` only after
+Max's go.
+
+**One mirror at a time.** A run holds a lock in its database; a second run on the same database
+(or the Workflow's daily step) stops with `another image mirror is running on this database`.
+The lock does not reach across databases: never run `dev` and `prod` side by side, least of all
+for `yugioh` and `pokemon`, whose rate limits count per IP. Mirror one database, then the other
+with `--verify`.
+
+**Throughput.** Each source has its own rate limit: Scryfall 20 images/s, YGOPRODeck 15/s (its
+limit is 20, and a breach blocks the IP for an hour), TCGdex 8/s. A 429 stops the run. Magic is
+about 160,000 images (every print in English plus the German prints) at 20/s, a little over two
+hours and roughly 30 GB; Yu-Gi-Oh! about 15 minutes; Pokémon about 80 minutes. The second database
+with `--verify` downloads nothing it shares with the first. The log prints a progress line every
+500 images and a summary at the end; the run is also a row in `import_runs` (`kind = 'images'`)
+with the same counts.
+
+**Rerun.** Safe at any time: the script picks only rows without `image_key` (with `--sm` also
+those with only `orig`), so a run that stopped (Ctrl-C, 429, reboot) continues where it was.
+Failed downloads are logged (`image failed`) and stay as they were for the next run.
+
+**Nightly timer.** `scripts/vps/image-mirror.service` and `.timer` (systemd user units) run the
+mirror at 05:30 UTC for all games with `--sm --verify`, one database after the other: the `sm`
+copies of the Workflows' daily `orig` images, and every failure of the day. Install once as
+`ubuntu` (linger keeps user timers running without a login):
+
+```sh
+sudo loginctl enable-linger ubuntu
+mkdir -p ~/.config/systemd/user
+ln -sf ~/voidbinder/scripts/vps/image-mirror.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now image-mirror.timer
+```
+
+It mirrors `dev` only (`Environment=DBS=dev`). After Max's go for prod:
+`systemctl --user edit image-mirror.service`, add `[Service]` and `Environment=DBS=prod dev`,
+save. Each run pulls `main` first. Logs: `journalctl --user -u image-mirror -n 50`; start one by
+hand with `systemctl --user start image-mirror`.
+
+**verify:** the dry run lists `rows` and `images`; after the short run,
+
+```sh
+docker exec voidbinder-db psql -U postgres -d voidbinder_dev -tAc \
+  "select count(*) from prints where image_key like '%/sm.webp'"
+```
+
+is above zero, and `curl -sI https://img.voidbinder.de/<one image_key>` answers `200` with
+`cache-control: public, max-age=31536000, immutable` (once the custom domain is connected).
+`systemctl --user list-timers image-mirror.timer` shows the next start at 05:30 UTC.

@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { scryfallImportDeps } from '../platform/cloudflare';
+import { mirrorStepFor } from './mirror-images';
 
 /** Every step: three retries with backoff; the downloads of the bulk files take a few minutes. */
 const STEP = {
@@ -32,6 +33,8 @@ export class ScryfallImportWorkflow extends WorkflowEntrypoint<Env> {
           .filter(Boolean),
       },
     );
-    return { runId, stats };
+    // Last step (VB-57): the oldest pending Magic images, at most 2000.
+    const images = await mirrorStepFor('mtg')(this.env, step);
+    return { runId, stats, images };
   }
 }

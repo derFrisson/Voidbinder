@@ -1,5 +1,6 @@
 import type { CardStore } from '@voidbinder/core';
 import type { Game } from '@voidbinder/shared';
+import { COPYRIGHT } from '@voidbinder/shared/notices';
 import type {
   Card,
   CardResponse,
@@ -146,10 +147,11 @@ export class DrizzleCardStore implements CardStore {
     const where = and(...filters);
 
     const name = sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`;
+    // The variants of a number follow each other (sorted by number or name).
     const order = {
-      number: [NUMBER_ORDER, asc(prints.number)],
-      name: [asc(name), NUMBER_ORDER, asc(prints.number)],
-      rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number)],
+      number: [NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      name: [asc(name), NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
     }[query.sort];
 
     const [[count], rows] = await Promise.all([
@@ -162,6 +164,7 @@ export class DrizzleCardStore implements CardStore {
           id: prints.id,
           cardId: prints.cardId,
           number: prints.number,
+          variant: prints.variant,
           name,
           rarity: prints.rarity,
           finishes: prints.finishes,
@@ -186,6 +189,7 @@ export class DrizzleCardStore implements CardStore {
         id: r.id,
         cardId: r.cardId,
         number: r.number,
+        variant: r.variant,
         name: r.name,
         rarity: r.rarity,
         finishes: r.finishes,
@@ -208,7 +212,13 @@ export class DrizzleCardStore implements CardStore {
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
       .where(where)
-      .orderBy(sql`${prints.releasedOn} desc nulls last`, sets.code, NUMBER_ORDER, prints.number);
+      .orderBy(
+        sql`${prints.releasedOn} desc nulls last`,
+        sets.code,
+        NUMBER_ORDER,
+        prints.number,
+        prints.variant,
+      );
     if (!rows.length) return [];
     const localizations = await this.catalog
       .select()
@@ -226,11 +236,16 @@ export class DrizzleCardStore implements CardStore {
       const externalIds = { ...p.externalIds };
       delete externalIds.scryfall_images;
       delete externalIds.scryfall_back_images;
+      delete externalIds.image_url;
+      delete externalIds.image_url_small;
+      delete externalIds.tcgdex_images;
+      delete externalIds.tcgdex_marketplace;
       return {
         id: p.id,
         cardId: p.cardId,
         set: { ...set, game: set.game as Game },
         number: p.number,
+        variant: p.variant,
         rarity: p.rarity,
         finishes: p.finishes,
         artist: p.artist,
@@ -267,7 +282,14 @@ export class DrizzleCardStore implements CardStore {
 
   async getCard(id: string): Promise<CardResponse | null> {
     const card = await this.card(id);
-    return card && { card, prints: await this.printDetails(eq(prints.cardId, id)) };
+    return (
+      card && {
+        card,
+        prints: await this.printDetails(eq(prints.cardId, id)),
+        // The card page shows it with each print's `artist` (VB-57).
+        copyright: COPYRIGHT[card.game],
+      }
+    );
   }
 
   async importRunning(source: string): Promise<boolean> {
@@ -288,6 +310,6 @@ export class DrizzleCardStore implements CardStore {
   async getPrint(id: string): Promise<PrintResponse | null> {
     const [print] = await this.printDetails(eq(prints.id, id));
     const card = print && (await this.card(print.cardId));
-    return print && card ? { print, card } : null;
+    return print && card ? { print, card, copyright: COPYRIGHT[card.game] } : null;
   }
 }
