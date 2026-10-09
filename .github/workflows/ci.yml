@@ -29,5 +29,7 @@ jobs:
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck
+      # Real browser for the axe-core accessibility test (apps/site/test/a11y.test.ts).
+      - run: pnpm --filter site exec playwright install --with-deps chromium
       - run: pnpm test
       - run: pnpm build
