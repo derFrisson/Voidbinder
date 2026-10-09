@@ -22,6 +22,13 @@
       "when": 1791585607838,
       "tag": "0002_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791587548565,
+      "tag": "0003_prints_variant",
+      "breakpoints": true
     }
   ]
 }
