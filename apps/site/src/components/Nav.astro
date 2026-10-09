@@ -123,9 +123,21 @@ const { pathname: path, search } = Astro.url;
     }
   }
 
+  /* 320 to 379 px: logo, language switch and button must fit without clipping (WCAG 1.4.10). */
   @media (max-width: 379px) {
+    .nav-inner {
+      gap: var(--space-3);
+    }
+
     .nav-end {
       gap: var(--space-2);
+    }
+  }
+
+  /* Below 360 px the mark alone is the logo; the link keeps its aria-label. */
+  @media (max-width: 359px) {
+    .nav :global(.wordmark) {
+      display: none;
     }
   }
 </style>
