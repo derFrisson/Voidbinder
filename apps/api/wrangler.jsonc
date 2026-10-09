@@ -51,9 +51,9 @@
     { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
   ],
   // Catalog import (VB-26, VB-27): one Workflow per source (Scryfall, YGOPRODeck); each cron
-  // starts one daily (src/index.ts maps the expression) and POST /admin/import/<source> on
-  // demand. Splitting the 2 GB Scryfall all_cards dump needs more than the default 30 s of CPU
-  // in one step.
+  // starts one daily (CRON_SOURCES in src/import/schedule.ts maps the expression) and
+  // POST /admin/import/<source> on demand. Splitting the 2 GB Scryfall all_cards dump needs more
+  // than the default 30 s of CPU in one step.
   "workflows": [
     {
       "binding": "SCRYFALL_IMPORT",
