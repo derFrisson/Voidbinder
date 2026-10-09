@@ -24,7 +24,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
   beforeAll(async () => {
     ({ db, drop } = await freshDatabase());
     await runScryfallImport(
-      { fetch: fakeScryfall(), blobs: new MemoryBlobStore(), withDb: (fn) => fn(db) },
+      { fetch: fakeScryfall(), raw: new MemoryBlobStore(), withDb: (fn) => fn(db) },
       (_name, fn) => fn(),
       { env: 'local', date: '2026-10-09', languages: ['en', 'de'] },
     );
@@ -112,9 +112,9 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(list[0]?.externalIds).not.toHaveProperty('scryfall_images');
     // Artist and the game's copyright line for the card page (VB-57).
     expect(list[0]?.artist).toEqual(expect.any(String));
-    expect((await get(`/cards/${id}`)).body).toMatchObject({
-      copyright: '©Wizards of the Coast LLC',
-    });
+    expect(CardResponseSchema.parse((await get(`/cards/${id}`)).body).copyright).toBe(
+      '©Wizards of the Coast LLC',
+    );
 
     // Once VB-57 stored the image in R2, the URL points there.
     await db
@@ -149,9 +149,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     const body = PrintResponseSchema.parse((await get(`/prints/${p?.id}`)).body);
     expect(body.print).toMatchObject({ number: '385', finishes: ['foil'] });
     expect(body.card.name).toBe('Champion of the Perished');
-    expect((await get(`/prints/${p?.id}`)).body).toMatchObject({
-      copyright: '©Wizards of the Coast LLC',
-    });
+    expect(body.copyright).toBe('©Wizards of the Coast LLC');
   });
 
   it('answers with cache headers, an ETag per catalog_version and 304 on a match', async () => {
