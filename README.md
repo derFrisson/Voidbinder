@@ -67,7 +67,9 @@ apply to you too:
 
 - **Magic:** card data and images come from [Scryfall](https://scryfall.com/docs/api). Show the
   data-source notice (see the legal fact sheet), do not paywall the data, do not imply Scryfall's
-  endorsement, and do not crop or alter card images or hide the copyright and artist line.
+  endorsement, and do not crop or alter card images or hide the copyright and artist line. Respect the
+  rate limits (use the bulk files). The Wizards of the Coast Fan Content Policy needs its notice
+  verbatim and no Wizards logos.
 - **Yu-Gi-Oh!:** [YGOPRODeck](https://ygoprodeck.com/api-guide/) asks you to download and re-host
   images. Do not hotlink them, and stay under 20 requests per second.
 - **Pokémon, One Piece:** no importer exists yet. Pokémon offers no fan-content licence, so check
