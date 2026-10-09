@@ -47,7 +47,27 @@ const SAME_IN_BOTH = new Set([
   'Powered by',
 ]);
 
-const FORBIDDEN = ['verfügbar jetzt', 'available now', 'revolution', 'seamless', 'nahtlos'];
+const FORBIDDEN = [
+  'verfügbar jetzt',
+  'available now',
+  'revolution',
+  'seamless',
+  'nahtlos',
+  'gehostet in deutschland',
+  'server in deutschland',
+  'servers in germany',
+  'daten in deutschland',
+  'betrieben in deutschland',
+  'hosted in germany',
+  'german servers',
+  'in deutschland gehostet',
+  'hosting in deutschland',
+  'servern in deutschland',
+  'rechenzentrum in deutschland',
+  'german hosting',
+  'hosted in german',
+  'deutsche server',
+];
 
 describe('i18n', () => {
   it('has identical key sets in de and en', () => {
