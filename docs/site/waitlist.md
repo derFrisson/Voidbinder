@@ -146,12 +146,16 @@ the dev log prints `[waitlist] retention purge { pending: 1, unsubscribed: 1 }`,
 ### Confirmed rows after the beta-start mail
 
 The privacy policy promises deletion of a confirmed sign-up once the beta-start mail went out; that is
-a deliberate one-off, not part of the cron. After the mail, from the workstation against the
-production database (take a dump first, check the count, then delete):
+a deliberate one-off, not part of the cron. Sign-ups stay open, so bound the delete by the send
+time: whoever confirms after the mail went out has not received it and stays. After the mail, from
+the workstation against the production database (take a dump first, check the count, delete, then
+remove the dump once the count is verified, because it holds exactly the data the policy promises to
+delete):
 
 ```sh
-psql "$DATABASE_URL" -c "select count(*) from waitlist_signups where status = 'confirmed'"
-psql "$DATABASE_URL" -c "delete from waitlist_signups where status = 'confirmed'"
+SENT='2026-11-01T12:00:00Z'   # the timestamp the beta-start mail went out
+psql "$DATABASE_URL" -c "select count(*) from waitlist_signups where status = 'confirmed' and confirmed_at < '$SENT'"
+psql "$DATABASE_URL" -c "delete from waitlist_signups where status = 'confirmed' and confirmed_at < '$SENT'"
 ```
 
 ## Local development
