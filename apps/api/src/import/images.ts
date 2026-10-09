@@ -41,14 +41,14 @@ export function extension(url: string): string | null {
 }
 
 /** The `external_ids` keys that hold source image URLs, the only ones the mirror reads. */
-export const IMAGE_ID_FIELDS = ['scryfall_images', 'image_url', 'image'] as const;
+export const IMAGE_ID_FIELDS = ['scryfall_images', 'image_url', 'tcgdex_images'] as const;
 
 const https = (v: unknown) => (typeof v === 'string' && v.startsWith('https://') ? v : null);
 
 /**
  * The URL of the image to mirror from a print's or localization's `external_ids`, null when it
  * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, never its "missing image"
- * placeholder; YGOPRODeck `image_url`; TCGdex `image_url`, or its `image` base + `/high.webp`.
+ * placeholder; YGOPRODeck `image_url`; TCGdex `tcgdex_images.high` (`<image>/high.webp`).
  */
 export function sourceUrl(game: string, ids: Record<string, unknown>): string | null {
   switch (game) {
@@ -59,10 +59,8 @@ export function sourceUrl(game: string, ids: Record<string, unknown>): string | 
     }
     case 'yugioh':
       return https(ids.image_url);
-    case 'pokemon': {
-      const base = https(ids.image);
-      return https(ids.image_url) ?? (base && (extension(base) ? base : `${base}/high.webp`));
-    }
+    case 'pokemon':
+      return https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high);
     default:
       return null;
   }

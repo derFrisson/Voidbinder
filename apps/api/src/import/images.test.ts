@@ -71,13 +71,12 @@ describe('sourceUrl', () => {
     expect(sourceUrl('yugioh', ids)).toBe(ids.image_url);
   });
 
-  it('takes TCGdex image_url, or the image base with /high.webp', () => {
+  it('takes TCGdex high', () => {
     const base = 'https://assets.tcgdex.net/de/swsh/swsh3/136';
-    expect(sourceUrl('pokemon', { tcgdex: 'swsh3-136', image: base })).toBe(`${base}/high.webp`);
-    expect(sourceUrl('pokemon', { image_url: `${base}/high.png`, image: base })).toBe(
-      `${base}/high.png`,
-    );
-    expect(sourceUrl('onepiece', { image_url: `${base}/high.png` })).toBeNull();
+    const ids = { tcgdex_images: { high: `${base}/high.webp`, low: `${base}/low.webp` } };
+    expect(sourceUrl('pokemon', ids)).toBe(`${base}/high.webp`);
+    expect(sourceUrl('pokemon', { tcgdex: 'swsh3-136' })).toBeNull();
+    expect(sourceUrl('onepiece', ids)).toBeNull();
   });
 
   it('reads the extension from the path only', () => {

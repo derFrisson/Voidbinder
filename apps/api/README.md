@@ -184,8 +184,8 @@ its steps show in the dashboard or with
 
 `src/import/images.ts` (VB-57) copies every print's source image into the `CATALOG` bucket, which
 is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
-`normal`, `png`; never its missing-image placeholder), YGOPRODeck `image_url`, TCGdex `image_url`
-or its `image` base + `/high.webp` (the keys of `external_ids` the importers fill).
+`normal`, `png`; never its missing-image placeholder), YGOPRODeck `image_url`, TCGdex
+`tcgdex_images.high` (the keys of `external_ids` the importers fill).
 
 | Key                                         | What                                                |
 | ------------------------------------------- | --------------------------------------------------- |
