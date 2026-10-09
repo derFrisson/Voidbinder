@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Web only (React Native ignores these selectors). */
+html,
+body {
+  background: var(--page);
+  color: var(--ink);
+}
+/* Tailwind's preflight greys placeholders with a palette colour this config does not have. */
+input::placeholder,
+textarea::placeholder {
+  color: var(--ink-3);
+  opacity: 1;
+}
+:focus-visible {
+  outline: 3px solid var(--blue-ink);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* The full-height root react-native-web expects (Expo's default index.html had it inline). */
+html,
+body,
+#root {
+  height: 100%;
+}
+body {
+  margin: 0;
+  overflow: hidden;
+}
+#root {
+  display: flex;
+  flex: 1;
+}

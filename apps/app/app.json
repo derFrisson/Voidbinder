@@ -1,0 +1,13 @@
+{
+  "expo": {
+    "name": "Voidbinder",
+    "slug": "voidbinder",
+    "scheme": "voidbinder",
+    "userInterfaceStyle": "automatic",
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    },
+    "plugins": ["expo-router", "expo-font", "expo-status-bar", "expo-localization"]
+  }
+}
