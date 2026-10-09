@@ -75,11 +75,13 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
 - **API settings** are `vars` in `apps/api/wrangler.jsonc`: `APP_URL` (CORS), `API_URL`,
   `IMAGE_BASE_URL` (base of the R2 card images; until VB-57 fills `image_key` the catalog answers
   with the source's image URL), `SCRYFALL_LANGUAGES` (print languages the Scryfall import keeps,
-  `en,de`; English always comes from `default_cards`, the others from `all_cards`), `VERSION`.
+  `en,de`; English always comes from `default_cards`, the others from `all_cards`), `IMPORT_ENV`
+  (prefix of the import's R2 keys, `raw/<env>/…` and `work/<env>/…`: `local`, `dev`, `prod`, so the
+  environments sharing the bucket never touch each other's dumps), `VERSION`.
 - **API bindings** besides `HYPERDRIVE`, `HYPERDRIVE_CACHED` (catalog reads only, see Database) and
   the `CATALOG` R2 bucket: `SCRYFALL_IMPORT`, the Workflow `voidbinder-scryfall-import-dev` /
-  `voidbinder-scryfall-import` (class `ScryfallImportWorkflow`), started daily at 03:00 UTC by the
-  cron trigger. The API sets `limits.cpu_ms` to 300000 for it (Workers Paid).
+  `voidbinder-scryfall-import` (class `ScryfallImportWorkflow`), started daily by the cron trigger
+  (prod 03:00 UTC, dev 04:30 UTC). The API sets `limits.cpu_ms` to 300000 for it (Workers Paid).
 - **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
   site token, read by `astro build` and baked into the static pages (it is public in the HTML).
   Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create

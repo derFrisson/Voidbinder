@@ -127,22 +127,27 @@ Pokémon importers. `pipeline.ts` runs these steps, each retried on its own:
 6. `cards 00000` … one step per chunk: cards, prints and the print's own-language localization,
    upserted in transactions of 500 objects; then `localizations 00000` … for the other languages.
 7. `finish run`: `import_runs` → `ok` with the counts in `stats`, and `catalog_version` + 1, in one
-   transaction. Then `clean up chunks` deletes the run's chunks. A failure marks the run `failed`
-   and leaves `catalog_version` alone.
+   transaction; a retried step finds the run no longer `running` and bumps nothing. A failure
+   before that marks the still running run `failed` and leaves `catalog_version` alone.
+8. `clean up chunks` deletes the run's chunks. It runs after the run is finished: when it fails, the
+   chunks stay (and a warning is logged), the run stays `ok`.
 
 Rows are upserted on their unique keys and only written when the hash of the mapped payload
-(`source_hash`) changed, so a re-run with the same data touches nothing. Skipped: tokens, emblems,
+(`source_hash`) changed, so a re-run with the same data touches nothing. Some prints of a card
+carry its faces and others do not (Omen cards): the card is written from the print with the most
+faces, and a batch never replaces stored faces with fewer, so the print order does not matter. Skipped: tokens, emblems,
 art series, digital-only cards and sets, token sets. Reversible cards map to the card of their front
 face. Old School legality is per print at Scryfall and is not kept on the card.
 
-R2 layout (bucket `voidbinder-catalog`):
+R2 layout (bucket `voidbinder-catalog`, shared by all environments; `<env>` is the `IMPORT_ENV`
+var: `local` for `wrangler dev`, `dev`, `prod`):
 
-| Key                                                  | What                                        |
-| ---------------------------------------------------- | ------------------------------------------- |
-| `raw/scryfall/<date>/default_cards.jsonl.gz`         | Raw bulk file as downloaded, kept           |
-| `raw/scryfall/<date>/all_cards.jsonl.gz`             | Raw bulk file as downloaded, kept           |
-| `raw/scryfall/<date>/sets.json`                      | Raw `GET /sets` answer, kept                |
-| `work/scryfall/<run id>/{default,all}_cards/*.jsonl` | Chunks of one run, deleted when it succeeds |
+| Key                                                        | What                                        |
+| ---------------------------------------------------------- | ------------------------------------------- |
+| `raw/<env>/scryfall/<date>/default_cards.jsonl.gz`         | Raw bulk file as downloaded, kept           |
+| `raw/<env>/scryfall/<date>/all_cards.jsonl.gz`             | Raw bulk file as downloaded, kept           |
+| `raw/<env>/scryfall/<date>/sets.json`                      | Raw `GET /sets` answer, kept                |
+| `work/<env>/scryfall/<run id>/{default,all}_cards/*.jsonl` | Chunks of one run, deleted when it succeeds |
 
 The Workflow `src/workflows/scryfall-import.ts` (binding `SCRYFALL_IMPORT`) wraps every step in
 `step.do` (3 retries with exponential backoff, 30 min timeout). Completed steps are never run again
@@ -150,10 +155,17 @@ within an instance, so after a failed step the instance continues where it stopp
 restarted Worker resumes the instance at the first unfinished step. Step results are small counts
 (Workflows keeps at most 1 MiB per step); a run has about 100 steps (limit 10,000). Splitting the
 2 GB `all_cards` dump in one step needs more than the default 30 s of CPU, hence `limits.cpu_ms`
-300000 in `wrangler.jsonc`.
+300000 in `wrangler.jsonc`. That limit is Worker-wide: it applies to every request and cron of the
+API too, not only to the Workflow. After the first run on `dev`, check the CPU time of the
+`split all_cards` step in the dashboard (Workflows → instance → step); if it is near the limit,
+split the file in more than one step.
 
-It starts daily at 03:00 UTC (cron trigger, instance id `scryfall-<date>`, so one per day) and on
-`POST /admin/import/scryfall` with `Authorization: Bearer $ADMIN_TOKEN` (answers 202).
+It starts daily (cron trigger: prod 03:00 UTC, dev 04:30 UTC; instance id `scryfall-<date>`, so
+one per day) and on `POST /admin/import/scryfall` with `Authorization: Bearer $ADMIN_TOKEN`. That
+answers 202, or 409 `{"error":{"code":"import_running"}}` while a Scryfall run in `import_runs` is
+`running` and started less than 6 h ago (an older one is taken as dead). The Workflow reaches the
+bindings only through `scryfallImportDeps(env)` and `startScryfallImport(env, id?)` in
+`src/platform/cloudflare/`.
 
 Locally (Docker Postgres migrated, `.dev.vars` from the example):
 
