@@ -7,7 +7,7 @@ export const en: Dict = {
     ogLocale: 'en_GB',
     title: 'Voidbinder · Collection app for four card games',
     description:
-      'Voidbinder is an open-source app for Pokémon, Yu-Gi-Oh!, Magic: The Gathering and One Piece, with an offline scanner and prices that name their source and date. Pre-alpha, waitlist open.',
+      'Voidbinder is an open-source app for Pokémon, Yu-Gi-Oh!, Magic: The Gathering and One Piece. It has an offline scanner and prices that name their source and date. Pre-alpha, waitlist open.',
   },
   a11y: {
     skip: 'Skip to content',
@@ -51,7 +51,7 @@ export const en: Dict = {
       },
       {
         term: 'Web only',
-        text: 'No connection, no scanner and no catalog, right when you are at a convention or in a shop.',
+        text: 'No connection, no scanner and no catalogue, right when you are at a convention or in a shop.',
       },
     ],
   },
@@ -70,10 +70,10 @@ export const en: Dict = {
   scanner: {
     label: 'Scanner',
     title: 'A scanner that needs no connection.',
-    lede: 'The camera finds the card, reads its number and set code and looks it up in the catalog on your device.',
+    lede: 'The camera finds the card and reads its number and set code. Then it looks the card up in the catalogue on your device.',
     facts: [
       { term: 'Recognition', value: 'Card, number and set code are read on the device' },
-      { term: 'Catalog', value: 'Stored locally on the device, works offline' },
+      { term: 'Catalogue', value: 'Stored locally on the device, works offline' },
       { term: 'Variants', value: 'The picker shows every variant with its price' },
       { term: 'Price gap', value: 'Big differences between variants trigger a warning' },
       { term: 'Photos', value: 'Stay on your device' },

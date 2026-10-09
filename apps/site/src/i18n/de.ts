@@ -6,7 +6,7 @@ export const de = {
     ogLocale: 'de_DE',
     title: 'Voidbinder · Sammel-App für vier Kartenspiele',
     description:
-      'Voidbinder ist eine Open-Source-App für Pokémon, Yu-Gi-Oh!, Magic: The Gathering und One Piece, mit Offline-Scanner und Preisen mit Quelle und Datum. Pre-Alpha, Warteliste offen.',
+      'Voidbinder ist eine Open-Source-App für Pokémon, Yu-Gi-Oh!, Magic: The Gathering und One Piece. Sie hat einen Offline-Scanner und Preise mit Quelle und Datum. Pre-Alpha, Warteliste offen.',
   },
   a11y: {
     skip: 'Zum Inhalt springen',
