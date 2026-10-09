@@ -34,6 +34,7 @@ const light = {
   // Recognised / rising. ok fills, okInk is green text (4.5:1 on the surface).
   ok: '#12a866',
   okInk: '#0b8050',
+  // okSoft never backs okInk text: that pair is 4.31:1 in light mode, below 4.5:1. Put okInk on surface.
   okSoft: '#d9f5e8',
   phone: '#0b0d13',
   error: '#ffd9d6',
