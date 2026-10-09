@@ -16,9 +16,9 @@ error pages. Seo emits:
   locale prefix) and `x-default` (`/`, the language redirect, for the two start pages; the German
   page otherwise);
 - Open Graph: `og:type`, `og:site_name`, `og:title`, `og:description`, `og:url`, `og:locale`
-  (`de_DE` / `en_GB`), `og:locale:alternate`, `og:image` (+ type, 1200×630, alt);
+  (`de_DE` / `en_US`), `og:locale:alternate`, `og:image` (+ type, 1200×630, alt);
 - Twitter `summary_large_image` with title, description and image;
-- `theme-color` `#080808`;
+- `theme-color` `#F4F6FB` (light) and `#0A0F1E` (dark), per `prefers-color-scheme`;
 - JSON-LD `@graph` with an `Organization` (name, URL, GitHub) and a `SoftwareApplication`
   (`creativeWorkStatus: Pre-alpha`, AGPL licence, free; no offers, prices or ratings).
 
@@ -27,14 +27,16 @@ error pages. Seo emits:
 Static PNGs, rendered once per build, never per request. `src/integrations/seo.ts` runs in
 `astro:build:done`, reads `og:title` / `og:description` from every built HTML page and renders a
 1200×630 PNG with [satori](https://github.com/vercel/satori) (layout to SVG) and
-[`@resvg/resvg-js`](https://github.com/thx/resvg-js) (SVG to PNG) into `dist/client/og/`. Inter comes
-from `@fontsource/inter` as WOFF, because satori does not read WOFF2. The file name follows the
+[`@resvg/resvg-js`](https://github.com/thx/resvg-js) (SVG to PNG) into `dist/client/og/`. Sora and
+Public Sans come from `@fontsource/sora` and `@fontsource/public-sans` as WOFF, because satori does
+not read WOFF2. The file name follows the
 path (`src/seo.ts` `ogImagePath`): `/de/` → `/og/de.png`, `/de/impressum/` → `/og/de/impressum.png`,
 `/404` → `/og/404.png`. A new page gets its image without any change here.
 
-Look: near-black background, the pink mark and wordmark, the page title in off-white Inter 500, the
-description in muted Inter 400, a `voidbinder.de · Pre-alpha` label and three empty card shapes
-(63:88, hairline, the front one pink). No artwork.
+Look (direction B, `docs/site/design.md`): the light page colour, the blue-and-yellow mark and
+Sora wordmark, the page title in Sora 700, the description in Public Sans, a
+`voidbinder.de · Pre-alpha` label, and on the right the four colour fields with the yellow example
+card drawn as plain shapes. No artwork.
 
 The integration runs in Node at build time, so the Worker bundle carries neither satori nor resvg.
 
