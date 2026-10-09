@@ -1,5 +1,5 @@
 ---
-import { t, type Locale } from '../../i18n';
+import { legalPath, t, type Locale } from '../../i18n';
 import Card from '../art/Card.astro';
 
 interface Props {
@@ -42,6 +42,7 @@ const done = t(locale).status.pending;
             type="email"
             name="email"
             required
+            maxlength="254"
             autocomplete="email"
             inputmode="email"
             placeholder={d.emailPlaceholder}
@@ -61,7 +62,7 @@ const done = t(locale).status.pending;
             required
           />
           <label for="waitlist-consent" class="small muted">
-            {d.consentBefore}<a href={`/${locale}/datenschutz/`}>{d.consentLink}</a>{d.consentAfter}
+            {d.consentBefore}<a href={legalPath(locale, 'privacy')}>{d.consentLink}</a>{d.consentAfter}
           </label>
         </div>
         <p
