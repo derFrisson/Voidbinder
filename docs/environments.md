@@ -37,6 +37,8 @@ backups and operations: [guides/database-vps.md](guides/database-vps.md). Locall
 | `dev`       | `voidbinder-dev`  | `6f5b0953850f4b7b99450961849113ab`                    |
 | `prod`      | `voidbinder-prod` | `2f4e2569cde54e0998b734c884432765`                    |
 
+The API (ADR 0004) adds one cached configuration per environment for catalog and price reads: `voidbinder-dev-cached` `80164a75f1224f34a30fc31f0dac35ca`, `voidbinder-prod-cached` `095f0ec41117431c8b29eec7134dde62` (max_age 300 s, stale_while_revalidate 60 s, 10 connections).
+
 ## Secrets
 
 - **Locally:** each app keeps its secrets in its own `.dev.vars` (for example
