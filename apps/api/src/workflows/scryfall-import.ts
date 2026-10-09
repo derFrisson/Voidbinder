@@ -5,8 +5,7 @@ import {
   type WorkflowStepConfig,
 } from 'cloudflare:workers';
 import { runScryfallImport } from '../import/scryfall/pipeline';
-import { withDatabase } from '../platform/cloudflare';
-import { R2BlobStore } from '../platform/cloudflare/r2-blob-store';
+import { scryfallImportDeps } from '../platform/cloudflare';
 
 /** Every step: three retries with backoff; the downloads of the bulk files take a few minutes. */
 const STEP = {
@@ -22,14 +21,11 @@ const STEP = {
 export class ScryfallImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
     const { runId, stats } = await runScryfallImport(
-      {
-        fetch: (input, init) => fetch(input, init),
-        blobs: new R2BlobStore(this.env.CATALOG),
-        withDb: (fn) => withDatabase(this.env, fn),
-      },
+      scryfallImportDeps(this.env),
       // Every step result is plain JSON (counts, keys); Workflows persists it.
       (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
       {
+        env: this.env.IMPORT_ENV,
         date: event.timestamp.toISOString().slice(0, 10),
         languages: this.env.SCRYFALL_LANGUAGES.split(',')
           .map((l) => l.trim())

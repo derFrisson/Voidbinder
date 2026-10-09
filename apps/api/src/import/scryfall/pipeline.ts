@@ -1,4 +1,5 @@
 import type { BlobStore } from '@voidbinder/core';
+import { log } from '../../middleware/log';
 import {
   bulkFiles,
   chunkKey,
@@ -41,7 +42,9 @@ export interface ImportDeps {
 export type StepRunner = <T>(name: string, fn: () => Promise<T>) => Promise<T>;
 
 export interface ImportOptions {
-  /** UTC day of the run: the raw dumps go to `raw/scryfall/<date>/`. */
+  /** `IMPORT_ENV` (`local`, `dev`, `prod`): every R2 key starts with `raw/<env>/` or `work/<env>/`. */
+  env: string;
+  /** UTC day of the run: the raw dumps go to `raw/<env>/scryfall/<date>/`. */
   date: string;
   /** Localizations to import; `en` always comes from default_cards, the rest from all_cards. */
   languages: string[];
@@ -78,8 +81,9 @@ const add = (a: WriteStats, b: WriteStats): WriteStats => ({
 
 export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts: ImportOptions) {
   const runId = await step('start run', () => deps.withDb((db) => startRun(db, 'full')));
-  const raw = `raw/scryfall/${opts.date}`;
-  const work = `work/scryfall/${runId}`;
+  const raw = `raw/${opts.env}/scryfall/${opts.date}`;
+  const work = `work/${opts.env}/scryfall/${runId}`;
+  let result;
   try {
     const files = await step('bulk index', () => bulkFiles(deps.fetch));
     const others = opts.languages.filter((l) => l !== 'en');
@@ -147,10 +151,16 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
       otherLanguages: localizations,
     };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
-    await step('clean up chunks', () => deletePrefix(deps.blobs, work));
-    return { runId, stats };
+    result = { runId, stats };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));
     throw err;
   }
+  // The run is finished: a failed cleanup leaves chunks behind, never a failed run.
+  try {
+    await step('clean up chunks', () => deletePrefix(deps.blobs, work));
+  } catch (err) {
+    log('warn', { message: 'chunk cleanup failed', runId, prefix: work, error: String(err) });
+  }
+  return result;
 }

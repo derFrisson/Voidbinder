@@ -19,6 +19,8 @@
     "API_URL": "http://localhost:8787",
     "IMAGE_BASE_URL": "https://img.voidbinder.de",
     "SCRYFALL_LANGUAGES": "en,de",
+    // Prefix of the import's R2 keys (raw/<env>/…, work/<env>/…): local, dev or prod.
+    "IMPORT_ENV": "local",
     "VERSION": "local",
   },
   // Local Postgres from the root docker-compose.yml. HYPERDRIVE is cache-disabled (fresh reads);
@@ -63,6 +65,7 @@
         "API_URL": "https://voidbinder-api-dev.frisson.workers.dev",
         "IMAGE_BASE_URL": "https://img.voidbinder.de",
         "SCRYFALL_LANGUAGES": "en,de",
+        "IMPORT_ENV": "dev",
         "VERSION": "local",
       },
       "hyperdrive": [
@@ -89,7 +92,7 @@
           "class_name": "ScryfallImportWorkflow",
         },
       ],
-      "triggers": { "crons": ["0 3 * * *"] },
+      "triggers": { "crons": ["30 4 * * *"] },
       "limits": { "cpu_ms": 300000 },
       "secrets": { "required": ["ADMIN_TOKEN"] },
     },
@@ -102,6 +105,7 @@
         "API_URL": "https://api.voidbinder.de",
         "IMAGE_BASE_URL": "https://img.voidbinder.de",
         "SCRYFALL_LANGUAGES": "en,de",
+        "IMPORT_ENV": "prod",
         "VERSION": "local",
       },
       "hyperdrive": [

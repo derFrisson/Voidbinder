@@ -8,7 +8,7 @@ import type { Db } from './write';
 
 describe('planSteps', () => {
   it('gives every chunk its own step, cards before the other languages', () => {
-    const steps = planSteps('work/scryfall/r1', 3, 2);
+    const steps = planSteps('work/dev/scryfall/r1', 3, 2);
     expect(steps.map((s) => s.name)).toEqual([
       'cards 00000',
       'cards 00001',
@@ -16,8 +16,8 @@ describe('planSteps', () => {
       'localizations 00000',
       'localizations 00001',
     ]);
-    expect(steps[2]?.key).toBe('work/scryfall/r1/default_cards/00002.jsonl');
-    expect(steps[4]?.key).toBe('work/scryfall/r1/all_cards/00001.jsonl');
+    expect(steps[2]?.key).toBe('work/dev/scryfall/r1/default_cards/00002.jsonl');
+    expect(steps[4]?.key).toBe('work/dev/scryfall/r1/all_cards/00001.jsonl');
     expect(planSteps('p', 0, 0)).toEqual([]);
   });
 });
@@ -33,7 +33,7 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
     runScryfallImport(
       { fetch: fakeScryfall(fake), blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
       (name, fn) => (steps.push(name), fn()),
-      { date: '2026-10-09', languages: ['en', 'de'] },
+      { env: 'dev', date: '2026-10-09', languages: ['en', 'de'] },
     );
   const version = async () =>
     Number((await db.select().from(appMeta).where(eq(appMeta.key, 'catalog_version')))[0]?.value);
@@ -73,9 +73,9 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
 
     // Raw dumps stay, the run's chunks are deleted.
     expect([...blobs.objects.keys()].sort()).toEqual([
-      'raw/scryfall/2026-10-09/all_cards.jsonl.gz',
-      'raw/scryfall/2026-10-09/default_cards.jsonl.gz',
-      'raw/scryfall/2026-10-09/sets.json',
+      'raw/dev/scryfall/2026-10-09/all_cards.jsonl.gz',
+      'raw/dev/scryfall/2026-10-09/default_cards.jsonl.gz',
+      'raw/dev/scryfall/2026-10-09/sets.json',
     ]);
     expect(steps).toContain('cards 00000');
     expect(steps).toContain('localizations 00000');
@@ -117,5 +117,19 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
       .limit(1);
     expect(last).toMatchObject({ status: 'failed', error: expect.stringContaining('500') });
     expect(steps.at(-1)).toBe('fail run');
+  });
+
+  it('keeps a finished run ok when the chunk cleanup fails', async () => {
+    const before = await version();
+    const blobs = new MemoryBlobStore();
+    blobs.delete = () => Promise.reject(new Error('R2 down'));
+    const { runId } = await run({}, blobs);
+    const [row] = await db.select().from(importRuns).where(eq(importRuns.id, runId));
+    expect(row?.status).toBe('ok');
+    expect(await version()).toBe(before + 1);
+    expect(steps.at(-1)).toBe('clean up chunks');
+    expect([...blobs.objects.keys()].some((k) => k.startsWith(`work/dev/scryfall/${runId}/`))).toBe(
+      true,
+    );
   });
 });

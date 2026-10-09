@@ -26,7 +26,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     await runScryfallImport(
       { fetch: fakeScryfall(), blobs: new MemoryBlobStore(), withDb: (fn) => fn(db) },
       (_name, fn) => fn(),
-      { date: '2026-10-09', languages: ['en', 'de'] },
+      { env: 'local', date: '2026-10-09', languages: ['en', 'de'] },
     );
     store = new DrizzleCardStore(db, { imageBaseUrl: 'https://img.test' });
     app = testApp({ cardStore: store });
@@ -118,7 +118,6 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       .where(eq(prints.id, list[0]?.id ?? ''));
     const after = CardResponseSchema.parse((await get(`/cards/${id}`)).body);
     expect(after.prints[0]?.imageUrl).toBe('https://img.test/mtg/mid/1.jpg');
-
     const plains = CardResponseSchema.parse((await get(`/cards/${await cardId('Plains')}`)).body);
     expect(plains.prints.map((p) => p.set.code)).toEqual(['neo', 'mid']);
 

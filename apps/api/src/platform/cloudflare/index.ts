@@ -1,6 +1,7 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { Platform } from '../../app';
+import type { ImportDeps } from '../../import/scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
 import { R2BlobStore } from './r2-blob-store';
@@ -60,4 +61,19 @@ export async function withDatabase<T>(
   } finally {
     await pool.end();
   }
+}
+
+/** What the Scryfall import Workflow works with: `fetch`, the `CATALOG` bucket, a pool per step. */
+export function scryfallImportDeps(env: Env): ImportDeps {
+  return {
+    fetch: (input, init) => fetch(input, init),
+    blobs: new R2BlobStore(env.CATALOG),
+    withDb: (fn) => withDatabase(env, fn),
+  };
+}
+
+/** Starts a Scryfall import instance; an `id` makes it unique (the cron's one per day). */
+export async function startScryfallImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.SCRYFALL_IMPORT.create(id ? { id } : {});
+  log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
 }

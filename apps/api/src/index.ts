@@ -1,6 +1,5 @@
 import { createApp, type App } from './app';
-import { log } from './middleware/log';
-import { createPlatform } from './platform/cloudflare';
+import { createPlatform, startScryfallImport } from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 
@@ -18,11 +17,10 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  /** Cron `0 3 * * *`: the daily Scryfall import, one instance per day (the id makes it unique). */
+  /** Cron (prod `0 3 * * *`, dev `30 4 * * *`): the daily Scryfall import, one instance per day. */
   async scheduled(controller, env) {
-    const id = `scryfall-${new Date(controller.scheduledTime).toISOString().slice(0, 10)}`;
-    const instance = await env.SCRYFALL_IMPORT.create({ id });
-    log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
+    const day = new Date(controller.scheduledTime).toISOString().slice(0, 10);
+    await startScryfallImport(env, `scryfall-${day}`);
   },
 } satisfies ExportedHandler<Env>;
 
