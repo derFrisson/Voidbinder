@@ -1,6 +1,7 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { Platform } from '../../app';
+import { SM_WIDTH, type MirrorDeps } from '../../import/images';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
@@ -76,4 +77,19 @@ export function scryfallImportDeps(env: Env): ImportDeps {
 export async function startScryfallImport(env: Env, id?: string): Promise<void> {
   const instance = await env.SCRYFALL_IMPORT.create(id ? { id } : {});
   log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
+}
+
+/** The image mirror's daily delta (VB-57): `CATALOG` for the objects, `IMAGES` for the `sm` copy. */
+export function imageMirrorDeps(env: Env): MirrorDeps {
+  return {
+    fetch: (input, init) => fetch(input, init),
+    store: new R2BlobStore(env.CATALOG),
+    resize: async (body) => {
+      const out = await env.IMAGES.input(new Blob([body]).stream())
+        .transform({ width: SM_WIDTH, fit: 'scale-down' })
+        .output({ format: 'image/webp' });
+      return new Uint8Array(await out.response().arrayBuffer());
+    },
+    log,
+  };
 }
