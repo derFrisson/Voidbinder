@@ -1,8 +1,9 @@
 import type { BlobStore, CardStore, JobQueue } from '@voidbinder/core';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
-import { createApp, type Platform } from './app';
+import { createApp, type AppDeps, type Platform } from './app';
+import type { MailMessage } from './auth/mail';
 
 /** The Postgres of the integration tests; unset skips them. */
 export const databaseUrl = process.env.DATABASE_URL;
@@ -50,6 +51,20 @@ function unavailable<T extends object>(what: string, overrides: Partial<T> = {})
   });
 }
 
+/** The deps every test app shares; `mails` records what the app sent. */
+export function testDeps(mails: MailMessage[] = []): Omit<AppDeps, 'openPlatform'> {
+  return {
+    appUrl: 'https://app.example.test',
+    extraOrigins: [],
+    version: 'test',
+    auth: {
+      secret: 'test-secret-that-is-at-least-32-bytes-long',
+      apiUrl: 'https://api.example.test',
+      mail: { send: async (m) => void mails.push(m) },
+    },
+  };
+}
+
 export interface TestAppOptions {
   /** false: the database ping fails. */
   dbUp?: boolean;
@@ -57,6 +72,7 @@ export interface TestAppOptions {
   cardStore?: CardStore;
   jobQueue?: JobQueue;
   adminToken?: string;
+  extraOrigins?: string[];
 }
 
 /** The app with an in-memory platform. */
@@ -69,11 +85,12 @@ export function testApp(opts: TestAppOptions = {}) {
       }),
     blobStore: unavailable<BlobStore>('blob store'),
     jobQueue: opts.jobQueue ?? unavailable<JobQueue>('job queue'),
+    db: unavailable<NodePgDatabase>('database'),
     close: async () => undefined,
   };
   return createApp({
-    appUrl: 'https://app.example.test',
-    version: 'test',
+    ...testDeps(),
+    extraOrigins: opts.extraOrigins ?? [],
     adminToken: opts.adminToken,
     openPlatform: () => platform,
   });
