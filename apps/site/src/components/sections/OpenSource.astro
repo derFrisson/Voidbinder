@@ -1,0 +1,74 @@
+---
+import { links, t, type Locale } from '../../i18n';
+import Arrow from '../Arrow.astro';
+
+interface Props {
+  locale: Locale;
+}
+const d = t(Astro.props.locale).openSource;
+---
+
+<section id="open-source" class="section wrap" aria-labelledby="open-source-title">
+  <div class="section-head">
+    <p class="label">{d.label}</p>
+    <h2 id="open-source-title" class="display-m">{d.title}</h2>
+    <p class="lede">{d.lede}</p>
+  </div>
+  <ul class="plans">
+    {
+      d.plans.map((p) => (
+        <li>
+          <h3 class="label">{p.name}</h3>
+          <p class="display-m price">{p.price}</p>
+          <p class="muted">{p.text}</p>
+        </li>
+      ))
+    }
+  </ul>
+  <p class="more">
+    <a class="btn btn-outlined" href={links.github}>{d.link}<Arrow /></a>
+  </p>
+</section>
+
+<style>
+  .plans {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin-top: var(--space-8);
+    border-top: 1px solid var(--outline);
+  }
+
+  .plans li {
+    display: grid;
+    align-content: start;
+    gap: var(--space-3);
+    padding: var(--space-6) var(--space-6) var(--space-6) 0;
+    border-bottom: 1px solid var(--outline);
+  }
+
+  .plans li + li {
+    padding-left: var(--space-6);
+    border-left: 1px solid var(--outline);
+  }
+
+  .price {
+    margin-bottom: var(--space-2);
+  }
+
+  .more {
+    margin-top: var(--space-6);
+  }
+
+  @media (max-width: 759px) {
+    .plans {
+      grid-template-columns: 1fr;
+      margin-top: var(--space-7);
+    }
+
+    .plans li,
+    .plans li + li {
+      padding: var(--space-5) 0;
+      border-left: 0;
+    }
+  }
+</style>

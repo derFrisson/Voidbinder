@@ -1,0 +1,50 @@
+---
+import Card from './Card.astro';
+
+interface Props {
+  label: string;
+}
+const { label } = Astro.props;
+---
+
+<div class="fan" role="img" aria-label={label}>
+  <Card class="c1" />
+  <Card class="c2" />
+  <Card class="c4" />
+  <Card class="c5" />
+  <Card class="c3" variant="accent" />
+</div>
+
+<style>
+  .fan {
+    --w: clamp(104px, 15vw, 196px);
+    position: relative;
+    width: calc(var(--w) * 3.1);
+    height: calc(var(--w) * 2);
+    margin-inline: auto;
+  }
+
+  .fan > :global(.card) {
+    position: absolute;
+    bottom: calc(var(--w) * 0.24);
+    left: calc(50% - var(--w) / 2);
+    width: var(--w);
+    transform-origin: 50% 150%;
+  }
+
+  .fan > :global(.c1) {
+    transform: rotate(-22deg);
+  }
+  .fan > :global(.c2) {
+    transform: rotate(-11deg);
+  }
+  .fan > :global(.c3) {
+    transform: translateY(-6%);
+  }
+  .fan > :global(.c4) {
+    transform: rotate(11deg);
+  }
+  .fan > :global(.c5) {
+    transform: rotate(22deg);
+  }
+</style>

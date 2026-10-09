@@ -1,0 +1,115 @@
+---
+import { links, t, type Locale } from '../i18n';
+import Logo from './Logo.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale);
+// Legal pages keep the same slug in both locales (VB-18), so the language switch can swap the prefix.
+const footerLinks = [
+  { href: `/${locale}/impressum/`, label: d.footer.imprint },
+  { href: `/${locale}/datenschutz/`, label: d.footer.privacy },
+  { href: links.github, label: d.footer.github },
+  { href: links.twitch, label: d.footer.twitch },
+];
+---
+
+<footer class="footer" aria-label={d.a11y.footer}>
+  <div class="wrap footer-inner">
+    <div class="brand">
+      <Logo href={`/${locale}/`} label={d.a11y.home} />
+      <p class="muted small">{d.footer.tagline}</p>
+      <p class="label">
+        <a class="voidcom" href={links.voidcom}>{d.footer.poweredBy}</a>
+      </p>
+    </div>
+    <div class="col">
+      <h2 class="label">{d.footer.linksLabel}</h2>
+      <ul>
+        {
+          footerLinks.map((l) => (
+            <li>
+              <a href={l.href}>{l.label}</a>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+    <div class="fine">
+      <p>{d.footer.license}</p>
+      <p>{d.footer.trademarks}</p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--outline);
+  }
+
+  .footer-inner {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-7) var(--space-6);
+    padding-block: var(--space-8) var(--space-6);
+  }
+
+  .brand {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .voidcom {
+    color: var(--on-surface-muted);
+    text-decoration: none;
+  }
+
+  .voidcom:hover {
+    color: var(--primary);
+  }
+
+  .col h2 {
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--outline);
+  }
+
+  .col ul {
+    display: grid;
+    gap: var(--space-1);
+    padding-top: var(--space-3);
+  }
+
+  .col a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 28px;
+    color: var(--on-surface-muted);
+    font-size: var(--text-small);
+    text-decoration: none;
+  }
+
+  .col a:hover {
+    color: var(--on-surface);
+  }
+
+  .fine {
+    display: grid;
+    grid-column: 1 / -1;
+    gap: var(--space-2);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--outline);
+    color: var(--on-surface-dim);
+    font-size: var(--label-size);
+    line-height: 1.6;
+  }
+
+  @media (max-width: 639px) {
+    .footer-inner {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
