@@ -68,7 +68,6 @@ const done = t(locale).status.pending;
         <p
           class="error small"
           role="alert"
-          hidden
           data-email={e.email}
           data-consent={e.consent}
           data-rate={e.rate}
@@ -97,9 +96,11 @@ const done = t(locale).status.pending;
     const label = button.textContent;
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
+      // aria-disabled, not disabled: a disabled button drops keyboard focus to <body>.
+      if (button.getAttribute('aria-disabled') === 'true') return;
       const data = new FormData(form);
-      error.hidden = true;
-      button.disabled = true;
+      error.textContent = '';
+      button.setAttribute('aria-disabled', 'true');
       button.textContent = form.dataset.sending ?? label;
       let message = error.dataset.server;
       try {
@@ -128,9 +129,9 @@ const done = t(locale).status.pending;
       } catch {
         // Network failure: the server message below.
       }
+      // The alert region is always in the DOM and only its text changes, so screen readers announce it.
       error.textContent = message ?? '';
-      error.hidden = false;
-      button.disabled = false;
+      button.removeAttribute('aria-disabled');
       button.textContent = label;
     });
   }
@@ -212,6 +213,11 @@ const done = t(locale).status.pending;
 
   .error {
     color: var(--status-error);
+  }
+
+  /* Empty live region: out of the grid flow, so it takes no gap until it has a message. */
+  .error:empty {
+    position: absolute;
   }
 
   .hp {
