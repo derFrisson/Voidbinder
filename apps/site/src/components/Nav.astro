@@ -14,7 +14,7 @@ const links = [
   { href: `${home}#prices`, label: d.nav.prices },
   { href: `${home}#open-source`, label: d.nav.openSource },
 ];
-const path = Astro.url.pathname;
+const { pathname: path, search } = Astro.url;
 ---
 
 <header class="nav">
@@ -35,7 +35,7 @@ const path = Astro.url.pathname;
           locales.map((l) => (
             <li>
               <a
-                href={localePath(path, l)}
+                href={localePath(path, l) + search}
                 hreflang={l}
                 lang={l}
                 aria-current={l === locale ? 'true' : undefined}
