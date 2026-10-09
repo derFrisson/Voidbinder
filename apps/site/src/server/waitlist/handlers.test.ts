@@ -503,7 +503,9 @@ describe('POST /api/waitlist/unsubscribe', () => {
     const token = tokenOf(link);
     const [id, mac = ''] = token.split('.');
     const otherId = only(repo.rows[1]).id;
-    const flipped = `${mac.slice(0, -1)}${mac.endsWith('A') ? 'B' : 'A'}`;
+    // Flip a character in the middle of the MAC: the last base64url character carries only four
+    // significant bits, so flipping it can decode to the same bytes and yield a genuine token.
+    const flipped = `${mac.slice(0, 20)}${mac[20] === 'A' ? 'B' : 'A'}${mac.slice(21)}`;
     for (const forged of [`${id}.${flipped}`, `${otherId}.${mac}`]) {
       const res = await handleUnsubscribe(
         oneClick(`${SITE}/api/waitlist/unsubscribe?token=${forged}`),
