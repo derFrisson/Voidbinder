@@ -1,9 +1,11 @@
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { Platform } from '../../app';
+import type { ImportDeps } from '../../import/scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
 import { R2BlobStore } from './r2-blob-store';
+import { WorkflowJobQueue } from './workflow-job-queue';
 
 /**
  * The only place that touches Cloudflare bindings (ADR 0001). Called once per request: each pool
@@ -12,8 +14,8 @@ import { R2BlobStore } from './r2-blob-store';
  *
  * Two pools (ADR 0004): `pool` reads fresh through `HYPERDRIVE` and serves everything;
  * `cachedPool` reads through `HYPERDRIVE_CACHED` (up to 300 s + swr stale) and goes to the
- * catalog and price stores only, which VB-26 / VB-30 add. Without that binding (self-hosting) it
- * is the same pool.
+ * catalog reads only (and the price reads of VB-30). Without that binding (self-hosting) it is
+ * the same pool.
  */
 /**
  * A pool for one request. An idle client's socket error is emitted on the pool and crashes the
@@ -34,13 +36,44 @@ export function createPlatform(env: Env): Platform {
   const cachedPool = env.HYPERDRIVE_CACHED
     ? openPool(env.HYPERDRIVE_CACHED.connectionString)
     : pool;
-  // ponytail: nothing reads through the cache yet; VB-26 hands `drizzle(cachedPool)` to the
-  // catalog store. An unused pool opens no connection.
+  // An unused pool opens no connection.
   return {
-    cardStore: new DrizzleCardStore(drizzle(pool)),
+    cardStore: new DrizzleCardStore(drizzle(pool), {
+      catalogDb: drizzle(cachedPool),
+      imageBaseUrl: env.IMAGE_BASE_URL,
+    }),
     blobStore: new R2BlobStore(env.CATALOG),
+    jobQueue: new WorkflowJobQueue({ 'scryfall-import': env.SCRYFALL_IMPORT }),
     close: async () => {
       await Promise.all(cachedPool === pool ? [pool.end()] : [pool.end(), cachedPool.end()]);
     },
   };
+}
+
+/** A fresh (uncached) connection for one Workflow step, closed when `fn` settles. */
+export async function withDatabase<T>(
+  env: Env,
+  fn: (db: NodePgDatabase) => Promise<T>,
+): Promise<T> {
+  const pool = openPool(env.HYPERDRIVE.connectionString);
+  try {
+    return await fn(drizzle(pool));
+  } finally {
+    await pool.end();
+  }
+}
+
+/** What the Scryfall import Workflow works with: `fetch`, the `CATALOG` bucket, a pool per step. */
+export function scryfallImportDeps(env: Env): ImportDeps {
+  return {
+    fetch: (input, init) => fetch(input, init),
+    blobs: new R2BlobStore(env.CATALOG),
+    withDb: (fn) => withDatabase(env, fn),
+  };
+}
+
+/** Starts a Scryfall import instance; an `id` makes it unique (the cron's one per day). */
+export async function startScryfallImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.SCRYFALL_IMPORT.create(id ? { id } : {});
+  log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
 }

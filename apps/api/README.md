@@ -12,10 +12,12 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | ---------------------------- | ---------------------------------------------------------------------------------- |
 | `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                   |
 | `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding) |
-| `src/routes/`                | Routes (`GET /health`)                                                             |
+| `src/routes/`                | Routes: `GET /health`, `GET /catalog/**`, `POST /admin/import/scryfall`            |
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`      |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                    |
+| `src/import/`                | Catalog importers (Scryfall); see Importers                                        |
+| `src/workflows/`             | Cloudflare Workflows that run the importers                                        |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`         |
 
 Request and response schemas (Zod) live in `packages/shared/src/api` and are imported from
@@ -26,12 +28,30 @@ Request and response schemas (Zod) live in `packages/shared/src/api` and are imp
 
 `packages/core/src/platform` defines `CardStore`, `BlobStore`, `VectorIndex` and `JobQueue`.
 The Cloudflare implementations live in `src/platform/cloudflare`: `DrizzleCardStore`
-(`drizzle-card-store.ts`, PostgreSQL via Hyperdrive) and `R2BlobStore` (`r2-blob-store.ts`, the
-`CATALOG` bucket). `VectorIndex` (VB-37) and `JobQueue` (VB-26) are interfaces only so far.
+(`drizzle-card-store.ts`, PostgreSQL via Hyperdrive), `R2BlobStore` (`r2-blob-store.ts`, the
+`CATALOG` bucket) and `WorkflowJobQueue` (`workflow-job-queue.ts`, a job type per Workflow
+binding). `VectorIndex` (VB-37) is an interface only so far.
 
 `createPlatform(env)` opens two per-request pools: one on `HYPERDRIVE` (caching disabled, for
 everything) and one on `HYPERDRIVE_CACHED` (reads cached up to 300 s, for the catalog and price
-stores only, ADR 0004). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
+stores only, ADR 0004: `DrizzleCardStore` runs `ping` on the first and every catalog read on the
+second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
+
+## Catalog API
+
+| Route                                                             | Answer                                                           |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `GET /catalog/games`                                              | Games with their set counts                                      |
+| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                      |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity) |
+| `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations              |
+| `GET /catalog/prints/:id`                                         | One print with its card                                          |
+
+Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
+image is in R2 (VB-57) and the source's URL until then. Every 200 carries
+`Cache-Control: public, max-age=60, s-maxage=600` and an `ETag` of `catalog_version` plus a hash of
+the body (`src/middleware/catalog-cache.ts`); `If-None-Match` answers 304. The queries use no
+`now()` or other non-immutable function, so Hyperdrive can cache them.
 
 ## Local development
 
@@ -45,8 +65,8 @@ curl localhost:8787/health        # {"status":"ok","db":"ok","version":"local"}
 
 `wrangler dev` uses the top level of `wrangler.jsonc`: both Hyperdrive bindings point at
 `localConnectionString` (no caching locally) and R2 is simulated under `.wrangler/state`. To
-override a var locally, `cp .dev.vars.example .dev.vars` and edit it (gitignored). The API needs
-no secrets yet.
+override a var locally, `cp .dev.vars.example .dev.vars` and edit it (gitignored); it also holds
+the local `ADMIN_TOKEN`.
 
 ## Tests
 
@@ -56,8 +76,11 @@ DATABASE_URL=postgres://voidbinder:voidbinder@localhost:5434/voidbinder pnpm --f
 ```
 
 Two Vitest projects: `unit` (`src/**/*.test.ts`, Node) runs the app through `createApp` with
-fakes, the typed client against the in-memory app, and, when `DATABASE_URL` is set, the
-migrations and `DrizzleCardStore.ping()` against Postgres. `worker` (`test/`, workerd via
+fakes, the typed client against the in-memory app, the Scryfall mapping on the fixtures in
+`test/fixtures/scryfall/` (real Scryfall objects, no network), and, when `DATABASE_URL` is set, the
+migrations, the import pipeline and the catalog routes against Postgres. Tests that write the
+catalog each create their own database on that server (`freshDatabase()` in
+`src/test-helpers.ts`) and drop it afterwards, so the user needs `CREATEDB`. `worker` (`test/`, workerd via
 `@cloudflare/vitest-plugin`) runs the real Worker with the bindings of `wrangler.jsonc`: the R2
 blob store always, `/health` through Hyperdrive when `DATABASE_URL` is set. CI runs both with a
 Postgres service.
@@ -86,6 +109,76 @@ unset PGPW
 ```
 
 Migrate before deploying code that needs the new schema.
+
+## Importers
+
+### Scryfall (Magic)
+
+`src/import/scryfall/` imports Scryfall's bulk data; it is the pattern for the Yu-Gi-Oh! and
+Pokémon importers. `pipeline.ts` runs these steps, each retried on its own:
+
+1. `start run`: a row in `import_runs` (`running`).
+2. `bulk index`: `GET https://api.scryfall.com/bulk-data` for today's file URLs.
+3. `download default_cards` / `download all_cards`: the gzip JSON Lines files stream unchanged
+   into R2 (`all_cards` only when `SCRYFALL_LANGUAGES` lists more than `en`).
+4. `split …`: each raw file is read back from R2, decompressed as a stream and written as chunks
+   of 2000 lines (`all_cards`: only the lines in the wanted languages).
+5. `sets`: `GET /sets` (raw copy in R2) → `sets` and `set_localizations` (`en`).
+6. `cards 00000` … one step per chunk: cards, prints and the print's own-language localization,
+   upserted in transactions of 500 objects; then `localizations 00000` … for the other languages.
+7. `finish run`: `import_runs` → `ok` with the counts in `stats`, and `catalog_version` + 1, in one
+   transaction; a retried step finds the run no longer `running` and bumps nothing. A failure
+   before that marks the still running run `failed` and leaves `catalog_version` alone.
+8. `clean up chunks` deletes the run's chunks. It runs after the run is finished: when it fails, the
+   chunks stay (and a warning is logged), the run stays `ok`.
+
+Rows are upserted on their unique keys and only written when the hash of the mapped payload
+(`source_hash`) changed, so a re-run with the same data touches nothing. Some prints of a card
+carry its faces and others do not (Omen cards): the card is written from the print with the most
+faces, and a batch never replaces stored faces with fewer, so the print order does not matter. Skipped: tokens, emblems,
+art series, digital-only cards and sets, token sets. Reversible cards map to the card of their front
+face. Old School legality is per print at Scryfall and is not kept on the card.
+
+R2 layout (bucket `voidbinder-catalog`, shared by all environments; `<env>` is the `IMPORT_ENV`
+var: `local` for `wrangler dev`, `dev`, `prod`):
+
+| Key                                                        | What                                        |
+| ---------------------------------------------------------- | ------------------------------------------- |
+| `raw/<env>/scryfall/<date>/default_cards.jsonl.gz`         | Raw bulk file as downloaded, kept           |
+| `raw/<env>/scryfall/<date>/all_cards.jsonl.gz`             | Raw bulk file as downloaded, kept           |
+| `raw/<env>/scryfall/<date>/sets.json`                      | Raw `GET /sets` answer, kept                |
+| `work/<env>/scryfall/<run id>/{default,all}_cards/*.jsonl` | Chunks of one run, deleted when it succeeds |
+
+The Workflow `src/workflows/scryfall-import.ts` (binding `SCRYFALL_IMPORT`) wraps every step in
+`step.do` (3 retries with exponential backoff, 30 min timeout). Completed steps are never run again
+within an instance, so after a failed step the instance continues where it stopped, and a
+restarted Worker resumes the instance at the first unfinished step. Step results are small counts
+(Workflows keeps at most 1 MiB per step); a run has about 100 steps (limit 10,000). Splitting the
+2 GB `all_cards` dump in one step needs more than the default 30 s of CPU, hence `limits.cpu_ms`
+300000 in `wrangler.jsonc`. That limit is Worker-wide: it applies to every request and cron of the
+API too, not only to the Workflow. After the first run on `dev`, check the CPU time of the
+`split all_cards` step in the dashboard (Workflows → instance → step); if it is near the limit,
+split the file in more than one step.
+
+It starts daily (cron trigger: prod 03:00 UTC, dev 04:30 UTC; instance id `scryfall-<date>`, so
+one per day) and on `POST /admin/import/scryfall` with `Authorization: Bearer $ADMIN_TOKEN`. That
+answers 202, or 409 `{"error":{"code":"import_running"}}` while a Scryfall run in `import_runs` is
+`running` and started less than 6 h ago (an older one is taken as dead). The Workflow reaches the
+bindings only through `scryfallImportDeps(env)` and `startScryfallImport(env, id?)` in
+`src/platform/cloudflare/`.
+
+Locally (Docker Postgres migrated, `.dev.vars` from the example):
+
+```sh
+pnpm --filter api dev
+curl -X POST -H 'Authorization: Bearer local-dev-admin-token' localhost:8787/admin/import/scryfall
+```
+
+`wrangler dev` runs the Workflow in-process and simulates R2 under `.wrangler/state`; the run takes
+about 90 s and its result is in `import_runs`. On `dev` the orchestrator triggers it the same way
+against `https://voidbinder-api-dev.frisson.workers.dev` with the deployed token; the instance and
+its steps show in the dashboard or with
+`pnpm exec wrangler workflows instances list voidbinder-scryfall-import-dev`.
 
 ## Deploy
 
