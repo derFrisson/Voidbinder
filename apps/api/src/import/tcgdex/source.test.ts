@@ -70,12 +70,12 @@ describe('TcgdexClient', () => {
     const starts: number[] = [];
     const client = new TcgdexClient(async () => (starts.push(Date.now()), json({})), {
       ...fast,
-      intervalMs: 25,
+      intervalMs: 40,
     });
     await Promise.all(Array.from({ length: 5 }, () => client.get('/en/sets')));
     const gaps = starts.slice(1).map((t, i) => t - (starts[i] ?? 0));
     // Timers may fire a millisecond early; the point is that no gap is near zero.
-    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(20);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(30);
   });
 });
 
