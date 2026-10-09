@@ -9,6 +9,7 @@ export const GET: APIRoute = ({ request }) => {
   const locale = negotiateLocale(request.headers.get('accept-language'));
   return new Response(null, {
     status: 302,
-    headers: { Location: `/${locale}/`, Vary: 'Accept-Language' },
+    // Cloudflare's cache ignores Vary, so a cached redirect would send everyone to one locale.
+    headers: { Location: `/${locale}/`, Vary: 'Accept-Language', 'Cache-Control': 'no-store' },
   });
 };
