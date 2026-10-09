@@ -1,13 +1,17 @@
-import { and, eq, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
+import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { importRuns, printLocalizations, prints, sets } from '../db/schema';
 import { USER_AGENT, type Fetch } from './scryfall/source';
 
 // The card image mirror (VB-57): copies every print's source image into R2 under
-// images/<game>/<printId>/<lang>/{orig.<ext>,sm.webp} and writes the key into `image_key`. The
-// bulk load runs as a Node script on the database VPS (scripts/mirror-images.ts, S3 API + sharp);
-// the daily delta runs as the last step of each import Workflow (R2 binding + Images binding).
-// Only the transport differs: both call `mirrorImages` with their own `MirrorDeps`.
+// images/<game>/<source id>/<lang>/{orig.<ext>,sm.webp} and writes the key into `image_key`. The
+// source id is the source's stable id, so dev and prod share the objects. The bulk load and the
+// nightly catch-up run as a Node script on the database VPS (scripts/mirror-images.ts, S3 API +
+// sharp, `orig` and `sm`); the daily delta runs as the last step of each import Workflow (R2
+// binding, `orig` only). Only the transport differs: both call `mirrorImages`.
+//
+// `image_key` is the `sm` key once that copy exists and the `orig` key until then, so the API
+// serves the small copy when there is one without asking R2 (`hasSm`).
 
 export type ImageSize = 'orig' | 'sm';
 /** Width of the `sm` copy; same aspect ratio, never enlarged. */
@@ -25,13 +29,16 @@ const CONTENT_TYPES: Record<string, string> = {
 
 export function imageKey(
   game: string,
-  printId: string,
+  sourceId: string,
   lang: string,
   size: ImageSize,
   ext: string,
 ): string {
-  return `images/${game}/${printId}/${lang}/${size}.${ext}`;
+  return `images/${game}/${sourceId}/${lang}/${size}.${ext}`;
 }
+
+/** Whether an `image_key` names the `sm` copy (and so the `orig` next to it exists too). */
+export const hasSm = (key: string): boolean => key.endsWith('/sm.webp');
 
 /** File extension of an image URL's path (`jpg`, `png`, `webp`), null for anything else. */
 export function extension(url: string): string | null {
@@ -40,20 +47,29 @@ export function extension(url: string): string | null {
   return norm && norm in CONTENT_TYPES ? norm : null;
 }
 
-/** The `external_ids` keys that hold source image URLs, the only ones the mirror reads. */
-export const IMAGE_ID_FIELDS = ['scryfall_images', 'image_url', 'tcgdex_images'] as const;
+/** The `external_ids` keys the mirror reads: the source image URLs and the source ids. */
+export const IMAGE_ID_FIELDS = [
+  'scryfall',
+  'scryfall_images',
+  'image_url',
+  'tcgdex',
+  'tcgdex_images',
+] as const;
 
 const https = (v: unknown) => (typeof v === 'string' && v.startsWith('https://') ? v : null);
 
 /**
  * The URL of the image to mirror from a print's or localization's `external_ids`, null when it
- * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, never its "missing image"
- * placeholder; YGOPRODeck `image_url`; TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, only for a high-res scan
+ * (`highres_image`; a low-res or placeholder image stays keyless, so the API keeps Scryfall's URL
+ * until a later run finds the scan) and never its "missing image" placeholder; YGOPRODeck
+ * `image_url`; TCGdex `tcgdex_images.high` (`<image>/high.webp`).
  */
 export function sourceUrl(game: string, ids: Record<string, unknown>): string | null {
   switch (game) {
     case 'mtg': {
       const uris = (ids.scryfall_images ?? {}) as Record<string, unknown>;
+      if (uris.highres_image !== true) return null;
       const url = https(uris.large) ?? https(uris.normal) ?? https(uris.png);
       return url && new URL(url).hostname !== 'errors.scryfall.com' ? url : null;
     }
@@ -64,6 +80,26 @@ export function sourceUrl(game: string, ids: Record<string, unknown>): string | 
     default:
       return null;
   }
+}
+
+const SAFE_ID = /^[A-Za-z0-9._-]+$/;
+
+/**
+ * The source's stable id that names an image's objects: the Scryfall card id; for YGOPRODeck the
+ * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it);
+ * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`).
+ */
+export function sourceId(game: string, ids: Record<string, unknown>, url: string): string | null {
+  const path = new URL(url).pathname.split('/');
+  const id =
+    game === 'mtg'
+      ? ids.scryfall
+      : game === 'yugioh'
+        ? path.at(-1)?.replace(/\.[^.]*$/, '')
+        : game === 'pokemon'
+          ? (ids.tcgdex ?? (path.length >= 4 ? `${path.at(-3)}-${path.at(-2)}` : null))
+          : null;
+  return typeof id === 'string' && SAFE_ID.test(id) ? id : null;
 }
 
 export interface Clock {
@@ -117,12 +153,16 @@ export interface ImageJob {
   url: string;
   keys: Record<ImageSize, string>;
   contentType: string;
+  /** A target already has the `orig` key: read it from the bucket instead of the source. */
+  stored: boolean;
   targets: ImageTarget[];
 }
 
 export interface PendingRow extends ImageTarget {
   game: string;
   ids: Record<string, unknown>;
+  /** The row's current `image_key` (an `orig` key when only the `sm` copy is missing). */
+  key: string | null;
 }
 
 /**
@@ -132,26 +172,28 @@ export interface PendingRow extends ImageTarget {
 export function planJobs(rows: PendingRow[]): { jobs: ImageJob[]; noSource: number } {
   const byUrl = new Map<string, ImageJob>();
   let noSource = 0;
-  for (const { game, ids, ...target } of rows) {
+  for (const { game, ids, key: current, ...target } of rows) {
     const url = sourceUrl(game, ids);
     const ext = url && extension(url);
-    if (!url || !ext) {
+    const id = url && sourceId(game, ids, url);
+    if (!url || !ext || !id) {
       noSource++;
       continue;
     }
     let job = byUrl.get(url);
     if (!job) {
-      const key = (size: ImageSize, e: string) =>
-        imageKey(game, target.printId, target.lang, size, e);
+      const key = (size: ImageSize, e: string) => imageKey(game, id, target.lang, size, e);
       job = {
         game,
         url,
         keys: { orig: key('orig', ext), sm: key('sm', 'webp') },
         contentType: CONTENT_TYPES[ext] ?? 'application/octet-stream',
+        stored: false,
         targets: [],
       };
       byUrl.set(url, job);
     }
+    if (current === job.keys.orig) job.stored = true;
     job.targets.push(target);
   }
   return { jobs: [...byUrl.values()], noSource };
@@ -167,9 +209,14 @@ export interface MirrorDeps {
       options: { contentType: string; cacheControl: string },
     ): Promise<unknown>;
     head(key: string): Promise<unknown>;
+    /** An object's bytes, null when missing (the `sm` catch-up reads `orig` from the bucket). */
+    read?(key: string): Promise<Uint8Array | null>;
   };
-  /** The `sm` copy: SM_WIDTH px wide (never enlarged), WebP. */
-  resize(body: Uint8Array): Promise<Uint8Array>;
+  /**
+   * The `sm` copy: SM_WIDTH px wide (never enlarged), WebP. Only the VPS script has it (sharp);
+   * without it only `orig` is stored and the row gets the `orig` key.
+   */
+  resize?(body: Uint8Array): Promise<Uint8Array>;
   log(level: 'info' | 'warn', fields: Record<string, unknown>): void;
   clock?: Clock;
 }
@@ -193,15 +240,16 @@ export interface MirrorStats {
 export class SourceRateLimited extends Error {}
 
 /**
- * Downloads and stores each job's image, calling `done` once its objects exist. A failed image is
- * logged and counted and its rows keep no key, so the next run retries it; a 429 aborts the run
- * (YGOPRODeck blocks an IP for an hour after one).
+ * Downloads and stores each job's image, calling `done` with the key to write once its objects
+ * exist. A failed image is logged and counted and its rows keep their key, so the next run
+ * retries it; a 429 aborts the run (YGOPRODeck blocks an IP for an hour after one). On an abort
+ * the other workers finish their current image (and its `done`) before the first error is thrown.
  */
 export async function mirrorJobs(
   deps: MirrorDeps,
   jobs: ImageJob[],
   opts: MirrorOptions,
-  done: (job: ImageJob) => Promise<void>,
+  done: (job: ImageJob, key: string) => Promise<void>,
 ): Promise<MirrorStats> {
   const clock = deps.clock ?? realClock;
   const buckets = new Map<string, TokenBucket>();
@@ -213,10 +261,11 @@ export async function mirrorJobs(
   const stats: MirrorStats = { images: jobs.length, uploaded: 0, reused: 0, failed: 0, bytes: 0 };
   const started = clock.now();
   let next = 0;
+  let finished = 0;
   let aborted = false;
 
   const progress = () => {
-    const n = stats.uploaded + stats.reused + stats.failed;
+    const n = ++finished;
     if (n % 500 === 0 || n === jobs.length)
       deps.log('info', {
         message: 'image mirror progress',
@@ -226,17 +275,7 @@ export async function mirrorJobs(
       });
   };
 
-  const one = async (job: ImageJob) => {
-    if (opts.verify) {
-      const [orig, sm] = await Promise.all([
-        deps.store.head(job.keys.orig),
-        deps.store.head(job.keys.sm),
-      ]);
-      if (orig && sm) {
-        stats.reused++;
-        return;
-      }
-    }
+  const download = async (job: ImageJob) => {
     await bucket(job.game).take();
     const res = await deps.fetch(job.url, { headers: { 'User-Agent': USER_AGENT } });
     if (!res.ok) {
@@ -248,22 +287,48 @@ export async function mirrorJobs(
     const type = res.headers.get('content-type')?.split(';')[0]?.trim();
     if (type && !type.startsWith('image/')) throw new Error(`content type ${type}`);
     const body = new Uint8Array(await res.arrayBuffer());
-    const sm = await deps.resize(body);
-    const cacheControl = IMAGE_CACHE_CONTROL;
-    await Promise.all([
-      deps.store.put(job.keys.orig, body, { contentType: type ?? job.contentType, cacheControl }),
-      deps.store.put(job.keys.sm, sm, { contentType: 'image/webp', cacheControl }),
-    ]);
+    await deps.store.put(job.keys.orig, body, {
+      contentType: type ?? job.contentType,
+      cacheControl: IMAGE_CACHE_CONTROL,
+    });
+    stats.bytes += body.byteLength;
+    return body;
+  };
+
+  /** Stores the job's objects and answers the key its rows get. */
+  const one = async (job: ImageJob): Promise<string> => {
+    const key = deps.resize ? job.keys.sm : job.keys.orig;
+    if (opts.verify) {
+      const [orig, sm] = await Promise.all([
+        deps.store.head(job.keys.orig),
+        deps.resize ? deps.store.head(job.keys.sm) : true,
+      ]);
+      if (orig && sm) {
+        stats.reused++;
+        return key;
+      }
+    }
+    const stored = job.stored && deps.store.read ? await deps.store.read(job.keys.orig) : null;
+    const body = stored ?? (await download(job));
+    if (deps.resize) {
+      const sm = await deps.resize(body);
+      await deps.store.put(job.keys.sm, sm, {
+        contentType: 'image/webp',
+        cacheControl: IMAGE_CACHE_CONTROL,
+      });
+      stats.bytes += sm.byteLength;
+    }
     stats.uploaded++;
-    stats.bytes += body.byteLength + sm.byteLength;
+    return key;
   };
 
   const worker = async () => {
     while (!aborted && next < jobs.length) {
       const job = jobs[next++] as ImageJob;
       try {
+        let key: string;
         try {
-          await one(job);
+          key = await one(job);
         } catch (err) {
           if (err instanceof SourceRateLimited) throw err;
           stats.failed++;
@@ -271,16 +336,20 @@ export async function mirrorJobs(
           progress();
           continue;
         }
-        await done(job);
+        await done(job, key);
       } catch (err) {
-        // A 429 or a failed key write stops every worker.
+        // A 429 or a failed key write stops every worker after its current image.
         aborted = true;
         throw err;
       }
       progress();
     }
   };
-  await Promise.all(Array.from({ length: Math.max(1, opts.concurrency) }, worker));
+  const results = await Promise.allSettled(
+    Array.from({ length: Math.max(1, opts.concurrency) }, worker),
+  );
+  const failed = results.find((r) => r.status === 'rejected');
+  if (failed) throw failed.reason;
   return stats;
 }
 
@@ -288,10 +357,10 @@ export type Db = NodePgDatabase;
 
 export interface PendingQuery {
   game?: string | undefined;
-  /** Rows (a print or a localization) to read at most. */
+  /** Rows (a print or a localization) to read at most, the oldest prints first. */
   limit?: number | undefined;
-  /** Only prints created since this import run started (the daily delta). */
-  sinceRun?: string | undefined;
+  /** Also the rows that have only the `orig` copy (needs `MirrorDeps.resize`). */
+  sm?: boolean | undefined;
 }
 
 const imageIds = (column: SQLWrapper) =>
@@ -300,38 +369,39 @@ const imageIds = (column: SQLWrapper) =>
     sql`, `,
   )})`;
 
+const needsWork = (key: SQLWrapper, sm: boolean | undefined) =>
+  sm ? sql`(${key} is null or ${key} not like '%/sm.webp')` : sql`${key} is null`;
+
 /**
- * Prints and localizations without `image_key`, oldest print first, the print before its
- * localizations. Only the image fields of `external_ids` are read, which keeps a full run of
- * every Magic print in memory small.
+ * Prints and localizations without `image_key` (with `sm`, also those with only the `orig`
+ * copy), oldest print first, the print before its localizations: a capped run drains the backlog
+ * from the oldest end. Only the image fields of `external_ids` are read, which keeps a full run
+ * of every Magic print in memory small.
  */
 export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]> {
-  const filters: SQL[] = [];
-  if (q.game) filters.push(sql`${sets.gameId} = ${q.game}`);
-  if (q.sinceRun)
-    filters.push(
-      sql`${prints.createdAt} >= (select ${importRuns.startedAt} from ${importRuns} where ${importRuns.id} = ${q.sinceRun})`,
-    );
-  const where = filters.length ? sql` and ${sql.join(filters, sql` and `)}` : sql``;
+  const where = q.game ? sql` and ${sets.gameId} = ${q.game}` : sql``;
   const result = await db.execute<{
     print_id: string;
     lang: string;
     t: number;
     game: string;
     ids: Record<string, unknown>;
+    key: string | null;
   }>(sql`
-    select print_id, lang, t, game, ids from (
+    select print_id, lang, t, game, ids, key from (
       select ${prints.id} as print_id, 'en' as lang, 0 as t, ${sets.gameId} as game,
-        ${imageIds(prints.externalIds)} as ids, ${prints.createdAt} as created_at
+        ${imageIds(prints.externalIds)} as ids, ${prints.imageKey} as key,
+        ${prints.createdAt} as created_at
       from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
-      where ${prints.imageKey} is null${where}
+      where ${needsWork(prints.imageKey, q.sm)}${where}
       union all
       select ${printLocalizations.printId}, ${printLocalizations.lang}, 1, ${sets.gameId},
-        ${imageIds(printLocalizations.externalIds)}, ${prints.createdAt}
+        ${imageIds(printLocalizations.externalIds)}, ${printLocalizations.imageKey},
+        ${prints.createdAt}
       from ${printLocalizations}
         join ${prints} on ${prints.id} = ${printLocalizations.printId}
         join ${sets} on ${sets.id} = ${prints.setId}
-      where ${printLocalizations.imageKey} is null${where}
+      where ${needsWork(printLocalizations.imageKey, q.sm)}${where}
     ) r
     order by created_at, print_id, t, lang
     ${q.limit ? sql`limit ${q.limit}` : sql``}`);
@@ -341,10 +411,11 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
     lang: r.lang,
     game: r.game,
     ids: r.ids,
+    key: r.key,
   }));
 }
 
-/** Sets `image_key` on rows that still have none (a concurrent run's key is kept). */
+/** Sets `image_key` on rows without one; an `sm` key also replaces an `orig` key. */
 export async function writeKeys(db: Db, rows: (ImageTarget & { key: string })[]) {
   const json = (table: ImageTarget['table']) =>
     JSON.stringify(
@@ -352,15 +423,17 @@ export async function writeKeys(db: Db, rows: (ImageTarget & { key: string })[])
         .filter((r) => r.table === table)
         .map(({ printId, lang, key }) => ({ id: printId, lang, key })),
     );
+  const replaceable = (key: SQLWrapper) =>
+    sql`(${key} is null or (v.key like '%/sm.webp' and ${key} not like '%/sm.webp'))`;
   await db.execute(sql`
     update ${prints} set image_key = v.key
     from jsonb_to_recordset(${json('prints')}::jsonb) as v(id uuid, lang text, key text)
-    where ${prints.id} = v.id and ${prints.imageKey} is null`);
+    where ${prints.id} = v.id and ${replaceable(prints.imageKey)}`);
   await db.execute(sql`
     update ${printLocalizations} set image_key = v.key
     from jsonb_to_recordset(${json('print_localizations')}::jsonb) as v(id uuid, lang text, key text)
     where ${printLocalizations.printId} = v.id and ${printLocalizations.lang} = v.lang
-      and ${printLocalizations.imageKey} is null`);
+      and ${replaceable(printLocalizations.imageKey)}`);
 }
 
 export interface MirrorRunStats extends MirrorStats {
@@ -372,12 +445,42 @@ export interface MirrorRunStats extends MirrorStats {
 /** Keys written per database round trip. */
 const KEY_BATCH = 500;
 
+/** Another mirror holds the database's lock. */
+export class MirrorBusy extends Error {}
+
 /**
  * One mirror run: the pending rows of `query`, grouped by source URL, mirrored, the keys written
  * back in batches. Records an `import_runs` row (source and kind `images`) unless `dryRun`, which
  * only reads and plans. Idempotent: a rerun picks up the rows that still have no key.
+ *
+ * One run per database at a time: the run holds `pg_try_advisory_xact_lock(hashtext(
+ * 'image-mirror'))` in a transaction of its own and throws `MirrorBusy` when another run has it.
+ * Transaction-scoped, because Hyperdrive pools in transaction mode and cannot keep a session lock;
+ * a dropped connection releases it.
  */
 export async function mirrorImages(
+  deps: MirrorDeps,
+  db: Db,
+  query: PendingQuery,
+  opts: MirrorOptions & { dryRun?: boolean },
+): Promise<MirrorRunStats> {
+  if (query.sm && !deps.resize) throw new Error('the sm catch-up needs MirrorDeps.resize');
+  if (opts.dryRun) return mirrorRun(deps, db, query, opts);
+  return db.transaction(async (tx) => {
+    // The lock's transaction sits idle while the run works on other connections.
+    await tx.execute(sql`set local idle_in_transaction_session_timeout = 0`);
+    const { rows } = await tx.execute<{ ok: boolean }>(
+      sql`select pg_try_advisory_xact_lock(hashtext('image-mirror')) as ok`,
+    );
+    if (!rows[0]?.ok)
+      throw new MirrorBusy(
+        'another image mirror is running on this database; wait for it to finish',
+      );
+    return mirrorRun(deps, db, query, opts);
+  });
+}
+
+async function mirrorRun(
   deps: MirrorDeps,
   db: Db,
   query: PendingQuery,
@@ -414,8 +517,8 @@ export async function mirrorImages(
   try {
     let stats: MirrorStats;
     try {
-      stats = await mirrorJobs(deps, jobs, opts, async (job) => {
-        pending.push(...job.targets.map((t) => ({ ...t, key: job.keys.orig })));
+      stats = await mirrorJobs(deps, jobs, opts, async (job, key) => {
+        pending.push(...job.targets.map((t) => ({ ...t, key })));
         if (pending.length >= KEY_BATCH) await flush();
       });
     } finally {

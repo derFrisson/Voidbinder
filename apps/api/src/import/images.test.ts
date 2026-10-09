@@ -1,16 +1,19 @@
-import { eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
+import { eq, isNotNull, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { importRuns, printLocalizations, prints } from '../db/schema';
 import { databaseUrl, freshDatabase } from '../test-helpers';
 import {
   extension,
+  hasSm,
   imageKey,
   IMAGE_CACHE_CONTROL,
   mirrorImages,
+  MirrorBusy,
   mirrorJobs,
   pendingRows,
   planJobs,
   SourceRateLimited,
+  sourceId,
   sourceUrl,
   TokenBucket,
   type Clock,
@@ -25,14 +28,19 @@ const ID = '0b5b6e3c-5c2e-4f3a-9d8c-1a2b3c4d5e6f';
 
 describe('imageKey', () => {
   it.each([
-    ['mtg', 'en', 'orig', 'jpg', `images/mtg/${ID}/en/orig.jpg`],
-    ['mtg', 'de', 'sm', 'webp', `images/mtg/${ID}/de/sm.webp`],
-    ['pokemon', 'de', 'orig', 'webp', `images/pokemon/${ID}/de/orig.webp`],
-    ['pokemon', 'en', 'sm', 'webp', `images/pokemon/${ID}/en/sm.webp`],
-    ['yugioh', 'en', 'orig', 'jpg', `images/yugioh/${ID}/en/orig.jpg`],
-    ['onepiece', 'ja', 'orig', 'png', `images/onepiece/${ID}/ja/orig.png`],
-  ] as const)('%s %s %s', (game, lang, size, ext, key) => {
-    expect(imageKey(game, ID, lang, size, ext)).toBe(key);
+    ['mtg', ID, 'en', 'orig', 'jpg', `images/mtg/${ID}/en/orig.jpg`],
+    ['mtg', ID, 'de', 'sm', 'webp', `images/mtg/${ID}/de/sm.webp`],
+    ['pokemon', 'swsh3-136', 'de', 'orig', 'webp', 'images/pokemon/swsh3-136/de/orig.webp'],
+    ['pokemon', 'swsh3-136', 'en', 'sm', 'webp', 'images/pokemon/swsh3-136/en/sm.webp'],
+    ['yugioh', '46986414', 'en', 'orig', 'jpg', 'images/yugioh/46986414/en/orig.jpg'],
+    ['onepiece', 'OP01-001', 'ja', 'orig', 'png', 'images/onepiece/OP01-001/ja/orig.png'],
+  ] as const)('%s %s %s %s', (game, id, lang, size, ext, key) => {
+    expect(imageKey(game, id, lang, size, ext)).toBe(key);
+  });
+
+  it('tells an sm key from an orig key', () => {
+    expect(hasSm(`images/mtg/${ID}/en/sm.webp`)).toBe(true);
+    expect(hasSm(`images/mtg/${ID}/en/orig.jpg`)).toBe(false);
   });
 });
 
@@ -43,22 +51,43 @@ describe('sourceUrl', () => {
       normal: 'https://cards.scryfall.io/normal/front/a/b/ab.jpg?1',
       large: 'https://cards.scryfall.io/large/front/a/b/ab.jpg?1',
       png: 'https://cards.scryfall.io/png/front/a/b/ab.png?1',
+      highres_image: true,
+      image_status: 'highres_scan',
     },
   };
+  const highres = { highres_image: true };
 
   it('takes Scryfall large, then normal, then png', () => {
     expect(sourceUrl('mtg', scryfall)).toBe('https://cards.scryfall.io/large/front/a/b/ab.jpg?1');
     const { normal, png } = scryfall.scryfall_images;
-    expect(sourceUrl('mtg', { scryfall_images: { normal, png } })).toBe(normal);
-    expect(sourceUrl('mtg', { scryfall_images: { png } })).toBe(png);
+    expect(sourceUrl('mtg', { scryfall_images: { normal, png, ...highres } })).toBe(normal);
+    expect(sourceUrl('mtg', { scryfall_images: { png, ...highres } })).toBe(png);
     expect(sourceUrl('mtg', { scryfall: 'abc' })).toBeNull();
+  });
+
+  it('waits for a Scryfall high-res scan', () => {
+    const lowres = {
+      ...scryfall,
+      scryfall_images: {
+        ...scryfall.scryfall_images,
+        highres_image: false,
+        image_status: 'lowres',
+      },
+    };
+    expect(sourceUrl('mtg', lowres)).toBeNull();
+    const unknown = { ...scryfall.scryfall_images, highres_image: undefined };
+    expect(sourceUrl('mtg', { scryfall_images: unknown })).toBeNull();
   });
 
   it("skips Scryfall's missing-image placeholder and non-https URLs", () => {
     expect(
-      sourceUrl('mtg', { scryfall_images: { large: 'https://errors.scryfall.com/soon.jpg' } }),
+      sourceUrl('mtg', {
+        scryfall_images: { large: 'https://errors.scryfall.com/soon.jpg', ...highres },
+      }),
     ).toBeNull();
-    expect(sourceUrl('mtg', { scryfall_images: { large: 'http://x.test/a.jpg' } })).toBeNull();
+    expect(
+      sourceUrl('mtg', { scryfall_images: { large: 'http://x.test/a.jpg', ...highres } }),
+    ).toBeNull();
   });
 
   it('takes YGOPRODeck image_url', () => {
@@ -85,6 +114,20 @@ describe('sourceUrl', () => {
     expect(extension('https://x.test/a.webp')).toBe('webp');
     expect(extension('https://x.test/a.gif')).toBeNull();
     expect(extension('https://x.test/a')).toBeNull();
+  });
+});
+
+describe('sourceId', () => {
+  it("names the objects after the source's stable id", () => {
+    const large = `https://cards.scryfall.io/large/front/0/b/${ID}.jpg?1`;
+    expect(sourceId('mtg', { scryfall: ID }, large)).toBe(ID);
+    expect(sourceId('mtg', {}, large)).toBeNull();
+    const ygo = 'https://images.ygoprodeck.com/images/cards/46986414.jpg';
+    expect(sourceId('yugioh', { ygoprodeck: 1, set_code: 'LOB-EN005' }, ygo)).toBe('46986414');
+    const tcgdex = 'https://assets.tcgdex.net/de/swsh/swsh3/136/high.webp';
+    expect(sourceId('pokemon', { tcgdex: 'swsh3-136' }, tcgdex)).toBe('swsh3-136');
+    expect(sourceId('pokemon', {}, tcgdex)).toBe('swsh3-136');
+    expect(sourceId('mtg', { scryfall: '../x' }, large)).toBeNull();
   });
 });
 
@@ -132,48 +175,87 @@ describe('TokenBucket', () => {
   });
 });
 
-const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+/** A promise to resolve from outside. */
+function deferred() {
+  let resolve = (): void => undefined;
+  const promise = new Promise<undefined>((r) => (resolve = () => r(undefined)));
+  return { promise, resolve };
+}
 
-function fakeDeps(store = new MemoryBlobStore(), status = 200) {
+const JPEG = new Uint8Array([0xff, 0xd8, 0xff, 0xd9]);
+const SM = new Uint8Array([1, 2, 3]);
+
+/** Mirror deps on a memory store; `resize` (the VPS script) unless `orig` only (the Worker). */
+function fakeDeps(opts: { status?: number; resize?: boolean; fetch?: MirrorDeps['fetch'] } = {}) {
+  const store = new MemoryBlobStore();
   const fetched: string[] = [];
+  const logs: Record<string, unknown>[] = [];
   const deps: MirrorDeps = {
-    fetch: async (url) => {
+    fetch: async (url, init) => {
       fetched.push(url);
+      if (opts.fetch) return opts.fetch(url, init);
+      const status = opts.status ?? 200;
       return new Response(status === 200 ? JPEG : null, {
         status,
         headers: { 'content-type': 'image/jpeg' },
       });
     },
-    store,
-    resize: async () => new Uint8Array([1, 2, 3]),
-    log: () => undefined,
+    store: {
+      put: (key, body, o) => store.put(key, body, o),
+      head: (key) => store.head(key),
+      read: async (key) => store.objects.get(key)?.bytes ?? null,
+    },
+    ...(opts.resize !== false && { resize: async () => SM }),
+    log: (_level, fields) => logs.push(fields),
     clock: fakeClock(),
   };
-  return { deps, store, fetched };
+  return { deps, store, fetched, logs };
 }
 
-const job = (n: number): ImageJob => ({
+const job = (n: number, stored = false): ImageJob => ({
   game: 'mtg',
   url: `https://cards.scryfall.io/large/${n}.jpg`,
   keys: { orig: `images/mtg/${n}/en/orig.jpg`, sm: `images/mtg/${n}/en/sm.webp` },
   contentType: 'image/jpeg',
+  stored,
   targets: [{ table: 'prints', printId: String(n), lang: 'en' }],
 });
 
+const run = async (deps: MirrorDeps, jobs: ImageJob[], concurrency = 1, verify = false) => {
+  const done: [string, string][] = [];
+  const stats = await mirrorJobs(deps, jobs, { concurrency, verify }, async (j, key) => {
+    done.push([j.url, key]);
+  });
+  return { stats, done };
+};
+
 describe('mirrorJobs', () => {
-  it('stores orig and sm with immutable cache headers', async () => {
+  it('stores orig and sm with immutable cache headers and answers the sm key', async () => {
     const { deps, store } = fakeDeps();
-    const done: ImageJob[] = [];
-    const stats = await mirrorJobs(deps, [job(1)], { concurrency: 2, verify: false }, async (j) => {
-      done.push(j);
-    });
+    const { stats, done } = await run(deps, [job(1)], 2);
     expect(stats).toMatchObject({ images: 1, uploaded: 1, reused: 0, failed: 0 });
-    expect(done).toHaveLength(1);
+    expect(done).toEqual([[job(1).url, 'images/mtg/1/en/sm.webp']]);
     expect(store.objects.get('images/mtg/1/en/orig.jpg')?.bytes).toEqual(JPEG);
     expect(store.objects.get('images/mtg/1/en/sm.webp')?.info.contentType).toBe('image/webp');
     expect(store.objects.get('images/mtg/1/en/orig.jpg')?.info.contentType).toBe('image/jpeg');
     // MemoryBlobStore drops cacheControl; the constant is what both transports pass.
     expect(IMAGE_CACHE_CONTROL).toBe('public, max-age=31536000, immutable');
+  });
+
+  it('without resize (the Worker) stores orig only and answers the orig key', async () => {
+    const { deps, store } = fakeDeps({ resize: false });
+    const { done } = await run(deps, [job(1)]);
+    expect(done).toEqual([[job(1).url, 'images/mtg/1/en/orig.jpg']]);
+    expect([...store.objects.keys()]).toEqual(['images/mtg/1/en/orig.jpg']);
+  });
+
+  it('adds sm to a stored orig from the bucket, without the source', async () => {
+    const { deps, store, fetched } = fakeDeps();
+    await store.put('images/mtg/1/en/orig.jpg', JPEG, { contentType: 'image/jpeg' });
+    const { done } = await run(deps, [job(1, true)]);
+    expect(fetched).toEqual([]);
+    expect(done).toEqual([[job(1).url, 'images/mtg/1/en/sm.webp']]);
+    expect(store.objects.get('images/mtg/1/en/sm.webp')?.bytes).toEqual(SM);
   });
 
   it('resumes: with verify, images already in the bucket are not downloaded again', async () => {
@@ -183,143 +265,194 @@ describe('mirrorJobs', () => {
     await store.put('images/mtg/1/en/sm.webp', JPEG, opts);
     // Only half of image 2 made it before an earlier run stopped.
     await store.put('images/mtg/2/en/orig.jpg', JPEG, opts);
-    const done: string[] = [];
-    const stats = await mirrorJobs(
-      deps,
-      [job(1), job(2)],
-      { concurrency: 1, verify: true },
-      async (j) => {
-        done.push(j.url);
-      },
-    );
+    const { stats, done } = await run(deps, [job(1), job(2)], 1, true);
     expect(stats).toMatchObject({ reused: 1, uploaded: 1 });
     expect(fetched).toEqual(['https://cards.scryfall.io/large/2.jpg']);
     expect(done).toHaveLength(2);
   });
 
   it('counts a failed download and leaves its rows without a key', async () => {
-    const { deps } = fakeDeps(new MemoryBlobStore(), 404);
-    const done: ImageJob[] = [];
-    const stats = await mirrorJobs(deps, [job(1)], { concurrency: 1, verify: false }, async (j) => {
-      done.push(j);
-    });
+    const { deps } = fakeDeps({ status: 404 });
+    const { stats, done } = await run(deps, [job(1)]);
     expect(stats).toMatchObject({ failed: 1, uploaded: 0 });
     expect(done).toEqual([]);
   });
 
   it('stops the run on a 429', async () => {
-    const { deps, fetched } = fakeDeps(new MemoryBlobStore(), 429);
-    await expect(
-      mirrorJobs(deps, [job(1), job(2)], { concurrency: 1, verify: false }, async () => undefined),
-    ).rejects.toBeInstanceOf(SourceRateLimited);
+    const { deps, fetched } = fakeDeps({ status: 429 });
+    await expect(run(deps, [job(1), job(2)])).rejects.toBeInstanceOf(SourceRateLimited);
     expect(fetched).toHaveLength(1);
   });
 
-  it('downloads a URL shared by several rows once', () => {
+  it('lets the other workers finish their image before a 429 is thrown', async () => {
+    const slow = deferred();
+    const { deps } = fakeDeps({
+      fetch: async (url) => {
+        if (url.endsWith('/1.jpg')) {
+          await slow.promise;
+          return new Response(JPEG, { headers: { 'content-type': 'image/jpeg' } });
+        }
+        setTimeout(slow.resolve, 10);
+        return new Response(null, { status: 429 });
+      },
+    });
+    const done: string[] = [];
+    await expect(
+      mirrorJobs(deps, [job(1), job(2), job(3)], { concurrency: 2, verify: false }, async (j) => {
+        done.push(j.url);
+      }),
+    ).rejects.toBeInstanceOf(SourceRateLimited);
+    // Image 1 was in flight when image 2 answered 429: its key still reaches `done`; 3 never starts.
+    expect(done).toEqual([job(1).url]);
+  });
+
+  it('logs progress every 500 images with a counter that only goes up', async () => {
+    const { deps, logs } = fakeDeps();
+    const jobs = Array.from({ length: 1001 }, (_, n) => job(n));
+    await run(deps, jobs, 8);
+    const progress = logs.filter((l) => l.message === 'image mirror progress').map((l) => l.done);
+    expect(progress).toEqual([500, 1000, 1001]);
+  });
+
+  it('downloads a URL shared by several rows once, named after its source id', () => {
     const url = 'https://images.ygoprodeck.com/images/cards/1.jpg';
+    const row = { table: 'prints' as const, lang: 'en', game: 'yugioh', key: null };
     const { jobs, noSource } = planJobs([
-      { table: 'prints', printId: 'a', lang: 'en', game: 'yugioh', ids: { image_url: url } },
-      { table: 'prints', printId: 'b', lang: 'en', game: 'yugioh', ids: { image_url: url } },
-      { table: 'prints', printId: 'c', lang: 'en', game: 'yugioh', ids: {} },
+      { ...row, printId: 'a', ids: { image_url: url } },
+      { ...row, printId: 'b', ids: { image_url: url } },
+      { ...row, printId: 'c', ids: {} },
     ]);
     expect(noSource).toBe(1);
     expect(jobs).toHaveLength(1);
     expect(jobs[0]?.keys).toEqual({
-      orig: 'images/yugioh/a/en/orig.jpg',
-      sm: 'images/yugioh/a/en/sm.webp',
+      orig: 'images/yugioh/1/en/orig.jpg',
+      sm: 'images/yugioh/1/en/sm.webp',
     });
+    expect(jobs[0]?.stored).toBe(false);
     expect(jobs[0]?.targets.map((t) => t.printId)).toEqual(['a', 'b']);
   });
 });
 
-// The daily delta against the Scryfall fixtures in a fresh database.
+// The daily delta and the VPS catch-up against the Scryfall fixtures in a fresh database.
 describe.skipIf(!databaseUrl)('image mirror (Postgres)', () => {
   let db: Db;
   let drop: () => Promise<void>;
-  let runId: string;
+  /** The bucket after the delta, for the sm catch-up. */
+  let bucket: MemoryBlobStore;
 
   beforeAll(async () => {
     ({ db, drop } = await freshDatabase());
-    ({ runId } = await runScryfallImport(
-      { fetch: fakeScryfall(), blobs: new MemoryBlobStore(), withDb: (fn) => fn(db) },
+    await runScryfallImport(
+      { fetch: fakeScryfall(), raw: new MemoryBlobStore(), withDb: (fn) => fn(db) },
       (_name, fn) => fn(),
       { env: 'local', date: '2026-10-09', languages: ['en', 'de'] },
-    ));
-    // Pretend the run started a year ago and the prints of `neo` came from an earlier run.
-    await db
-      .update(importRuns)
-      .set({ startedAt: sql`now() - interval '1 year'` })
-      .where(eq(importRuns.id, runId));
+    );
+    // The prints of `neo` came from an earlier run: the backlog's oldest end.
     await db.execute(sql`update prints set created_at = now() - interval '2 years'
       where set_id = (select id from sets where code = 'neo')`);
   });
   afterAll(() => drop());
 
-  const newPrintIds = async () =>
-    (
-      await db.execute<{ id: string }>(
-        sql`select p.id from prints p join sets s on s.id = p.set_id where s.code <> 'neo'`,
-      )
-    ).rows.map((r) => r.id);
+  const neoPrintIds = async () =>
+    new Set(
+      (
+        await db.execute<{ id: string }>(
+          sql`select p.id from prints p join sets s on s.id = p.set_id where s.code = 'neo'`,
+        )
+      ).rows.map((r) => r.id),
+    );
 
-  it("picks only the run's new prints and their localizations", async () => {
-    const rows = await pendingRows(db, { game: 'mtg', sinceRun: runId });
-    const ids = new Set(await newPrintIds());
-    expect(rows.length).toBeGreaterThan(0);
-    expect(rows.every((r) => ids.has(r.printId))).toBe(true);
-    expect(rows.filter((r) => r.table === 'prints')).toHaveLength(ids.size);
-    expect(rows.some((r) => r.table === 'print_localizations' && r.lang === 'de')).toBe(true);
+  it('drains the backlog from the oldest prints, capped by limit', async () => {
+    const neo = await neoPrintIds();
+    const rows = await pendingRows(db, { game: 'mtg', limit: neo.size });
+    expect(rows).toHaveLength(neo.size);
+    expect(rows.every((r) => neo.has(r.printId))).toBe(true);
     expect((await pendingRows(db, { game: 'mtg' })).length).toBeGreaterThan(rows.length);
     expect(await pendingRows(db, { game: 'yugioh' })).toEqual([]);
   });
 
-  it('mirrors them, writes the keys back, records the run and is idempotent', async () => {
-    const { deps, store, fetched } = fakeDeps();
-    const stats = await mirrorImages(
-      deps,
-      db,
-      { game: 'mtg', sinceRun: runId },
-      { concurrency: 3, verify: false },
-    );
+  it('refuses a second mirror while one runs on the same database', async () => {
+    const gate = deferred();
+    const running = deferred();
+    const { deps } = fakeDeps({
+      resize: false,
+      fetch: async () => {
+        running.resolve();
+        await gate.promise;
+        return new Response(null, { status: 404 });
+      },
+    });
+    const first = mirrorImages(deps, db, { game: 'mtg' }, { concurrency: 1, verify: false });
+    await running.promise;
+    await expect(
+      mirrorImages(fakeDeps().deps, db, { game: 'mtg' }, { concurrency: 1, verify: false }),
+    ).rejects.toBeInstanceOf(MirrorBusy);
+    gate.resolve();
+    expect((await first).failed).toBeGreaterThan(0);
+    await db.delete(importRuns).where(eq(importRuns.kind, 'images'));
+  });
+
+  it('delta: stores orig, writes the orig keys, records the run, is idempotent', async () => {
+    const { deps, store, fetched } = fakeDeps({ resize: false });
+    bucket = store;
+    const opts = { concurrency: 3, verify: false };
+    const stats = await mirrorImages(deps, db, { game: 'mtg' }, opts);
     expect(stats.failed).toBe(0);
     expect(stats.uploaded).toBe(stats.images);
-    // A print and its English localization share one download.
+    // A print and its English localization share one download; the low-res German scans wait.
     expect(stats.images).toBeLessThan(stats.rows);
+    expect(stats.noSource).toBeGreaterThan(0);
     expect(fetched).toHaveLength(stats.images);
-    expect(store.objects.size).toBe(stats.images * 2);
+    expect(store.objects.size).toBe(stats.images);
 
-    const ids = await newPrintIds();
     const keyed = await db
-      .select({ id: prints.id, key: prints.imageKey })
+      .select({ key: prints.imageKey, ids: prints.externalIds })
       .from(prints)
       .where(isNotNull(prints.imageKey));
-    expect(keyed.map((p) => p.id).sort()).toEqual([...ids].sort());
+    expect(keyed.length).toBeGreaterThan(0);
     for (const p of keyed) {
-      expect(p.key).toMatch(new RegExp(`^images/mtg/${p.id}/en/orig\\.jpg$`));
+      // Named after the Scryfall id, not the database row.
+      expect(p.key).toBe(
+        `images/mtg/${String((p.ids as { scryfall: string }).scryfall)}/en/orig.jpg`,
+      );
       expect(store.objects.has(p.key ?? '')).toBe(true);
     }
-    const en = await db
-      .select({ key: printLocalizations.imageKey, printKey: prints.imageKey })
+    // The German localizations are low-res scans: no key, so the API serves Scryfall's URL.
+    const german = await db
+      .select({ key: printLocalizations.imageKey })
       .from(printLocalizations)
-      .innerJoin(prints, eq(prints.id, printLocalizations.printId))
-      .where(inArray(printLocalizations.printId, ids));
-    expect(en.every((l) => l.key !== null)).toBe(true);
-    // The old prints keep no key.
-    expect(
-      await db.select({ id: prints.id }).from(prints).where(isNull(prints.imageKey)),
-    ).not.toHaveLength(0);
+      .where(eq(printLocalizations.lang, 'de'));
+    expect(german.length).toBeGreaterThan(0);
+    expect(german.every((l) => l.key === null)).toBe(true);
 
     const [run] = await db.select().from(importRuns).where(eq(importRuns.kind, 'images'));
     expect(run).toMatchObject({ source: 'images', status: 'ok' });
     expect(run?.stats).toMatchObject({ uploaded: stats.uploaded, rows: stats.rows });
 
-    const again = await mirrorImages(
+    const again = await mirrorImages(deps, db, { game: 'mtg' }, opts);
+    expect(again).toMatchObject({ images: 0, uploaded: 0 });
+  });
+
+  it('sm catch-up: adds sm from the bucket and moves the keys to it', async () => {
+    const { deps, store, fetched } = fakeDeps();
+    for (const [k, o] of bucket.objects) store.objects.set(k, o);
+    const before = await db.select({ key: prints.imageKey }).from(prints);
+    const stats = await mirrorImages(
       deps,
       db,
-      { game: 'mtg', sinceRun: runId },
-      { concurrency: 3, verify: false },
+      { game: 'mtg', sm: true },
+      {
+        concurrency: 2,
+        verify: false,
+      },
     );
-    expect(again).toMatchObject({ rows: 0, images: 0, uploaded: 0 });
+    expect(fetched).toEqual([]);
+    expect(stats.uploaded).toBe(stats.images);
+    const after = await db.select({ key: prints.imageKey }).from(prints);
+    const keyed = after.filter((p) => p.key !== null);
+    expect(keyed).toHaveLength(before.filter((p) => p.key !== null).length);
+    expect(keyed.every((p) => hasSm(p.key ?? ''))).toBe(true);
+    expect(await pendingRows(db, { game: 'mtg', sm: true })).toHaveLength(stats.noSource);
   });
 
   it('dry run reads and plans only', async () => {
@@ -328,14 +461,10 @@ describe.skipIf(!databaseUrl)('image mirror (Postgres)', () => {
     const stats = await mirrorImages(
       deps,
       db,
-      { game: 'mtg', limit: 5 },
-      {
-        concurrency: 1,
-        verify: false,
-        dryRun: true,
-      },
+      { game: 'mtg', limit: 5, sm: true },
+      { concurrency: 1, verify: false, dryRun: true },
     );
-    expect(stats.rows).toBe(5);
+    expect(stats.rows).toBeLessThanOrEqual(5);
     expect(fetched).toEqual([]);
     expect(await db.select().from(importRuns)).toHaveLength(before.length);
   });

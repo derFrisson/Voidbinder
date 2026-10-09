@@ -1,7 +1,7 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { AppDeps, Platform } from '../../app';
-import { SM_WIDTH, type MirrorDeps } from '../../import/images';
+import type { MirrorDeps } from '../../import/images';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
@@ -33,6 +33,12 @@ function openPool(connectionString: string): Pool {
   return pool;
 }
 
+/**
+ * The public `CATALOG` bucket (img.voidbinder.de) holds card images only; anything else (raw
+ * source dumps, whose republication breaks the sources' terms) goes to the private `RAW` bucket.
+ */
+const catalogImages = (env: Env) => new R2BlobStore(env.CATALOG, 'images/');
+
 export function createPlatform(env: Env): Platform {
   const pool = openPool(env.HYPERDRIVE.connectionString);
   const cachedPool = env.HYPERDRIVE_CACHED
@@ -45,7 +51,7 @@ export function createPlatform(env: Env): Platform {
       catalogDb: drizzle(cachedPool),
       imageBaseUrl: env.IMAGE_BASE_URL,
     }),
-    blobStore: new R2BlobStore(env.CATALOG),
+    blobStore: catalogImages(env),
     jobQueue: new WorkflowJobQueue({ 'scryfall-import': env.SCRYFALL_IMPORT }),
     db,
     close: async () => {
@@ -89,11 +95,11 @@ export async function withDatabase<T>(
   }
 }
 
-/** What the Scryfall import Workflow works with: `fetch`, the `CATALOG` bucket, a pool per step. */
+/** What the import Workflows work with: `fetch`, the private `RAW` bucket, a pool per step. */
 export function scryfallImportDeps(env: Env): ImportDeps {
   return {
     fetch: (input, init) => fetch(input, init),
-    blobs: new R2BlobStore(env.CATALOG),
+    raw: new R2BlobStore(env.RAW),
     withDb: (fn) => withDatabase(env, fn),
   };
 }
@@ -104,17 +110,7 @@ export async function startScryfallImport(env: Env, id?: string): Promise<void> 
   log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
 }
 
-/** The image mirror's daily delta (VB-57): `CATALOG` for the objects, `IMAGES` for the `sm` copy. */
+/** The image mirror's daily delta (VB-57): `orig` only, into `CATALOG`; the VPS adds `sm`. */
 export function imageMirrorDeps(env: Env): MirrorDeps {
-  return {
-    fetch: (input, init) => fetch(input, init),
-    store: new R2BlobStore(env.CATALOG),
-    resize: async (body) => {
-      const out = await env.IMAGES.input(new Blob([body]).stream())
-        .transform({ width: SM_WIDTH, fit: 'scale-down' })
-        .output({ format: 'image/webp' });
-      return new Uint8Array(await out.response().arrayBuffer());
-    },
-    log,
-  };
+  return { fetch: (input, init) => fetch(input, init), store: catalogImages(env), log };
 }
