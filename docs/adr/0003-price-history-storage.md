@@ -1,7 +1,8 @@
 # 0003: Price history is stored, not fetched, and where it lives
 
-- Status: Proposed (Max decides the provider; options below)
+- Status: Accepted
 - Raised by: Max, 2026-10-09 ("we will store the price data, querying the API every time is too expensive")
+- Decided by: Max, 2026-10-09
 
 ## Context
 
@@ -36,12 +37,35 @@ Apache-2 edition (hypertables, chunking, retention). The full edition is availab
 
 ## Decision
 
-Pending. Whatever the provider, the schema stays the same: `prices_current` plus `prices_daily`
-partitioned by month (hypertable chunks when Timescale is available), raw dumps in R2, and the
-`CardStore` seam so a Docker self-host can use plain Postgres.
+Option 1. PostgreSQL 18 with TimescaleDB Community edition (`timescale/timescaledb-ha`) runs
+self-hosted on an OVH VPS-2 (4 vCores, 8 GB RAM, 75 GB NVMe system disk, 50 GB additional block
+disk for the data, snapshot option) in Gravelines, France. `prices_daily` becomes a hypertable with
+compression (columnstore policy), which keeps its growth under 1 GB per year at the launch stage.
+Price history is stored, never fetched, so a compressed local table is cheaper than any lookup; the
+Timescale License features it needs exist only self-hosted or on Tiger Cloud. Workers reach the
+database only through a Cloudflare Tunnel, a Workers VPC service and Hyperdrive; the server has no
+public Postgres port.
+
+Storage is split by kind:
+
+- **Database backups** go to Backblaze B2 (EU Central) with pgBackRest, which has its own S3
+  client (no AWS SDK). B2 is a provider separate from both the database (OVH) and the edge
+  (Cloudflare), so one account incident cannot take the database and its backups together.
+- **App blobs** (card images, catalog modules, raw source dumps) stay in R2: native Worker
+  binding, no egress fees. The `BlobStore` seam keeps other stores possible.
+
+Whatever the provider, the schema stays the same: `prices_current` plus `prices_daily` partitioned
+by month (hypertable chunks when Timescale is available), raw dumps in R2, and the `CardStore` seam
+so a Docker self-host can use plain Postgres.
+
+Max operates the server following the runbook [database-vps.md](../guides/database-vps.md), which
+Claude drafts and keeps current.
 
 ## Consequences
 
-- The provider choice affects Sprint 2 (VB-23 API foundation, VB-30 price pipeline), not Sprint 1.
-- Compression is a Timescale-only feature; choosing option 3 means accepting ~5 GB per year now and
-  an archive strategy before the second growth stage.
+- Sprint 2 (VB-23 API foundation, VB-30 price pipeline) builds on this server; VB-30 adds the
+  hypertable and the compression policy. The waitlist moves onto it as soon as the runbook is done.
+- Backups, minor upgrades, monitoring and the quarterly restore drill are ours; the runbook lists
+  each step. A PostgreSQL major upgrade needs its own ticket.
+- Compression is a Timescale-only feature; had option 3 been chosen, it would have meant ~5 GB per
+  year now and an archive strategy before the second growth stage.

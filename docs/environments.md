@@ -24,6 +24,19 @@ Wrangler refuses `--env dev` when the build was made for `prod` (and vice versa)
 plain `pnpm build` output. Deploys run from Max's workstation with his `wrangler login`
 ([ADR 0002](adr/0002-deploys-from-workstation.md)); CI only checks.
 
+## Database
+
+`dev` and `prod` share one self-hosted PostgreSQL 18 + TimescaleDB server (databases
+`voidbinder_dev` and `voidbinder`), reached through a Cloudflare Tunnel, a Workers VPC service and
+one Hyperdrive config per environment ([ADR 0003](adr/0003-price-history-storage.md)). Setup,
+backups and operations: [guides/database-vps.md](guides/database-vps.md). Locally, the root
+`docker-compose.yml` runs Postgres on port 5434.
+
+| Environment | Hyperdrive config | Id in `apps/site/wrangler.jsonc` (`hyperdrive[0].id`) |
+| ----------- | ----------------- | ----------------------------------------------------- |
+| `dev`       | `voidbinder-dev`  | set after the runbook                                 |
+| `prod`      | `voidbinder-prod` | set after the runbook                                 |
+
 ## Secrets
 
 - **Locally:** each app keeps its secrets in its own `.dev.vars` (for example
