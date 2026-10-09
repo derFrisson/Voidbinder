@@ -280,6 +280,11 @@ main {
     gap: var(--space-3);
   }
 
+  /* The label would become an eyebrow kicker above the heading in one column; hide it. */
+  .section-head > .label {
+    display: none;
+  }
+
   .section-head > :not(.label) {
     grid-column: 1;
   }

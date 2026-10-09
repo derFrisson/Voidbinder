@@ -25,7 +25,7 @@ and counts; never on body text, Inter's `tnum` also widens hyphens). Headings ar
 - **One edge, one gutter, one interval.** Every block sits in `.wrap`. Sections are `.section`
   and pad on top only; `main` pads the bottom once.
 - **Section head** (`.section-head`): hairline on top, `.label` in the left third, heading and lede
-  in the right two thirds; one column under 760 px. Labels never sit above a heading as a kicker.
+  in the right two thirds; one column under 760 px, where the label is hidden. Labels never sit above a heading as a kicker.
 - **Centered intros** (`.intro`): page heroes and standalone intros (hero, waitlist). h1/h2 max
   18ch, lede max 40em, 24 px between them.
 - **Ruled, not boxed.** `.rows` (items share hairlines), `.facts` (a `dl` of label / value pairs),
@@ -86,3 +86,7 @@ pill buttons, eyebrow kickers above headings, gradient text, glows and orbs, sam
 grids, colored side borders, count-up numbers, parallax per cell, random offsets, screenshots or
 stock images, and any card artwork, logo, mascot, trademark or set symbol of Pokémon, Yu-Gi-Oh!,
 Magic: The Gathering or One Piece (games are named in text only).
+
+## Navigation on phones
+
+Under 880 px the nav keeps the logo, the DE/EN switch and the waitlist button and hides the four section links. The landing page is one page with ruled sections, so scrolling is the navigation; a disclosure menu can be added later if section links on phones turn out to be needed.
