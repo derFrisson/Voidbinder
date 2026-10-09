@@ -7,8 +7,10 @@ interface Props {
 }
 const { locale } = Astro.props;
 const d = t(locale).waitlist;
-// Contract with VB-17: POST /api/waitlist, form-encoded (or JSON) with email, locale, consent and
-// the `website` honeypot. Works without JavaScript; progressive enhancement comes later.
+const e = d.errors;
+const done = t(locale).status.pending;
+// Contract with VB-17 (docs/site/waitlist.md): POST /api/waitlist, form-encoded (no JavaScript:
+// a 303 to the status pages) or JSON (the script below: answers shown inline).
 ---
 
 <section id="waitlist" class="section wrap" aria-labelledby="waitlist-title">
@@ -23,35 +25,115 @@ const d = t(locale).waitlist;
       <Card class="s2" />
       <Card class="s3" />
     </div>
-    <form id="waitlist-form" class="form glass" method="post" action="/api/waitlist">
-      <input type="hidden" name="locale" value={locale} />
-      <div class="field">
-        <label class="label" for="waitlist-email">{d.emailLabel}</label>
-        <input
-          id="waitlist-email"
-          class="input"
-          type="email"
-          name="email"
-          required
-          autocomplete="email"
-          inputmode="email"
-          placeholder={d.emailPlaceholder}
-        />
+    <form
+      id="waitlist-form"
+      class="form glass"
+      method="post"
+      action="/api/waitlist"
+      data-sending={d.sending}
+    >
+      <div class="fields">
+        <input type="hidden" name="locale" value={locale} />
+        <div class="field">
+          <label class="label" for="waitlist-email">{d.emailLabel}</label>
+          <input
+            id="waitlist-email"
+            class="input"
+            type="email"
+            name="email"
+            required
+            autocomplete="email"
+            inputmode="email"
+            placeholder={d.emailPlaceholder}
+          />
+        </div>
+        <div class="hp" aria-hidden="true">
+          <label for="waitlist-website">{d.honeypot}</label>
+          <input id="waitlist-website" type="text" name="website" tabindex="-1" autocomplete="off" />
+        </div>
+        <div class="consent">
+          <input
+            id="waitlist-consent"
+            class="checkbox"
+            type="checkbox"
+            name="consent"
+            value="on"
+            required
+          />
+          <label for="waitlist-consent" class="small muted">
+            {d.consentBefore}<a href={`/${locale}/datenschutz/`}>{d.consentLink}</a>{d.consentAfter}
+          </label>
+        </div>
+        <p
+          class="error small"
+          role="alert"
+          hidden
+          data-email={e.email}
+          data-consent={e.consent}
+          data-rate={e.rate}
+          data-server={e.server}
+        >
+        </p>
+        <button class="btn btn-primary submit" type="submit">{d.submit}</button>
       </div>
-      <div class="hp" aria-hidden="true">
-        <label for="waitlist-website">{d.honeypot}</label>
-        <input id="waitlist-website" type="text" name="website" tabindex="-1" autocomplete="off" />
+      <div class="done" role="status" tabindex="-1" hidden>
+        <p class="title">{done.title}</p>
+        <p class="muted">{done.text}</p>
       </div>
-      <div class="consent">
-        <input id="waitlist-consent" class="checkbox" type="checkbox" name="consent" value="on" required />
-        <label for="waitlist-consent" class="small muted">
-          {d.consentBefore}<a href={`/${locale}/datenschutz/`}>{d.consentLink}</a>{d.consentAfter}
-        </label>
-      </div>
-      <button class="btn btn-primary submit" type="submit">{d.submit}</button>
     </form>
   </div>
 </section>
+
+<script>
+  // Progressive enhancement: without JavaScript the form posts natively and lands on a status page.
+  const form = document.querySelector<HTMLFormElement>('#waitlist-form');
+  const fields = form?.querySelector<HTMLElement>('.fields');
+  const error = form?.querySelector<HTMLElement>('.error');
+  const done = form?.querySelector<HTMLElement>('.done');
+  const button = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+
+  if (form && fields && error && done && button) {
+    const label = button.textContent;
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      error.hidden = true;
+      button.disabled = true;
+      button.textContent = form.dataset.sending ?? label;
+      let message = error.dataset.server;
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', accept: 'application/json' },
+          body: JSON.stringify({
+            email: data.get('email'),
+            locale: data.get('locale'),
+            consent: data.get('consent') === 'on',
+            website: data.get('website') ?? '',
+          }),
+        });
+        if (res.ok) {
+          fields.hidden = true;
+          done.hidden = false;
+          done.focus();
+          return;
+        }
+        if (res.status === 400) {
+          const body = (await res.json().catch(() => ({}))) as { error?: string };
+          message = body.error === 'consent' ? error.dataset.consent : error.dataset.email;
+        } else if (res.status === 429) {
+          message = error.dataset.rate;
+        }
+      } catch {
+        // Network failure: the server message below.
+      }
+      error.textContent = message ?? '';
+      error.hidden = false;
+      button.disabled = false;
+      button.textContent = label;
+    });
+  }
+</script>
 
 <style>
   .stage {
@@ -103,6 +185,32 @@ const d = t(locale).waitlist;
   .field {
     display: grid;
     gap: var(--space-2);
+  }
+
+  .fields {
+    display: grid;
+    gap: var(--space-5);
+  }
+
+  .fields[hidden] {
+    display: none;
+  }
+
+  .done {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .done[hidden] {
+    display: none;
+  }
+
+  .done:focus {
+    outline: none;
+  }
+
+  .error {
+    color: var(--status-error);
   }
 
   .hp {
