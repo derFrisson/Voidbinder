@@ -1,0 +1,4 @@
+# Local overrides for `pnpm --filter api dev`: `cp .dev.vars.example .dev.vars` (gitignored).
+# Values here override the top-level `vars` in wrangler.jsonc. The API needs no secrets yet;
+# auth (VB-24) adds its secret here.
+APP_URL=http://localhost:8081
