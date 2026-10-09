@@ -7,3 +7,5 @@ export function cardKey(game: Game, setCode: string, number: string): string {
   if (!set || !num) throw new Error('setCode and number are required');
   return `${game}:${set}-${num}`;
 }
+
+export type * from './platform/index.js';
