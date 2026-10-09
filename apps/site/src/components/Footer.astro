@@ -1,5 +1,5 @@
 ---
-import { links, t, type Locale } from '../i18n';
+import { legalPath, links, t, type Locale } from '../i18n';
 import Logo from './Logo.astro';
 
 interface Props {
@@ -7,10 +7,9 @@ interface Props {
 }
 const { locale } = Astro.props;
 const d = t(locale);
-// Legal pages keep the same slug in both locales (VB-18), so the language switch can swap the prefix.
 const footerLinks = [
-  { href: `/${locale}/impressum/`, label: d.footer.imprint },
-  { href: `/${locale}/datenschutz/`, label: d.footer.privacy },
+  { href: legalPath(locale, 'imprint'), label: d.footer.imprint },
+  { href: legalPath(locale, 'privacy'), label: d.footer.privacy },
   { href: links.github, label: d.footer.github },
   { href: links.twitch, label: d.footer.twitch },
 ];

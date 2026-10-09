@@ -19,6 +19,13 @@ export default defineConfig({
   build: { inlineStylesheets: 'never' },
   // Processed <script> chunks under 4 KiB would otherwise be inlined and blocked by the hash-less CSP.
   vite: { build: { assetsInlineLimit: 0 } },
+  // The legal slugs differ per locale (VB-18). A link with the other locale's slug still lands.
+  redirects: {
+    '/en/datenschutz': '/en/privacy/',
+    '/en/impressum': '/en/imprint/',
+    '/de/privacy': '/de/datenschutz/',
+    '/de/imprint': '/de/impressum/',
+  },
   // ponytail: static site, no sessions or image transforms, so no KV / Images bindings.
   session: false,
   adapter: cloudflare({ imageService: 'passthrough' }),
