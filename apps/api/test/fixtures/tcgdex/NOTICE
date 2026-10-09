@@ -1,0 +1,11 @@
+The JSON files in this directory are responses of the TCGdex API (https://tcgdex.dev), prices
+removed and base1-4's variants made up, from the TCGdex card database
+(https://github.com/tcgdex/cards-database):
+
+Copyright (c) 2021 TCGdex
+Licensed under the MIT License.
+
+The card text, names and images they describe are © The Pokémon Company, Nintendo, Game Freak and
+Creatures. Pokémon and Pokémon character names are trademarks of Nintendo. Voidbinder is not
+produced by, endorsed by, supported by, or affiliated with TCGdex, Pokémon, Nintendo, Game Freak or
+Creatures.

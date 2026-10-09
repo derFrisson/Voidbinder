@@ -72,8 +72,14 @@ apply to you too:
   verbatim and no Wizards logos.
 - **Yu-Gi-Oh!:** [YGOPRODeck](https://ygoprodeck.com/api-guide/) asks you to download and re-host
   images. Do not hotlink them, and stay under 20 requests per second.
-- **Pokémon, One Piece:** no importer exists yet. Pokémon offers no fan-content licence, so check
-  the research below before you add card art. Card art and text belong to their owners.
+- **Pokémon:** card data comes from [TCGdex](https://tcgdex.dev) (MIT licence). Voidbinder is not
+  endorsed by TCGdex. The image mirror re-hosts the card images instead of hotlinking them. Pokémon
+  offers no fan-content licence; show its notice: "Pokémon and Pokémon character names are
+  trademarks of Nintendo. Card images and text are © The Pokémon Company, Nintendo, Game Freak
+  and/or Creatures. Voidbinder is not produced by, endorsed by, supported by, or affiliated with
+  Pokémon, Nintendo, Game Freak or Creatures."
+- **One Piece:** no importer exists yet. Check the research below before you add card art. Card
+  art and text belong to their owners.
 - **Prices:** no scraping of Cardmarket or TCGplayer. Prices come only from licensed or official
   APIs.
 - **Notices:** an instance must show the Wizards Fan Content notice verbatim and should show the unofficial-fan-project notice for each other game it serves. The
