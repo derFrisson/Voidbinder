@@ -7,3 +7,5 @@ Template: Context, Decision, Consequences; status `Proposed`, `Accepted` or `Sup
 | ---------------------------------------- | ------------------------------------------- | -------- |
 | [0001](0001-stack.md)                    | Stack and monorepo layout                   | Accepted |
 | [0002](0002-deploys-from-workstation.md) | Deploys run from the workstation, CI checks | Accepted |
+
+- [0003: Price history is stored, not fetched, and where it lives](0003-price-history-storage.md) (Proposed)
