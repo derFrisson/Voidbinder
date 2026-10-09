@@ -11,7 +11,6 @@ const locale = Astro.params.locale as Locale;
 const d = t(locale).status.unsubscribed;
 ---
 
-<Base locale={locale} title={`${d.title} · Voidbinder`}>
-  <meta slot="head" name="robots" content="noindex" />
+<Base locale={locale} title={`${d.title} · Voidbinder`} noindex>
   <WaitlistStatus title={d.title} text={d.text} />
 </Base>

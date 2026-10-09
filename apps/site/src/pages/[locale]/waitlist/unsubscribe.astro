@@ -14,8 +14,7 @@ const token = Astro.url.searchParams.get('token');
 Astro.response.headers.set('Cache-Control', 'no-store');
 ---
 
-<Base locale={locale} title={`${d.title} · Voidbinder`}>
-  <meta slot="head" name="robots" content="noindex" />
+<Base locale={locale} title={`${d.title} · Voidbinder`} noindex>
   <meta slot="head" name="referrer" content="no-referrer" />
   {
     token ? (

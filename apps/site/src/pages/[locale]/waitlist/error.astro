@@ -14,7 +14,6 @@ const d = reason === 'email' || reason === 'consent' ? reasons[reason] : reasons
 Astro.response.headers.set('Cache-Control', 'no-store');
 ---
 
-<Base locale={locale} title={`${d.title} · Voidbinder`}>
-  <meta slot="head" name="robots" content="noindex" />
+<Base locale={locale} title={`${d.title} · Voidbinder`} noindex>
   <WaitlistStatus title={d.title} text={d.text} action={{ label: action, href: `/${locale}/#waitlist` }} />
 </Base>
