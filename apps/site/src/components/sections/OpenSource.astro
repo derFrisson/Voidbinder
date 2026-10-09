@@ -110,6 +110,14 @@ const d = t(locale).openSource;
     opacity: 0.55;
   }
 
+  /* Dark: the card is light, so the faded span overlaps the blue circle at 2.2:1. 0.9 gives 3:1
+     (large text) on the circle and keeps a slight fade on the card. */
+  @media (prefers-color-scheme: dark) {
+    .soft {
+      opacity: 0.9;
+    }
+  }
+
   .plan p:not(.plan-label, .term) {
     max-width: 30em;
     font-size: 16.5px;

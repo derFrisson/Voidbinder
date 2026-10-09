@@ -93,7 +93,7 @@ export const en: Dict = {
       },
       {
         name: 'One Piece',
-        text: 'It is on the list. Tell us when you sign up if you are waiting for it.',
+        text: "It's on the list. Waiting for it? Tell us when you sign up.",
       },
     ],
   },
@@ -117,12 +117,12 @@ export const en: Dict = {
   },
   prices: {
     label: 'Prices',
-    title: 'What is your collection worth?',
-    lede: 'Every card gets its price of the day, and the binder keeps the total. You see at a glance what your binder holds and which card is moving.',
+    title: "What's your collection worth?",
+    lede: "Every card gets today's price, and the binder keeps the total. You see at a glance what your binder is worth and which card is moving.",
     worth: 'Collection value',
     count: '612 cards in 3 games',
     period: 'in 90 days',
-    fine: 'Prices from Cardmarket and TCGplayer, as of the day. Condition prices are estimates. The cards and values on this page are examples.',
+    fine: 'Prices from Cardmarket and TCGplayer, updated daily. Condition prices are estimates. The cards and values on this page are examples.',
     chartTitle: 'Price history, 90 days',
     chartSource: 'Cardmarket, trend',
     chartLabel: 'The price rose from about 2.80 to 3.20 euros in 90 days',
@@ -132,15 +132,15 @@ export const en: Dict = {
   reseller: {
     label: 'For sellers',
     title: 'Your stock, logged in minutes.',
-    lede: 'A buy on the table, a box from the basement, stock for the next show: card after card under the camera, and the list writes itself.',
+    lede: 'A collection buy on the counter, a box from the basement, stock for the next show: card after card under the camera, and the list writes itself.',
     facts: [
       {
         title: 'Bulk scan',
-        text: 'Slide cards under the camera one after another. The app counts, spots duplicates and builds stacks.',
+        text: 'Slide cards under the camera one by one. The app counts them, spots duplicates and builds stacks.',
       },
       {
         title: 'Price history per card',
-        text: 'Every card in stock has its own history. You see what is rising and decide when to sell.',
+        text: "Every card in stock has its own history. You see what's rising and decide when to sell.",
       },
       {
         title: 'Export as Cardmarket CSV',
@@ -191,7 +191,7 @@ export const en: Dict = {
   },
   waitlist: {
     title: 'Get into the beta.',
-    lede: 'We email you when the beta starts. One email, no newsletter.',
+    lede: "We'll email you when the beta starts. One email, no newsletter.",
     emailLabel: 'Email address',
     emailPlaceholder: 'you@example.com',
     consentBefore:
@@ -202,10 +202,10 @@ export const en: Dict = {
     sending: 'Sending',
     honeypot: 'Website, leave this empty',
     errors: {
-      email: 'That email address does not look right. Please check it.',
-      consent: 'Please check the box, otherwise we may not store your address.',
+      email: "That email address doesn't look right. Please check it.",
+      consent: "Please check the box, otherwise we can't store your address.",
       rate: 'Too many attempts. Please wait a minute.',
-      server: 'That did not work. Please try again later.',
+      server: "That didn't work. Please try again later.",
     },
   },
   status: {
@@ -216,12 +216,12 @@ export const en: Dict = {
       text: 'We sent you an email. Click the link in it to confirm your sign-up. The link works for 7 days. Nothing there? Check your spam folder.',
     },
     confirmed: {
-      title: 'You are on the waitlist.',
-      text: 'Thanks. We will email you when there is something to test. You can unsubscribe with the link in every email.',
+      title: "You're on the waitlist.",
+      text: "Thanks. We'll email you when there's something to test. You can unsubscribe with the link in every email.",
     },
     unsubscribed: {
-      title: 'You are unsubscribed.',
-      text: 'We will not email you again. You can sign up again at any time.',
+      title: "You're unsubscribed.",
+      text: "We won't email you again. You can sign up again at any time.",
     },
     expired: {
       title: 'This link no longer works.',
@@ -235,17 +235,17 @@ export const en: Dict = {
       },
       consent: {
         title: 'We need your consent.',
-        text: 'Without the check mark we may not store your address.',
+        text: "Without the check mark we can't store your address.",
       },
       server: {
-        title: 'That did not work.',
+        title: "That didn't work.",
         text: 'Something went wrong on our side. Please try again later.',
       },
       action: 'Back to the form',
     },
     unsubscribe: {
       title: 'Unsubscribe from the waitlist?',
-      text: 'One click and you are unsubscribed. We will not email you again.',
+      text: "One click and you're unsubscribed. We won't email you again.",
       button: 'Unsubscribe',
       invalid: 'This unsubscribe link is incomplete. Please use the link from the email.',
     },
@@ -258,6 +258,6 @@ export const en: Dict = {
     twitch: 'Twitch',
     trademarks:
       'Pokémon, Yu-Gi-Oh!, Magic: The Gathering and One Piece are trademarks of their respective owners. Voidbinder is an independent project.',
-    rights: '© 2026 Voidbinder · Run from Germany',
+    rights: '© 2026 Voidbinder · Hosted in Germany',
   },
 };

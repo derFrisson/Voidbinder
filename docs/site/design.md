@@ -121,7 +121,8 @@ lift 1 px.
 - `html` and `main` clip horizontal overflow (the hero's rotated phone and the stream table
   bleed); `body` must not, or the sticky nav breaks.
 - Contrast: text 4.5:1 on every surface and field it can sit on, in both schemes. Checked by axe
-  in CI and by hand for text over the field circles.
+  in CI (every page, both viewports, light and dark `colorScheme`) and by hand for text over the
+  field circles, which axe reports as incomplete rather than failed.
 
 ## Refuses
 

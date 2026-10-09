@@ -39,9 +39,9 @@ let worker: ChildProcess | undefined;
 let browser: Browser | undefined;
 let origin = '';
 
-async function open(width: number, height: number) {
+async function open(width: number, height: number, colorScheme: 'light' | 'dark' = 'light') {
   if (!browser) throw new Error('browser did not start');
-  const context = await browser.newContext({ viewport: { width, height } });
+  const context = await browser.newContext({ viewport: { width, height }, colorScheme });
   return { context, page: await context.newPage() };
 }
 
@@ -83,14 +83,17 @@ describe('axe-core, WCAG 2.2 AA', () => {
     ['desktop', 1280, 800],
     ['phone', 390, 844],
   ] as const;
-  const cases = viewports.flatMap(([name, width, height]) =>
-    paths.map((path) => [name, path, width, height] as const),
+  // Both colour schemes: the dark tokens are separate values, so contrast has to hold in each.
+  const cases = (['light', 'dark'] as const).flatMap((scheme) =>
+    viewports.flatMap(([name, width, height]) =>
+      paths.map((path) => [scheme, name, path, width, height] as const),
+    ),
   );
 
   it.each(cases)(
-    '%s %s has no violations',
-    async (_name, path, width, height) => {
-      const { context, page } = await open(width, height);
+    '%s %s %s has no violations',
+    async (scheme, _name, path, width, height) => {
+      const { context, page } = await open(width, height, scheme);
       try {
         await page.goto(origin + path);
         const { violations } = await new AxeBuilder({ page })
