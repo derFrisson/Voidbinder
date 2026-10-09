@@ -1,0 +1,21 @@
+# Local development services. `docker compose up -d` starts Postgres for the site's waitlist
+# (docs/site/waitlist.md). Port 5434 because 5432/5433 are taken by other projects on Max's machine.
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: voidbinder
+      POSTGRES_PASSWORD: voidbinder
+      POSTGRES_DB: voidbinder
+    ports:
+      - '127.0.0.1:5434:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U voidbinder -d voidbinder']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  postgres-data:

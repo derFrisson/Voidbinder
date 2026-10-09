@@ -8,18 +8,25 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "typecheck": "astro check",
+    "typecheck": "wrangler types && astro check",
     "lint": "eslint .",
     "test": "vitest run",
     "deploy:dev": "CLOUDFLARE_ENV=dev astro build && wrangler deploy --env dev",
-    "deploy:prod": "CLOUDFLARE_ENV=prod astro build && wrangler deploy --env prod"
+    "deploy:prod": "CLOUDFLARE_ENV=prod astro build && wrangler deploy --env prod",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.3.4",
-    "astro": "^7.3.8"
+    "@voidbinder/shared": "workspace:*",
+    "astro": "^7.3.8",
+    "drizzle-orm": "^0.45.4",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "typescript": "~6.0.3",
     "wrangler": "^4.149.0"
   }

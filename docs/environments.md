@@ -32,6 +32,11 @@ plain `pnpm build` output. Deploys run from Max's workstation with his `wrangler
   dummy values when an app needs secrets.
 - **Deployed:** set per environment with `wrangler secret put <NAME> --env dev|prod` from the app's
   directory. Non-secret settings go into `vars` in `wrangler.jsonc`.
+- **Site secrets:** `apps/site` needs `UNSUBSCRIBE_SECRET` (HMAC key for the waitlist unsubscribe
+  links, [waitlist.md](site/waitlist.md)). Locally `cp apps/site/.dev.vars.example
+apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
+  `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod`.
+  `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset.
 - **GitHub:** no secrets are needed yet. CI does not deploy; a scoped Cloudflare API token is added
   only when CI deploys are introduced.
 
