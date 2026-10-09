@@ -15,7 +15,8 @@ Betreiber:\
 
 ## Kontakt
 
-E-Mail: [MAX: E-Mail]
+E-Mail: [MAX: E-Mail]\
+Telefon oder weiterer Kontaktweg: [MAX: Telefon oder weiterer Kontaktweg]
 
 ## Umsatzsteuer-Identifikationsnummer
 

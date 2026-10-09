@@ -22,17 +22,40 @@ const P = {
   street: '[MAX: Straße Hausnummer]',
   city: '[MAX: PLZ Ort]',
   mail: '[MAX: E-Mail]',
+  phone: '[MAX: Telefon oder weiterer Kontaktweg]',
   vat: '[MAX: USt-IdNr. falls vorhanden]',
   db: '[MAX: Datenbank-Anbieter und Region, z. B. Neon, Frankfurt]',
   authority: '[MAX: zuständige Landesdatenschutzbehörde]',
   unconfirmed: '[MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen]',
+  unsubscribed: '[MAX: Aufbewahrungsfrist abgemeldeter Adressen, Vorschlag 12 Monate]',
+  logs: '[MAX: Speicherdauer Cloudflare-Logs]',
 };
 const known = Object.values(P);
 const required: Record<string, string[]> = {
-  'de/impressum.md': [P.name, P.street, P.city, P.mail, P.vat],
-  'en/imprint.md': [P.name, P.street, P.city, P.mail, P.vat],
-  'de/datenschutz.md': [P.name, P.street, P.city, P.mail, P.db, P.authority, P.unconfirmed],
-  'en/privacy.md': [P.name, P.street, P.city, P.mail, P.db, P.authority, P.unconfirmed],
+  'de/impressum.md': [P.name, P.street, P.city, P.mail, P.phone, P.vat],
+  'en/imprint.md': [P.name, P.street, P.city, P.mail, P.phone, P.vat],
+  'de/datenschutz.md': [
+    P.name,
+    P.street,
+    P.city,
+    P.mail,
+    P.db,
+    P.authority,
+    P.unconfirmed,
+    P.unsubscribed,
+    P.logs,
+  ],
+  'en/privacy.md': [
+    P.name,
+    P.street,
+    P.city,
+    P.mail,
+    P.db,
+    P.authority,
+    P.unconfirmed,
+    P.unsubscribed,
+    P.logs,
+  ],
 };
 
 describe('legal content', () => {

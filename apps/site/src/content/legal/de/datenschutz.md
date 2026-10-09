@@ -15,7 +15,7 @@ E-Mail: [MAX: E-Mail]
 
 ## Überblick
 
-Diese Website informiert über die App Voidbinder (powered by Voidcom) und nimmt Anmeldungen zur Warteliste entgegen. Sie setzt keine Cookies und speichert nichts zu Ihrer Person in Ihrem Browser. Schriftarten, Skripte und Bilder liefern wir selbst aus, Inhalte von Dritten binden wir nicht ein. Eine Ausnahme ist die Reichweitenmessung von Cloudflare, die unten beschrieben ist. Deshalb gibt es kein Cookie-Banner.
+Diese Website informiert über die App Voidbinder (powered by Voidcom) und nimmt Anmeldungen zur Warteliste entgegen. Sie setzt keine Cookies und speichert nichts zu Ihrer Person in Ihrem Browser. Schriftarten, Skripte und Bilder liefern wir selbst aus, Inhalte von Dritten binden wir nicht ein. Eine Ausnahme ist die Reichweitenmessung von Cloudflare, die unten beschrieben ist und nur läuft, wenn wir sie aktiviert haben. Deshalb gibt es kein Cookie-Banner.
 
 ## Hosting und Server-Logs
 
@@ -23,13 +23,28 @@ Die Website wird mit Cloudflare Workers ausgeliefert, einem Dienst der Cloudflar
 
 Bei jedem Aufruf verarbeitet Cloudflare technisch notwendige Daten: Ihre IP-Adresse, den User-Agent Ihres Browsers, den Zeitpunkt und die angeforderte Adresse. Das dient der sicheren und stabilen Auslieferung der Website und der Abwehr von Angriffen. Wir führen diese Daten nicht mit anderen Daten zusammen und nutzen sie nicht, um Sie zu identifizieren.
 
-Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist die sichere Auslieferung der Website. Cloudflare verarbeitet die Daten als Auftragsverarbeiter auf Grundlage eines Vertrags zur Auftragsverarbeitung. Für Übermittlungen in die USA gelten die EU-Standardvertragsklauseln und, soweit Cloudflare danach zertifiziert ist, das EU-US Data Privacy Framework. Wie lange Cloudflare die Logdaten aufbewahrt, bestimmt Cloudflare.
+Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist die sichere Auslieferung der Website. Cloudflare verarbeitet die Daten als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Für Übermittlungen in die USA gelten die EU-Standardvertragsklauseln und, soweit Cloudflare danach zertifiziert ist, das EU-US Data Privacy Framework.
+
+Speicherdauer: Cloudflare bewahrt diese Logdaten für [MAX: Speicherdauer Cloudflare-Logs] auf und löscht sie danach.
 
 ## Reichweitenmessung mit Cloudflare Web Analytics
 
-Wir messen mit Cloudflare Web Analytics, wie viele Menschen die Website besuchen und wie schnell sie lädt. Der Dienst arbeitet ohne Cookies, verfolgt Sie nicht über mehrere Websites hinweg und legt keine persönlichen Profile an. Er erfasst Messwerte zu Seitenaufrufen und Ladezeiten.
+Dieser Abschnitt gilt nur, wenn die Reichweitenmessung aktiviert ist. Das erkennen Sie daran, dass Ihr Browser beim Aufruf der Seite ein Skript von static.cloudflareinsights.com lädt. Ohne Aktivierung findet keine Messung statt.
 
-Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist, die Website zu verbessern und ihre Reichweite zu kennen. Sie können der Verarbeitung jederzeit widersprechen (siehe Ihre Rechte). Anbieter und Auftragsverarbeiter ist Cloudflare, Inc. (Anschrift oben), es gelten dieselben Garantien für Übermittlungen in die USA.
+Wir messen mit Cloudflare Web Analytics, wie viele Menschen die Website besuchen und wie schnell sie lädt. Das Skript setzt keine Cookies und nutzt weder localStorage noch sessionStorage. Es speichert nichts auf Ihrem Gerät und liest dort keine gespeicherten Informationen aus. Es erstellt keinen Fingerabdruck Ihres Geräts und verfolgt Sie nicht über mehrere Websites hinweg. Es übermittelt nur Messwerte, die Ihr Browser selbst über den Seitenaufruf bereitstellt. Deshalb ist nach unserer Einschätzung keine Einwilligung nach § 25 TDDDG nötig.
+
+Nach der Dokumentation von Cloudflare (https://developers.cloudflare.com/web-analytics/) verarbeitet der Dienst diese Daten:
+
+- die aufgerufene Adresse ohne Suchparameter und die verweisende Seite (Referrer),
+- Browser, Betriebssystem und Gerätetyp (zum Beispiel Computer oder Smartphone),
+- das Land des Besuchs,
+- Messwerte zur Ladezeit der Seite, einschließlich der Core Web Vitals (Ladegeschwindigkeit, Reaktionszeit und Stabilität des Layouts, mit dem betroffenen Seitenelement).
+
+Ihre IP-Adresse wird bei jedem Aufruf technisch an Cloudflare übertragen. Cloudflare gibt an, damit keine einzelnen Personen wiederzuerkennen und keine personenbezogenen Daten der Besucher zu erheben oder zu nutzen.
+
+Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist, die Reichweite der Website zu kennen und ihre Ladezeit zu verbessern. Sie können der Verarbeitung jederzeit widersprechen (siehe Ihre Rechte). Anbieter und Auftragsverarbeiter ist Cloudflare, Inc. (Anschrift oben), es gelten dieselben Garantien für Übermittlungen in die USA.
+
+Speicherdauer: Nach der Dokumentation von Cloudflare liegen die einzelnen Messwerte 7 Tage ungekürzt vor. Danach werden sie zusammengefasst und auf etwa 10 Prozent der ursprünglichen Menge reduziert. Im Dashboard sind die Daten der letzten sechs Monate abrufbar.
 
 ## Warteliste
 
@@ -37,7 +52,7 @@ Auf der Website können Sie sich für die Beta von Voidbinder eintragen.
 
 **Welche Daten wir speichern.** Ihre E-Mail-Adresse, die gewählte Sprache, die Version des Einwilligungstextes, die Zeitpunkte der Eintragung, der Bestätigung, einer Abmeldung und des letzten Versands einer Bestätigungsmail sowie technische Angaben zur Abwicklung (eine interne Kennung, den Status der Eintragung und einen Prüfwert des Bestätigungslinks). Wir speichern keine IP-Adressen und keine Angaben zu Ihrem Browser.
 
-**Zweck.** Wir informieren Sie per E-Mail über die Beta und den Start von Voidbinder.
+**Zweck.** Wir speichern Ihre E-Mail-Adresse, um Ihnen eine Mail zu schicken, sobald die Beta von Voidbinder startet. Für andere Zwecke verwenden wir sie nicht.
 
 **Rechtsgrundlage.** Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO. Die Angabe ist freiwillig. Ohne sie können Sie sich nicht eintragen, die Nutzung der Website bleibt davon unberührt.
 
@@ -47,7 +62,9 @@ Auf der Website können Sie sich für die Beta von Voidbinder eintragen.
 
 **Widerruf.** Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, mit dem Abmeldelink in jeder Mail oder per E-Mail an [MAX: E-Mail]. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt unberührt.
 
-**Speicherdauer.** Wir speichern die Daten, bis Sie sich abmelden, längstens bis 12 Monate nach der Mail zum Start von Voidbinder. Nach einer Abmeldung bleibt der Eintrag mit dem Status „abgemeldet“ gespeichert, damit keine weitere Mail an die Adresse geht. Auf Ihren Wunsch löschen wir ihn vollständig. Nicht bestätigte Eintragungen löschen wir nach [MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen].
+**Speicherdauer.** Wir speichern die Daten einer bestätigten Eintragung, bis wir Ihnen die Mail zum Beta-Start geschickt haben, längstens bis Sie sich abmelden. Danach löschen wir sie. Nicht bestätigte Eintragungen löschen wir nach [MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen].
+
+**Nach einer Abmeldung.** Der Eintrag bleibt dann mit Ihrer E-Mail-Adresse, dem Status „abgemeldet“ und den Zeitpunkten der Eintragung, der Bestätigung und der Abmeldung gespeichert. Der Zweck ist, Ihre Einwilligung und deren Widerruf nachweisen zu können (Art. 7 Abs. 1 DSGVO) und sicherzustellen, dass keine weitere Mail an die Adresse geht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, unser berechtigtes Interesse ist dieser Nachweis und der Schutz vor ungewollten Mails. Wir bewahren den Eintrag [MAX: Aufbewahrungsfrist abgemeldeter Adressen, Vorschlag 12 Monate] auf. Auf Ihren Wunsch löschen wir ihn schon vorher vollständig, schreiben Sie dazu an [MAX: E-Mail]. Tragen Sie sich danach mit derselben Adresse erneut ein, beginnt ein neues Double-Opt-In.
 
 **Empfänger.** Die Daten liegen in einer PostgreSQL-Datenbank bei [MAX: Datenbank-Anbieter und Region, z. B. Neon, Frankfurt]. Die Mails versenden wir mit Cloudflare Email Service. Cloudflare verarbeitet dafür Ihre E-Mail-Adresse und den Inhalt der Mail. Die Anbieter handeln als Auftragsverarbeiter nach unseren Weisungen. Für Übermittlungen in Länder außerhalb der EU und des EWR gelten Standardvertragsklauseln oder ein Angemessenheitsbeschluss der EU-Kommission.
 
@@ -57,7 +74,7 @@ Die Website verlinkt auf Twitch, GitHub und voidcom.app. Beim Anklicken verlasse
 
 ## Cookies und lokaler Speicher
 
-Diese Website setzt keine Cookies und nutzt weder localStorage noch sessionStorage Ihres Browsers. Ihre Sprachwahl steckt in der Adresse der Seite (/de/ oder /en/) und wird nicht gespeichert. Rufen Sie die Startseite ohne Sprachangabe auf, wählen wir die Sprache nach der Spracheinstellung Ihres Browsers und speichern diese Angabe nicht.
+Diese Website setzt keine Cookies und nutzt weder localStorage noch sessionStorage Ihres Browsers. Das gilt auch für die Reichweitenmessung. Ihre Sprachwahl steckt in der Adresse der Seite (/de/ oder /en/) und wird nicht gespeichert. Rufen Sie die Startseite ohne Sprachangabe auf, wählen wir die Sprache nach der Spracheinstellung Ihres Browsers und speichern diese Angabe nicht.
 
 ## Ihre Rechte
 

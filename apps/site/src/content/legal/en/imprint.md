@@ -17,7 +17,8 @@ Operator:\
 
 ## Contact
 
-Email: [MAX: E-Mail]
+Email: [MAX: E-Mail]\
+Phone or another way to reach us: [MAX: Telefon oder weiterer Kontaktweg]
 
 ## VAT identification number
 
