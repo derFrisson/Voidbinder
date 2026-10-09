@@ -1,0 +1,98 @@
+---
+import Card from './Card.astro';
+
+// The landing page's one authored scroll moment: a 3x3 binder page whose pockets fill row by
+// row as the page scrolls past. The resting state is the full page; reduced motion keeps it.
+interface Props {
+  label: string;
+}
+const { label } = Astro.props;
+const pockets = Array.from({ length: 9 }, (_, i) => i);
+---
+
+<div class="binder" role="img" aria-label={label}>
+  <div class="holes" aria-hidden="true"><span></span><span></span><span></span></div>
+  <ul class="pockets">
+    {
+      pockets.map((i) => (
+        <li class="pocket">
+          <Card variant={i === 4 ? 'accent' : 'outline'} />
+        </li>
+      ))
+    }
+  </ul>
+</div>
+
+<style>
+  .binder {
+    width: min(100%, 480px);
+    justify-self: center;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--space-4);
+    padding: var(--space-5) var(--space-5) var(--space-5) var(--space-4);
+    border: 1px solid var(--outline-hover);
+    border-radius: var(--radius);
+    background: var(--surface);
+    view-timeline-name: --binder;
+  }
+
+  .holes {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+  }
+
+  .holes span {
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--outline-hover);
+    border-radius: 50%;
+  }
+
+  .pockets {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-3);
+  }
+
+  .pocket {
+    aspect-ratio: var(--card-ratio);
+    padding: 6%;
+    border: 1px solid var(--outline);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+
+  .pocket > :global(.card) {
+    width: 100%;
+    height: 100%;
+  }
+
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .pocket > :global(.card) {
+        animation: slot-in linear both;
+        animation-timeline: --binder;
+      }
+
+      /* Row by row; cells in a row move together so the grid never breaks. */
+      .pocket:nth-child(-n + 3) > :global(.card) {
+        animation-range: cover 12% cover 30%;
+      }
+      .pocket:nth-child(n + 4):nth-child(-n + 6) > :global(.card) {
+        animation-range: cover 22% cover 40%;
+      }
+      .pocket:nth-child(n + 7) > :global(.card) {
+        animation-range: cover 32% cover 50%;
+      }
+    }
+  }
+
+  @keyframes slot-in {
+    from {
+      opacity: 0;
+      transform: translateY(-14%);
+    }
+  }
+</style>

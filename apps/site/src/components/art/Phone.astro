@@ -1,0 +1,78 @@
+---
+// Wireframe phone: hairline frame, status bar, the screen is the slot.
+interface Props {
+  label: string;
+}
+const { label } = Astro.props;
+---
+
+<div class="phone" role="img" aria-label={label}>
+  <div class="status" aria-hidden="true">
+    <span>9:41</span>
+    <span class="notch"></span>
+    <span class="bars"><i></i><i></i><i></i></span>
+  </div>
+  <div class="screen">
+    <slot />
+  </div>
+</div>
+
+<style>
+  .phone {
+    display: flex;
+    flex-direction: column;
+    width: min(100%, 288px);
+    aspect-ratio: 9 / 19;
+    padding: 10px;
+    border: 1px solid var(--outline-hover);
+    border-radius: 36px;
+    background: var(--bg);
+  }
+
+  .status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 32px;
+    padding-inline: 18px;
+    color: var(--on-surface-muted);
+    font-size: 11px;
+    font-weight: 500;
+  }
+
+  .notch {
+    width: 72px;
+    height: 20px;
+    border: 1px solid var(--outline);
+    border-radius: 10px;
+  }
+
+  .bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .bars i {
+    width: 3px;
+    height: 5px;
+    background: var(--on-surface-muted);
+  }
+
+  .bars i:nth-child(2) {
+    height: 7px;
+  }
+
+  .bars i:nth-child(3) {
+    height: 9px;
+  }
+
+  .screen {
+    position: relative;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 26px;
+  }
+</style>

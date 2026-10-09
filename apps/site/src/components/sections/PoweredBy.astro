@@ -1,0 +1,21 @@
+---
+import { links, t, type Locale } from '../../i18n';
+import Arrow from '../Arrow.astro';
+
+interface Props {
+  locale: Locale;
+}
+const d = t(Astro.props.locale).voidcom;
+---
+
+<section class="section wrap" aria-labelledby="voidcom-title">
+  <div class="section-head">
+    <p class="label">{d.label}</p>
+    <h2 id="voidcom-title" class="headline">{d.title}</h2>
+    <p class="lede">{d.lede}</p>
+    <p>
+      <a class="link-arrow" href={links.voidcom}>{d.link}<Arrow /></a>
+    </p>
+  </div>
+</section>
+

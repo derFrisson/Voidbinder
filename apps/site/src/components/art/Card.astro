@@ -1,0 +1,67 @@
+---
+// One abstract trading card at 63:88: frame, name bar, empty art window, text lines and the
+// number zone. Never artwork; the shape is the motif.
+interface Props {
+  variant?: 'outline' | 'glass' | 'accent';
+  class?: string;
+}
+const { variant = 'outline', class: className } = Astro.props;
+---
+
+<div
+  class:list={[
+    'card-shape',
+    'card',
+    className,
+    { 'is-glass': variant !== 'outline', 'is-accent': variant === 'accent' },
+  ]}
+>
+  <svg viewBox="0 0 63 88" preserveAspectRatio="none" aria-hidden="true">
+    <path class="bar" d="M6 8.5h30"></path>
+    <rect class="cost" x="51" y="5.5" width="6" height="6" rx="0.6"></rect>
+    <rect class="window" x="6" y="14" width="51" height="34" rx="0.6"></rect>
+    <path class="text" d="M6 56h51M6 61h43M6 66h30"></path>
+    <path class="number" d="M6 81h12"></path>
+  </svg>
+</div>
+
+<style>
+  .card {
+    background: var(--bg);
+  }
+
+  .card.is-glass {
+    background: var(--glass);
+  }
+
+  svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  svg * {
+    fill: none;
+    stroke: var(--outline-hover);
+    stroke-width: 1;
+    vector-effect: non-scaling-stroke;
+  }
+
+  .bar,
+  .number {
+    stroke: var(--on-surface-dim);
+    stroke-width: 2;
+  }
+
+  .text {
+    stroke: var(--outline-hover);
+  }
+
+  .is-accent .window {
+    stroke: var(--primary-faint);
+  }
+
+  .is-accent .cost {
+    fill: var(--primary);
+    stroke: none;
+  }
+</style>

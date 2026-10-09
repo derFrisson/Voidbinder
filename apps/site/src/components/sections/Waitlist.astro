@@ -1,0 +1,140 @@
+---
+import { t, type Locale } from '../../i18n';
+import Card from '../art/Card.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale).waitlist;
+// Contract with VB-17: POST /api/waitlist, form-encoded (or JSON) with email, locale, consent and
+// the `website` honeypot. Works without JavaScript; progressive enhancement comes later.
+---
+
+<section id="waitlist" class="section wrap" aria-labelledby="waitlist-title">
+  <div class="intro">
+    <h2 id="waitlist-title" class="display-m">{d.title}</h2>
+    <p class="lede">{d.lede}</p>
+  </div>
+
+  <div class="stage">
+    <div class="stack" aria-hidden="true">
+      <Card class="s1" />
+      <Card class="s2" />
+      <Card class="s3" />
+    </div>
+    <form id="waitlist-form" class="form glass" method="post" action="/api/waitlist">
+      <input type="hidden" name="locale" value={locale} />
+      <div class="field">
+        <label class="label" for="waitlist-email">{d.emailLabel}</label>
+        <input
+          id="waitlist-email"
+          class="input"
+          type="email"
+          name="email"
+          required
+          autocomplete="email"
+          inputmode="email"
+          placeholder={d.emailPlaceholder}
+        />
+      </div>
+      <div class="hp" aria-hidden="true">
+        <label for="waitlist-website">{d.honeypot}</label>
+        <input id="waitlist-website" type="text" name="website" tabindex="-1" autocomplete="off" />
+      </div>
+      <div class="consent">
+        <input id="waitlist-consent" class="checkbox" type="checkbox" name="consent" value="yes" required />
+        <label for="waitlist-consent" class="small muted">
+          {d.consentBefore}<a href={`/${locale}/datenschutz/`}>{d.consentLink}</a>{d.consentAfter}
+        </label>
+      </div>
+      <button class="btn btn-primary submit" type="submit">{d.submit}</button>
+    </form>
+  </div>
+</section>
+
+<style>
+  .stage {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    margin-top: var(--space-8);
+    padding-block: var(--space-8);
+    border-block: 1px solid var(--outline);
+    overflow: clip;
+  }
+
+  .stack {
+    --w: clamp(112px, 15vw, 196px);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: var(--w);
+    aspect-ratio: var(--card-ratio);
+    transform: translate(-50%, -50%);
+  }
+
+  .stack > :global(.card) {
+    position: absolute;
+    inset: 0;
+  }
+
+  .stack > :global(.s1) {
+    transform: rotate(-14deg) translateX(-92%);
+  }
+
+  .stack > :global(.s2) {
+    transform: rotate(4deg);
+  }
+
+  .stack > :global(.s3) {
+    transform: rotate(16deg) translateX(94%);
+  }
+
+  .form {
+    position: relative;
+    display: grid;
+    gap: var(--space-5);
+    width: min(100%, 480px);
+    padding: var(--space-6);
+    background: rgba(8, 8, 8, 0.4);
+  }
+
+  .field {
+    display: grid;
+    gap: var(--space-2);
+  }
+
+  .hp {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  .consent {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .consent a {
+    color: var(--primary);
+  }
+
+  .submit {
+    width: 100%;
+  }
+
+  @media (max-width: 639px) {
+    .stage {
+      margin-top: var(--space-7);
+      padding-block: var(--space-7);
+    }
+
+    .form {
+      padding: var(--space-5);
+    }
+  }
+</style>

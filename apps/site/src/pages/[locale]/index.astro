@@ -1,0 +1,33 @@
+---
+import DeckBuilder from '../../components/sections/DeckBuilder.astro';
+import Games from '../../components/sections/Games.astro';
+import Hero from '../../components/sections/Hero.astro';
+import OpenSource from '../../components/sections/OpenSource.astro';
+import PoweredBy from '../../components/sections/PoweredBy.astro';
+import Prices from '../../components/sections/Prices.astro';
+import Problem from '../../components/sections/Problem.astro';
+import Scanner from '../../components/sections/Scanner.astro';
+import StreamerKit from '../../components/sections/StreamerKit.astro';
+import Waitlist from '../../components/sections/Waitlist.astro';
+import { locales, type Locale } from '../../i18n';
+import Base from '../../layouts/Base.astro';
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({ params: { locale } }));
+}
+
+const locale = Astro.params.locale as Locale;
+---
+
+<Base locale={locale}>
+  <Hero locale={locale} />
+  <Problem locale={locale} />
+  <Games locale={locale} />
+  <Scanner locale={locale} />
+  <Prices locale={locale} />
+  <DeckBuilder locale={locale} />
+  <StreamerKit locale={locale} />
+  <OpenSource locale={locale} />
+  <PoweredBy locale={locale} />
+  <Waitlist locale={locale} />
+</Base>
