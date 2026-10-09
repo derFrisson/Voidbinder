@@ -12,6 +12,18 @@ describe('built site', () => {
     expect(existsSync(new URL(`${locale}/index.html`, client))).toBe(true);
   });
 
+  it.each(['de', 'en'])('links Twitch and GitHub on the %s landing page', (locale) => {
+    const html = readFileSync(new URL(`${locale}/index.html`, client), 'utf8');
+    expect(html).toContain('https://www.twitch.tv/derFrisson');
+    expect(html).toContain('https://github.com/derFrisson/Voidbinder');
+  });
+
+  it.each(['de', 'en'])('prerenders the %s waitlist status pages', (locale) => {
+    for (const page of ['pending', 'confirmed', 'unsubscribed', 'expired']) {
+      expect(existsSync(new URL(`${locale}/waitlist/${page}/index.html`, client)), page).toBe(true);
+    }
+  });
+
   // The strict CSP (VB-19) forbids inline style attributes; <style> elements are hashed instead.
   it('has no inline style attributes', () => {
     expect(pages.length).toBeGreaterThan(0);
