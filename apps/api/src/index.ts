@@ -1,8 +1,22 @@
 import { createApp, type App } from './app';
-import { appDeps, startScryfallImport, startTcgdexCron } from './platform/cloudflare';
+import { CRON_SOURCES } from './import/schedule';
+import {
+  appDeps,
+  startScryfallImport,
+  startTcgdexCron,
+  startYgoprodeckImport,
+} from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
+export { YgoprodeckImportWorkflow } from './workflows/ygoprodeck-import';
+
+const START = {
+  scryfall: startScryfallImport,
+  ygoprodeck: startYgoprodeckImport,
+  // Skips the start while a TCGdex run is still going (a full run outlasts a day).
+  tcgdex: startTcgdexCron,
+};
 
 let app: App | undefined;
 
@@ -13,19 +27,12 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  /**
-   * Cron (prod `0 3 * * *`, dev `30 4 * * *`): the daily imports, one instance of each per day
-   * (TCGdex only when no TCGdex run is still going). A failed start of one never keeps the others
-   * from starting.
-   */
+  /** Each cron starts the import CRON_SOURCES names; one Workflow instance per source and day. */
   async scheduled(controller, env) {
+    const source = CRON_SOURCES[controller.cron];
+    if (!source) throw new Error(`no import for cron ${controller.cron}`);
     const day = new Date(controller.scheduledTime).toISOString().slice(0, 10);
-    const started = await Promise.allSettled([
-      startScryfallImport(env, `scryfall-${day}`),
-      startTcgdexCron(env, `tcgdex-${day}`),
-    ]);
-    const failed = started.find((r) => r.status === 'rejected');
-    if (failed) throw failed.reason;
+    await START[source](env, `${source}-${day}`);
   },
 } satisfies ExportedHandler<Env>;
 

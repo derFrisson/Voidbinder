@@ -146,10 +146,11 @@ export class DrizzleCardStore implements CardStore {
     const where = and(...filters);
 
     const name = sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`;
+    // The variants of a number follow each other (sorted by number or name).
     const order = {
-      number: [NUMBER_ORDER, asc(prints.number)],
-      name: [asc(name), NUMBER_ORDER, asc(prints.number)],
-      rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number)],
+      number: [NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      name: [asc(name), NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
     }[query.sort];
 
     const [[count], rows] = await Promise.all([
@@ -162,6 +163,7 @@ export class DrizzleCardStore implements CardStore {
           id: prints.id,
           cardId: prints.cardId,
           number: prints.number,
+          variant: prints.variant,
           name,
           rarity: prints.rarity,
           finishes: prints.finishes,
@@ -186,6 +188,7 @@ export class DrizzleCardStore implements CardStore {
         id: r.id,
         cardId: r.cardId,
         number: r.number,
+        variant: r.variant,
         name: r.name,
         rarity: r.rarity,
         finishes: r.finishes,
@@ -208,7 +211,13 @@ export class DrizzleCardStore implements CardStore {
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
       .where(where)
-      .orderBy(sql`${prints.releasedOn} desc nulls last`, sets.code, NUMBER_ORDER, prints.number);
+      .orderBy(
+        sql`${prints.releasedOn} desc nulls last`,
+        sets.code,
+        NUMBER_ORDER,
+        prints.number,
+        prints.variant,
+      );
     if (!rows.length) return [];
     const localizations = await this.catalog
       .select()
@@ -237,6 +246,7 @@ export class DrizzleCardStore implements CardStore {
         cardId: p.cardId,
         set: { ...set, game: set.game as Game },
         number: p.number,
+        variant: p.variant,
         rarity: p.rarity,
         finishes: p.finishes,
         artist: p.artist,

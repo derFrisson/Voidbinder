@@ -50,9 +50,10 @@
   "r2_buckets": [
     { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
   ],
-  // Catalog import (VB-26, VB-28): the Workflows run the Scryfall and TCGdex imports; the cron
-  // starts both daily and POST /admin/import/scryfall|tcgdex on demand. Splitting the 2 GB all_cards dump needs more than the
-  // default 30 s of CPU in one step.
+  // Catalog import (VB-26, VB-27, VB-28): one Workflow per source (Scryfall, YGOPRODeck, TCGdex);
+  // each cron starts one daily (CRON_SOURCES in src/import/schedule.ts maps the expression) and
+  // POST /admin/import/<source> on demand. Splitting the 2 GB Scryfall all_cards dump needs more
+  // than the default 30 s of CPU in one step.
   "workflows": [
     {
       "binding": "SCRYFALL_IMPORT",
@@ -60,12 +61,17 @@
       "class_name": "ScryfallImportWorkflow",
     },
     {
+      "binding": "YGOPRODECK_IMPORT",
+      "name": "voidbinder-ygoprodeck-import",
+      "class_name": "YgoprodeckImportWorkflow",
+    },
+    {
       "binding": "TCGDEX_IMPORT",
       "name": "voidbinder-tcgdex-import",
       "class_name": "TcgdexImportWorkflow",
     },
   ],
-  "triggers": { "crons": ["0 3 * * *"] },
+  "triggers": { "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *"] },
   "limits": { "cpu_ms": 300000 },
   "env": {
     "dev": {
@@ -106,12 +112,17 @@
           "class_name": "ScryfallImportWorkflow",
         },
         {
+          "binding": "YGOPRODECK_IMPORT",
+          "name": "voidbinder-ygoprodeck-import-dev",
+          "class_name": "YgoprodeckImportWorkflow",
+        },
+        {
           "binding": "TCGDEX_IMPORT",
           "name": "voidbinder-tcgdex-import-dev",
           "class_name": "TcgdexImportWorkflow",
         },
       ],
-      "triggers": { "crons": ["30 4 * * *"] },
+      "triggers": { "crons": ["30 4 * * *", "0 5 * * *", "30 5 * * *"] },
       "limits": { "cpu_ms": 300000 },
     },
     "prod": {
@@ -152,12 +163,17 @@
           "class_name": "ScryfallImportWorkflow",
         },
         {
+          "binding": "YGOPRODECK_IMPORT",
+          "name": "voidbinder-ygoprodeck-import",
+          "class_name": "YgoprodeckImportWorkflow",
+        },
+        {
           "binding": "TCGDEX_IMPORT",
           "name": "voidbinder-tcgdex-import",
           "class_name": "TcgdexImportWorkflow",
         },
       ],
-      "triggers": { "crons": ["0 3 * * *"] },
+      "triggers": { "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *"] },
       "limits": { "cpu_ms": 300000 },
     },
   },
