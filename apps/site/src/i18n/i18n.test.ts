@@ -60,6 +60,12 @@ const FORBIDDEN = [
   'betrieben in deutschland',
   'hosted in germany',
   'german servers',
+  'in deutschland gehostet',
+  'hosting in deutschland',
+  'servern in deutschland',
+  'rechenzentrum in deutschland',
+  'german hosting',
+  'hosted in german',
   'deutsche server',
 ];
 
