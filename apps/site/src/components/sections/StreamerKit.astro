@@ -20,6 +20,17 @@ const packs = Array.from({ length: 10 }, (_, i) => i < 3);
     </p>
   </div>
 
+  <dl class="facts features">
+    {
+      d.facts.map((f) => (
+        <>
+          <dt>{f.term}</dt>
+          <dd>{f.value}</dd>
+        </>
+      ))
+    }
+  </dl>
+
   <div class="frame" role="img" aria-label={d.art}>
     <div class="pile" aria-hidden="true">
       <Card class="p1" />
@@ -41,15 +52,23 @@ const packs = Array.from({ length: 10 }, (_, i) => i < 3);
     <div class="total glass">
       <span class="label">{d.overlay.total}</span>
       <span class="headline num">{d.overlay.totalValue}</span>
+      <span class="small muted">{d.overlay.box} <span class="num">{d.overlay.boxValue}</span></span>
     </div>
   </div>
+  <p class="caption small muted">{d.caption}</p>
 </section>
 
 <style>
+  .features {
+    margin-top: var(--space-8);
+  }
+  .caption {
+    margin-top: var(--space-3);
+  }
   .frame {
     position: relative;
     aspect-ratio: 16 / 9;
-    margin-top: var(--space-8);
+    margin-top: var(--space-6);
     overflow: hidden;
     border: 1px solid var(--outline-hover);
     border-radius: var(--radius);
@@ -145,9 +164,12 @@ const packs = Array.from({ length: 10 }, (_, i) => i < 3);
   }
 
   @media (max-width: 639px) {
+    .features {
+      margin-top: var(--space-7);
+    }
     .frame {
       aspect-ratio: 4 / 5;
-      margin-top: var(--space-7);
+      margin-top: var(--space-5);
     }
 
     .pile {

@@ -17,6 +17,9 @@ const d = t(Astro.props.locale).hero;
     <a class="btn btn-outlined" href={links.github}>{d.secondary}</a>
   </div>
   <p class="status label"><span class="dot"></span>{d.status}</p>
+  <p class="powered small">
+    <a href={links.voidcom}>{d.poweredBy}</a>
+  </p>
   <div class="art">
     <CardFan label={d.art} />
   </div>
@@ -42,6 +45,12 @@ const d = t(Astro.props.locale).hero;
     margin-top: var(--space-5);
   }
 
+  .powered {
+    margin-top: var(--space-3);
+  }
+  .powered a {
+    color: var(--on-surface-dim);
+  }
   .art {
     width: 100%;
     margin-top: var(--space-8);

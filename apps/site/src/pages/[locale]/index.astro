@@ -3,7 +3,6 @@ import DeckBuilder from '../../components/sections/DeckBuilder.astro';
 import Games from '../../components/sections/Games.astro';
 import Hero from '../../components/sections/Hero.astro';
 import OpenSource from '../../components/sections/OpenSource.astro';
-import PoweredBy from '../../components/sections/PoweredBy.astro';
 import Prices from '../../components/sections/Prices.astro';
 import Problem from '../../components/sections/Problem.astro';
 import Scanner from '../../components/sections/Scanner.astro';
@@ -28,6 +27,5 @@ const locale = Astro.params.locale as Locale;
   <DeckBuilder locale={locale} />
   <StreamerKit locale={locale} />
   <OpenSource locale={locale} />
-  <PoweredBy locale={locale} />
   <Waitlist locale={locale} />
 </Base>

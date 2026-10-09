@@ -64,6 +64,7 @@ const last = pts.at(-1) ?? [0, 0];
       }
     </ul>
     </div>
+    <p class="estimate muted small">{d.estimate}</p>
   </div>
 </section>
 
@@ -128,6 +129,9 @@ const last = pts.at(-1) ?? [0, 0];
     gap: var(--space-6);
   }
 
+  .estimate {
+    grid-column: 2;
+  }
   .chart svg {
     width: 100%;
     height: auto;
@@ -185,7 +189,8 @@ const last = pts.at(-1) ?? [0, 0];
       display: none;
     }
 
-    .detail {
+    .detail,
+    .estimate {
       grid-column: 1;
       grid-template-columns: 1fr;
     }

@@ -1,0 +1,16 @@
+---
+import WaitlistStatus from '../../../components/sections/WaitlistStatus.astro';
+import { locales, t, type Locale } from '../../../i18n';
+import Base from '../../../layouts/Base.astro';
+
+export function getStaticPaths() {
+  return locales.map((locale) => ({ params: { locale } }));
+}
+
+const locale = Astro.params.locale as Locale;
+const d = t(locale).status.unsubscribed;
+---
+
+<Base locale={locale} title={`${d.title} · Voidbinder`} noindex>
+  <WaitlistStatus title={d.title} text={d.text} />
+</Base>

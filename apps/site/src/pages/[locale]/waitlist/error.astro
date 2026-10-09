@@ -1,0 +1,19 @@
+---
+import WaitlistStatus from '../../../components/sections/WaitlistStatus.astro';
+import { isLocale, t } from '../../../i18n';
+import Base from '../../../layouts/Base.astro';
+
+// On demand: the reason (`email`, `consent` or `server`) arrives in the query string.
+export const prerender = false;
+
+const locale = Astro.params.locale;
+if (!isLocale(locale)) return new Response(null, { status: 404 });
+const { action, ...reasons } = t(locale).status.error;
+const reason = Astro.url.searchParams.get('reason');
+const d = reason === 'email' || reason === 'consent' ? reasons[reason] : reasons.server;
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<Base locale={locale} title={`${d.title} · Voidbinder`} noindex>
+  <WaitlistStatus title={d.title} text={d.text} action={{ label: action, href: `/${locale}/#waitlist` }} />
+</Base>
