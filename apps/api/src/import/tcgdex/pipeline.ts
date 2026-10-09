@@ -87,12 +87,13 @@ const DAY = 86_400_000;
 
 /**
  * The rolling refresh: a card's details (legality, errata) change without its set's details
- * changing, so every set is refetched on one day of the month, about 1/30 of them per day.
+ * changing, so every set is refetched once every 30 days (counted from the epoch), about 1/30 of
+ * them per day.
  */
 export function rotates(id: string, date: string): boolean {
   let hash = 0x811c9dc5; // FNV-1a
   for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 0x01000193);
-  return (hash >>> 0) % ROTATION_DAYS === new Date(date).getUTCDate() % ROTATION_DAYS;
+  return (hash >>> 0) % ROTATION_DAYS === Math.floor(Date.parse(date) / DAY) % ROTATION_DAYS;
 }
 
 /** Whether a set needs its cards fetched, given what the catalog already holds. */
