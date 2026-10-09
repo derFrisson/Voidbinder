@@ -794,7 +794,8 @@ echo "POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')" > /opt/voidbin
 Copy it into the password manager entry `postgres superuser` with `cat /opt/voidbinder-db/.env`.
 
 **pgBackRest config comes later.** The container mounts the directory `/etc/pgbackrest` (created
-in section 5), so the config file can be written in section 7 without touching the compose file.
+above, in the directory block of this section), so the config file can be written in section 7
+without touching the compose file.
 Until the stanza exists, WAL archiving fails and Postgres keeps the WAL and retries; that is
 expected for the minutes in between (the log shows `archive command failed`).
 
@@ -925,7 +926,15 @@ inside `ubuntu`'s own network namespace, so it cannot bypass `ufw` the way the r
 the address in `pg_hba.conf` above. The subnet exists inside rootless Docker's own network
 namespace, so it cannot clash with the VPS's network.
 
-Start it:
+Before the first start, check that every bind-mount source exists; Docker refuses to start the
+container otherwise (`bind source path does not exist`):
+
+```sh
+ls -ld /var/lib/postgresql/voidbinder /opt/voidbinder-db/tls /etc/pgbackrest
+```
+
+All three must print a line. A missing one means the directory block earlier in this section was
+skipped; run it again. Then start it:
 
 ```sh
 cd /opt/voidbinder-db
