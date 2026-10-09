@@ -2,6 +2,7 @@ import { drizzleAdapter } from '@better-auth/drizzle-adapter';
 import type { Locale } from '@voidbinder/shared';
 import { betterAuth } from 'better-auth';
 import { bearer } from 'better-auth/plugins';
+import { and, eq, isNotNull } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema/auth';
 import { log } from '../middleware/log';
@@ -94,7 +95,33 @@ export function createAuth(config: AuthConfig, req: AuthRequest) {
         deletionRequestedAt: { type: 'date', required: false, input: false },
       },
     },
+    // Better Auth's own log lines as JSON lines like the rest of the API (level warn and up).
+    logger: {
+      disableColors: true,
+      log: (level, message, ...args) =>
+        log(level === 'debug' ? 'info' : level, {
+          message,
+          source: 'better-auth',
+          ...(args.length > 0 && {
+            details: args.map((a) => (a instanceof Error ? String(a) : a)),
+          }),
+        }),
+    },
     databaseHooks: {
+      session: {
+        create: {
+          // Signing in again withdraws a deletion request (DELETE /me), like Discord: every new
+          // session is a sign-in, since sign-up waits for the verified address.
+          after: async (session) => {
+            await req.db
+              .update(schema.user)
+              .set({ deletionRequestedAt: null, updatedAt: new Date() })
+              .where(
+                and(eq(schema.user.id, session.userId), isNotNull(schema.user.deletionRequestedAt)),
+              );
+          },
+        },
+      },
       user: {
         create: {
           // The mail language starts as the browser's (Accept-Language), German otherwise.
