@@ -5,9 +5,9 @@ import {
   SetPageResponseSchema,
   SetsResponseSchema,
 } from '@voidbinder/shared/api';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appMeta, cards, prints } from '../db/schema';
+import { appMeta, cards, printLocalizations, prints } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -118,6 +118,20 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       .where(eq(prints.id, list[0]?.id ?? ''));
     const after = CardResponseSchema.parse((await get(`/cards/${id}`)).body);
     expect(after.prints[0]?.imageUrl).toBe('https://img.test/mtg/mid/1.jpg');
+    // The set page: the English R2 image for en, the German source image over it for de, and
+    // the German R2 image once it exists.
+    const imageOf = async (query: string) =>
+      SetPageResponseSchema.parse((await get(`/sets/mtg/mid${query}`)).body).prints[0]?.imageUrl;
+    expect(await imageOf('')).toBe('https://img.test/mtg/mid/1.jpg');
+    expect(await imageOf('?lang=de')).toMatch(/\/10630111-537c-468e-b270-562ee7bdfb29\.jpg/);
+    await db
+      .update(printLocalizations)
+      .set({ imageKey: 'mtg/mid/1.de.jpg' })
+      .where(
+        and(eq(printLocalizations.printId, list[0]?.id ?? ''), eq(printLocalizations.lang, 'de')),
+      );
+    expect(await imageOf('?lang=de')).toBe('https://img.test/mtg/mid/1.de.jpg');
+
     const plains = CardResponseSchema.parse((await get(`/cards/${await cardId('Plains')}`)).body);
     expect(plains.prints.map((p) => p.set.code)).toEqual(['neo', 'mid']);
 

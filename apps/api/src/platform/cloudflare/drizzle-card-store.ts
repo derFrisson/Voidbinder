@@ -24,6 +24,10 @@ import {
 } from '../../db/schema';
 
 type Ids = Record<string, unknown>;
+interface Image {
+  imageKey: string | null;
+  externalIds: Ids | null;
+}
 
 export interface DrizzleCardStoreOptions {
   /** Pool for the catalog reads, the cached Hyperdrive config in production (ADR 0004). */
@@ -58,11 +62,23 @@ export class DrizzleCardStore implements CardStore {
     await this.db.execute(sql`select 1`);
   }
 
-  /** R2 image when VB-57 stored one, the source's image URL until then. */
-  private imageUrl(imageKey: string | null, externalIds: Ids | null | undefined): string | null {
-    if (imageKey && this.imageBaseUrl) return `${this.imageBaseUrl}/${imageKey}`;
-    const images = externalIds?.scryfall_images as { normal?: string } | undefined;
-    return images?.normal ?? null;
+  /**
+   * Image of a print in `lang`: the localized R2 image, then the print's R2 image (English, so
+   * only for `en` or when the language has no image of its own), then the localized source URL,
+   * then the print's source URL. R2 images exist once VB-57 stored them.
+   */
+  private imageUrl(lang: string, localized: Image | null | undefined, print: Image): string | null {
+    const r2 = (key: string | null) =>
+      key && this.imageBaseUrl ? `${this.imageBaseUrl}/${key}` : null;
+    const source = (ids: Ids | null | undefined) =>
+      (ids?.scryfall_images as { normal?: string } | undefined)?.normal ?? null;
+    const localizedSource = source(localized?.externalIds);
+    return (
+      r2(localized?.imageKey ?? null) ??
+      (lang === 'en' || !localizedSource ? r2(print.imageKey) : null) ??
+      localizedSource ??
+      source(print.externalIds)
+    );
   }
 
   async catalogVersion(): Promise<string> {
@@ -172,9 +188,11 @@ export class DrizzleCardStore implements CardStore {
         name: r.name,
         rarity: r.rarity,
         finishes: r.finishes,
-        imageUrl:
-          this.imageUrl(r.localizedImageKey, r.localizedIds) ??
-          this.imageUrl(r.imageKey, r.externalIds),
+        imageUrl: this.imageUrl(
+          query.lang,
+          { imageKey: r.localizedImageKey, externalIds: r.localizedIds },
+          r,
+        ),
       })),
       page: query.page,
       pageSize,
@@ -216,7 +234,7 @@ export class DrizzleCardStore implements CardStore {
         finishes: p.finishes,
         artist: p.artist,
         releasedOn: p.releasedOn,
-        imageUrl: this.imageUrl(p.imageKey, p.externalIds),
+        imageUrl: this.imageUrl('en', null, p),
         externalIds,
         localizations: localizations
           .filter((l) => l.printId === p.id)
@@ -224,7 +242,7 @@ export class DrizzleCardStore implements CardStore {
             lang: l.lang,
             name: l.name,
             text: l.text,
-            imageUrl: this.imageUrl(l.imageKey, l.externalIds),
+            imageUrl: this.imageUrl(l.lang, l, p),
           })),
       };
     });
