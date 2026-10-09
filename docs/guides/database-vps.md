@@ -679,8 +679,11 @@ sudo chmod 600 $TLS/server.key && sudo chmod 644 $TLS/server.crt
 ```
 
 **verify:** `sudo openssl x509 -in /opt/voidbinder-db/tls/server.crt -noout -subject -issuer -enddate`
-prints `subject=CN=db.voidbinder.de`, an issuer naming `CloudFlare Origin SSL Certificate Authority`
-and a `notAfter` fifteen years ahead, and
+prints `subject=O=CloudFlare, Inc., OU=CloudFlare Origin CA, CN=CloudFlare Origin Certificate` (Origin
+CA certificates always carry that generic subject; the hostname sits in the SAN extension), an
+issuer naming `CloudFlare Origin SSL Certificate Authority` and a `notAfter` fifteen years ahead;
+`sudo openssl x509 -in /opt/voidbinder-db/tls/server.crt -noout -ext subjectAltName` prints
+`DNS:db.voidbinder.de`; and
 `diff <(sudo openssl x509 -in /opt/voidbinder-db/tls/server.crt -noout -pubkey) <(sudo openssl pkey -in /opt/voidbinder-db/tls/server.key -pubout)`
 prints nothing (certificate and key belong together).
 
