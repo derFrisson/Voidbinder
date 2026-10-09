@@ -22,11 +22,14 @@
     "API_URL": "http://localhost:8787",
     "CORS_EXTRA_ORIGINS": "http://localhost:8081",
     "IMAGE_BASE_URL": "https://img.voidbinder.de",
+    "SCRYFALL_LANGUAGES": "en,de",
+    // Prefix of the import's R2 keys (raw/<env>/…, work/<env>/…): local, dev or prod.
+    "IMPORT_ENV": "local",
     "VERSION": "local",
   },
   // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
-  "secrets": { "required": ["BETTER_AUTH_SECRET"] },
-  // Auth mails (verification, password reset); locally `wrangler dev` logs them instead.
+  "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN"] },
+  // Auth mails (verification, password reset); `wrangler dev` simulates the binding locally.
   "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
   // Local Postgres from the root docker-compose.yml. HYPERDRIVE is cache-disabled (fresh reads);
   // HYPERDRIVE_CACHED caches reads for 300 s and serves catalog and price reads only (ADR 0004).
@@ -47,6 +50,18 @@
   "r2_buckets": [
     { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
   ],
+  // Catalog import (VB-26): the Workflow runs the Scryfall import; the cron starts it daily and
+  // POST /admin/import/scryfall on demand. Splitting the 2 GB all_cards dump needs more than the
+  // default 30 s of CPU in one step.
+  "workflows": [
+    {
+      "binding": "SCRYFALL_IMPORT",
+      "name": "voidbinder-scryfall-import",
+      "class_name": "ScryfallImportWorkflow",
+    },
+  ],
+  "triggers": { "crons": ["0 3 * * *"] },
+  "limits": { "cpu_ms": 300000 },
   "env": {
     "dev": {
       "name": "voidbinder-api-dev",
@@ -56,9 +71,11 @@
         "API_URL": "https://voidbinder-api-dev.frisson.workers.dev",
         "CORS_EXTRA_ORIGINS": "http://localhost:8081",
         "IMAGE_BASE_URL": "https://img.voidbinder.de",
+        "SCRYFALL_LANGUAGES": "en,de",
+        "IMPORT_ENV": "dev",
         "VERSION": "local",
       },
-      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN"] },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-dev" (database voidbinder_dev, caching disabled).
@@ -77,6 +94,15 @@
       "r2_buckets": [
         { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
       ],
+      "workflows": [
+        {
+          "binding": "SCRYFALL_IMPORT",
+          "name": "voidbinder-scryfall-import-dev",
+          "class_name": "ScryfallImportWorkflow",
+        },
+      ],
+      "triggers": { "crons": ["30 4 * * *"] },
+      "limits": { "cpu_ms": 300000 },
     },
     "prod": {
       "name": "voidbinder-api",
@@ -86,9 +112,11 @@
         "APP_URL": "https://app.voidbinder.de",
         "API_URL": "https://api.voidbinder.de",
         "IMAGE_BASE_URL": "https://img.voidbinder.de",
+        "SCRYFALL_LANGUAGES": "en,de",
+        "IMPORT_ENV": "prod",
         "VERSION": "local",
       },
-      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN"] },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-prod" (database voidbinder, caching disabled).
@@ -107,6 +135,15 @@
       "r2_buckets": [
         { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
       ],
+      "workflows": [
+        {
+          "binding": "SCRYFALL_IMPORT",
+          "name": "voidbinder-scryfall-import",
+          "class_name": "ScryfallImportWorkflow",
+        },
+      ],
+      "triggers": { "crons": ["0 3 * * *"] },
+      "limits": { "cpu_ms": 300000 },
     },
   },
 }

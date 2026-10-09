@@ -47,7 +47,10 @@ CREATE TABLE "user" (
 	"currency" text DEFAULT 'EUR' NOT NULL,
 	"training_data_opt_in" boolean DEFAULT false NOT NULL,
 	"deletion_requested_at" timestamp with time zone,
-	CONSTRAINT "user_email_unique" UNIQUE("email")
+	CONSTRAINT "user_email_unique" UNIQUE("email"),
+	CONSTRAINT "user_language_check" CHECK ("user"."language" in ('de', 'en')),
+	CONSTRAINT "user_currency_check" CHECK ("user"."currency" in ('EUR', 'USD')),
+	CONSTRAINT "user_display_name_check" CHECK (char_length("user"."display_name") between 2 and 40)
 );
 --> statement-breakpoint
 CREATE TABLE "verification" (

@@ -66,14 +66,25 @@ The API (ADR 0004) adds one cached configuration per environment for catalog and
 apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod`.
   `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset.
-- **API secrets:** `apps/api` needs `BETTER_AUTH_SECRET` (32+ bytes; signs the session cookies
-  and tokens, [apps/api/README.md](../apps/api/README.md#authentication)). Locally
-  `cp apps/api/.dev.vars.example apps/api/.dev.vars` and set it; deployed, once per environment
-  from `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --env dev|prod`.
-  `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset;
-  changing it signs every user out. The other settings are `vars` (`APP_URL` for CORS and the mail
-  links, `API_URL`, `CORS_EXTRA_ORIGINS` for the Expo web dev origin, locally and in `dev` only,
-  `IMAGE_BASE_URL`, `VERSION`).
+- **API secrets:** `apps/api` needs `ADMIN_TOKEN`, the bearer token of `/admin/**` (`POST
+/admin/import/scryfall`), and `BETTER_AUTH_SECRET` (32+ bytes; signs the session cookies and
+  tokens, [apps/api/README.md](../apps/api/README.md#authentication)). Locally
+  `cp apps/api/.dev.vars.example apps/api/.dev.vars`; deployed, once per environment from
+  `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put <NAME> --env dev|prod`. Both
+  are under `secrets.required`, so `wrangler deploy` fails while one is unset; a Worker without
+  `ADMIN_TOKEN` answers 404 on `/admin/**`, and changing `BETTER_AUTH_SECRET` signs every user out.
+- **API settings** are `vars` in `apps/api/wrangler.jsonc`: `APP_URL` (CORS and the auth mail
+  links), `API_URL`, `CORS_EXTRA_ORIGINS` (the Expo web dev origin, locally and in `dev` only),
+  `IMAGE_BASE_URL` (base of the R2 card images; until VB-57 fills `image_key` the catalog answers
+  with the source's image URL), `SCRYFALL_LANGUAGES` (print languages the Scryfall import keeps,
+  `en,de`; English always comes from `default_cards`, the others from `all_cards`), `IMPORT_ENV`
+  (prefix of the import's R2 keys, `raw/<env>/…` and `work/<env>/…`: `local`, `dev`, `prod`, so the
+  environments sharing the bucket never touch each other's dumps), `VERSION`.
+- **API bindings** besides `HYPERDRIVE`, `HYPERDRIVE_CACHED` (catalog reads only, see Database) and
+  the `CATALOG` R2 bucket: `SCRYFALL_IMPORT`, the Workflow `voidbinder-scryfall-import-dev` /
+  `voidbinder-scryfall-import` (class `ScryfallImportWorkflow`), started daily by the cron trigger
+  (prod 03:00 UTC, dev 04:30 UTC). The API sets `limits.cpu_ms` to 300000 for it (Workers Paid).
+  `EMAIL` (`send_email`, sender `hello@voidbinder.de`) sends the auth mails.
 - **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
   site token, read by `astro build` and baked into the static pages (it is public in the HTML).
   Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create

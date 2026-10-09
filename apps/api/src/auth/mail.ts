@@ -15,15 +15,6 @@ export interface MailSender {
   send(message: MailMessage): Promise<void>;
 }
 
-/** Used when the EMAIL binding is missing: the mail goes to the log instead. */
-export const logMailSender: MailSender = {
-  async send(message) {
-    console.info(
-      `[auth] mail not sent (no EMAIL binding)\nTo: ${message.to}\nSubject: ${message.subject}\n\n${message.text}`,
-    );
-  },
-};
-
 /** Picks `de` or `en` from an Accept-Language header (q weights honoured), German otherwise. */
 export function negotiateLocale(header: string | null | undefined): Locale {
   const ranked = (header ?? '')

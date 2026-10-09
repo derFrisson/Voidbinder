@@ -1,4 +1,4 @@
-import type { BlobStore, CardStore } from '@voidbinder/core';
+import type { BlobStore, CardStore, JobQueue } from '@voidbinder/core';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
@@ -8,6 +8,8 @@ import { createAuth, type Auth, type AuthConfig } from './auth';
 import { accessLog } from './middleware/access-log';
 import { notFound, onError } from './middleware/errors';
 import { noStoreByDefault } from './middleware/headers';
+import { adminRoutes } from './routes/admin';
+import { catalogRoutes } from './routes/catalog';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 
@@ -15,6 +17,7 @@ import { meRoutes } from './routes/me';
 export interface Platform {
   cardStore: CardStore;
   blobStore: BlobStore;
+  jobQueue: JobQueue;
   /** Drizzle on the cache-disabled pool (ADR 0004): auth, profile, everything read after a write. */
   db: NodePgDatabase;
   /** Releases per-request resources (the database connection). */
@@ -30,6 +33,8 @@ export interface AppDeps {
   version: string;
   /** Better Auth settings (src/auth); the origins come from `appUrl` and `extraOrigins`. */
   auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail'>;
+  /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
+  adminToken?: string | undefined;
   /** Called once per request; the platform is closed after the response. */
   openPlatform(): Platform;
 }
@@ -87,6 +92,8 @@ export function createApp(deps: AppDeps) {
       // Better Auth: sign-up, sign-in, sign-out, verification, password reset (README.md).
       .on(['GET', 'POST'], '/auth/*', (c) => c.var.auth().handler(c.req.raw))
       .route('/me', meRoutes())
+      .route('/catalog', catalogRoutes())
+      .route('/admin', adminRoutes(deps.adminToken))
       .notFound(notFound)
       .onError(onError)
   );

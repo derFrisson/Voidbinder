@@ -1,25 +1,21 @@
 import { createApp, type App } from './app';
-import { logMailSender } from './auth/mail';
-import { createPlatform } from './platform/cloudflare';
-import { bindingMailSender } from './platform/cloudflare/mail-sender';
+import { appDeps, startScryfallImport } from './platform/cloudflare';
+
+export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 
 let app: App | undefined;
 
 export default {
   fetch(request, env, ctx) {
     // One app per isolate: the vars never change within it, the platform opens per request.
-    app ??= createApp({
-      appUrl: env.APP_URL,
-      extraOrigins: (env.CORS_EXTRA_ORIGINS ?? '').split(',').filter(Boolean),
-      version: env.VERSION,
-      auth: {
-        secret: env.BETTER_AUTH_SECRET,
-        apiUrl: env.API_URL,
-        mail: env.EMAIL ? bindingMailSender(env.EMAIL) : logMailSender,
-      },
-      openPlatform: () => createPlatform(env),
-    });
+    app ??= createApp(appDeps(env));
     return app.fetch(request, env, ctx);
+  },
+
+  /** Cron (prod `0 3 * * *`, dev `30 4 * * *`): the daily Scryfall import, one instance per day. */
+  async scheduled(controller, env) {
+    const day = new Date(controller.scheduledTime).toISOString().slice(0, 10);
+    await startScryfallImport(env, `scryfall-${day}`);
   },
 } satisfies ExportedHandler<Env>;
 

@@ -185,8 +185,8 @@ export const de = {
       label: 'Gehostet',
       price: 'Weniger als ein Booster',
       period: 'im Monat.',
-      text: 'Wir betreiben Server, Backups und den täglichen Preisabgleich in Deutschland. Du scannst einfach.',
-      checks: ['Sync auf allen Geräten', 'Tägliche Preise', 'Backups', 'Server in Deutschland'],
+      text: 'Wir betreiben Server, Backups und den täglichen Preisabgleich, deine Daten liegen in der EU. Du scannst einfach.',
+      checks: ['Sync auf allen Geräten', 'Tägliche Preise', 'Backups', 'Daten in der EU'],
     },
   },
   waitlist: {
@@ -258,7 +258,7 @@ export const de = {
     twitch: 'Twitch',
     trademarks:
       'Pokémon, Yu-Gi-Oh!, Magic: The Gathering und One Piece sind Marken ihrer jeweiligen Inhaber. Voidbinder ist ein unabhängiges Projekt.',
-    rights: '© 2026 Voidbinder · Betrieben in Deutschland',
+    rights: '© 2026 Voidbinder · Mit Liebe gemacht in Deutschland',
   },
 };
 
