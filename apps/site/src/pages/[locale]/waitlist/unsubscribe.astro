@@ -1,0 +1,35 @@
+---
+import WaitlistStatus from '../../../components/sections/WaitlistStatus.astro';
+import { isLocale, t } from '../../../i18n';
+import Base from '../../../layouts/Base.astro';
+
+// On demand: the token arrives in the query string from the unsubscribe link in the mails. The
+// link only opens this page; the button POSTs (mail scanners open links, so a GET must not act).
+export const prerender = false;
+
+const locale = Astro.params.locale;
+if (!isLocale(locale)) return new Response(null, { status: 404 });
+const d = t(locale).status.unsubscribe;
+const token = Astro.url.searchParams.get('token');
+Astro.response.headers.set('Cache-Control', 'no-store');
+---
+
+<Base locale={locale} title={`${d.title} · Voidbinder`}>
+  <meta slot="head" name="robots" content="noindex" />
+  <meta slot="head" name="referrer" content="no-referrer" />
+  {
+    token ? (
+      <WaitlistStatus title={d.title} text={d.text}>
+        <form method="post" action="/api/waitlist/unsubscribe">
+          <input type="hidden" name="token" value={token} />
+          <input type="hidden" name="lang" value={locale} />
+          <button class="btn btn-primary" type="submit">
+            {d.button}
+          </button>
+        </form>
+      </WaitlistStatus>
+    ) : (
+      <WaitlistStatus title={d.title} text={d.invalid} />
+    )
+  }
+</Base>

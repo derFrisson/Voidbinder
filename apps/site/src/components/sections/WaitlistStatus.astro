@@ -1,0 +1,41 @@
+---
+import Arrow from '../Arrow.astro';
+
+interface Props {
+  title: string;
+  text: string;
+  /** A link button under the text, e.g. back to the form. */
+  action?: { label: string; href: string };
+}
+const { title, text, action } = Astro.props;
+---
+
+<section class="section wrap intro status" aria-labelledby="status-title">
+  <h1 id="status-title" class="display-m">{title}</h1>
+  <p class="lede">{text}</p>
+  <div class="actions">
+    <slot />
+    {
+      action && (
+        <a class="btn btn-primary" href={action.href}>
+          {action.label}
+          <Arrow />
+        </a>
+      )
+    }
+  </div>
+</section>
+
+<style>
+  .status {
+    padding-bottom: var(--section-y);
+  }
+
+  .actions {
+    margin-top: var(--space-6);
+  }
+
+  .actions:empty {
+    display: none;
+  }
+</style>
