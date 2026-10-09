@@ -1,10 +1,10 @@
 ---
-import DeckBuilder from '../../components/sections/DeckBuilder.astro';
+import Sprite from '../../components/art/Sprite.astro';
 import Games from '../../components/sections/Games.astro';
 import Hero from '../../components/sections/Hero.astro';
 import OpenSource from '../../components/sections/OpenSource.astro';
 import Prices from '../../components/sections/Prices.astro';
-import Problem from '../../components/sections/Problem.astro';
+import Reseller from '../../components/sections/Reseller.astro';
 import Scanner from '../../components/sections/Scanner.astro';
 import StreamerKit from '../../components/sections/StreamerKit.astro';
 import Waitlist from '../../components/sections/Waitlist.astro';
@@ -19,12 +19,12 @@ const locale = Astro.params.locale as Locale;
 ---
 
 <Base locale={locale}>
+  <Sprite />
   <Hero locale={locale} />
-  <Problem locale={locale} />
   <Games locale={locale} />
   <Scanner locale={locale} />
   <Prices locale={locale} />
-  <DeckBuilder locale={locale} />
+  <Reseller locale={locale} />
   <StreamerKit locale={locale} />
   <OpenSource locale={locale} />
   <Waitlist locale={locale} />

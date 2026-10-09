@@ -1,0 +1,753 @@
+---
+// The scan moment: fields and phones arrive, the scan line sweeps the card, the detection frame
+// snaps green with "Erkannt", the price sheet slides up, the offline note pops in. Every step only
+// animates transform and opacity from a `from` keyframe, so the resting state is the final frame:
+// that is what reduced motion shows, and nothing shifts the layout.
+import { amount, links, money, t, type Locale } from '../../i18n';
+import Card from '../art/Card.astro';
+import Phone from '../art/Phone.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale).hero;
+const trustColors = ['blue', 'pk', 'ok', 'op'];
+const deck = [
+  { q: '4×', thumb: '', name: 'Glimmerfuchs', set: 'Funkenflug', price: 12.8 },
+  { q: '3×', thumb: 'orange', name: 'Funkenwelpe', set: 'Funkenflug', price: 1.2 },
+  { q: '2×', thumb: 'sea', name: 'Wellenotter', set: 'Gezeitenruf', price: 4.6 },
+  { q: '4×', thumb: 'moss', name: 'Moosigel', set: 'Waldlicht', price: 0.8 },
+  { q: '2×', thumb: 'grey', name: 'Forscherrucksack', set: d.deck.support, price: 2.1 },
+  { q: '1×', thumb: 'violet', name: 'Dämmerluchs', set: 'Nachtpfad', price: 9.9 },
+];
+---
+
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <h1>{d.title} <span class="accent">{d.accent}</span></h1>
+      <p class="lead">{d.lede}</p>
+      <div class="cta">
+        <a class="btn btn--primary" href="#waitlist">{d.primary}<Icon name="arrow" /></a>
+        <a class="btn btn--ghost" href={links.github}><Icon name="code" />{d.secondary}</a>
+      </div>
+      <ul class="trust" aria-label={d.trustLabel}>
+        {d.trust.map((item, i) => <li class={`trust--${trustColors[i]}`}>{item}</li>)}
+      </ul>
+    </div>
+
+    <div class="hero-visual" role="img" aria-label={d.art}>
+      <div class="mat">
+        <span class="field f-pk"></span><span class="field f-yg"></span><span class="field f-mg"
+        ></span><span class="field f-op"></span>
+      </div>
+      <div class="loose loose--a"><Card kind="warden" locale={locale} /></div>
+      <div class="loose loose--b"><Card kind="coral" locale={locale} /></div>
+
+      <Phone class="phone--back">
+        <div class="app-h">
+          <small>{d.deck.label}</small><strong>Funkenrudel</strong><span>{d.deck.meta}</span>
+        </div>
+        <div class="tabs">
+          {d.deck.tabs.map((tab, i) => <span class:list={{ on: i === 0 }}>{tab}</span>)}
+        </div>
+        <div class="rows">
+          {
+            deck.map((r) => (
+              <div class="row row--t">
+                <span class="q">{r.q}</span>
+                <span class:list={['thumb', r.thumb && `thumb--${r.thumb}`]} />
+                <span class="nm">
+                  <b>{r.name}</b>
+                  <small>{r.set}</small>
+                </span>
+                <span class="pr">{amount(locale, r.price)}</span>
+              </div>
+            ))
+          }
+        </div>
+        <div class="tabbar">
+          {
+            d.tabbar.map((tab, i) => (
+              <span class:list={{ on: i === 1 }}>
+                <i />
+                {tab}
+              </span>
+            ))
+          }
+        </div>
+      </Phone>
+
+      <Phone class="phone--front" cam>
+        <div class="cam-top">
+          <span class="pill">{d.scan.game}</span><span class="pill pill--ok">{d.scan.offline}</span>
+        </div>
+        <div class="cam-view">
+          <Card kind="fox" locale={locale} class="scan-card" />
+          <div class="det">
+            <i></i><i></i><i></i><i></i><span class="det-tag">{d.scan.detected}</span>
+          </div>
+          <div class="scanline"></div>
+        </div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <div class="res">
+            <div class="mini"><Card kind="fox" locale={locale} mini /></div>
+            <div>
+              <b>Glimmerfuchs</b><small>Funkenflug · 042/198</small>
+              <div class="tags">
+                <span class="hl">Holo</span><span>{d.scan.condition}</span><span
+                  >{d.scan.language}</span
+                >
+              </div>
+            </div>
+          </div>
+          <div class="prices">
+            <div><small>Cardmarket</small><strong>{money(locale, 3.2)}</strong></div>
+            <div><small>TCGplayer</small><strong>{money(locale, 3.6, 'USD')}</strong></div>
+          </div>
+          <span class="add">{d.scan.add}</span>
+        </div>
+      </Phone>
+
+      <div class="callout">
+        <span class="ic"><Icon name="offline" /></span><span
+          >{d.callout}<small>{d.calloutNote}</small></span
+        >
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    padding-block: clamp(36px, 6vw, 84px) clamp(56px, 7vw, 96px);
+  }
+
+  .hero .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 1.02fr) minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 64px);
+    align-items: center;
+  }
+
+  h1 {
+    font-size: clamp(2.4rem, 4.6vw, 4.3rem);
+    font-weight: 700;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+  }
+
+  .accent {
+    color: var(--blue-ink);
+    text-decoration: underline;
+    text-decoration-color: var(--pk);
+    text-decoration-skip-ink: none;
+    text-decoration-thickness: 0.11em;
+    text-underline-offset: 0.13em;
+  }
+
+  .lead {
+    margin-top: 26px;
+  }
+
+  .cta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 34px;
+  }
+
+  .trust {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin: 40px 0 0;
+    padding: 20px 0 0;
+    border-top: 1px solid var(--line);
+    color: var(--ink-2);
+    font: 600 14.5px/1 var(--f-display);
+    letter-spacing: -0.005em;
+    list-style: none;
+  }
+
+  .trust li {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .trust li::before {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 2.5px;
+    background: var(--c);
+  }
+
+  .trust--blue {
+    --c: var(--blue);
+  }
+
+  .trust--pk {
+    --c: var(--pk);
+  }
+
+  .trust--ok {
+    --c: var(--ok);
+  }
+
+  .trust--op {
+    --c: var(--op);
+  }
+
+  /* Visual */
+  .hero-visual {
+    position: relative;
+    width: 100%;
+    max-height: 700px;
+    aspect-ratio: 1 / 1.12;
+  }
+
+  .mat {
+    position: absolute;
+    inset: 0;
+  }
+
+  .field {
+    position: absolute;
+    border-radius: 40px;
+    background-color: var(--c);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1.2px, transparent 1.4px);
+    background-size: 14px 14px;
+  }
+
+  .f-pk {
+    --c: var(--pk);
+    top: 7%;
+    left: 0;
+    width: 60%;
+    height: 46%;
+    rotate: -4deg;
+  }
+
+  .f-yg {
+    --c: var(--yg);
+    top: 0;
+    right: 0;
+    width: 46%;
+    height: 40%;
+    border-radius: 40px 40px 40px 120px;
+  }
+
+  .f-mg {
+    --c: var(--mg);
+    bottom: 0;
+    left: 7%;
+    width: 50%;
+    height: 42%;
+    rotate: 3deg;
+  }
+
+  .f-op {
+    --c: var(--op);
+    right: 3%;
+    bottom: 7%;
+    width: 38%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+  }
+
+  .loose {
+    position: absolute;
+    width: 21%;
+  }
+
+  .loose--a {
+    top: 5%;
+    right: 5%;
+    rotate: 13deg;
+  }
+
+  .loose--b {
+    bottom: 6%;
+    left: 2%;
+    rotate: -11deg;
+  }
+
+  .hero-visual :global(.phone--front) {
+    position: absolute;
+    top: 3%;
+    left: 20%;
+    z-index: 3;
+    width: min(300px, 52%);
+  }
+
+  .hero-visual :global(.phone--back) {
+    position: absolute;
+    top: 15%;
+    right: 1%;
+    z-index: 2;
+    width: min(262px, 45%);
+    rotate: 7deg;
+  }
+
+  .callout {
+    position: absolute;
+    right: 0;
+    bottom: 7%;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px 12px 12px;
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    color: var(--ink);
+    font: 600 14px/1.2 var(--f-display);
+  }
+
+  .callout small {
+    display: block;
+    color: var(--ink-2);
+    font: 500 12.5px/1.3 var(--f-body);
+  }
+
+  .callout .ic {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .callout .ic :global(svg) {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* Camera screen */
+  .cam-top {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    padding: 1cqw 5cqw;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 1.4cqw;
+    padding: 2.2cqw 3.2cqw;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.14);
+    font: 600 3.6cqw/1 var(--f-display);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .pill--ok {
+    background: rgba(18, 168, 102, 0.25);
+    color: #7bf0b6;
+  }
+
+  .pill--ok::before {
+    content: '';
+    width: 1.8cqw;
+    height: 1.8cqw;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  .cam-view {
+    position: absolute;
+    top: 20%;
+    right: 0;
+    left: 0;
+    display: grid;
+    place-items: center;
+    height: 58%;
+  }
+
+  .cam-view :global(.scan-card) {
+    width: 52%;
+    rotate: -3deg;
+  }
+
+  .det {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 62%;
+    aspect-ratio: 63 / 88;
+    translate: -50% -50%;
+    rotate: -3deg;
+    scale: 1.06;
+  }
+
+  .det i {
+    position: absolute;
+    width: 13cqw;
+    height: 13cqw;
+    border: 1.1cqw solid #3de08f;
+  }
+
+  .det i:nth-child(1) {
+    top: 0;
+    left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 3cqw 0 0;
+  }
+
+  .det i:nth-child(2) {
+    top: 0;
+    right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0 3cqw 0 0;
+  }
+
+  .det i:nth-child(3) {
+    bottom: 0;
+    left: 0;
+    border-top: 0;
+    border-right: 0;
+    border-radius: 0 0 0 3cqw;
+  }
+
+  .det i:nth-child(4) {
+    right: 0;
+    bottom: 0;
+    border-top: 0;
+    border-left: 0;
+    border-radius: 0 0 3cqw;
+  }
+
+  .det-tag {
+    position: absolute;
+    top: -7.5cqw;
+    left: 50%;
+    padding: 1.6cqw 2.6cqw;
+    translate: -50% 0;
+    border-radius: 99px;
+    background: #3de08f;
+    color: #06301c;
+    font: 600 3.4cqw/1 var(--f-display);
+    white-space: nowrap;
+  }
+
+  .scanline {
+    position: absolute;
+    top: 6%;
+    right: 16%;
+    left: 16%;
+    height: 1.2cqw;
+    border-radius: 99px;
+    background: linear-gradient(90deg, transparent, #8fb3ff, #fff, #8fb3ff, transparent);
+    box-shadow: 0 0 6cqw 2cqw rgba(110, 150, 255, 0.5);
+    opacity: 0;
+  }
+
+  .sheet {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 4;
+    padding: 2.6cqw 5.4cqw 7cqw;
+    border-radius: 7cqw 7cqw 0 0;
+    background: #fff;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+    color: #0b1433;
+  }
+
+  .grab {
+    width: 11cqw;
+    height: 1.2cqw;
+    margin: 0 auto 3.4cqw;
+    border-radius: 99px;
+    background: #d4d9e6;
+  }
+
+  .res {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 3.4cqw;
+    align-items: center;
+  }
+
+  .mini {
+    width: 13cqw;
+  }
+
+  .res b {
+    display: block;
+    font: 700 5.6cqw/1.1 var(--f-display);
+    letter-spacing: -0.02em;
+  }
+
+  .res small {
+    display: block;
+    margin-top: 1cqw;
+    color: #5f6987;
+    font: 500 3.5cqw/1.3 var(--f-mono);
+  }
+
+  .tags {
+    display: flex;
+    gap: 1.4cqw;
+    margin-top: 1.8cqw;
+  }
+
+  .tags span {
+    padding: 1.4cqw 2.2cqw;
+    border-radius: 99px;
+    background: #eef1f8;
+    color: #4b5577;
+    font: 600 3.1cqw/1 var(--f-display);
+  }
+
+  .tags span.hl {
+    background: #e2e8ff;
+    color: #1e48f5;
+  }
+
+  .prices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.4cqw;
+    margin-top: 3.6cqw;
+  }
+
+  .prices div {
+    padding: 2.6cqw 3cqw;
+    border-radius: 3cqw;
+    background: #f4f6fb;
+  }
+
+  .prices small {
+    display: block;
+    color: #5f6987;
+    font: 600 3cqw/1 var(--f-display);
+    letter-spacing: 0.02em;
+  }
+
+  .prices strong {
+    display: block;
+    margin-top: 1.6cqw;
+    font: 700 5.6cqw/1 var(--f-mono);
+    letter-spacing: -0.03em;
+  }
+
+  .add {
+    display: block;
+    margin-top: 3.4cqw;
+    padding: 3.4cqw;
+    border-radius: 3.4cqw;
+    background: #1e48f5;
+    color: #fff;
+    font: 600 4cqw/1 var(--f-display);
+    text-align: center;
+  }
+
+  /* The orchestrated scan moment */
+  @media (prefers-reduced-motion: no-preference) {
+    .field {
+      animation: field-in 0.9s var(--ease) both;
+    }
+
+    .f-yg {
+      animation-delay: 0.08s;
+    }
+
+    .f-mg {
+      animation-delay: 0.16s;
+    }
+
+    .f-op {
+      animation-delay: 0.24s;
+    }
+
+    .loose {
+      animation: fade-in 0.8s 0.3s both;
+    }
+
+    .hero-visual :global(.phone--front) {
+      animation: rise-in 1s 0.1s var(--ease) both;
+    }
+
+    .hero-visual :global(.phone--back) {
+      animation: rise-in 1s 0.25s var(--ease) both;
+    }
+
+    .scanline {
+      animation: sweep 1.3s 0.9s ease-in-out both;
+    }
+
+    .det {
+      animation: lock 0.45s 2.15s cubic-bezier(0.3, 1.4, 0.4, 1) both;
+    }
+
+    .det i {
+      animation: det-color 0.3s 2.15s both;
+    }
+
+    .det-tag {
+      animation: pop-in 0.35s 2.45s cubic-bezier(0.3, 1.5, 0.4, 1) both;
+    }
+
+    .sheet {
+      animation: sheet-up 0.7s 2.65s cubic-bezier(0.2, 0.85, 0.25, 1) both;
+    }
+
+    .prices strong {
+      animation: fade-up 0.5s 3.15s both;
+    }
+
+    .callout {
+      animation: pop-in 0.5s 3.35s cubic-bezier(0.3, 1.4, 0.4, 1) both;
+    }
+  }
+
+  @keyframes field-in {
+    from {
+      opacity: 0;
+      transform: scale(0.88);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(36px);
+    }
+  }
+
+  /* The mockup sweeps `top` from 6 % to 92 % of the viewfinder; here the same travel as a
+     transform (86 % of a 127cqw tall viewfinder), so it never counts as a layout shift. */
+  @keyframes sweep {
+    0% {
+      opacity: 0;
+      transform: translateY(0);
+    }
+
+    12%,
+    88% {
+      opacity: 1;
+    }
+
+    100% {
+      opacity: 0;
+      transform: translateY(109cqw);
+    }
+  }
+
+  @keyframes lock {
+    from {
+      opacity: 0.35;
+      scale: 1.32;
+    }
+  }
+
+  @keyframes det-color {
+    from {
+      border-color: rgba(255, 255, 255, 0.75);
+    }
+  }
+
+  @keyframes pop-in {
+    from {
+      opacity: 0;
+      transform: scale(0.7);
+    }
+  }
+
+  @keyframes sheet-up {
+    from {
+      transform: translateY(105%);
+    }
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  @media (max-width: 960px) {
+    .hero .wrap {
+      grid-template-columns: 1fr;
+    }
+
+    .hero-visual {
+      max-width: 620px;
+      margin-inline: auto;
+      aspect-ratio: 1 / 1.05;
+    }
+  }
+
+  @media (max-width: 560px) {
+    .hero-visual {
+      aspect-ratio: 1 / 1.42;
+    }
+
+    .hero-visual :global(.phone--front) {
+      top: 2%;
+      left: 4%;
+      width: 60%;
+    }
+
+    .hero-visual :global(.phone--back) {
+      top: 12%;
+      right: 0;
+      width: 52%;
+    }
+
+    .callout {
+      bottom: 3%;
+    }
+
+    .loose--a {
+      top: 1%;
+      right: 2%;
+      width: 26%;
+    }
+
+    .loose--b {
+      display: none;
+    }
+
+    .f-pk {
+      width: 70%;
+      height: 44%;
+    }
+
+    .f-yg {
+      width: 52%;
+      height: 38%;
+    }
+
+    .f-mg {
+      width: 58%;
+      height: 36%;
+    }
+
+    .f-op {
+      width: 46%;
+    }
+  }
+</style>

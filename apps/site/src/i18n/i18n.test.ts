@@ -32,18 +32,19 @@ const SAME_IN_BOTH = new Set([
   'Streamer Kit',
   'Scanner',
   'Live',
-  'Deck 1',
-  'powered by Voidcom',
   'GitHub',
   'Twitch',
   'Normal',
   'Holo',
-  'Overlay',
-  'Chat',
-  'Links',
   'TCGplayer',
   'Cardmarket',
-  'SET · 025/198',
+  // Grading and variant terms, mock app labels and the footer's "Powered by" read the same in both.
+  'Offline',
+  'Near Mint',
+  'Reverse Holo',
+  'Decks',
+  'Scan',
+  'Powered by',
 ]);
 
 const FORBIDDEN = ['verfügbar jetzt', 'available now', 'revolution', 'seamless', 'nahtlos'];

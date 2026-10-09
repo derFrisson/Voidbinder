@@ -1,5 +1,6 @@
 ---
-import Arrow from '../Arrow.astro';
+import { isLocale, t } from '../../i18n';
+import Icon from '../Icon.astro';
 
 interface Props {
   title: string;
@@ -8,31 +9,78 @@ interface Props {
   action?: { label: string; href: string };
 }
 const { title, text, action } = Astro.props;
+const locale = isLocale(Astro.currentLocale) ? Astro.currentLocale : 'de';
+const label = t(locale).status.label;
 ---
 
-<section class="section wrap intro status" aria-labelledby="status-title">
-  <h1 id="status-title" class="display-m">{title}</h1>
-  <p class="lede">{text}</p>
-  <div class="actions">
-    <slot />
-    {
-      action && (
-        <a class="btn btn-primary" href={action.href}>
-          {action.label}
-          <Arrow />
-        </a>
-      )
-    }
+<section class="status wrap" aria-labelledby="status-title">
+  <div class="panel intro">
+    <span class="eyebrow">{label}</span>
+    <h1 id="status-title">{title}</h1>
+    <p class="lead">{text}</p>
+    <div class="actions">
+      <slot />
+      {
+        action && (
+          <a class="btn btn--primary" href={action.href}>
+            {action.label}
+            <Icon name="arrow" />
+          </a>
+        )
+      }
+    </div>
   </div>
 </section>
 
 <style>
   .status {
-    padding-bottom: var(--section-y);
+    padding-block: clamp(48px, 8vw, 112px);
+  }
+
+  .panel {
+    position: relative;
+    max-width: 760px;
+    margin-inline: auto;
+    overflow: hidden;
+    padding: clamp(32px, 6vw, 72px) clamp(20px, 5vw, 64px);
+    border-radius: 36px;
+    background: var(--surface);
+    box-shadow: inset 0 0 0 1px var(--line);
+  }
+
+  /* The four colour fields as one quiet band along the top edge. */
+  .panel::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto;
+    height: 8px;
+    background: linear-gradient(
+      90deg,
+      var(--pk) 0 25%,
+      var(--yg) 25% 50%,
+      var(--mg) 50% 75%,
+      var(--op) 75%
+    );
+  }
+
+  .eyebrow {
+    --dot: var(--pk);
+  }
+
+  h1 {
+    max-width: 18ch;
+    margin-top: 18px;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
   }
 
   .actions {
-    margin-top: var(--space-6);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 32px;
   }
 
   .actions:empty {

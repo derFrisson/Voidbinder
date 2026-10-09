@@ -22,7 +22,7 @@ Astro.response.headers.set('Cache-Control', 'no-store');
         <form method="post" action="/api/waitlist/unsubscribe">
           <input type="hidden" name="token" value={token} />
           <input type="hidden" name="lang" value={locale} />
-          <button class="btn btn-primary" type="submit">
+          <button class="btn btn--primary" type="submit">
             {d.button}
           </button>
         </form>

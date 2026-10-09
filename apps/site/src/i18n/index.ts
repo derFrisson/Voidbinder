@@ -70,3 +70,17 @@ export function negotiateLocale(acceptLanguage: string | null | undefined): Loca
   }
   return defaultLocale;
 }
+
+const numberLocales: Record<Locale, string> = { de: 'de-DE', en: 'en-US' };
+
+/** A price in the locale's format: `3,20 €` / `€3.20`, `3,60 $` / `$3.60`. */
+export function money(locale: Locale, amount: number, currency: 'EUR' | 'USD' = 'EUR'): string {
+  return new Intl.NumberFormat(numberLocales[locale], { style: 'currency', currency }).format(
+    amount,
+  );
+}
+
+/** A bare amount with two decimals for price columns: `12,80` / `12.80`. */
+export function amount(locale: Locale, value: number): string {
+  return new Intl.NumberFormat(numberLocales[locale], { minimumFractionDigits: 2 }).format(value);
+}

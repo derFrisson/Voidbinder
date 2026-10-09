@@ -1,0 +1,385 @@
+---
+import { money, t, type Locale } from '../../i18n';
+import Card from '../art/Card.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale).scanner;
+const icons = ['chip', 'offline', 'layers'] as const;
+const variants = [
+  { name: d.normal, price: 1.1 },
+  { name: d.holo, price: 3.2, on: true },
+  { name: d.reverse, price: 2.4 },
+];
+---
+
+<section class="scanner sec" id="scanner" aria-labelledby="scanner-title">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">{d.label}</span>
+      <h2 id="scanner-title" class="h2">{d.title}</h2>
+      <p class="lead">{d.lede}</p>
+      <ul class="facts">
+        {
+          d.facts.map((fact, i) => (
+            <li>
+              <span class="ic">
+                <Icon name={icons[i] ?? 'chip'} />
+              </span>
+              {fact}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+    <div class="scan-stage" role="img" aria-label={d.art}>
+      <div class="vf">
+        <div class="vf-hud"><span class="rec">{d.live}</span><span>{d.hudSet}</span></div>
+        <div class="vf-target">
+          <Card kind="fox" locale={locale}><div class="numbox"></div></Card>
+          <div class="det"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="chip">
+          <span class="ok"><Icon name="check" /></span>Glimmerfuchs · <span class="mono"
+            >042/198</span
+          > · <span class="mono">{money(locale, 3.2)}</span>
+        </div>
+      </div>
+      <div class="variants">
+        <p class="variants-h">{d.variants} <span>{d.prints}</span></p>
+        {
+          variants.map((v) => (
+            <div class:list={['var', { on: v.on }]}>
+              <span class="rb" />
+              <span>
+                {v.name}
+                <small>Funkenflug</small>
+              </span>
+              <span class="p">{money(locale, v.price)}</span>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .scanner {
+    overflow: hidden;
+    background: var(--blue);
+    color: #fff;
+  }
+
+  .scanner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(60% 70% at 85% 30%, rgba(255, 255, 255, 0.14), transparent 70%),
+      radial-gradient(40% 50% at 0% 100%, rgba(0, 0, 40, 0.25), transparent 70%);
+    pointer-events: none;
+  }
+
+  .wrap {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+    gap: clamp(36px, 5vw, 80px);
+    align-items: center;
+  }
+
+  .eyebrow {
+    --dot: var(--pk);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  .h2 {
+    margin-top: 18px;
+  }
+
+  .lead {
+    margin-top: 20px;
+    color: rgba(255, 255, 255, 0.82);
+  }
+
+  .facts {
+    display: grid;
+    gap: 4px;
+    margin: 36px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .facts li {
+    display: grid;
+    grid-template-columns: 44px 1fr;
+    gap: 16px;
+    align-items: center;
+    padding: 16px 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    font: 600 17.5px/1.35 var(--f-display);
+    letter-spacing: -0.015em;
+  }
+
+  .ic {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.13);
+  }
+
+  .ic :global(svg) {
+    width: 22px;
+    height: 22px;
+  }
+
+  .scan-stage {
+    display: flex;
+    align-items: flex-end;
+    min-width: 0;
+  }
+
+  .vf {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    aspect-ratio: 4 / 4.6;
+    overflow: hidden;
+    border-radius: 30px;
+    background: radial-gradient(90% 70% at 50% 55%, #463f2f, #1e1c17 65%, #0d0d0b);
+    box-shadow:
+      0 40px 80px -30px rgba(0, 0, 30, 0.6),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    container-type: inline-size;
+  }
+
+  .vf::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px) 0 0 / 100% 33.33%,
+      linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px) 0 0 / 33.33% 100%;
+    pointer-events: none;
+  }
+
+  .vf-hud {
+    position: absolute;
+    top: 4cqw;
+    right: 4cqw;
+    left: 4cqw;
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    font: 600 3cqw/1 var(--f-display);
+  }
+
+  .vf-hud span {
+    display: inline-flex;
+    gap: 1.4cqw;
+    align-items: center;
+    padding: 2cqw 2.8cqw;
+    border-radius: 99px;
+    background: rgba(0, 0, 0, 0.4);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+  }
+
+  .vf-hud .rec::before {
+    content: '';
+    width: 1.6cqw;
+    height: 1.6cqw;
+    border-radius: 50%;
+    background: #3de08f;
+  }
+
+  .vf-target {
+    position: absolute;
+    top: 47%;
+    left: 50%;
+    width: 44%;
+    translate: -50% -50%;
+    rotate: -4deg;
+  }
+
+  .det {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 118%;
+    aspect-ratio: 63 / 88;
+    translate: -50% -50%;
+    rotate: -3deg;
+  }
+
+  .det i {
+    position: absolute;
+    width: 9cqw;
+    height: 9cqw;
+    border: 0.8cqw solid #3de08f;
+  }
+
+  .det i:nth-child(1) {
+    top: 0;
+    left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 3cqw 0 0;
+  }
+
+  .det i:nth-child(2) {
+    top: 0;
+    right: 0;
+    border-bottom: 0;
+    border-left: 0;
+    border-radius: 0 3cqw 0 0;
+  }
+
+  .det i:nth-child(3) {
+    bottom: 0;
+    left: 0;
+    border-top: 0;
+    border-right: 0;
+    border-radius: 0 0 0 3cqw;
+  }
+
+  .det i:nth-child(4) {
+    right: 0;
+    bottom: 0;
+    border-top: 0;
+    border-left: 0;
+    border-radius: 0 0 3cqw;
+  }
+
+  .numbox {
+    position: absolute;
+    bottom: 2.5%;
+    left: 3%;
+    width: 40%;
+    height: 7%;
+    border: 0.5cqw solid #3de08f;
+    border-radius: 1cqw;
+    background: rgba(61, 224, 143, 0.12);
+  }
+
+  .chip {
+    position: absolute;
+    bottom: 5cqw;
+    left: 5cqw;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    gap: 2.4cqw;
+    padding: 2.6cqw 4cqw 2.6cqw 2.6cqw;
+    border-radius: 99px;
+    background: #fff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    color: #0b1433;
+    font: 600 3.5cqw/1 var(--f-display);
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  .ok {
+    display: grid;
+    place-items: center;
+    width: 5.4cqw;
+    height: 5.4cqw;
+    border-radius: 50%;
+    background: #12a866;
+    color: #fff;
+  }
+
+  .ok :global(svg) {
+    width: 3.4cqw;
+    height: 3.4cqw;
+  }
+
+  .mono {
+    font-weight: 600;
+  }
+
+  .variants {
+    position: relative;
+    z-index: 4;
+    flex: 0 0 256px;
+    margin: 0 0 -28px -64px;
+    padding: 18px;
+    border-radius: 22px;
+    background: var(--surface);
+    box-shadow: 0 30px 60px -20px rgba(0, 0, 30, 0.55);
+    color: var(--ink);
+  }
+
+  .variants-h {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font: 700 15px/1.04 var(--f-display);
+    letter-spacing: -0.01em;
+  }
+
+  .variants-h span {
+    color: var(--ink-3);
+    font: 500 12px/1.3 var(--f-body);
+  }
+
+  .var {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-radius: 12px;
+    font: 600 14px/1.2 var(--f-display);
+  }
+
+  .var small {
+    display: block;
+    color: var(--ink-3);
+    font: 500 12px/1.3 var(--f-body);
+  }
+
+  .rb {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px var(--line);
+  }
+
+  .p {
+    font: 600 14px/1 var(--f-mono);
+  }
+
+  .var.on {
+    background: var(--blue-soft);
+  }
+
+  .var.on .rb {
+    box-shadow: inset 0 0 0 5px var(--blue-ink);
+  }
+
+  @media (max-width: 960px) {
+    .wrap {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .scan-stage {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .variants {
+      flex: none;
+      margin: 14px 0 0;
+    }
+  }
+</style>

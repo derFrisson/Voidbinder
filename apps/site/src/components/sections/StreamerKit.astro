@@ -1,0 +1,418 @@
+---
+import { links, money, t, type Locale } from '../../i18n';
+import Card from '../art/Card.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale).streamer;
+const o = d.overlay;
+const log = [
+  { name: 'Sturmkoralle', price: 6.75 },
+  { name: 'Glimmerfuchs', price: 3.2 },
+  { name: 'Wellenotter', price: 2.3 },
+];
+---
+
+<section class="streamer sec" id="streamer" aria-labelledby="streamer-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="eyebrow">{d.label}</span>
+        <h2 id="streamer-title" class="h2">{d.title}</h2>
+      </div>
+      <p class="lead">
+        {d.lede}<br /><a href={links.twitch}>{d.link}<Icon name="arrow" /></a>
+      </p>
+    </div>
+    <div class="stream" role="img" aria-label={d.art}>
+      <div class="table"></div>
+      <div class="pack"><span></span></div>
+      <div class="fan">
+        <Card kind="coral" locale={locale} holo={false} />
+        <Card kind="warden" locale={locale} />
+        <Card kind="fox" locale={locale} text="none" holo={false} />
+      </div>
+      <div class="live"><span>{o.live}</span><em>{o.viewers}</em></div>
+      <div class="cam-bubble"></div>
+      <div class="ovl">
+        <div class="pull">
+          <Card kind="warden" locale={locale} mini />
+          <div>
+            <small>{o.last}</small><b>Nebelwächter</b><strong>{money(locale, 18.4)}</strong>
+          </div>
+        </div>
+        <div class="tot">
+          <small>{o.total}</small>
+          <div class="nums">
+            <b>{money(locale, 46.9)}</b><span>{o.of} {money(locale, 89)}</span>
+          </div>
+          <div class="bar"><i></i></div>
+        </div>
+        <div class="log">
+          <small>{o.pack}</small>
+          {
+            log.map((l) => (
+              <div>
+                <span>{l.name}</span>
+                <span>{money(locale, l.price)}</span>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .eyebrow {
+    --dot: var(--yg);
+  }
+
+  .lead a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 24px;
+    margin-top: 14px;
+    color: var(--blue-ink);
+    font-weight: 600;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 4px;
+  }
+
+  .lead a :global(svg) {
+    width: 16px;
+    height: 16px;
+  }
+
+  .stream {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    border-radius: clamp(14px, 2vw, 26px);
+    background:
+      radial-gradient(60% 80% at 30% 20%, #2a2160, transparent 70%),
+      radial-gradient(50% 60% at 90% 10%, #173b7a, transparent 70%),
+      #0b0b18;
+    box-shadow:
+      var(--shadow),
+      0 0 0 1px var(--line);
+    container-type: inline-size;
+  }
+
+  .table {
+    position: absolute;
+    right: -10%;
+    bottom: -30%;
+    left: -10%;
+    height: 75%;
+    border-radius: 50% 50% 0 0 / 22% 22% 0 0;
+    background: radial-gradient(70% 60% at 50% 30%, #2e5a4a, #173328 70%);
+    box-shadow: inset 0 2cqw 4cqw rgba(255, 255, 255, 0.06);
+  }
+
+  .table::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1.2px);
+    background-size: 1.2cqw 1.2cqw;
+  }
+
+  .fan {
+    position: absolute;
+    top: 23%;
+    left: 31%;
+    width: 38%;
+    height: 56%;
+  }
+
+  .fan :global(.tc) {
+    position: absolute;
+    top: 8%;
+    left: 35%;
+    width: 30%;
+    transform-origin: 50% 120%;
+  }
+
+  .fan :global(.tc:nth-child(1)) {
+    rotate: -18deg;
+    translate: -46% 6%;
+  }
+
+  .fan :global(.tc:nth-child(2)) {
+    rotate: -2deg;
+    translate: 0 -2%;
+  }
+
+  .fan :global(.tc:nth-child(2) .tc-holo) {
+    background-position: 30% 0;
+  }
+
+  .fan :global(.tc:nth-child(3)) {
+    rotate: 16deg;
+    translate: 48% 8%;
+  }
+
+  .pack {
+    position: absolute;
+    top: 40%;
+    left: 12%;
+    width: 13%;
+    aspect-ratio: 3 / 5;
+    rotate: -14deg;
+    border-radius: 1cqw;
+    background: linear-gradient(120deg, #c7cedb, #f5f7fa 30%, #9ba6ba 55%, #e9edf3 75%, #aeb7c8);
+    box-shadow: 0 2cqw 3cqw rgba(0, 0, 0, 0.45);
+  }
+
+  .pack::before,
+  .pack::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    left: 0;
+    height: 7%;
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.18) 0 0.5cqw,
+      transparent 0.5cqw 1.1cqw
+    );
+  }
+
+  .pack::before {
+    top: 0;
+  }
+
+  .pack::after {
+    bottom: 0;
+  }
+
+  .pack span {
+    position: absolute;
+    inset: 22% 14%;
+    border-radius: 0.8cqw;
+    background: linear-gradient(160deg, var(--yg), var(--blue));
+  }
+
+  .live {
+    position: absolute;
+    top: 2.4cqw;
+    left: 2.4cqw;
+    display: flex;
+    gap: 1cqw;
+    font: 700 1.6cqw/1 var(--f-display);
+  }
+
+  .live span {
+    padding: 0.9cqw 1.3cqw;
+    border-radius: 0.6cqw;
+    /* The mockup's #E5413A gives white text 4.07:1; this red keeps the look at 4.65:1. */
+    background: #d63a33;
+    color: #fff;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .live em {
+    padding: 0.9cqw 1.3cqw;
+    border-radius: 0.6cqw;
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  .cam-bubble {
+    position: absolute;
+    top: 2.4cqw;
+    right: 2.4cqw;
+    width: 18cqw;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    border-radius: 1.4cqw;
+    background: linear-gradient(160deg, #3b4a6b, #1b2235);
+    box-shadow: 0 0 0 0.3cqw rgba(255, 255, 255, 0.25);
+  }
+
+  .cam-bubble::before {
+    content: '';
+    position: absolute;
+    top: 22%;
+    left: 35%;
+    width: 30%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #c9a88c;
+  }
+
+  .cam-bubble::after {
+    content: '';
+    position: absolute;
+    bottom: -6%;
+    left: 18%;
+    width: 64%;
+    height: 40%;
+    border-radius: 50% 50% 0 0;
+    background: #e5413a;
+  }
+
+  .ovl {
+    position: absolute;
+    right: 2.4cqw;
+    bottom: 2.4cqw;
+    left: 2.4cqw;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 0.9fr);
+    gap: 2cqw;
+    align-items: stretch;
+    padding: 1.8cqw;
+    border-radius: 1.8cqw;
+    background: rgba(11, 14, 30, 0.78);
+    box-shadow: inset 0 0 0 0.15cqw rgba(255, 255, 255, 0.12);
+    color: #fff;
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+  }
+
+  .pull {
+    display: flex;
+    gap: 1.6cqw;
+    align-items: center;
+  }
+
+  .pull :global(.tc) {
+    width: 7.6cqw;
+    box-shadow: none;
+  }
+
+  .ovl small {
+    display: block;
+    color: rgba(255, 255, 255, 0.6);
+    font: 600 1.25cqw/1 var(--f-display);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .pull b {
+    display: block;
+    margin-top: 0.8cqw;
+    font: 700 2.2cqw/1.1 var(--f-display);
+    letter-spacing: -0.02em;
+  }
+
+  .pull strong {
+    display: inline-block;
+    margin-top: 0.9cqw;
+    color: #3de08f;
+    font: 700 2.6cqw/1 var(--f-mono);
+    letter-spacing: -0.03em;
+  }
+
+  .tot,
+  .log {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding-left: 2cqw;
+    border-left: 0.12cqw solid rgba(255, 255, 255, 0.15);
+  }
+
+  .nums {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: 0.9cqw;
+  }
+
+  .nums b {
+    font: 700 3cqw/1 var(--f-mono);
+    letter-spacing: -0.04em;
+  }
+
+  .nums span {
+    color: rgba(255, 255, 255, 0.65);
+    font: 600 1.5cqw/1 var(--f-mono);
+  }
+
+  .bar {
+    height: 1cqw;
+    margin-top: 1.2cqw;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .bar i {
+    display: block;
+    width: 53%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #3de08f, #a7f3c9);
+  }
+
+  .log {
+    gap: 0.8cqw;
+    font: 500 1.45cqw/1.2 var(--f-body);
+  }
+
+  .log div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1cqw;
+    color: rgba(255, 255, 255, 0.85);
+  }
+
+  .log div span:last-child {
+    color: #fff;
+    font-family: var(--f-mono);
+  }
+
+  @media (max-width: 600px) {
+    .ovl {
+      bottom: 2cqw;
+      grid-template-columns: auto 1fr;
+    }
+
+    .log {
+      display: none;
+    }
+
+    .ovl small {
+      font-size: 2.2cqw;
+    }
+
+    .pull b {
+      font-size: 3.4cqw;
+    }
+
+    .pull strong {
+      font-size: 3.8cqw;
+    }
+
+    .nums b {
+      font-size: 4.2cqw;
+    }
+
+    .nums span {
+      font-size: 2.6cqw;
+    }
+
+    .pull :global(.tc) {
+      width: 11cqw;
+    }
+
+    .live {
+      font-size: 2.6cqw;
+    }
+
+    .cam-bubble {
+      width: 22cqw;
+    }
+  }
+</style>

@@ -1,0 +1,209 @@
+---
+import { t, type Locale } from '../../i18n';
+import Card from '../art/Card.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale).games;
+const tiles = [
+  { key: 'pk', card: 'fox', text: 'flavor' },
+  { key: 'yg', card: 'warden', text: 'rule' },
+  { key: 'mg', card: 'coral', text: 'rule' },
+  { key: 'op', card: 'sail', text: 'flavor' },
+] as const;
+---
+
+<section class="sec games-sec" id="games" aria-labelledby="games-title">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <span class="eyebrow">{d.label}</span>
+        <h2 id="games-title" class="h2">{d.title}</h2>
+      </div>
+      <p class="lead">{d.lede}</p>
+    </div>
+    <div class="games">
+      {
+        tiles.map((tile, i) => (
+          <article class={`game game--${tile.key}`}>
+            {tile.key === 'op' && <span class="soon">{d.soon}</span>}
+            <div class="stage" aria-hidden="true">
+              <Card kind={tile.card} locale={locale} text={tile.text} />
+            </div>
+            <div>
+              <h3>{d.list[i]?.name}</h3>
+              <p>{d.list[i]?.text}</p>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .games-sec {
+    padding-top: clamp(24px, 4vw, 56px);
+  }
+
+  .games {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .game {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    min-width: 0;
+    overflow: hidden;
+    padding: 22px 22px 26px;
+    border-radius: 28px;
+    background: var(--soft);
+  }
+
+  .game::before {
+    content: '';
+    position: absolute;
+    top: -12%;
+    right: -22%;
+    width: 78%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--c);
+    opacity: 0.9;
+  }
+
+  .stage {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 14px 0 4px;
+  }
+
+  .stage :global(.tc) {
+    width: min(66%, 210px);
+    rotate: var(--r, -3deg);
+    transition:
+      rotate 0.4s var(--ease),
+      translate 0.4s var(--ease);
+  }
+
+  .game:hover .stage :global(.tc) {
+    rotate: 0deg;
+    translate: 0 -6px;
+  }
+
+  h3 {
+    position: relative;
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+  }
+
+  p {
+    position: relative;
+    margin-top: 8px;
+    color: var(--ink-2);
+    font-size: 15.5px;
+  }
+
+  .game--pk {
+    --c: var(--pk);
+    --soft: var(--pk-soft);
+  }
+
+  .game--yg {
+    --c: var(--yg);
+    --soft: var(--yg-soft);
+    --r: 4deg;
+  }
+
+  .game--mg {
+    --c: var(--mg);
+    --soft: var(--mg-soft);
+    --r: -2deg;
+  }
+
+  .game--op {
+    --c: var(--op);
+    --soft: var(--op-soft);
+    --r: 5deg;
+  }
+
+  .game--op .stage :global(.tc) {
+    filter: saturate(0.55);
+    opacity: 0.82;
+  }
+
+  .soon {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 3;
+    padding: 8px 11px;
+    border-radius: 99px;
+    background: var(--ink);
+    color: var(--bg);
+    font: 600 12.5px/1 var(--f-display);
+    letter-spacing: 0.02em;
+  }
+
+  @media (max-width: 1060px) {
+    .games {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 560px) {
+    .games {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .game {
+      flex-direction: row;
+      align-items: center;
+      gap: 16px;
+      padding: 16px 18px 16px 14px;
+    }
+
+    .stage {
+      flex: 0 0 38%;
+      padding: 6px 0;
+    }
+
+    .stage :global(.tc) {
+      width: 100%;
+    }
+
+    h3 {
+      font-size: 20px;
+    }
+
+    p {
+      margin-top: 6px;
+      font-size: 14.5px;
+    }
+
+    /* The mockup's circle is 62 % wide here and reaches under the text; at 54 % it stays behind
+       the card, so the body text keeps 4.5:1 on the soft tint. */
+    .game::before {
+      top: auto;
+      right: auto;
+      bottom: -30%;
+      left: -14%;
+      width: 54%;
+    }
+
+    .soon {
+      top: 12px;
+      right: 12px;
+      left: auto;
+    }
+  }
+</style>
