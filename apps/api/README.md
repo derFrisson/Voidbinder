@@ -30,9 +30,9 @@ Request and response schemas (Zod) live in `packages/shared/src/api` and are imp
 
 `packages/core/src/platform` defines `CardStore`, `BlobStore`, `VectorIndex` and `JobQueue`.
 The Cloudflare implementations live in `src/platform/cloudflare`: `DrizzleCardStore`
-(`drizzle-card-store.ts`, PostgreSQL via Hyperdrive), `R2BlobStore` (`r2-blob-store.ts`, the
-`CATALOG` bucket) and `WorkflowJobQueue` (`workflow-job-queue.ts`, a job type per Workflow
-binding). `VectorIndex` (VB-37) is an interface only so far.
+(`drizzle-card-store.ts`, PostgreSQL via Hyperdrive), `R2BlobStore` (`r2-blob-store.ts`: the
+public `CATALOG` bucket for `images/`, the private `RAW` bucket for the import's dumps) and
+`WorkflowJobQueue` (`workflow-job-queue.ts`, a job type per Workflow binding). `VectorIndex` (VB-37) is an interface only so far.
 
 `createPlatform(env)` opens two per-request pools: one on `HYPERDRIVE` (caching disabled, for
 everything) and one on `HYPERDRIVE_CACHED` (reads cached up to 300 s, for the catalog and price
@@ -233,8 +233,10 @@ faces, and a batch never replaces stored faces with fewer, so the print order do
 art series, digital-only cards and sets, token sets. Reversible cards map to the card of their front
 face. Old School legality is per print at Scryfall and is not kept on the card.
 
-R2 layout (bucket `voidbinder-catalog`, shared by all environments; `<env>` is the `IMPORT_ENV`
-var: `local` for `wrangler dev`, `dev`, `prod`):
+R2 layout (the private bucket `voidbinder-raw`, binding `RAW`, shared by all environments;
+`<env>` is the `IMPORT_ENV` var: `local` for `wrangler dev`, `dev`, `prod`). The raw dumps never
+go to the public `voidbinder-catalog` (`CATALOG`): republishing them breaks Scryfall's terms, and
+its `R2BlobStore` refuses every key outside `images/`.
 
 | Key                                                        | What                                        |
 | ---------------------------------------------------------- | ------------------------------------------- |
@@ -278,32 +280,43 @@ its steps show in the dashboard or with
 
 `src/import/images.ts` (VB-57) copies every print's source image into the `CATALOG` bucket, which
 is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
-`normal`, `png`; never its missing-image placeholder), YGOPRODeck `image_url`, TCGdex
-`tcgdex_images.high` (the keys of `external_ids` the importers fill).
+`normal`, `png`; only once Scryfall has the high-res scan, `highres_image`, and never its
+missing-image placeholder), YGOPRODeck `image_url`, TCGdex `tcgdex_images.high` (the keys of
+`external_ids` the importers fill). A low-res Magic image stays unmirrored and the API serves
+Scryfall's URL until a later run finds the scan.
 
-| Key                                         | What                                                |
-| ------------------------------------------- | --------------------------------------------------- |
-| `images/<game>/<printId>/<lang>/orig.<ext>` | The source file unchanged, its content type         |
-| `images/<game>/<printId>/<lang>/sm.webp`    | 320 px wide WebP, same aspect ratio, never enlarged |
+| Key                                          | What                                          |
+| -------------------------------------------- | --------------------------------------------- |
+| `images/<game>/<sourceId>/<lang>/orig.<ext>` | The source file unchanged, its content type   |
+| `images/<game>/<sourceId>/<lang>/sm.webp`    | 320 px wide WebP, same aspect, never enlarged |
 
-Both carry `Cache-Control: public, max-age=31536000, immutable`. `prints.image_key` (English) and
-`print_localizations.image_key` hold the `orig` key; the `sm` key is the same path with
-`sm.webp`. Rows that share a source URL share one object pair (a print and its English
-localization, a Yu-Gi-Oh! card in several sets), named after the first row. Downloads are rate
-limited per source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s); a 429 stops the
-run, a failed image is logged and keeps no key, so the next run retries it. Every run is an
-`import_runs` row with source and kind `images`.
+`<sourceId>` is the source's stable id, never a database id, so `dev` and `prod` share the
+objects and a re-import never changes a key: the Scryfall card id (`mtg`), the YGOPRODeck image
+id from `image_url` (`yugioh`, one artwork shared by its set prints), the TCGdex card id
+(`pokemon`, e.g. `swsh3-136`). Both carry `Cache-Control: public, max-age=31536000, immutable`.
+
+`prints.image_key` (English) and `print_localizations.image_key` hold the `sm` key once that copy
+exists and the `orig` key until then, so `imageUrl` is the small copy whenever there is one,
+without a request to R2 (`hasSm`). Rows that share a source URL share one object pair (a print
+and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are rate limited per
+source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s); a 429 stops the run once the
+images in flight are stored, a failed image is logged and keeps its key (or none), so the next
+run retries it. Every run is an `import_runs` row with source and kind `images`, and only one
+runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image
+mirror is running").
 
 Two transports share that logic:
 
-- **Bulk load:** `scripts/mirror-images.ts`, a Node script run on the database VPS
+- **VPS script:** `scripts/mirror-images.ts`, a Node script run on the database VPS
   ([runbook section 11](../../docs/guides/database-vps.md#11-image-mirror)) with the S3 API and
-  `sharp`: `pnpm --filter api mirror-images --env-file r2.env [--game mtg] [--limit N]
-[--concurrency 8] [--verify] [--dry-run]`.
-- **Daily delta:** the last step of the import Workflow (`mirror images`) mirrors the prints the
-  run created, at most 2000 rows, with the R2 binding and the Images binding `IMAGES` for the
-  `sm` copy (billed per unique transformation; offline locally and in tests). Its failure is
-  logged and leaves the import `ok`.
+  `sharp`, `orig` and `sm`: the bulk load once, then nightly at 05:30 UTC with `--sm`, which also
+  adds the `sm` copy to the rows the delta stored as `orig` only (read back from the bucket, not
+  the source).
+- **Daily delta:** the last step of each import Workflow, `mirrorStepFor(game)` in
+  `src/workflows/mirror-images.ts`, mirrors the game's oldest pending rows (Magic and Pokémon
+  2000, Yu-Gi-Oh! 500) with the R2 binding, `orig` only, so failures, days over the cap and new
+  localizations are retried daily. A 429 or a running mirror fails the step without retries;
+  any failure is logged and leaves the import `ok`.
 
 The catalog responses build `imageUrl` from `IMAGE_BASE_URL` + `image_key` and fall back to the
 source URL until the image is mirrored. `GET /catalog/cards/:id` and `GET /catalog/prints/:id`
