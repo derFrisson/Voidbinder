@@ -2,7 +2,7 @@
 
 Impressum / Imprint and Datenschutzerklärung / Privacy policy of voidbinder.de (VB-18). German is
 binding; the English pages are a courtesy translation and say so. **These are drafts for the
-operator's review, not legal advice.** Every operator detail is a `[MAX: …]` placeholder.
+operator's review, not legal advice.** The operator details were filled in on 2026-10-09 (Max's data); no `[MAX: …]` placeholder remains, and `legal.test.ts` fails if one comes back.
 
 | Page              | German             | English        |
 | ----------------- | ------------------ | -------------- |

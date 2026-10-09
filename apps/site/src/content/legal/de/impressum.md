@@ -9,21 +9,20 @@ updated: '2026-10'
 Voidbinder (powered by Voidcom)
 
 Betreiber:\
-[MAX: Vor- und Nachname]\
-[MAX: Straße Hausnummer]\
-[MAX: PLZ Ort]
+Maximilian Tschauder\
+Hauptstraße 25\
+88630 Pfullendorf, Deutschland
 
 ## Kontakt
 
-E-Mail: [MAX: E-Mail]\
-Telefon oder weiterer Kontaktweg: [MAX: Telefon oder weiterer Kontaktweg]
+E-Mail: max@voidcom.app
 
 ## Umsatzsteuer-Identifikationsnummer
 
-Umsatzsteuer-Identifikationsnummer nach § 27a Umsatzsteuergesetz: [MAX: USt-IdNr. falls vorhanden]
+Umsatzsteuer-Identifikationsnummer nach § 27a Umsatzsteuergesetz: DE319838280
 
 ## Verantwortlich für den Inhalt nach § 18 Abs. 2 MStV
 
-[MAX: Vor- und Nachname]\
-[MAX: Straße Hausnummer]\
-[MAX: PLZ Ort]
+Maximilian Tschauder\
+Hauptstraße 25\
+88630 Pfullendorf, Deutschland
