@@ -14,14 +14,14 @@ the app and the API come after it.
 
 ## Workspace layout
 
-| Path              | What                                                                         |
-| ----------------- | ---------------------------------------------------------------------------- |
-| `apps/site`       | Promo website (Astro on Cloudflare Workers static assets)                    |
-| `apps/app`        | Mobile and web app (Expo), reserved                                          |
-| `apps/api`        | API (Cloudflare Worker with Hono), reserved                                  |
-| `packages/core`   | Platform-agnostic domain logic                                               |
-| `packages/shared` | Zod schemas and shared types                                                 |
-| `docs`            | [ADRs](docs/adr), [environments](docs/environments.md), agent briefing rules |
+| Path              | What                                                                                                                              |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/site`       | Promo website (Astro on Cloudflare Workers static assets)                                                                         |
+| `apps/app`        | Mobile and web app (Expo), reserved                                                                                               |
+| `apps/api`        | API (Cloudflare Worker with Hono), reserved                                                                                       |
+| `packages/core`   | Platform-agnostic domain logic                                                                                                    |
+| `packages/shared` | Zod schemas and shared types                                                                                                      |
+| `docs`            | [ADRs](docs/adr), [environments](docs/environments.md), [database VPS runbook](docs/guides/database-vps.md), agent briefing rules |
 
 ## Getting started
 
