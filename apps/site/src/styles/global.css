@@ -1,6 +1,9 @@
-/* Voidbinder design system, direction B "Der Scan". Source of truth for tokens; the grammar is in
-   docs/site/design.md, the approved mockup in docs/site/design-reference/b-der-scan.html.
+/* Voidbinder design system, direction B "Der Scan". The tokens (--bg, --ink, --blue, the four
+   fields, space, layout; light and dark) come from @voidbinder/tokens (packages/tokens); the
+   grammar is in docs/site/design.md, the approved mockup in docs/site/design-reference/b-der-scan.html.
    Light cool page, one strong blue for every action, four soft colour fields (one per game). */
+
+@import '@voidbinder/tokens/tokens.css';
 
 @font-face {
   font-family: 'Sora';
@@ -96,93 +99,6 @@
 
 :root {
   color-scheme: light dark;
-
-  /* Page and ink. --ink-3 is darker than the mockup's #7A84A3 so small print reaches 4.5:1. */
-  --bg: #f4f6fb;
-  --surface: #ffffff;
-  --surface-2: #eceff7;
-  --ink: #0b1433;
-  --ink-2: #4b5577;
-  --ink-3: #5f6987;
-  --line: #dbe0ec;
-
-  /* The one action colour. --blue fills (buttons, the scanner band, the waitlist card),
-     --blue-ink is blue text and the focus ring on the page background. */
-  --blue: #1e48f5;
-  --blue-deep: #0f2bb0;
-  --blue-ink: #1e48f5;
-  --blue-soft: #e2e8ff;
-  --on-blue: #ffffff;
-
-  /* The four colour fields, one per game: Pokémon yellow, Yu-Gi-Oh! violet, Magic orange,
-     One Piece red, each with a soft tint for the tiles. */
-  --pk: #ffd447;
-  --pk-soft: #fff2bf;
-  --yg: #9a7cf0;
-  --yg-soft: #ece5ff;
-  --mg: #ff8f45;
-  --mg-soft: #ffe3cf;
-  --op: #f0544a;
-  --op-soft: #ffdcd8;
-
-  /* Recognised / rising. --ok fills, --ok-ink is green text (4.5:1 on the surface). */
-  --ok: #12a866;
-  --ok-ink: #0b8050;
-  --ok-soft: #d9f5e8;
-  --phone: #0b0d13;
-  --error: #ffd9d6;
-
-  --shadow: 0 30px 60px -28px rgba(11, 20, 51, 0.38), 0 8px 18px -10px rgba(11, 20, 51, 0.18);
-
-  --f-display: 'Sora', 'Avenir Next', 'Segoe UI', system-ui, sans-serif;
-  --f-body: 'Public Sans', 'Helvetica Neue', Arial, system-ui, sans-serif;
-  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-
-  /* Space scale for the text pages (legal, status, 404). */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 48px;
-  --space-8: 64px;
-  --space-9: 96px;
-
-  --gutter: clamp(16px, 4vw, 40px);
-  --maxw: 1240px;
-  --nav-height: 68px;
-  --sec-y: clamp(72px, 9vw, 128px);
-  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0a0f1e;
-    --surface: #121a2e;
-    --surface-2: #18213a;
-    --ink: #e9eeff;
-    --ink-2: #a6b0ce;
-    --ink-3: #7983a4;
-    --line: #252f4b;
-    /* Deeper than the mockup's #4A6FFF so white text on blue keeps 4.5:1. */
-    --blue: #2d4de0;
-    --blue-deep: #2340c4;
-    --blue-ink: #7d97ff;
-    --blue-soft: #1a2552;
-    --pk: #e6be35;
-    --pk-soft: #2e2914;
-    --yg: #8a6fe0;
-    --yg-soft: #231d40;
-    --mg: #e87e3a;
-    --mg-soft: #33221a;
-    --op: #d9493f;
-    --op-soft: #351b1c;
-    --ok: #2cc77f;
-    --ok-ink: #2cc77f;
-    --ok-soft: #123326;
-    --shadow: 0 30px 60px -28px rgba(0, 0, 0, 0.7), 0 8px 18px -10px rgba(0, 0, 0, 0.5);
-  }
 }
 
 /* Base */
