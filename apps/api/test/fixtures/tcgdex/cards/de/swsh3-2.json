@@ -1,0 +1,63 @@
+{
+  "category": "Pokémon",
+  "id": "swsh3-2",
+  "illustrator": "aky CG Works",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/2",
+  "localId": "2",
+  "name": "Smettbo VMAX",
+  "rarity": "Holografisch Selten VMAX",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Holo",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 482884,
+        "tcgplayer": 219055
+      },
+      "variantId": "jr7oetx1mqug9"
+    }
+  ],
+  "dexId": [12],
+  "hp": 300,
+  "types": ["Pflanze"],
+  "evolveFrom": "Smettbo-V",
+  "stage": "VMAX",
+  "attacks": [
+    {
+      "cost": ["Pflanze", "Pflanze", "Farblos"],
+      "name": "Giga-Giftbrise",
+      "effect": "Das Aktive Pokémon deines Gegners ist jetzt verwirrt und vergiftet.",
+      "damage": 150
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Feuer",
+      "value": "×2"
+    }
+  ],
+  "retreat": 0,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

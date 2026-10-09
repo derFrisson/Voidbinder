@@ -1,0 +1,67 @@
+{
+  "category": "Pokémon",
+  "id": "swsh3-1",
+  "illustrator": "Saki Hayashiro",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/1",
+  "localId": "1",
+  "name": "Smettbo V",
+  "rarity": "Holografisch Selten V",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Holo",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 482879,
+        "tcgplayer": 219054
+      },
+      "variantId": "jr7oetx1mqug9"
+    }
+  ],
+  "dexId": [12],
+  "hp": 190,
+  "types": ["Pflanze"],
+  "stage": "Basis",
+  "suffix": "V",
+  "attacks": [
+    {
+      "cost": ["Pflanze"],
+      "name": "Schwindelerregendes Gift",
+      "effect": "Das Aktive Pokémon deines Gegners ist jetzt verwirrt und vergiftet."
+    },
+    {
+      "cost": ["Pflanze", "Pflanze", "Farblos"],
+      "name": "Peitschender Wind",
+      "damage": 130
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Feuer",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

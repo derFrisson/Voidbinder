@@ -1,0 +1,41 @@
+[
+  {
+    "id": "base1",
+    "name": "Base Set",
+    "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+    "cardCount": {
+      "total": 102,
+      "official": 102
+    }
+  },
+  {
+    "id": "swshp",
+    "name": "SWSH Black Star Promos",
+    "logo": "https://assets.tcgdex.net/en/swsh/swshp/logo",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol",
+    "cardCount": {
+      "total": 307,
+      "official": 307
+    }
+  },
+  {
+    "id": "swsh3",
+    "name": "Darkness Ablaze",
+    "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol",
+    "cardCount": {
+      "total": 201,
+      "official": 189
+    }
+  },
+  {
+    "id": "A1",
+    "name": "Genetic Apex",
+    "logo": "https://assets.tcgdex.net/en/tcgp/A1/logo",
+    "symbol": "https://assets.tcgdex.net/univ/tcgp/A1/symbol",
+    "cardCount": {
+      "total": 286,
+      "official": 226
+    }
+  }
+]

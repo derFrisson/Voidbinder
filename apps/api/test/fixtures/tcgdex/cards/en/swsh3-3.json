@@ -1,0 +1,71 @@
+{
+  "category": "Pokemon",
+  "id": "swsh3-3",
+  "illustrator": "Atsuko Nishida",
+  "image": "https://assets.tcgdex.net/en/swsh/swsh3/3",
+  "localId": "3",
+  "name": "Paras",
+  "rarity": "Common",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+    "name": "Darkness Ablaze",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": false,
+    "normal": true,
+    "reverse": true,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "normal",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 482889,
+        "tcgplayer": 219061
+      },
+      "variantId": "endfynwn4n10gzq"
+    },
+    {
+      "type": "reverse",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 482889,
+        "tcgplayer": 219061
+      },
+      "variantId": "cm4kqul3x1bwlz1f"
+    }
+  ],
+  "dexId": [46],
+  "hp": 60,
+  "types": ["Grass"],
+  "description": "The mushrooms, known as tochukaso, are controlling the bug. Even if the bug bugs the mushrooms, they tell it to bug off.",
+  "stage": "Basic",
+  "attacks": [
+    {
+      "cost": ["Grass"],
+      "name": "Scratch",
+      "damage": 20
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Fire",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}
