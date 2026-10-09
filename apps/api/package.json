@@ -19,12 +19,16 @@
     "deploy:dev": "wrangler deploy --env dev --var VERSION:$(git rev-parse --short HEAD)",
     "deploy:prod": "wrangler deploy --env prod --var VERSION:$(git rev-parse --short HEAD)",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "mirror-images": "tsx scripts/mirror-images.ts"
   },
   "devDependencies": {
+    "@aws-sdk/client-s3": "^3.1148.0",
     "@cloudflare/vitest-plugin": "^1.4.0",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "^0.31.11",
+    "sharp": "^0.35.5",
+    "tsx": "^4.23.15",
     "typescript": "~6.0.3",
     "wrangler": "^4.149.0"
   },
