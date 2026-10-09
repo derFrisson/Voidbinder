@@ -28,3 +28,52 @@ describe('built site', () => {
     }
   });
 });
+
+const all = (html: string, re: RegExp) => [...html.matchAll(new RegExp(re, 'g'))].map((m) => m[1]);
+
+describe('SEO (VB-19)', () => {
+  it.each(pages)('$file has a title, description, canonical, hreflang and og:image', ({ html }) => {
+    expect(all(html, /<title>([^<]*)<\/title>/)).toHaveLength(1);
+    expect(all(html, /<meta name="description" content="([^"]+)"/)).toHaveLength(1);
+    expect(
+      all(html, /<link rel="canonical" href="(https:\/\/voidbinder\.de\/[^"]*)"/),
+    ).toHaveLength(1);
+    for (const lang of ['de', 'en', 'x-default'])
+      expect(html).toMatch(new RegExp(`<link rel="alternate" hreflang="${lang}" href="https://`));
+    const [image] = all(
+      html,
+      /<meta property="og:image" content="https:\/\/voidbinder\.de\/([^"]+)"/,
+    );
+    expect(image).toBeDefined();
+    expect(existsSync(new URL(image ?? '', client))).toBe(true);
+  });
+
+  it('has robots.txt pointing at the sitemap index', () => {
+    expect(readFileSync(new URL('robots.txt', client), 'utf8')).toContain(
+      'Sitemap: https://voidbinder.de/sitemap-index.xml',
+    );
+    expect(existsSync(new URL('sitemap-index.xml', client))).toBe(true);
+  });
+
+  it('has 404 pages for the root and both locales', () => {
+    for (const file of ['404.html', 'de/404/index.html', 'en/404/index.html'])
+      expect(existsSync(new URL(file, client)), file).toBe(true);
+  });
+
+  // Strict CSP: no inline scripts other than JSON-LD data blocks, no inline <style>.
+  it('has no inline scripts or style elements', () => {
+    for (const { file, html } of pages) {
+      expect(html, file).not.toMatch(/<style[\s>]/i);
+      for (const tag of html.match(/<script\b[^>]*>/gi) ?? [])
+        expect(tag, file).toMatch(/\ssrc=|type="application\/ld\+json"/);
+    }
+  });
+
+  it('sets no cookies', () => {
+    const headers = readFileSync(new URL('_headers', client), 'utf8');
+    expect(headers).toContain('Content-Security-Policy:');
+    expect(headers).not.toMatch(/set-cookie/i);
+    for (const { file, html } of pages)
+      expect(html, file).not.toMatch(/document\.cookie|cookieStore/);
+  });
+});
