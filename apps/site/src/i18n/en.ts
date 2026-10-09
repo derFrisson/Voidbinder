@@ -185,8 +185,8 @@ export const en: Dict = {
       label: 'Hosted',
       price: 'Less than a booster',
       period: 'a month.',
-      text: 'We run the servers, the backups and the daily price sync in Germany. You just scan.',
-      checks: ['Sync on all devices', 'Daily prices', 'Backups included', 'Servers in Germany'],
+      text: 'We run the servers, the backups and the daily price sync, and your data stays in the EU. You just scan.',
+      checks: ['Sync on all devices', 'Daily prices', 'Backups included', 'Data in the EU'],
     },
   },
   waitlist: {
@@ -258,6 +258,6 @@ export const en: Dict = {
     twitch: 'Twitch',
     trademarks:
       'Pokémon, Yu-Gi-Oh!, Magic: The Gathering and One Piece are trademarks of their respective owners. Voidbinder is an independent project.',
-    rights: '© 2026 Voidbinder · Hosted in Germany',
+    rights: '© 2026 Voidbinder · Made with love in Germany',
   },
 };
