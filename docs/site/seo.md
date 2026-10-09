@@ -93,7 +93,9 @@ implement Astro's `staticHeaders` feature. A meta CSP cannot carry `frame-ancest
 policy in the header would block every hash it allowed. The site therefore ships no inline code at
 all and uses one header policy without hashes or nonces:
 
-- `build.inlineStylesheets: 'never'` keeps Astro from inlining small stylesheets;
+- `build.inlineStylesheets: 'never'` keeps Astro from inlining small stylesheets, and
+  `vite.build.assetsInlineLimit: 0` keeps it from inlining small processed `<script>` chunks (they
+  are emitted as `/_astro/*.js` with a `src` attribute instead);
 - components use classes, never `style=""` or `define:vars`;
 - `<script>` only with `src` (the beacon) or as a JSON-LD data block, which CSP does not govern;
 - `apps/site/test/build.test.ts` fails on an inline `<script>`, a `<style>` element or a `style`

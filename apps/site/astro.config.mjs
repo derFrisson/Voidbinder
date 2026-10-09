@@ -17,13 +17,15 @@ export default defineConfig({
   // The CSP allows no inline <style> (src/security-headers.ts), so Astro must not inline small
   // stylesheets.
   build: { inlineStylesheets: 'never' },
+  // Processed <script> chunks under 4 KiB would otherwise be inlined and blocked by the hash-less CSP.
+  vite: { build: { assetsInlineLimit: 0 } },
   // ponytail: static site, no sessions or image transforms, so no KV / Images bindings.
   session: false,
   adapter: cloudflare({ imageService: 'passthrough' }),
   integrations: [
     sitemap({
-      i18n: { defaultLocale: 'de', locales: { de: 'de-DE', en: 'en-GB' } },
-      filter: (page) => !/\/404\/?$/.test(page),
+      i18n: { defaultLocale: 'de', locales: { de: 'de', en: 'en' } },
+      filter: (page) => !/\/(404|waitlist\/[a-z-]+)\/?$/.test(page),
     }),
     seo(),
   ],

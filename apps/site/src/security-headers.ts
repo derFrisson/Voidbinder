@@ -1,5 +1,5 @@
 // Security headers for every response (docs/site/seo.md). One list, two delivery paths: the build
-// writes them into dist/client/_headers for static assets (src/integrations/security-headers.ts),
+// writes them into dist/client/_headers for static assets (src/integrations/seo.ts),
 // and src/worker.ts sets them on everything the Worker answers, because Cloudflare does not apply
 // _headers to Worker responses.
 //
