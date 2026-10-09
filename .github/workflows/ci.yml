@@ -16,6 +16,23 @@ jobs:
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Postgres for the integration tests of the site and the API (DATABASE_URL below).
+    services:
+      postgres:
+        # Docker Hub's official image through AWS's mirror: anonymous Docker Hub pulls from
+        # GitHub's shared runner IPs hit the rate limit.
+        image: public.ecr.aws/docker/library/postgres:18-alpine
+        env:
+          POSTGRES_USER: voidbinder
+          POSTGRES_PASSWORD: voidbinder
+          POSTGRES_DB: voidbinder
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U voidbinder -d voidbinder"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -31,5 +48,10 @@ jobs:
       - run: pnpm typecheck
       # Real browser for the axe-core accessibility test (apps/site/test/a11y.test.ts).
       - run: pnpm --filter site exec playwright install --with-deps chromium
+      # The site and the API migrate in parallel and both create the `drizzle` schema for their
+      # journals; two concurrent CREATE SCHEMA IF NOT EXISTS can fail, so it exists beforehand.
+      - run: docker exec ${{ job.services.postgres.id }} psql -U voidbinder -d voidbinder -c 'CREATE SCHEMA IF NOT EXISTS drizzle'
       - run: pnpm test
+        env:
+          DATABASE_URL: postgres://voidbinder:voidbinder@localhost:5434/voidbinder
       - run: pnpm build

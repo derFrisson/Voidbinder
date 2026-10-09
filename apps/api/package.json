@@ -1,6 +1,40 @@
 {
-  "name": "api",
+  "name": "@voidbinder/api",
   "version": "0.0.0",
   "private": true,
-  "license": "AGPL-3.0-only"
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./src/client.ts"
+    }
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run --outdir dist",
+    "typecheck": "wrangler types && tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "deploy:dev": "wrangler deploy --env dev --var VERSION:$(git rev-parse --short HEAD)",
+    "deploy:prod": "wrangler deploy --env prod --var VERSION:$(git rev-parse --short HEAD)",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.149.0"
+  },
+  "dependencies": {
+    "@hono/zod-validator": "^0.9.1",
+    "@voidbinder/core": "workspace:*",
+    "@voidbinder/shared": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "hono": "^4.13.13",
+    "pg": "^8.23.1",
+    "zod": "^4.6.5"
+  }
 }

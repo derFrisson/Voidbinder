@@ -2,11 +2,14 @@
 
 ## Environments
 
-| Environment | Where                                    | How it is selected                           |
-| ----------- | ---------------------------------------- | -------------------------------------------- |
-| local       | `pnpm dev` (Astro dev server on workerd) | default                                      |
-| `dev`       | `voidbinder-site-dev` on workers.dev     | `CLOUDFLARE_ENV=dev`, `wrangler --env dev`   |
-| `prod`      | `voidbinder.de`, `www.voidbinder.de`     | `CLOUDFLARE_ENV=prod`, `wrangler --env prod` |
+| App  | Environment | Where                                    | How it is selected                           |
+| ---- | ----------- | ---------------------------------------- | -------------------------------------------- |
+| site | local       | `pnpm dev` (Astro dev server on workerd) | default                                      |
+| site | `dev`       | `voidbinder-site-dev` on workers.dev     | `CLOUDFLARE_ENV=dev`, `wrangler --env dev`   |
+| site | `prod`      | `voidbinder.de`, `www.voidbinder.de`     | `CLOUDFLARE_ENV=prod`, `wrangler --env prod` |
+| api  | local       | `pnpm --filter api dev` (`wrangler dev`) | default (top level of the config)            |
+| api  | `dev`       | `voidbinder-api-dev` on workers.dev      | `wrangler --env dev`                         |
+| api  | `prod`      | `api.voidbinder.de` (`voidbinder-api`)   | `wrangler --env prod`                        |
 
 The site's Cloudflare config is `apps/site/wrangler.jsonc`. `@astrojs/cloudflare` 14 builds through
 `@cloudflare/vite-plugin`, so the environment is chosen at **build** time: `astro build` reads
@@ -24,18 +27,29 @@ Wrangler refuses `--env dev` when the build was made for `prod` (and vice versa)
 plain `pnpm build` output. Deploys run from Max's workstation with his `wrangler login`
 ([ADR 0002](adr/0002-deploys-from-workstation.md)); CI only checks.
 
+The API's config is `apps/api/wrangler.jsonc`. It has no build step: `wrangler deploy --env dev|prod`
+bundles `src/index.ts` itself (`pnpm --filter api deploy:dev|prod`, which also sets `VERSION` to
+the short git sha). Details: [apps/api/README.md](../apps/api/README.md).
+
 ## Database
 
 `dev` and `prod` share one self-hosted PostgreSQL 18 + TimescaleDB server (databases
 `voidbinder_dev` and `voidbinder`), reached through a Cloudflare Tunnel, a Workers VPC service and
-one Hyperdrive config per environment ([ADR 0003](adr/0003-price-history-storage.md)). Setup,
+Hyperdrive configs per environment ([ADR 0003](adr/0003-price-history-storage.md)). Setup,
 backups and operations: [guides/database-vps.md](guides/database-vps.md). Locally, the root
 `docker-compose.yml` runs Postgres on port 5434.
 
-| Environment | Hyperdrive config | Id in `apps/site/wrangler.jsonc` (`hyperdrive[0].id`) |
-| ----------- | ----------------- | ----------------------------------------------------- |
-| `dev`       | `voidbinder-dev`  | `6f5b0953850f4b7b99450961849113ab`                    |
-| `prod`      | `voidbinder-prod` | `2f4e2569cde54e0998b734c884432765`                    |
+| Environment | Hyperdrive config        | Caching          | Id                                 | Bound as                                                 |
+| ----------- | ------------------------ | ---------------- | ---------------------------------- | -------------------------------------------------------- |
+| `dev`       | `voidbinder-dev`         | disabled         | `6f5b0953850f4b7b99450961849113ab` | `HYPERDRIVE` in `apps/site` and `apps/api`               |
+| `dev`       | `voidbinder-dev-cached`  | 300 s + swr 60 s | `80164a75f1224f34a30fc31f0dac35ca` | `HYPERDRIVE_CACHED` in `apps/api` (catalog, prices only) |
+| `prod`      | `voidbinder-prod`        | disabled         | `2f4e2569cde54e0998b734c884432765` | `HYPERDRIVE` in `apps/site` and `apps/api`               |
+| `prod`      | `voidbinder-prod-cached` | 300 s + swr 60 s | `095f0ec41117431c8b29eec7134dde62` | `HYPERDRIVE_CACHED` in `apps/api` (catalog, prices only) |
+
+Why two configurations per environment: [ADR 0004](adr/0004-caching-catalog-reads.md). The site
+and the API migrate the same databases with separate journal tables (`drizzle.__drizzle_migrations`
+and `drizzle.__drizzle_migrations_api`), always from the workstation through the SSH tunnel
+([apps/api/README.md](../apps/api/README.md#migrations)).
 
 The API (ADR 0004) adds one cached configuration per environment for catalog and price reads: `voidbinder-dev-cached` `80164a75f1224f34a30fc31f0dac35ca`, `voidbinder-prod-cached` `095f0ec41117431c8b29eec7134dde62` (max_age 300 s, stale_while_revalidate 60 s, 10 connections).
 
@@ -52,6 +66,9 @@ The API (ADR 0004) adds one cached configuration per environment for catalog and
 apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod`.
   `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset.
+- **API secrets:** `apps/api` needs none yet; its settings are `vars` in `wrangler.jsonc`
+  (`APP_URL` for CORS, `API_URL`, `IMAGE_BASE_URL`, `VERSION`). Auth (VB-24) adds the first
+  secret, with a `secrets.required` entry and a line in `apps/api/.dev.vars.example`.
 - **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
   site token, read by `astro build` and baked into the static pages (it is public in the HTML).
   Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create

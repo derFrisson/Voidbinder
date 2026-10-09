@@ -1,0 +1,99 @@
+// Cloudflare config for the Voidbinder API (docs/environments.md). The top level is what
+// `wrangler dev` uses locally; `--env dev|prod` selects a deployed environment. Bindings and vars
+// are not inherited by environments, so they are repeated in each one.
+//
+// VERSION is "local" here and set to the short git sha by the deploy:dev / deploy:prod scripts
+// (`wrangler deploy --var VERSION:<sha>`); GET /health reports it.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "152a1fcd0eebb96d1bc30d14b5a6af58",
+  "name": "voidbinder-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "placement": { "mode": "smart" },
+  "observability": { "enabled": true },
+  "workers_dev": false,
+  "vars": {
+    "APP_URL": "http://localhost:8081",
+    "API_URL": "http://localhost:8787",
+    "IMAGE_BASE_URL": "https://img.voidbinder.de",
+    "VERSION": "local",
+  },
+  // Local Postgres from the root docker-compose.yml. HYPERDRIVE is cache-disabled (fresh reads);
+  // HYPERDRIVE_CACHED caches reads for 300 s and serves catalog and price reads only (ADR 0004).
+  // Locally both point at the same database and nothing is cached.
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "00000000000000000000000000000000",
+      "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+    },
+    {
+      "binding": "HYPERDRIVE_CACHED",
+      "id": "00000000000000000000000000000000",
+      "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+    },
+  ],
+  // Locally `wrangler dev` simulates the bucket under .wrangler/state.
+  "r2_buckets": [
+    { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
+  ],
+  "env": {
+    "dev": {
+      "name": "voidbinder-api-dev",
+      "workers_dev": true,
+      "vars": {
+        "APP_URL": "https://voidbinder-app-dev.frisson.workers.dev",
+        "API_URL": "https://voidbinder-api-dev.frisson.workers.dev",
+        "IMAGE_BASE_URL": "https://img.voidbinder.de",
+        "VERSION": "local",
+      },
+      "hyperdrive": [
+        // Hyperdrive config "voidbinder-dev" (database voidbinder_dev, caching disabled).
+        {
+          "binding": "HYPERDRIVE",
+          "id": "6f5b0953850f4b7b99450961849113ab",
+          "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+        },
+        // Hyperdrive config "voidbinder-dev-cached" (same database, max_age 300 s).
+        {
+          "binding": "HYPERDRIVE_CACHED",
+          "id": "80164a75f1224f34a30fc31f0dac35ca",
+          "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+        },
+      ],
+      "r2_buckets": [
+        { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
+      ],
+    },
+    "prod": {
+      "name": "voidbinder-api",
+      "workers_dev": false,
+      "routes": [{ "pattern": "api.voidbinder.de", "custom_domain": true }],
+      "vars": {
+        "APP_URL": "https://app.voidbinder.de",
+        "API_URL": "https://api.voidbinder.de",
+        "IMAGE_BASE_URL": "https://img.voidbinder.de",
+        "VERSION": "local",
+      },
+      "hyperdrive": [
+        // Hyperdrive config "voidbinder-prod" (database voidbinder, caching disabled).
+        {
+          "binding": "HYPERDRIVE",
+          "id": "2f4e2569cde54e0998b734c884432765",
+          "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+        },
+        // Hyperdrive config "voidbinder-prod-cached" (same database, max_age 300 s).
+        {
+          "binding": "HYPERDRIVE_CACHED",
+          "id": "095f0ec41117431c8b29eec7134dde62",
+          "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+        },
+      ],
+      "r2_buckets": [
+        { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
+      ],
+    },
+  },
+}

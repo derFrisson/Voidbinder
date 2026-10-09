@@ -18,7 +18,7 @@ the app and the API come after it.
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `apps/site`       | Promo website (Astro on Cloudflare Workers static assets)                                                                         |
 | `apps/app`        | Mobile and web app (Expo), reserved                                                                                               |
-| `apps/api`        | API (Cloudflare Worker with Hono), reserved                                                                                       |
+| `apps/api`        | API (Cloudflare Worker with Hono, PostgreSQL via Hyperdrive, R2), [README](apps/api/README.md)                                    |
 | `packages/core`   | Platform-agnostic domain logic                                                                                                    |
 | `packages/shared` | Zod schemas and shared types                                                                                                      |
 | `packages/tokens` | Design tokens (colours, type, space) for the site and the app                                                                     |
