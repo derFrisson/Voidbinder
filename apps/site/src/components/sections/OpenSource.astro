@@ -25,6 +25,7 @@ const d = t(Astro.props.locale).openSource;
       ))
     }
   </ul>
+  <p class="scryfall muted">{d.scryfall}</p>
   <p class="more">
     <a class="btn btn-outlined" href={links.github}>{d.link}<Arrow /></a>
   </p>
@@ -55,6 +56,9 @@ const d = t(Astro.props.locale).openSource;
     margin-bottom: var(--space-2);
   }
 
+  .scryfall {
+    margin-top: var(--space-5);
+  }
   .more {
     margin-top: var(--space-6);
   }
