@@ -66,16 +66,15 @@ Voidbinder reads free public card data and stores it locally. If you run an inst
 apply to you too:
 
 - **Magic:** card data and images come from [Scryfall](https://scryfall.com/docs/api). Show the
-  attribution, do not paywall the data, do not use Scryfall's name or logos as an endorsement, and
-  respect the rate limits (use the bulk files). The Wizards of the Coast Fan Content Policy needs
-  its notice verbatim and no Wizards logos.
+  data-source notice (see the legal fact sheet), do not paywall the data, do not imply Scryfall's
+  endorsement, and do not crop or alter card images or hide the copyright and artist line.
 - **Yu-Gi-Oh!:** [YGOPRODeck](https://ygoprodeck.com/api-guide/) asks you to download and re-host
   images. Do not hotlink them, and stay under 20 requests per second.
 - **Pokémon, One Piece:** no importer exists yet. Pokémon offers no fan-content licence, so check
   the research below before you add card art. Card art and text belong to their owners.
 - **Prices:** no scraping of Cardmarket or TCGplayer. Prices come only from licensed or official
   APIs.
-- **Notices:** an instance must show unofficial-fan-project notices for each game it serves. The
+- **Notices:** an instance must show the Wizards Fan Content notice verbatim and should show the unofficial-fan-project notice for each other game it serves. The
   texts, with sources and open legal questions, are in
   [docs/marketing/card-imagery-legal.md](docs/marketing/card-imagery-legal.md). That file is
   research, not legal advice.

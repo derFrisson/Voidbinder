@@ -41,8 +41,7 @@ when an app needs secrets.
 
 `packages/core/src/platform` defines four interfaces. Domain code and routes depend only on these,
 never on a concrete service. **Only `apps/api/src/platform/cloudflare` touches Cloudflare
-bindings.** `createPlatform(env)` there builds the implementations, and `createApp(deps)` takes them
-as arguments, so tests need no binding.
+bindings.** `createPlatform(env)` there builds the implementations, and `createApp(deps)` takes an `openPlatform()` factory, so tests pass fakes and need no binding.
 
 - **`CardStore`**: the catalog and collection database. Today it has `ping()` for the health
   check; the catalog work adds the queries. An implementation must be safe to create per request
@@ -52,7 +51,7 @@ as arguments, so tests need no binding.
   missing key, deleting a missing key is not an error, and `list` pages through a cursor. Bodies
   are structural byte streams, so core needs no DOM or Workers types.
 - **`JobQueue`**: background work such as catalog imports and price runs. `send({ type, payload })`
-  only. The contract is at-least-once delivery, so every job must be safe to run twice. Interface
+  only. The contract is at-least-once delivery (decided 2026-10-10, see the interface's doc comment), so every job must be safe to run twice. Interface
   only so far.
 - **`VectorIndex`**: nearest-neighbour search over card image embeddings for the scanner.
   `upsert` vectors by id, `query(values, topK)` returns ids with scores. Interface only so far.
@@ -100,4 +99,4 @@ you start. Follow these rules:
   re-hosting and rate limit.
 - Keep the fan-project notices for each game in place. The texts and their sources are in
   [docs/marketing/card-imagery-legal.md](docs/marketing/card-imagery-legal.md).
-- Do not paste card art or text from owners without a source that permits it into the repo.
+- Do not commit card art or card text unless the source's terms allow it.
