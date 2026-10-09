@@ -624,18 +624,21 @@ type the numbers by hand.
 
 Config goes under `/opt/voidbinder-db` (owned by `ubuntu`, so `docker compose` and your editor
 need no `sudo`), the TLS files into a folder only the database user can read, the backup config
-under `/etc/pgbackrest`. Give the data directory from section 3 to the database user:
+under `/opt/voidbinder-db/pgbackrest`. Give the data directory from section 3 to the database user:
 
 ```sh
 sudo chown "$PGUID:$PGGID" /var/lib/postgresql/voidbinder
 sudo install -d -o ubuntu -g ubuntu -m 755 /opt/voidbinder-db
 sudo install -d -o "$PGUID" -g "$PGGID" -m 700 /opt/voidbinder-db/tls
-sudo install -d -m 755 /etc/pgbackrest
+sudo install -d -o ubuntu -g ubuntu -m 755 /opt/voidbinder-db/pgbackrest
 ```
 
-`/etc/pgbackrest` stays readable (755): the rootless daemon runs as `ubuntu` and must be able to
-walk through the directory to mount the file inside it; the file itself will be mode 600 for the
-database user.
+The backup config lives under `/opt`, not under `/etc`, on purpose: rootless Docker copies `/etc`
+into its own view when the daemon starts (RootlessKit `--copy-up`), so a directory created under
+`/etc` later is invisible to the daemon until it restarts, and `docker compose up` fails with
+`bind source path does not exist`. `/opt/voidbinder-db/pgbackrest` is readable (755) so the daemon can mount it; the
+config file inside will be mode 600 for the database user. Inside the container the path is still
+`/etc/pgbackrest/pgbackrest.conf`.
 
 **verify:** `ls -lnd /var/lib/postgresql/voidbinder /opt/voidbinder-db/tls` shows `drwx------` and
 your two numbers as owner and group, and Docker agrees that the owner is the container's UID 1000:
@@ -793,9 +796,9 @@ echo "POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')" > /opt/voidbin
 
 Copy it into the password manager entry `postgres superuser` with `cat /opt/voidbinder-db/.env`.
 
-**pgBackRest config comes later.** The container mounts the directory `/etc/pgbackrest` (created
-above, in the directory block of this section), so the config file can be written in section 7
-without touching the compose file.
+**pgBackRest config comes later.** The container mounts the host directory `/opt/voidbinder-db/pgbackrest` (created
+above, in the directory block of this section) at `/etc/pgbackrest`, so the config file can be
+written in section 7 without touching the compose file.
 Until the stanza exists, WAL archiving fails and Postgres keeps the WAL and retries; that is
 expected for the minutes in between (the log shows `archive command failed`).
 
@@ -885,7 +888,7 @@ services:
         read_only: true
         bind: { create_host_path: false }
       - type: bind
-        source: /etc/pgbackrest
+        source: /opt/voidbinder-db/pgbackrest
         target: /etc/pgbackrest
         read_only: true
         bind: { create_host_path: false }
@@ -930,7 +933,7 @@ Before the first start, check that every bind-mount source exists; Docker refuse
 container otherwise (`bind source path does not exist`):
 
 ```sh
-ls -ld /var/lib/postgresql/voidbinder /opt/voidbinder-db/tls /etc/pgbackrest
+ls -ld /var/lib/postgresql/voidbinder /opt/voidbinder-db/tls /opt/voidbinder-db/pgbackrest
 ```
 
 All three must print a line. A missing one means the directory block earlier in this section was
@@ -1333,7 +1336,7 @@ read -rp  'B2 bucket name: ' B2_BUCKET
 read -rp  'B2 keyID: ' B2_KEY_ID
 read -rsp 'B2 applicationKey: ' B2_APP_KEY; echo
 read -rsp 'pgBackRest cipher pass: ' PGBR_CIPHER; echo
-sudo tee /etc/pgbackrest/pgbackrest.conf >/dev/null <<EOF
+sudo tee /opt/voidbinder-db/pgbackrest/pgbackrest.conf >/dev/null <<EOF
 [global]
 repo1-type=s3
 repo1-s3-endpoint=s3.$B2_REGION.backblazeb2.com
@@ -1359,11 +1362,11 @@ pg1-path=/home/postgres/pgdata/data
 pg1-socket-path=/var/run/postgresql
 EOF
 unset B2_REGION B2_BUCKET B2_KEY_ID B2_APP_KEY PGBR_CIPHER
-sudo chown "$PGUID:$PGGID" /etc/pgbackrest/pgbackrest.conf && sudo chmod 600 /etc/pgbackrest/pgbackrest.conf
+sudo chown "$PGUID:$PGGID" /opt/voidbinder-db/pgbackrest/pgbackrest.conf && sudo chmod 600 /opt/voidbinder-db/pgbackrest/pgbackrest.conf
 ```
 
-**verify:** `sudo grep -E '=$' /etc/pgbackrest/pgbackrest.conf` prints nothing (no value is
-empty), and `sudo stat -c '%u:%g %a' /etc/pgbackrest/pgbackrest.conf` prints your `PGUID:PGGID`
+**verify:** `sudo grep -E '=$' /opt/voidbinder-db/pgbackrest/pgbackrest.conf` prints nothing (no value is
+empty), and `sudo stat -c '%u:%g %a' /opt/voidbinder-db/pgbackrest/pgbackrest.conf` prints your `PGUID:PGGID`
 (for example `166535:166535`) and `600`. (`PGUID` and `PGGID` are set in section 4; run those lines
 again after a reconnect.)
 
@@ -1377,7 +1380,7 @@ ends point-in-time recovery until the next full backup, instead of letting `pg_w
 disk and stop Postgres; the WAL archive check in section 8 alerts long before that.
 
 `tee` keeps the existing file, so owner and mode stay as created in section 4; the `chown` line
-makes sure. The file stays in `/etc/pgbackrest` and belongs to the database user's mapped ID: the
+makes sure. The file stays in `/opt/voidbinder-db/pgbackrest` and belongs to the database user's mapped ID: the
 host never runs pgBackRest itself, only the container does, and `ubuntu` edits the file with
 `sudo`. The `ubuntu` login user does not need to read it.
 
@@ -1402,7 +1405,7 @@ segment is in B2). The bucket now has `pgbackrest/archive/voidbinder/` and
   `PGUID` and `PGGID` set).
 - `HostConnectError`, `unable to get address` or `403` / `InvalidAccessKeyId` /
   `SignatureDoesNotMatch`: the region, bucket or key is wrong. Compare the file
-  (`sudo cat /etc/pgbackrest/pgbackrest.conf`) with the password manager entry; the key must have
+  (`sudo cat /opt/voidbinder-db/pgbackrest/pgbackrest.conf`) with the password manager entry; the key must have
   access to this bucket.
 - `WAL segment … was not archived before the … timeout`: archiving itself fails. Look for
   `archive-push` errors in `docker logs voidbinder-db --tail 50`; they usually point to the
@@ -1465,12 +1468,12 @@ DRILL=/var/lib/postgresql/restore-drill
 sudo install -d -o "$PGUID" -g "$PGGID" -m 700 "$DRILL"
 docker run --rm \
   -v "$DRILL":/home/postgres/pgdata \
-  -v /etc/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
+  -v /opt/voidbinder-db/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
   -e PGBACKREST_CONFIG=/etc/pgbackrest/pgbackrest.conf \
   --entrypoint pgbackrest "$IMAGE" --stanza=voidbinder --archive-mode=off restore
 docker run -d --name voidbinder-restore-drill \
   -v "$DRILL":/home/postgres/pgdata \
-  -v /etc/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
+  -v /opt/voidbinder-db/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
   -e PGBACKREST_CONFIG=/etc/pgbackrest/pgbackrest.conf \
   "$IMAGE" postgres -c max_worker_processes=16
 ```
@@ -1529,7 +1532,7 @@ sudo install -d -o "$PGUID" -g "$PGGID" -m 700 /var/lib/postgresql/voidbinder
 IMAGE=timescale/timescaledb-ha:pg18.6-ts2.30.2
 docker run --rm \
   -v /var/lib/postgresql/voidbinder:/home/postgres/pgdata \
-  -v /etc/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
+  -v /opt/voidbinder-db/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
   -e PGBACKREST_CONFIG=/etc/pgbackrest/pgbackrest.conf \
   --entrypoint pgbackrest "$IMAGE" --stanza=voidbinder restore
 docker compose up -d
@@ -1555,7 +1558,7 @@ servers must not archive into one stanza):
    new server can differ from the old one, so never copy the numbers) and give the data directory
    to them. The TLS certificate and `pg_hba.conf` are files of the host, not of the data, so they
    are made again (the Origin CA certificate can be issued again for the same name).
-3. Write `/etc/pgbackrest/pgbackrest.conf` as in this section, from the password manager: the same
+3. Write `/opt/voidbinder-db/pgbackrest/pgbackrest.conf` as in this section, from the password manager: the same
    B2 bucket, key and `repo1-cipher-pass`, and the same `[voidbinder]` stanza section. Do not run
    `stanza-create`; the stanza is already in the bucket.
 4. Restore into the data directory with the image tag from the compose file:
@@ -1564,7 +1567,7 @@ servers must not archive into one stanza):
    IMAGE=timescale/timescaledb-ha:pg18.6-ts2.30.2
    docker run --rm \
      -v /var/lib/postgresql/voidbinder:/home/postgres/pgdata \
-     -v /etc/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
+     -v /opt/voidbinder-db/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
      -e PGBACKREST_CONFIG=/etc/pgbackrest/pgbackrest.conf \
      --entrypoint pgbackrest "$IMAGE" --stanza=voidbinder restore
    ```
@@ -1747,7 +1750,7 @@ What protects the database, in one place.
   database, from the gateway of the Compose network (where the published port arrives).
 - `hyperdrive_dev` and `hyperdrive_prod` have DML rights only, no DDL: they cannot create, alter
   or drop anything. Schema changes go through `voidbinder_migrate` and the SSH tunnel.
-- Secrets live on the VPS (`/opt/voidbinder-db/.env`, `/etc/pgbackrest/pgbackrest.conf`, the
+- Secrets live on the VPS (`/opt/voidbinder-db/.env`, `/opt/voidbinder-db/pgbackrest/pgbackrest.conf`, the
   cloudflared token file `/etc/cloudflared/token`, `/etc/voidbinder-db-health.env`, each readable
   only by root, `ubuntu` or the database user's mapped ID), in Cloudflare (the Hyperdrive configs) and in the password manager folder
   `Voidbinder DB`. None of them belong in this repository; the Hyperdrive and VPC service ids are
