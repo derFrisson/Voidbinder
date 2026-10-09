@@ -46,3 +46,27 @@ export const links = {
   twitch: 'https://www.twitch.tv/derFrisson',
   voidcom: 'https://voidcom.app',
 };
+
+/**
+ * Picks the site locale from an `Accept-Language` header: tags are taken in order of their q
+ * value and matched on the language subtag only, so `en-US` and `en-GB` both mean `en`. Astro's
+ * `preferredLocale` matches full tags and would send a bare `en-US` to the default locale.
+ */
+export function negotiateLocale(acceptLanguage: string | null | undefined): Locale {
+  if (!acceptLanguage) return defaultLocale;
+  const tags = acceptLanguage
+    .split(',')
+    .map((part, index) => {
+      const [tag = '', ...params] = part.trim().split(';');
+      const q = params.map((p) => p.trim()).find((p) => p.startsWith('q='));
+      const weight = q ? Number(q.slice(2)) : 1;
+      return { tag: tag.trim().toLowerCase(), weight: Number.isFinite(weight) ? weight : 0, index };
+    })
+    .filter((entry) => entry.tag && entry.weight > 0)
+    .sort((a, b) => b.weight - a.weight || a.index - b.index);
+  for (const { tag } of tags) {
+    const language = tag.split('-')[0];
+    if (isLocale(language)) return language;
+  }
+  return defaultLocale;
+}

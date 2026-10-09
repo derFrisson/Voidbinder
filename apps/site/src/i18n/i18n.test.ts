@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { legalPath, legalPages, legalSlugs, localePath, locales, t } from './index';
+import {
+  legalPath,
+  legalPages,
+  legalSlugs,
+  localePath,
+  locales,
+  negotiateLocale,
+  t,
+} from './index';
 
 // Every key path, including array indices, so a list item missing a field also shows up.
 function keyPaths(value: unknown, prefix = ''): string[] {
@@ -99,5 +107,20 @@ describe('i18n', () => {
     for (const l of locales) {
       for (const p of legalPages) expect(legalSlugs[l][p]).toMatch(/^[a-z]+$/);
     }
+  });
+});
+
+describe('negotiateLocale', () => {
+  it('matches the language subtag, so a bare region tag still finds its locale', () => {
+    expect(negotiateLocale('en-US')).toBe('en');
+    expect(negotiateLocale('de-AT')).toBe('de');
+  });
+  it('honours q weights and order, and falls back to German', () => {
+    expect(negotiateLocale('fr-FR,fr;q=0.9,en;q=0.8')).toBe('en');
+    expect(negotiateLocale('en;q=0.5,de;q=0.9')).toBe('de');
+    expect(negotiateLocale('fr')).toBe('de');
+    expect(negotiateLocale(null)).toBe('de');
+    expect(negotiateLocale('')).toBe('de');
+    expect(negotiateLocale('*')).toBe('de');
   });
 });
