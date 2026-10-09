@@ -21,7 +21,8 @@ import { R2BlobStore } from './r2-blob-store';
  * so errors after `end()` are expected and dropped.
  */
 function openPool(connectionString: string): Pool {
-  const pool = new Pool({ connectionString, max: 1 });
+  // Workers allow 6 concurrent outbound connections per request; two pools share them (3 + 3).
+  const pool = new Pool({ connectionString, max: 3 });
   pool.on('error', (err) => {
     if (!pool.ending) log('warn', { message: 'idle database client failed', error: String(err) });
   });

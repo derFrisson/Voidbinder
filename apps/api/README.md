@@ -69,10 +69,12 @@ The site migrates the same databases, so the API keeps its own journal table
 `drizzle.__drizzle_migrations_api` (`drizzle.config.ts`; every programmatic `migrate()` passes
 `migrationsSchema: 'drizzle'`, `migrationsTable: '__drizzle_migrations_api'`).
 
-Deployed databases are migrated only from the workstation through the SSH tunnel of the
+Deployed databases are migrated from the workstation through the SSH tunnel of the
 [database runbook, section 5](../../docs/guides/database-vps.md#5-roles-and-databases), as
 `voidbinder_migrate` (the Hyperdrive roles have no DDL rights). With the tunnel open, from the
 repository root:
+Alternatively, on the VPS itself: `~/voidbinder/scripts/vps/migrate.sh api dev|prod` (runbook section 5,
+"Alternative: apply migrations from the VPS itself").
 
 ```sh
 read -rs PGPW   # voidbinder_migrate password
