@@ -43,7 +43,10 @@ export function createPlatform(env: Env): Platform {
       imageBaseUrl: env.IMAGE_BASE_URL,
     }),
     blobStore: new R2BlobStore(env.CATALOG),
-    jobQueue: new WorkflowJobQueue({ 'scryfall-import': env.SCRYFALL_IMPORT }),
+    jobQueue: new WorkflowJobQueue({
+      'scryfall-import': env.SCRYFALL_IMPORT,
+      'ygoprodeck-import': env.YGOPRODECK_IMPORT,
+    }),
     close: async () => {
       await Promise.all(cachedPool === pool ? [pool.end()] : [pool.end(), cachedPool.end()]);
     },
@@ -70,6 +73,15 @@ export function scryfallImportDeps(env: Env): ImportDeps {
     blobs: new R2BlobStore(env.CATALOG),
     withDb: (fn) => withDatabase(env, fn),
   };
+}
+
+/** What the YGOPRODeck import Workflow works with: the same as the Scryfall one. */
+export const ygoprodeckImportDeps = scryfallImportDeps;
+
+/** Starts a YGOPRODeck import instance; an `id` makes it unique (the cron's one per day). */
+export async function startYgoprodeckImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.YGOPRODECK_IMPORT.create(id ? { id } : {});
+  log('info', { message: 'workflow started', job: 'ygoprodeck-import', instanceId: instance.id });
 }
 
 /** Starts a Scryfall import instance; an `id` makes it unique (the cron's one per day). */

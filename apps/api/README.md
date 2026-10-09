@@ -12,11 +12,11 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | ---------------------------- | ---------------------------------------------------------------------------------- |
 | `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                   |
 | `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding) |
-| `src/routes/`                | Routes: `GET /health`, `GET /catalog/**`, `POST /admin/import/scryfall`            |
+| `src/routes/`                | Routes: `GET /health`, `GET /catalog/**`, `POST /admin/import/<source>`            |
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`      |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                    |
-| `src/import/`                | Catalog importers (Scryfall); see Importers                                        |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck); see Importers                            |
 | `src/workflows/`             | Cloudflare Workflows that run the importers                                        |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`         |
 
@@ -114,8 +114,7 @@ Migrate before deploying code that needs the new schema.
 
 ### Scryfall (Magic)
 
-`src/import/scryfall/` imports Scryfall's bulk data; it is the pattern for the Yu-Gi-Oh! and
-Pokémon importers. `pipeline.ts` runs these steps, each retried on its own:
+`src/import/scryfall/` imports Scryfall's bulk data; it is the pattern for the other importers. `pipeline.ts` runs these steps, each retried on its own:
 
 1. `start run`: a row in `import_runs` (`running`).
 2. `bulk index`: `GET https://api.scryfall.com/bulk-data` for today's file URLs.
@@ -179,6 +178,41 @@ about 90 s and its result is in `import_runs`. On `dev` the orchestrator trigger
 against `https://voidbinder-api-dev.frisson.workers.dev` with the deployed token; the instance and
 its steps show in the dashboard or with
 `pnpm exec wrangler workflows instances list voidbinder-scryfall-import-dev`.
+
+### YGOPRODeck (Yu-Gi-Oh!)
+
+`src/import/ygoprodeck/` follows the same shape (Workflow `src/workflows/ygoprodeck-import.ts`, binding
+`YGOPRODECK_IMPORT`, `POST /admin/import/ygoprodeck`, daily cron prod 03:30 UTC and dev 05:00 UTC, one
+instance `ygoprodeck-<date>`; `src/index.ts` maps the cron expression to the source). The whole
+catalog is one `cardinfo.php?misc=yes` answer (English) plus `cardinfo.php?language=de`, and one
+`cardsets.php`: three requests per run, far below the guide's 20 per second (an IP above it is
+blocked for an hour), never one per card. The answers are chunked, so each is read whole,
+gzip-compressed into R2 (`raw/<env>/ygoprodeck/<date>/cardinfo_{en,de}.json.gz`, `cardsets.json`)
+and split by a streaming scanner into `work/<env>/ygoprodeck/<run id>/cardinfo_<lang>/*.jsonl`
+chunks of 1000 cards, one step per chunk. Images are never fetched: the URLs of the first
+artwork are in the print's `external_ids` (`image_url`, `image_url_small`) for the image mirror
+(VB-57). Prices (`set_price`, `card_prices`) stay in the raw dump for VB-30.
+
+Mapping: `cards.oracle_key` is the card's id, `type_line` its `type`, `attributes` the stats (`rank`
+instead of `level` for Xyz, `?` for a `?` ATK/DEF), `legalities` the TCG and OCG ban list status
+(`Unlimited` when the card is in that format without an entry; `goat` only when listed). A print is
+one set code and number (`LOB`, `EN001`); the source lists a code once per rarity, so the first
+rarity is `prints.rarity` and all are in `external_ids.rarities`, and finishes are always
+`['normal']` (the source gives rarities, not finishes). A language variant (`LOB-DE001`, `OP13-PT006`)
+folds into the English print of the same number (`external_ids.variants`); one without an English
+print is a print of its own (`DE099`, `external_ids.language`). Every print gets an `en`
+localization and, from the German list, a `de` one (`name`, `desc`). `cardsets.php` lists some codes
+twice (anniversary editions): the earliest release is the set, the others `external_ids.editions`.
+Skipped and counted in `stats.skipped`: cards in no set (`noSets`) and a print whose code another card
+already holds (`codeConflicts`, the source lists a few codes for two cards; the first keeps it). A
+set the list lacks (`DB49`, a code without a dash is its own set and number) is created from the
+card's `set_name`. Resuming, `source_hash`, `catalog_version`, the 409 on a running import and the
+chunk cleanup work as for Scryfall. Locally:
+
+```sh
+pnpm --filter api dev
+curl -X POST -H 'Authorization: Bearer local-dev-admin-token' localhost:8787/admin/import/ygoprodeck
+```
 
 ## Deploy
 
