@@ -6,10 +6,11 @@ import {
   handleUnsubscribeLink,
   hashToken,
   isOneClickUnsubscribe,
+  purgeExpired,
   type WaitlistDeps,
 } from './handlers';
 import type { MailMessage } from './mail';
-import type { WaitlistPatch, WaitlistRepository } from './repository';
+import type { ExpiryCutoffs, WaitlistPatch, WaitlistRepository } from './repository';
 import type { NewWaitlistSignupRow, WaitlistSignupRow } from './schema';
 
 class FakeRepo implements WaitlistRepository {
@@ -42,6 +43,18 @@ class FakeRepo implements WaitlistRepository {
   async update(id: string, patch: WaitlistPatch) {
     const row = this.rows.find((r) => r.id === id);
     if (row) Object.assign(row, patch);
+  }
+  async deleteExpired({ pendingBefore, unsubscribedBefore }: ExpiryCutoffs) {
+    const gone = (r: WaitlistSignupRow) =>
+      (r.status === 'pending' && r.confirmExpiresAt < pendingBefore) ||
+      (r.status === 'unsubscribed' && !!r.unsubscribedAt && r.unsubscribedAt < unsubscribedBefore);
+    const counts = { pending: 0, unsubscribed: 0 };
+    for (const r of this.rows.filter(gone)) {
+      if (r.status === 'pending') counts.pending++;
+      if (r.status === 'unsubscribed') counts.unsubscribed++;
+    }
+    this.rows = this.rows.filter((r) => !gone(r));
+    return counts;
   }
 }
 
@@ -551,5 +564,90 @@ describe('POST /api/waitlist/unsubscribe', () => {
     expect(
       await isOneClickUnsubscribe(formPost(`${SITE}/api/waitlist`, 'List-Unsubscribe=One-Click')),
     ).toBe(false);
+  });
+});
+
+describe('purgeExpired', () => {
+  const DAY = 24 * HOUR;
+  const at = (daysAgo: number, extraMs = 0) => new Date(now.getTime() - daysAgo * DAY + extraMs);
+  async function seed(
+    email: string,
+    status: WaitlistSignupRow['status'],
+    dates: Partial<WaitlistSignupRow>,
+  ) {
+    await repo.insert({
+      email,
+      locale: 'de',
+      status,
+      confirmTokenHash: `h-${email}`,
+      confirmExpiresAt: new Date(),
+      consentTextVersion: 'v',
+      ...dates,
+    });
+  }
+  const emails = () => repo.rows.map((r) => r.email).sort();
+  const run = (extra: Partial<Parameters<typeof purgeExpired>[0]> = {}) =>
+    purgeExpired({ repo, now: () => now, pendingDays: 30, unsubscribedDays: 365, ...extra });
+
+  it('deletes pending rows whose link expired more than the retention ago, keeps the boundary', async () => {
+    await seed('old@x.de', 'pending', { confirmExpiresAt: at(30, -1) });
+    await seed('edge@x.de', 'pending', { confirmExpiresAt: at(30) });
+    await seed('recent@x.de', 'pending', { confirmExpiresAt: at(29) });
+    expect(await run()).toEqual({ pending: 1, unsubscribed: 0 });
+    expect(emails()).toEqual(['edge@x.de', 'recent@x.de']);
+  });
+
+  it('deletes unsubscribed rows older than the retention, keeps the boundary', async () => {
+    await seed('old@x.de', 'unsubscribed', { unsubscribedAt: at(365, -1) });
+    await seed('edge@x.de', 'unsubscribed', { unsubscribedAt: at(365) });
+    await seed('recent@x.de', 'unsubscribed', { unsubscribedAt: at(364) });
+    expect(await run()).toEqual({ pending: 0, unsubscribed: 1 });
+    expect(emails()).toEqual(['edge@x.de', 'recent@x.de']);
+  });
+
+  it('never deletes confirmed rows, however old, and keeps each status to its own rule', async () => {
+    await seed('c@x.de', 'confirmed', {
+      confirmExpiresAt: at(900),
+      confirmedAt: at(800),
+      unsubscribedAt: at(700),
+    });
+    // an old unsubscribed date on a re-signed-up pending row does not count
+    await seed('p@x.de', 'pending', { confirmExpiresAt: at(1), unsubscribedAt: at(700) });
+    // an unsubscribed row with an old, expired link is judged by unsubscribed_at only
+    await seed('u@x.de', 'unsubscribed', { confirmExpiresAt: at(900), unsubscribedAt: at(2) });
+    expect(await run()).toEqual({ pending: 0, unsubscribed: 0 });
+    expect(emails()).toEqual(['c@x.de', 'p@x.de', 'u@x.de']);
+  });
+
+  it('uses the configured retention, as a number or a numeric string', async () => {
+    await seed('a@x.de', 'pending', { confirmExpiresAt: at(8) });
+    await seed('b@x.de', 'unsubscribed', { unsubscribedAt: at(8) });
+    expect(await run({ pendingDays: '7', unsubscribedDays: 7 })).toEqual({
+      pending: 1,
+      unsubscribed: 1,
+    });
+  });
+
+  it.each([undefined, '', 'abc', 0, -5, 1.5, '1e2x', null])(
+    'falls back to 30 / 365 days for %j and warns',
+    async (bad) => {
+      await seed('a@x.de', 'pending', { confirmExpiresAt: at(31) });
+      await seed('b@x.de', 'pending', { confirmExpiresAt: at(29) });
+      await seed('c@x.de', 'unsubscribed', { unsubscribedAt: at(366) });
+      await seed('d@x.de', 'unsubscribed', { unsubscribedAt: at(364) });
+      const warnings: string[] = [];
+      expect(
+        await run({ pendingDays: bad, unsubscribedDays: bad, warn: (m) => warnings.push(m) }),
+      ).toEqual({ pending: 1, unsubscribed: 1 });
+      expect(emails()).toEqual(['b@x.de', 'd@x.de']);
+      expect(warnings).toHaveLength(2);
+    },
+  );
+
+  it('logs the counts', async () => {
+    await seed('a@x.de', 'pending', { confirmExpiresAt: at(31) });
+    const logged: unknown[][] = [];
+    await run({ log: (...a) => logged.push(a) });
+    expect(logged).toEqual([['[waitlist] retention purge', { pending: 1, unsubscribed: 0 }]]);
   });
 });

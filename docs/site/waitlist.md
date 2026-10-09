@@ -103,6 +103,57 @@ per IP at the edge and keeps nothing in the database.
 When the consent text next to the form changes, bump `WAITLIST_CONSENT_VERSION` in
 `packages/shared/src/waitlist.ts`.
 
+## Retention purge
+
+A Cron Trigger (`triggers.crons: ["17 3 * * *"]`, daily 03:17 UTC, top level and in `dev` / `prod`
+in `wrangler.jsonc`) runs the `scheduled` handler in `apps/site/src/worker.ts`, which calls
+`purgeExpired` (`handlers.ts`) through `withWaitlistRepo` (`runtime.ts`: database only, no rate
+limit, no mail). It deletes through `WaitlistRepository.deleteExpired`:
+
+| Rows           | Deleted when                                         | Var (default)                                |
+| -------------- | ---------------------------------------------------- | -------------------------------------------- |
+| `pending`      | `confirm_expires_at` is more than N days in the past | `WAITLIST_PENDING_RETENTION_DAYS` (30)       |
+| `unsubscribed` | `unsubscribed_at` is more than N days in the past    | `WAITLIST_UNSUBSCRIBED_RETENTION_DAYS` (365) |
+| `confirmed`    | never, automatically (see below)                     | none                                         |
+
+A row exactly at the cutoff is kept. The vars sit in `vars` of every environment (local, `dev`,
+`prod`) and are typed by `wrangler types`; a missing or invalid value (not a positive whole number)
+falls back to the default and logs a warning. Each run logs `[waitlist] retention purge { pending: n, unsubscribed: m }`
+(Workers Logs / `wrangler tail`); a database error fails the run. The retention figures must match
+what the privacy policy states (see [legal.md](legal.md)): set the vars, then fill the two
+placeholders with the same numbers (30 days / 12 months fit the defaults).
+
+Cron Triggers are deployed with the Worker (`wrangler deploy`); changes take up to 15 minutes to
+spread. `wrangler deploy --dry-run` does not print triggers; the flattened `dist/server/wrangler.json`
+of the build carries `"triggers":{"crons":["17 3 * * *"]}`.
+
+### Running it locally
+
+Cron Triggers do not fire in local development, but the dev server exposes the handler
+(no `--test-scheduled` flag needed with wrangler 4.148). With Postgres up and migrated (see below):
+
+```sh
+CLOUDFLARE_ENV=dev pnpm --filter site build
+cd apps/site && pnpm exec wrangler dev --env dev --port 8799      # in one terminal
+curl "http://localhost:8799/cdn-cgi/local/scheduled?cron=17+3+*+*+*&format=json"
+```
+
+Output with one `pending` row expired 40 days ago, one unsubscribed 400 days ago, one `pending`
+expired 10 days ago and one old `confirmed` row: the curl prints `{"outcome":"ok","noRetry":false}`,
+the dev log prints `[waitlist] retention purge { pending: 1, unsubscribed: 1 }`, and only the recent
+`pending` and the `confirmed` row remain.
+
+### Confirmed rows after the beta-start mail
+
+The privacy policy promises deletion of a confirmed sign-up once the beta-start mail went out; that is
+a deliberate one-off, not part of the cron. After the mail, from the workstation against the
+production database (take a dump first, check the count, then delete):
+
+```sh
+psql "$DATABASE_URL" -c "select count(*) from waitlist_signups where status = 'confirmed'"
+psql "$DATABASE_URL" -c "delete from waitlist_signups where status = 'confirmed'"
+```
+
 ## Local development
 
 ```sh
@@ -121,8 +172,8 @@ binding is missing the handler logs the mail instead.
 Schema changes: edit `schema.ts`, run `pnpm --filter site db:generate --name <change>`, commit
 the new SQL and `drizzle/meta/` files, then `db:migrate`.
 
-Tests: `pnpm test` runs the handler tests against in-memory fakes. With `DATABASE_URL` set (as
-above) it also runs the repository test against the Docker Postgres; without it that test is
+Tests: `pnpm test` runs the handler tests (including the purge) against in-memory fakes. With `DATABASE_URL` set (as
+above) it also runs the repository test (including `deleteExpired`) against the Docker Postgres; without it that test is
 skipped with a message.
 
 ## Environments: what Max sets up

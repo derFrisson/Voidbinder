@@ -53,7 +53,7 @@ The English files use the same German placeholder text so one search finds all o
 | No cookies, no `localStorage` / `sessionStorage`, no third hosts                                                                                                                                                                                                            | `apps/site/test/legal.test.ts` on the built HTML; no such code in `src`                                                                              |
 | Language in the URL; `/` redirects by `Accept-Language`, unstored                                                                                                                                                                                                           | `src/pages/index.ts`                                                                                                                                 |
 | Purpose and storage of the waitlist = the consent text: the address is stored to tell the person when the beta starts                                                                                                                                                       | `i18n/de.ts` `waitlist.consent*`                                                                                                                     |
-| Unsubscribe keeps the row (`unsubscribed`, email, timestamps); a new sign-up starts a fresh double opt-in                                                                                                                                                                   | `handlers.ts`, `docs/site/waitlist.md`                                                                                                               |
+| Unsubscribe keeps the row (`unsubscribed`, email, timestamps) until the retention purge deletes it; a new sign-up starts a fresh double opt-in                                                                                                                              | `handlers.ts`, `docs/site/waitlist.md`                                                                                                               |
 | Web Analytics beacon only when the build has `PUBLIC_CF_ANALYTICS_TOKEN`                                                                                                                                                                                                    | `layouts/Base.astro`, `docs/site/seo.md`                                                                                                             |
 | Web Analytics: no cookies / `localStorage`, no fingerprinting; data categories (path without query, referer, browser, OS, device type, country, load-time metrics and Core Web Vitals); unsampled data kept 7 days, then aggregated to about 10 %, dashboard shows 6 months | Cloudflare docs: `developers.cloudflare.com/web-analytics/` `data-metrics/core-web-vitals/`, `data-metrics/dimensions/`, `faq/` (checked 2026-10-09) |
 
@@ -69,7 +69,14 @@ cookie Cloudflare's edge might add.
   launch (they change) and keep dashboard auto-injection off, so there is one beacon.
 - The privacy text promises deletion of a confirmed sign-up after the beta-start mail, of an unconfirmed
   one after `[MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen]` and of an unsubscribed row after
-  `[MAX: Aufbewahrungsfrist abgemeldeter Adressen, …]`, and deletion on request. The waitlist backend has
-  no purge job: the rows stay until someone deletes them. Build the purge or change the text.
+  `[MAX: Aufbewahrungsfrist abgemeldeter Adressen, …]`, and deletion on request. A daily Cron Trigger
+  purges the unconfirmed and unsubscribed rows (VB-47, [waitlist.md](waitlist.md#retention-purge)); the
+  confirmed rows go with the one-off SQL documented there after the beta-start mail. Fill the two
+  placeholders with 30 days / 12 months or other values and set `WAITLIST_PENDING_RETENTION_DAYS` /
+  `WAITLIST_UNSUBSCRIBED_RETENTION_DAYS` in `apps/site/wrangler.jsonc` (every environment) to the same
+  numbers (defaults 30 and 365). The unconfirmed clock starts when the 7-day confirmation link expires,
+  so "30 days" means 37 days after sign-up; word the placeholder that way ("30 Tagen nach Ablauf des
+  Bestätigungslinks") or set the var to the figure you want to state minus 7. Once the Worker is deployed, check that the cron ran
+  (`wrangler tail` or Workers Logs show `[waitlist] retention purge`).
 - Bump `updated` in the frontmatter of a page whenever its text changes. If the waitlist consent text
   changes, bump `WAITLIST_CONSENT_VERSION` too.
