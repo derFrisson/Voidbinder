@@ -1,4 +1,4 @@
-import type { BlobStore, CardStore } from '@voidbinder/core';
+import type { BlobStore, CardStore, JobQueue } from '@voidbinder/core';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { requestId } from 'hono/request-id';
@@ -6,12 +6,15 @@ import { secureHeaders } from 'hono/secure-headers';
 import { accessLog } from './middleware/access-log';
 import { notFound, onError } from './middleware/errors';
 import { noStoreByDefault } from './middleware/headers';
+import { adminRoutes } from './routes/admin';
+import { catalogRoutes } from './routes/catalog';
 import { healthRoutes } from './routes/health';
 
 /** The platform seams one request works with (ADR 0001). */
 export interface Platform {
   cardStore: CardStore;
   blobStore: BlobStore;
+  jobQueue: JobQueue;
   /** Releases per-request resources (the database connection). */
   close(): Promise<void>;
 }
@@ -21,6 +24,8 @@ export interface AppDeps {
   appUrl: string;
   /** Reported by /health: the short git sha of the deploy, "local" otherwise. */
   version: string;
+  /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
+  adminToken?: string | undefined;
   /** Called once per request; the platform is closed after the response. */
   openPlatform(): Platform;
 }
@@ -56,6 +61,8 @@ export function createApp(deps: AppDeps) {
       }
     })
     .route('/health', healthRoutes(deps.version))
+    .route('/catalog', catalogRoutes())
+    .route('/admin', adminRoutes(deps.adminToken))
     .notFound(notFound)
     .onError(onError);
 }
