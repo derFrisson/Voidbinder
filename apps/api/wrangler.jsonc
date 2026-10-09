@@ -2,6 +2,9 @@
 // `wrangler dev` uses locally; `--env dev|prod` selects a deployed environment. Bindings and vars
 // are not inherited by environments, so they are repeated in each one.
 //
+// CORS_EXTRA_ORIGINS (comma-separated) admits origins besides APP_URL in CORS and Better Auth:
+// the Expo web dev server, locally and in dev only. env.prod must never set it (app.test.ts).
+//
 // VERSION is "local" here and set to the short git sha by the deploy:dev / deploy:prod scripts
 // (`wrangler deploy --var VERSION:<sha>`); GET /health reports it.
 {
@@ -17,9 +20,14 @@
   "vars": {
     "APP_URL": "http://localhost:8081",
     "API_URL": "http://localhost:8787",
+    "CORS_EXTRA_ORIGINS": "http://localhost:8081",
     "IMAGE_BASE_URL": "https://img.voidbinder.de",
     "VERSION": "local",
   },
+  // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
+  "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+  // Auth mails (verification, password reset); locally `wrangler dev` logs them instead.
+  "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
   // Local Postgres from the root docker-compose.yml. HYPERDRIVE is cache-disabled (fresh reads);
   // HYPERDRIVE_CACHED caches reads for 300 s and serves catalog and price reads only (ADR 0004).
   // Locally both point at the same database and nothing is cached.
@@ -46,9 +54,12 @@
       "vars": {
         "APP_URL": "https://voidbinder-app-dev.frisson.workers.dev",
         "API_URL": "https://voidbinder-api-dev.frisson.workers.dev",
+        "CORS_EXTRA_ORIGINS": "http://localhost:8081",
         "IMAGE_BASE_URL": "https://img.voidbinder.de",
         "VERSION": "local",
       },
+      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-dev" (database voidbinder_dev, caching disabled).
         {
@@ -77,6 +88,8 @@
         "IMAGE_BASE_URL": "https://img.voidbinder.de",
         "VERSION": "local",
       },
+      "secrets": { "required": ["BETTER_AUTH_SECRET"] },
+      "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-prod" (database voidbinder, caching disabled).
         {

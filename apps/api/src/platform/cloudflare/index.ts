@@ -36,9 +36,11 @@ export function createPlatform(env: Env): Platform {
     : pool;
   // ponytail: nothing reads through the cache yet; VB-26 hands `drizzle(cachedPool)` to the
   // catalog store. An unused pool opens no connection.
+  const db = drizzle(pool);
   return {
-    cardStore: new DrizzleCardStore(drizzle(pool)),
+    cardStore: new DrizzleCardStore(db),
     blobStore: new R2BlobStore(env.CATALOG),
+    db,
     close: async () => {
       await Promise.all(cachedPool === pool ? [pool.end()] : [pool.end(), cachedPool.end()]);
     },

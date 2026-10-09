@@ -33,7 +33,7 @@ function errorJson(
 /**
  * Turns every thrown error into `{ error: { code, message, requestId } }`. Zod errors (from
  * `throwOnInvalid` or a `.parse` in a handler) become 400 with `issues`; HTTPExceptions keep
- * their status; anything else is a 500 whose message and stack go to the log only.
+ * their status and the headers of their `res`; anything else is a 500 whose message and stack go to the log only.
  */
 export const onError: ErrorHandler<AppEnv> = (err, c) => {
   if (err instanceof z.core.$ZodError) {
@@ -45,7 +45,13 @@ export const onError: ErrorHandler<AppEnv> = (err, c) => {
   }
   if (err instanceof HTTPException && err.status < 500) {
     const status = err.status as ContentfulStatusCode;
-    return errorJson(c, status, CODES[status] ?? 'bad_request', err.message || 'Bad request');
+    const res = errorJson(c, status, CODES[status] ?? 'bad_request', err.message || 'Bad request');
+    // Headers of the exception's own response (e.g. `WWW-Authenticate` on a 401) survive; its
+    // body and content headers give way to the JSON error.
+    for (const [name, value] of err.res?.headers ?? []) {
+      if (name !== 'content-type' && name !== 'content-length') res.headers.append(name, value);
+    }
+    return res;
   }
   log('error', {
     requestId: c.var.requestId,
