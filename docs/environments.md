@@ -42,3 +42,7 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
 
 The repository is public: `.gitignore` excludes `.dev.vars*`, `.env*` (except `.env.example`),
 `.wrangler/`, `node_modules`, `dist`, `.turbo` and `.worktrees/`.
+
+## Dependency policy
+
+pnpm 12 (pinned in `packageManager`) refuses to resolve a version published less than 24 hours ago (`minimumReleaseAge`, pnpm's default). The policy stays on. If `pnpm install` reports a lockfile entry inside the cutoff, lower the range's floor to the previous release instead of relaxing the policy. Build scripts run only for the packages listed under `allowBuilds` in `pnpm-workspace.yaml` (`pnpm approve-builds <pkg>` adds one).
