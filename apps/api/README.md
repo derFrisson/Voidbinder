@@ -293,8 +293,11 @@ per step: details in both languages, upserts), `plan`, `cards <set> <n>` (100 ca
 languages per step, upserted in one transaction) and `finish run` (counts in `stats`,
 `catalog_version` + 1; a failure marks the run `failed`); a failed step is retried alone. A full
 import is about 42,000 requests (roughly 80 minutes), so the daily run (the same cron as Scryfall,
-instance id `tcgdex-<date>`) is `incremental`: it fetches the cards only of sets that are new, have
-fewer prints or German localizations than TCGdex lists, or were released less than 90 days ago;
+instance id `tcgdex-<date>`, not started while a TCGdex run is still going) is `incremental`: it
+fetches the cards only of sets that are new, have fewer prints or German localizations than TCGdex
+lists (the 404s recorded in `sets.external_ids.missing_cards` count as present), whose set details
+in either language differ from `sets.external_ids.detail_hash`, that were released less than 90
+days ago, or whose day of the 30-day rolling refresh it is (about 1,400 requests a day);
 `POST /admin/import/tcgdex?mode=full` with the admin token refetches every set (202, 409 while a
 TCGdex run is `running`, 400 for another mode). Rows are upserted on their unique keys and only
 written when their `source_hash` changed. Raw copies stay in R2 under `raw/<env>/tcgdex/<date>/`:

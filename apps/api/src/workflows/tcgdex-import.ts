@@ -39,6 +39,8 @@ export class TcgdexImportWorkflow extends WorkflowEntrypoint<Env, TcgdexImportPa
         mode: event.payload.mode ?? 'incremental',
       },
     );
+    // VB-57: the daily image delta, `mirrorStepFor('pokemon')`, goes here as the last step once
+    // the image mirror is merged.
     return { runId, stats };
   }
 }

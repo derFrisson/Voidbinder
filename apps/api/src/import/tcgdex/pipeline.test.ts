@@ -9,11 +9,13 @@ import {
   setLocalizations,
   sets,
 } from '../../db/schema';
+import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase } from '../../test-helpers';
 import {
   CHUNK_CARDS,
   needsImport,
   planSets,
+  rotates,
   runTcgdexImport,
   type ImportOptions,
   type SetInfo,
@@ -34,9 +36,10 @@ const info = (over: Partial<SetInfo> = {}): SetInfo => ({
   releaseDate: '2020-01-01',
   cards: 10,
   other: { de: 10 },
+  detailHash: 'h',
   ...over,
 });
-const complete = { prints: 10, localizations: { en: 10, de: 10 } };
+const complete = { prints: 10, localizations: { en: 10, de: 10 }, detailHash: 'h' };
 const opts = { mode: 'incremental', date: '2026-10-09' } as const;
 
 describe('needsImport', () => {
@@ -65,6 +68,30 @@ describe('needsImport', () => {
     expect(needsImport(info({ releaseDate: null }), complete, opts)).toBe(false);
   });
 
+  it('refetches a set whose details changed, or that was never marked complete', () => {
+    expect(needsImport(info({ detailHash: 'new' }), complete, opts)).toBe(true);
+    expect(needsImport(info(), { ...complete, detailHash: undefined }, opts)).toBe(true);
+  });
+
+  it('counts the cards TCGdex answered 404 for as present', () => {
+    const state = { ...complete, prints: 9, localizations: { en: 9, de: 8 } };
+    expect(needsImport(info(), state, opts)).toBe(true);
+    expect(
+      needsImport(info(), { ...state, missingCards: { en: ['s-1'], de: ['s-1', 's-2'] } }, opts),
+    ).toBe(false);
+  });
+
+  it('refetches every set on its day of the rolling refresh, about 1/30 of them a day', () => {
+    const days = Array.from({ length: 30 }, (_, d) => `2026-09-${String(d + 1).padStart(2, '0')}`);
+    expect(days.filter((day) => needsImport(info(), complete, { ...opts, date: day }))).toEqual([
+      '2026-09-22',
+    ]);
+    const ids = Array.from({ length: 3000 }, (_, i) => `set${i}`);
+    const due = ids.filter((id) => rotates(id, opts.date)).length;
+    expect(due).toBeGreaterThan(60);
+    expect(due).toBeLessThan(140);
+  });
+
   it('imports everything in a full run', () => {
     expect(needsImport(info(), complete, { ...opts, mode: 'full' })).toBe(true);
   });
@@ -78,8 +105,8 @@ describe('planSets', () => {
       info({ id: 'c', other: {} }),
     ];
     expect(planSets(infos, new Map(), opts)).toEqual([
-      { id: 'a', chunks: 3, langs: ['de'] },
-      { id: 'c', chunks: 1, langs: [] },
+      { id: 'a', chunks: 3, langs: ['de'], detailHash: 'h' },
+      { id: 'c', chunks: 1, langs: [], detailHash: 'h' },
     ]);
     expect(CHUNK_CARDS).toBe(100);
   });
@@ -198,6 +225,29 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
       ['en', 'Darkness Ablaze'],
     ]);
     expect(await db.select().from(sets).where(eq(sets.code, 'A1'))).toEqual([]);
+    // Marked complete: the hash of the details it was imported from, no card missing.
+    expect(set?.externalIds).toMatchObject({
+      detail_hash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      missing_cards: {},
+    });
+  });
+
+  it('serves a print without the source image URLs and the marketplace guess', async () => {
+    const { card: furret, print } = await printOf('swsh3-136');
+    const extra = {
+      image_url: 'https://example.test/a.jpg',
+      image_url_small: 'https://example.test/b.jpg',
+    };
+    await db
+      .update(prints)
+      .set({ externalIds: sql`${prints.externalIds} || ${JSON.stringify(extra)}::jsonb` })
+      .where(eq(prints.id, print.id));
+    const body = await new DrizzleCardStore(db).getCard(furret.id);
+    expect(body?.prints[0]?.externalIds).toEqual({ tcgdex: 'swsh3-136' });
+    await db
+      .update(prints)
+      .set({ externalIds: sql`${prints.externalIds} - 'image_url' - 'image_url_small'` })
+      .where(eq(prints.id, print.id));
   });
 
   it('writes a Trainer, an Energy and a Pokémon card as one card and one print each', async () => {
@@ -347,6 +397,9 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
     );
     expect(stats.missing).toBe(1);
     expect(stats.prints).toMatchObject({ inserted: 0, updated: 0, unchanged: 23 });
+    // Recorded, so the incremental runs do not refetch the set for it every day.
+    const [swsh3] = await db.select().from(sets).where(eq(sets.code, 'swsh3'));
+    expect(swsh3?.externalIds).toMatchObject({ missing_cards: { en: ['swsh3-200'] } });
   });
 
   it('marks a failed run and leaves catalog_version alone', async () => {
@@ -403,5 +456,22 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
     expect(ran.filter((n) => n === 'start run')).toHaveLength(1);
     expect(ran.filter((n) => n.startsWith('sets '))).toHaveLength(1);
     expect(stats.cards).toMatchObject({ updated: 0 });
+  });
+
+  // Last: the flipped legality would show up as an update in the full runs above.
+  it('refetches an old complete set on its rotation day and updates the flipped legality', async () => {
+    const flipped = { ...card('en', 'swsh3-171'), legal: { standard: true, expanded: true } };
+    const override = (p: string) =>
+      p === '/en/cards/swsh3-171' ? Response.json(flipped) : undefined;
+    // 2026-10-09 is no set's day: nothing to fetch, the flip stays unseen.
+    expect((await run({ override })).stats.planned.sets).toBe(0);
+    // 2026-10-05 is swsh3's day.
+    const { stats } = await run({ override }, { date: '2026-10-05' });
+    expect(stats.planned).toEqual({ sets: 1, chunks: 1, unchanged: 2 });
+    expect(stats.cards).toEqual({ inserted: 0, updated: 1, unchanged: 7 });
+    expect((await printOf('swsh3-171')).card.legalities).toEqual({
+      standard: 'legal',
+      expanded: 'legal',
+    });
   });
 });

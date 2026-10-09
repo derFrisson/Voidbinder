@@ -1,5 +1,5 @@
 import type { BlobStore } from '@voidbinder/core';
-import { batches } from '../util';
+import { batches, sourceHash } from '../util';
 import { isDigitalSet, mapSet } from './map';
 import { mapLimit, putJson, readText, type TcgdexClient } from './source';
 import type { TcgdexCard, TcgdexSet } from './types';
@@ -8,11 +8,13 @@ import {
   failRun,
   finishRun,
   importCardChunk,
+  markSet,
   setStates,
   startRun,
   upsertSets,
   type CardChunkStats,
   type Db,
+  type MissingCards,
   type SetInput,
   type SetState,
   type WriteStats,
@@ -22,7 +24,7 @@ import {
 // (src/workflows/tcgdex-import.ts); tests and local runs pass a runner that just calls the
 // function. Unlike Scryfall there is no dump to split: every card is one request per language, so
 // the unit of work is a set's chunk of cards, and an incremental run (the cron's) refetches only
-// the sets that are new, incomplete or recent.
+// the sets that are new, incomplete, recent, changed or due in the rolling refresh.
 
 /** Cards per chunk and per Workflow step: 100 cards in two languages are about 200 requests. */
 export const CHUNK_CARDS = 100;
@@ -30,6 +32,8 @@ export const CHUNK_CARDS = 100;
 export const SET_BATCH = 25;
 /** Sets released less than this many days ago are refetched on every run: TCGdex corrects them. */
 export const RECENT_DAYS = 90;
+/** Every set is refetched once in this many days, whatever else says (`rotates`). */
+export const ROTATION_DAYS = 30;
 const CARD_CONCURRENCY = 4;
 
 export interface ImportDeps {
@@ -61,6 +65,8 @@ export interface SetInfo {
   cards: number;
   /** Cards TCGdex lists per other language it has the set in. */
   other: Record<string, number>;
+  /** Hash of the set details in every language (card briefs and image URLs included). */
+  detailHash: string;
 }
 
 export interface SetsStepResult {
@@ -74,9 +80,20 @@ export interface PlannedSet {
   chunks: number;
   /** The other languages TCGdex has this set in. */
   langs: string[];
+  detailHash: string;
 }
 
 const DAY = 86_400_000;
+
+/**
+ * The rolling refresh: a card's details (legality, errata) change without its set's details
+ * changing, so every set is refetched on one day of the month, about 1/30 of them per day.
+ */
+export function rotates(id: string, date: string): boolean {
+  let hash = 0x811c9dc5; // FNV-1a
+  for (let i = 0; i < id.length; i++) hash = Math.imul(hash ^ id.charCodeAt(i), 0x01000193);
+  return (hash >>> 0) % ROTATION_DAYS === new Date(date).getUTCDate() % ROTATION_DAYS;
+}
 
 /** Whether a set needs its cards fetched, given what the catalog already holds. */
 export function needsImport(
@@ -85,8 +102,13 @@ export function needsImport(
   { mode, date }: Pick<ImportOptions, 'mode' | 'date'>,
 ): boolean {
   if (mode === 'full' || !state) return true;
-  if (state.prints < info.cards) return true;
-  if (Object.entries(info.other).some(([lang, n]) => (state.localizations[lang] ?? 0) < n))
+  if (state.detailHash !== info.detailHash || rotates(info.id, date)) return true;
+  // Cards TCGdex lists but answered 404 for last time count as present until the next refresh.
+  const held = (n: number, lang: string) => n + (state.missingCards?.[lang]?.length ?? 0);
+  if (held(state.prints, 'en') < info.cards) return true;
+  if (
+    Object.entries(info.other).some(([lang, n]) => held(state.localizations[lang] ?? 0, lang) < n)
+  )
     return true;
   const released = info.releaseDate ? Date.parse(info.releaseDate) : NaN;
   return Date.parse(date) - released < RECENT_DAYS * DAY;
@@ -103,6 +125,7 @@ export function planSets(
       id: info.id,
       chunks: Math.ceil(info.cards / CHUNK_CARDS),
       langs: Object.keys(info.other),
+      detailHash: info.detailHash,
     }));
 }
 
@@ -141,10 +164,12 @@ export async function runTcgdexImport(deps: ImportDeps, step: StepRunner, opts: 
     const zero = { inserted: 0, updated: 0, unchanged: 0 };
     const cards: CardChunkStats = { cards: zero, prints: zero, localizations: 0, missing: 0 };
     for (const set of planned) {
+      const missing: MissingCards = {};
       for (let chunk = 0; chunk < set.chunks; chunk++) {
         const r = await step(`cards ${set.id} ${chunk}`, () =>
-          importChunk(deps, { set, chunk, raw, setKey }),
+          importChunk(deps, { set, chunk, raw, setKey, missing }),
         );
+        for (const [lang, ids] of Object.entries(r.missingIds)) (missing[lang] ??= []).push(...ids);
         cards.cards = addStats(cards.cards, r.cards);
         cards.prints = addStats(cards.prints, r.prints);
         cards.localizations += r.localizations;
@@ -217,13 +242,18 @@ async function importSetBatch(
       releaseDate: d.en.releaseDate ?? null,
       cards: d.en.cards.length,
       other: Object.fromEntries(Object.entries(d.other).map(([lang, s]) => [lang, s.cards.length])),
+      detailHash: await sourceHash({ en: d.en, ...d.other }),
     });
   }
   const stats = await deps.withDb((db) => upsertSets(db, inputs));
   return { sets, stats, skipped };
 }
 
-/** One chunk of a set: its cards in every language, a raw copy, then the upserts. */
+/**
+ * One chunk of a set: its cards in every language, a raw copy, then the upserts. The last chunk
+ * also marks the set as imported (`markSet`) with the 404s of every chunk (`missing` holds the
+ * earlier ones).
+ */
 async function importChunk(
   deps: ImportDeps,
   {
@@ -231,13 +261,15 @@ async function importChunk(
     chunk,
     raw,
     setKey,
+    missing,
   }: {
     set: PlannedSet;
     chunk: number;
     raw: string;
     setKey: (lang: string, id: string) => string;
+    missing: MissingCards;
   },
-): Promise<CardChunkStats> {
+): Promise<CardChunkStats & { missingIds: MissingCards }> {
   const detail = async (lang: string) =>
     JSON.parse(await readText(deps.blobs, setKey(lang, set.id))) as TcgdexSet;
   const english = await detail('en');
@@ -246,6 +278,7 @@ async function importChunk(
     .map((c) => c.id);
 
   const fetched: Record<string, (TcgdexCard | null)[]> = {};
+  const missingIds: MissingCards = {};
   const rawLines: Record<string, string[]> = {};
   for (const lang of ['en', ...set.langs]) {
     const available = lang === 'en' ? null : new Set((await detail(lang)).cards.map((c) => c.id));
@@ -253,6 +286,8 @@ async function importChunk(
       available && !available.has(id) ? null : deps.client.card(lang, id),
     );
     fetched[lang] = replies.map((r) => r?.data ?? null);
+    const lost = slice.filter((id, i) => !replies[i] && (!available || available.has(id)));
+    if (lost.length) missingIds[lang] = lost;
     // One compact line per card, as TCGdex answered it (prices and all).
     rawLines[lang] = replies.flatMap((r) => (r ? [JSON.stringify(r.data)] : []));
   }
@@ -267,12 +302,20 @@ async function importChunk(
   );
 
   const { en, ...other } = fetched;
-  return deps.withDb((db) =>
-    importCardChunk(db, {
+  const stats = await deps.withDb(async (db) => {
+    const written = await importCardChunk(db, {
       setCode: set.id,
       releaseDate: english.releaseDate,
       en: en ?? [],
       other,
-    }),
-  );
+    });
+    if (chunk === set.chunks - 1) {
+      const all: MissingCards = { ...missing };
+      for (const [lang, ids] of Object.entries(missingIds))
+        all[lang] = [...(all[lang] ?? []), ...ids];
+      await markSet(db, set.id, { detail_hash: set.detailHash, missing_cards: all });
+    }
+    return written;
+  });
+  return { ...stats, missingIds };
 }

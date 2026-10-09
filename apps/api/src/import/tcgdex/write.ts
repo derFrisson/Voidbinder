@@ -89,6 +89,7 @@ export async function upsertSets(db: Db, inputs: SetInput[]) {
             releasedOn: excluded('released_on'),
             cardCount: excluded('card_count'),
             kind: excluded('kind'),
+            // Drops the marks of `markSet` too: the set's details changed, so it is refetched.
             externalIds: excluded('external_ids'),
             sourceHash: excluded('source_hash'),
             ...touched,
@@ -126,21 +127,48 @@ export async function upsertSets(db: Db, inputs: SetInput[]) {
   return stats;
 }
 
+/** Card ids TCGdex lists but answers 404 for, per language. */
+export type MissingCards = Record<string, string[]>;
+
 export interface SetState {
   prints: number;
   /** Localization rows per language. */
   localizations: Record<string, number>;
+  /** The set-detail hash of the last run that imported every card of the set. */
+  detailHash?: string | undefined;
+  missingCards?: MissingCards | undefined;
+}
+
+/**
+ * Records in `sets.external_ids` that every card of the set was imported: the hash of the set
+ * details it was imported from (`detail_hash`) and the cards TCGdex could not deliver
+ * (`missing_cards`), so neither makes the next incremental run refetch the set.
+ */
+export async function markSet(
+  db: Db,
+  code: string,
+  marks: { detail_hash: string; missing_cards: MissingCards },
+) {
+  await db
+    .update(sets)
+    .set({ externalIds: sql`${sets.externalIds} || ${JSON.stringify(marks)}::jsonb` })
+    .where(and(eq(sets.gameId, GAME), eq(sets.code, code)));
 }
 
 /** What the catalog holds per set code: the incremental run compares it with TCGdex's lists. */
 export async function setStates(db: Db): Promise<Map<string, SetState>> {
   const [printCounts, localizationCounts] = await Promise.all([
     db
-      .select({ code: sets.code, n: sql<number>`count(${prints.id})::int` })
+      .select({
+        code: sets.code,
+        n: sql<number>`count(${prints.id})::int`,
+        detailHash: sql<string | null>`${sets.externalIds}->>'detail_hash'`,
+        missingCards: sql<MissingCards | null>`${sets.externalIds}->'missing_cards'`,
+      })
       .from(sets)
       .leftJoin(prints, eq(prints.setId, sets.id))
       .where(eq(sets.gameId, GAME))
-      .groupBy(sets.code),
+      .groupBy(sets.id),
     db
       .select({ code: sets.code, lang: printLocalizations.lang, n: sql<number>`count(*)::int` })
       .from(printLocalizations)
@@ -150,7 +178,15 @@ export async function setStates(db: Db): Promise<Map<string, SetState>> {
       .groupBy(sets.code, printLocalizations.lang),
   ]);
   const states = new Map<string, SetState>(
-    printCounts.map((r) => [r.code, { prints: r.n, localizations: {} }]),
+    printCounts.map((r) => [
+      r.code,
+      {
+        prints: r.n,
+        localizations: {},
+        detailHash: r.detailHash ?? undefined,
+        missingCards: r.missingCards ?? undefined,
+      },
+    ]),
   );
   for (const r of localizationCounts) {
     const state = states.get(r.code);
