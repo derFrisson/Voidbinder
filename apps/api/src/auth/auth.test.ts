@@ -1,46 +1,37 @@
 import { randomUUID } from 'node:crypto';
 import { ErrorResponseSchema, MeResponseSchema } from '@voidbinder/shared/api';
 import { eq, like } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
-import { migrate } from 'drizzle-orm/node-postgres/migrator';
-import { Pool } from 'pg';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import { rateLimit, session, user } from '../db/schema';
-import { testDeps } from '../test-helpers';
+import { databaseUrl, freshDatabase, testDeps } from '../test-helpers';
 import { AUTH_RATE_LIMITS } from './index';
 import type { MailMessage } from './mail';
 
 // Integration tests against a real Postgres: `docker compose up -d` at the repo root, then
 // DATABASE_URL=postgres://voidbinder:voidbinder@localhost:5434/voidbinder pnpm --filter api test
-const url = process.env.DATABASE_URL;
-
-describe.skipIf(!url)('auth and /me (Postgres)', () => {
-  const pool = new Pool({ connectionString: url });
-  const db = drizzle(pool);
+describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
+  let db: NodePgDatabase;
+  let drop: () => Promise<void>;
   const mails: MailMessage[] = [];
   const deps = testDeps(mails);
   const app = createApp({
     ...deps,
     openPlatform: () => ({
-      cardStore: { ping: async () => undefined },
+      cardStore: {} as never,
       blobStore: {} as never,
+      jobQueue: {} as never,
       db,
       close: async () => undefined,
     }),
   });
 
   beforeAll(async () => {
-    const config = {
-      migrationsFolder: new URL('../../drizzle', import.meta.url).pathname,
-      migrationsSchema: 'drizzle',
-      migrationsTable: '__drizzle_migrations_api',
-    };
-    // ponytail: the other Postgres tests may migrate at the same moment; one retry covers it.
-    await migrate(db, config).catch(() => migrate(db, config));
+    ({ db, drop } = await freshDatabase());
   });
 
-  afterAll(() => pool.end());
+  afterAll(() => drop());
 
   /**
    * One browser: its own client IP (rate limits count per IP), a cookie jar, the app's Origin.
@@ -251,6 +242,51 @@ describe.skipIf(!url)('auth and /me (Postgres)', () => {
     const native = browser();
     native.useBearer(bearerToken);
     expect((await native.request('/me')).status).toBe(401);
+  });
+
+  it('refuses the old cookie on /me at once after DELETE /me, cookie cache or not', async () => {
+    const { b } = await signedIn();
+    expect((await b.request('/me')).status).toBe(200);
+    const oldCookies = new Map(b.jar);
+    expect([...oldCookies.keys()].some((k) => k.endsWith('session_data'))).toBe(true);
+    expect((await b.request('/me', { method: 'DELETE' })).status).toBe(202);
+
+    for (const [k, v] of oldCookies) b.jar.set(k, v);
+    const res = await b.request('/me');
+    expect(res.status).toBe(401);
+    expect(res.headers.get('WWW-Authenticate')).toBe('Bearer');
+  });
+
+  it('withdraws the deletion request when the user signs in again', async () => {
+    const { b, email } = await signedIn();
+    await b.request('/me', { method: 'DELETE' });
+    const [requested] = await db.select().from(user).where(eq(user.email, email));
+    expect(requested?.deletionRequestedAt).toBeInstanceOf(Date);
+
+    const again = browser();
+    const signIn = await again.request('/auth/sign-in/email', {
+      body: { email, password: PASSWORD },
+    });
+    expect(signIn.status).toBe(200);
+    const me = MeResponseSchema.parse(await (await again.request('/me')).json());
+    expect(me.deletionRequestedAt).toBeNull();
+  });
+
+  it('refuses a language, currency or display name outside the profile rules in the database', async () => {
+    const row = { id: randomUUID(), name: 'Ash', email: `${randomUUID()}@example.test` };
+    // Drizzle wraps the driver error; the constraint name is on its cause.
+    const violated = (values: Partial<typeof user.$inferInsert>) =>
+      db
+        .insert(user)
+        .values({ ...row, ...values })
+        .then(
+          () => 'inserted',
+          (err: Error) => String((err.cause as { constraint?: string } | undefined)?.constraint),
+        );
+    expect(await violated({ language: 'fr' })).toBe('user_language_check');
+    expect(await violated({ currency: 'GBP' })).toBe('user_currency_check');
+    expect(await violated({ displayName: 'A' })).toBe('user_display_name_check');
+    expect(await violated({})).toBe('inserted');
   });
 
   it('answers 429 once a client IP used up its sign-up and sign-in attempts', async () => {
