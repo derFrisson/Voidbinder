@@ -1,0 +1,16 @@
+---
+import Legal from '../../components/Legal.astro';
+import { legalPages, legalSlugs, locales, type LegalPage, type Locale } from '../../i18n';
+
+// Impressum / Imprint and Datenschutz / Privacy: one route, the slug differs per locale.
+export function getStaticPaths() {
+  return locales.flatMap((locale) =>
+    legalPages.map((page) => ({ params: { locale, slug: legalSlugs[locale][page] }, props: { page } })),
+  );
+}
+
+const locale = Astro.params.locale as Locale;
+const { page } = Astro.props as { page: LegalPage };
+---
+
+<Legal locale={locale} page={page} />

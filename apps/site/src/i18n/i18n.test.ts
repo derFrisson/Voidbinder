@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localePath, t } from './index';
+import { legalPath, legalPages, legalSlugs, localePath, locales, t } from './index';
 
 // Every key path, including array indices, so a list item missing a field also shows up.
 function keyPaths(value: unknown, prefix = ''): string[] {
@@ -14,7 +14,22 @@ describe('i18n', () => {
 
   it('swaps the locale segment of a path', () => {
     expect(localePath('/de/', 'en')).toBe('/en/');
-    expect(localePath('/en/impressum/', 'de')).toBe('/de/impressum/');
+    expect(localePath('/en/waitlist/pending', 'de')).toBe('/de/waitlist/pending');
     expect(localePath('/de', 'en')).toBe('/en');
+  });
+
+  it('swaps the slug of a legal page with the locale', () => {
+    expect(localePath('/de/impressum/', 'en')).toBe('/en/imprint/');
+    expect(localePath('/en/imprint/', 'de')).toBe('/de/impressum/');
+    expect(localePath('/de/datenschutz', 'en')).toBe('/en/privacy');
+    expect(localePath('/en/privacy/', 'en')).toBe('/en/privacy/');
+  });
+
+  it('builds the locale-specific legal paths of the footer', () => {
+    expect(legalPath('de', 'imprint')).toBe('/de/impressum/');
+    expect(legalPath('en', 'privacy')).toBe('/en/privacy/');
+    for (const l of locales) {
+      for (const p of legalPages) expect(legalSlugs[l][p]).toMatch(/^[a-z]+$/);
+    }
   });
 });

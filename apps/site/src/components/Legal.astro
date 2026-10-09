@@ -1,0 +1,87 @@
+---
+import { getEntry, render } from 'astro:content';
+import { legalSlugs, type LegalPage, type Locale } from '../i18n';
+import Base from '../layouts/Base.astro';
+
+interface Props {
+  locale: Locale;
+  page: LegalPage;
+}
+
+const { locale, page } = Astro.props;
+// Kept here, not in the i18n dictionaries: these pages are the only user of the label.
+const updatedLabel: Record<Locale, string> = { de: 'Stand:', en: 'Last updated:' };
+const entry = await getEntry('legal', `${locale}/${legalSlugs[locale][page]}`);
+if (!entry) throw new Error(`Missing legal content: ${locale}/${legalSlugs[locale][page]}`);
+const { Content } = await render(entry);
+const { title, description, updated } = entry.data;
+---
+
+<Base locale={locale} title={`${title} · Voidbinder`} description={description}>
+  <section class="section">
+    <div class="wrap">
+      <article class="legal">
+        <h1 class="headline">{title}</h1>
+        <p class="label updated">{updatedLabel[locale]} {updated}</p>
+        <Content />
+      </article>
+    </div>
+  </section>
+</Base>
+
+<style>
+  /* One centered prose column, text left-aligned. Markdown output is not scoped, hence :global. */
+  .legal {
+    max-width: 65ch;
+    margin-inline: auto;
+    overflow-wrap: anywhere;
+  }
+
+  .updated {
+    margin-top: var(--space-3);
+  }
+
+  .legal :global(h2) {
+    margin-top: var(--space-8);
+    padding-top: var(--space-5);
+    border-top: 1px solid var(--outline);
+    font-size: var(--text-title);
+    line-height: 1.3;
+  }
+
+  .legal :global(h3) {
+    margin-top: var(--space-6);
+    font-size: var(--text-body);
+    line-height: 1.4;
+  }
+
+  .legal :global(p),
+  .legal :global(ul) {
+    margin-top: var(--space-4);
+  }
+
+  .legal :global(h1 + p),
+  .legal :global(.updated + p) {
+    margin-top: var(--space-6);
+  }
+
+  .legal :global(h2 + p),
+  .legal :global(h3 + p),
+  .legal :global(h2 + ul),
+  .legal :global(h3 + ul) {
+    margin-top: var(--space-3);
+  }
+
+  .legal :global(ul) {
+    padding-left: var(--space-5);
+    list-style: disc;
+  }
+
+  .legal :global(li + li) {
+    margin-top: var(--space-2);
+  }
+
+  .legal :global(li::marker) {
+    color: var(--on-surface-dim);
+  }
+</style>

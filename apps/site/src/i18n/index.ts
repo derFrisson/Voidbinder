@@ -15,9 +15,30 @@ export function isLocale(value: string | undefined): value is Locale {
   return locales.some((l) => l === value);
 }
 
-/** The same page in another locale: swaps the leading `/de/` or `/en/` segment. */
+/** Legal pages (VB-18): the slug differs per locale, the page key does not. */
+export const legalPages = ['imprint', 'privacy'] as const;
+export type LegalPage = (typeof legalPages)[number];
+export const legalSlugs: Record<Locale, Record<LegalPage, string>> = {
+  de: { imprint: 'impressum', privacy: 'datenschutz' },
+  en: { imprint: 'imprint', privacy: 'privacy' },
+};
+
+/** `/<locale>/<slug>/` of a legal page. */
+export function legalPath(locale: Locale, page: LegalPage): string {
+  return `/${locale}/${legalSlugs[locale][page]}/`;
+}
+
+/**
+ * The same page in another locale: swaps the leading `/de/` or `/en/` segment and, on a legal
+ * page, the slug (`/de/impressum/` is `/en/imprint/`).
+ */
 export function localePath(pathname: string, to: Locale): string {
-  return pathname.replace(/^\/(de|en)(?=\/|$)/, `/${to}`);
+  return pathname
+    .replace(/^\/(de|en)(?=\/|$)/, `/${to}`)
+    .replace(/^(\/(?:de|en)\/)([^/]+)/, (whole, prefix: string, slug: string) => {
+      const page = legalPages.find((p) => locales.some((l) => legalSlugs[l][p] === slug));
+      return page ? `${prefix}${legalSlugs[to][page]}` : whole;
+    });
 }
 
 export const links = {

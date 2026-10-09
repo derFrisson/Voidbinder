@@ -75,9 +75,11 @@ by row (`art/Binder.astro`); cells in a row move together so the grid never brea
   missing or extra key fails `pnpm typecheck`; `src/i18n/i18n.test.ts` compares key sets.
   `t(locale)` returns the dictionary.
 - A page is `src/pages/[locale]/<slug>.astro` wrapped in `layouts/Base.astro` (`locale`, optional
-  `title` / `description`, a `head` slot for SEO). Keep the same slug in both locales: the language
-  switch and `hreflang` links swap only the `/de/` or `/en/` prefix (`localePath`). The footer
-  already links `/<locale>/impressum/` and `/<locale>/datenschutz/`.
+  `title` / `description`, a `head` slot for SEO). Slugs are the same in both locales, except the
+  legal pages: `impressum` / `datenschutz` in German, `imprint` / `privacy` in English
+  (`legalSlugs`, `legalPath(locale, 'imprint' | 'privacy')` in `i18n/index.ts`). `localePath` (language
+  switch, `hreflang`) swaps the prefix and maps those slugs. The footer links the legal pages through
+  `legalPath`.
 
 ## Refuses
 
