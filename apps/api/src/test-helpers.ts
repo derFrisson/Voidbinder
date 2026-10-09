@@ -26,6 +26,9 @@ export async function freshDatabase() {
   const url = new URL(databaseUrl);
   url.pathname = `/${name}`;
   const pool = new Pool({ connectionString: url.toString() });
+  // `drop database … with (force)` can terminate a client that `pool.end()` is still closing;
+  // without a listener its error would surface as an unhandled error of the test run.
+  pool.on('error', () => undefined);
   const db = drizzle(pool);
   await migrate(db, migrationConfig);
   return {
