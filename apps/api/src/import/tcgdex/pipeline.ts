@@ -281,8 +281,11 @@ async function importChunk(
   const rawLines: Record<string, string[]> = {};
   for (const lang of ['en', ...set.langs]) {
     const available = lang === 'en' ? null : new Set((await detail(lang)).cards.map((c) => c.id));
+    // A card without its English reply is not imported, so its other languages are not fetched
+    // and count as missing too (else the set would look incomplete and be refetched every day).
+    const noEnglish = new Set(lang === 'en' ? [] : (missingIds.en ?? []));
     const replies = await mapLimit(slice, CARD_CONCURRENCY, async (id) =>
-      available && !available.has(id) ? null : deps.client.card(lang, id),
+      (available && !available.has(id)) || noEnglish.has(id) ? null : deps.client.card(lang, id),
     );
     fetched[lang] = replies.map((r) => r?.data ?? null);
     const lost = slice.filter((id, i) => !replies[i] && (!available || available.has(id)));

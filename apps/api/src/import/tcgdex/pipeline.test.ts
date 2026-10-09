@@ -40,7 +40,7 @@ const info = (over: Partial<SetInfo> = {}): SetInfo => ({
   ...over,
 });
 const complete = { prints: 10, localizations: { en: 10, de: 10 }, detailHash: 'h' };
-const opts = { mode: 'incremental', date: '2026-10-09' } as const;
+const opts = { mode: 'incremental', date: '2026-10-10' } as const;
 
 describe('needsImport', () => {
   it('imports a set the catalog does not know', () => {
@@ -84,7 +84,7 @@ describe('needsImport', () => {
   it('refetches every set on its day of the rolling refresh, about 1/30 of them a day', () => {
     const days = Array.from({ length: 30 }, (_, d) => `2026-09-${String(d + 1).padStart(2, '0')}`);
     expect(days.filter((day) => needsImport(info(), complete, { ...opts, date: day }))).toEqual([
-      '2026-09-22',
+      '2026-09-26',
     ]);
     const ids = Array.from({ length: 3000 }, (_, i) => `set${i}`);
     const due = ids.filter((id) => rotates(id, opts.date)).length;
@@ -128,7 +128,7 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
     runTcgdexImport(
       { client: testClient(fakeTcgdex(fake), 1), blobs, withDb: (fn) => fn(db) },
       runner,
-      { env: 'dev', date: '2026-10-09', languages: ['en', 'de'], mode: 'incremental', ...over },
+      { env: 'dev', date: '2026-10-10', languages: ['en', 'de'], mode: 'incremental', ...over },
     );
   const version = async () =>
     Number((await db.select().from(appMeta).where(eq(appMeta.key, 'catalog_version')))[0]?.value);
@@ -191,11 +191,11 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
 
     // The raw copies stay: the lists, the set details and the cards as TCGdex sent them.
     const keys = [...blobs.objects.keys()].sort();
-    expect(keys).toContain('raw/dev/tcgdex/2026-10-09/sets.en.json');
-    expect(keys).toContain('raw/dev/tcgdex/2026-10-09/sets/de/swsh3.json');
-    expect(keys).not.toContain('raw/dev/tcgdex/2026-10-09/sets/de/A1.json');
-    expect(keys).toContain('raw/dev/tcgdex/2026-10-09/cards/swsh3/00000.en.jsonl');
-    expect(keys).toContain('raw/dev/tcgdex/2026-10-09/cards/swshp/00000.de.jsonl');
+    expect(keys).toContain('raw/dev/tcgdex/2026-10-10/sets.en.json');
+    expect(keys).toContain('raw/dev/tcgdex/2026-10-10/sets/de/swsh3.json');
+    expect(keys).not.toContain('raw/dev/tcgdex/2026-10-10/sets/de/A1.json');
+    expect(keys).toContain('raw/dev/tcgdex/2026-10-10/cards/swsh3/00000.en.jsonl');
+    expect(keys).toContain('raw/dev/tcgdex/2026-10-10/cards/swshp/00000.de.jsonl');
     expect(steps).toEqual(
       expect.arrayContaining([
         'sets 00000',
@@ -399,7 +399,11 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
     expect(stats.prints).toMatchObject({ inserted: 0, updated: 0, unchanged: 23 });
     // Recorded, so the incremental runs do not refetch the set for it every day.
     const [swsh3] = await db.select().from(sets).where(eq(sets.code, 'swsh3'));
-    expect(swsh3?.externalIds).toMatchObject({ missing_cards: { en: ['swsh3-200'] } });
+    // German lists it too: without the English card it is missing there as well.
+    expect((swsh3?.externalIds as Record<string, unknown>).missing_cards).toEqual({
+      en: ['swsh3-200'],
+      de: ['swsh3-200'],
+    });
   });
 
   it('marks a failed run and leaves catalog_version alone', async () => {
@@ -463,10 +467,10 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
     const flipped = { ...card('en', 'swsh3-171'), legal: { standard: true, expanded: true } };
     const override = (p: string) =>
       p === '/en/cards/swsh3-171' ? Response.json(flipped) : undefined;
-    // 2026-10-09 is no set's day: nothing to fetch, the flip stays unseen.
+    // 2026-10-10 is no set's day: nothing to fetch, the flip stays unseen.
     expect((await run({ override })).stats.planned.sets).toBe(0);
-    // 2026-10-05 is swsh3's day.
-    const { stats } = await run({ override }, { date: '2026-10-05' });
+    // 2026-10-09 is swsh3's day.
+    const { stats } = await run({ override }, { date: '2026-10-09' });
     expect(stats.planned).toEqual({ sets: 1, chunks: 1, unchanged: 2 });
     expect(stats.cards).toEqual({ inserted: 0, updated: 1, unchanged: 7 });
     expect((await printOf('swsh3-171')).card.legalities).toEqual({
