@@ -1,78 +1,296 @@
 ---
-// Wireframe phone: hairline frame, status bar, the screen is the slot.
+// A phone drawn in CSS: frame, screen with notch and status bar, the screen content as a slot.
+// The screen keeps its light app colours in dark mode, like a real screenshot would.
+// The shared app pieces (header, tabs, list rows, tab bar) are styled here for every screen.
 interface Props {
-  label: string;
+  /** Dark camera screen instead of the light app. */
+  cam?: boolean;
+  class?: string;
 }
-const { label } = Astro.props;
+const { cam = false, class: className } = Astro.props;
 ---
 
-<div class="phone" role="img" aria-label={label}>
-  <div class="status" aria-hidden="true">
-    <span>9:41</span>
-    <span class="notch"></span>
-    <span class="bars"><i></i><i></i><i></i></span>
-  </div>
-  <div class="screen">
+<div class:list={['phone', className]}>
+  <div class:list={['screen', { cam }]}>
+    <div class="sb">
+      <span>9:41</span><span class="sb-r"><i></i><i></i><i></i><b></b></span>
+    </div>
     <slot />
   </div>
 </div>
 
 <style>
   .phone {
-    display: flex;
-    flex-direction: column;
-    width: min(100%, 288px);
     aspect-ratio: 9 / 19;
-    padding: 10px;
-    border: 1px solid var(--outline-hover);
-    border-radius: 36px;
-    background: var(--bg);
-  }
-
-  .status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 32px;
-    padding-inline: 18px;
-    color: var(--on-surface-muted);
-    font-size: 11px;
-    font-weight: 500;
-  }
-
-  .notch {
-    width: 72px;
-    height: 20px;
-    border: 1px solid var(--outline);
-    border-radius: 10px;
-  }
-
-  .bars {
-    display: flex;
-    align-items: flex-end;
-    gap: 2px;
-  }
-
-  .bars i {
-    width: 3px;
-    height: 5px;
-    background: var(--on-surface-muted);
-  }
-
-  .bars i:nth-child(2) {
-    height: 7px;
-  }
-
-  .bars i:nth-child(3) {
-    height: 9px;
+    padding: 3.3%;
+    border-radius: 15% / 7.1%;
+    background: var(--phone);
+    box-shadow:
+      var(--shadow),
+      inset 0 0 0 1.5px #2c3242,
+      inset 0 0 0 4px #0b0d13;
   }
 
   .screen {
     position: relative;
-    display: flex;
-    flex: 1;
-    flex-direction: column;
+    height: 100%;
     overflow: hidden;
-    border-radius: 26px;
+    border-radius: 12% / 5.7%;
+    background: #f5f7fc;
+    color: #0b1433;
+    font: 400 4.4cqw/1.35 var(--f-body);
+    container-type: inline-size;
+  }
+
+  .screen::before {
+    content: '';
+    position: absolute;
+    top: 2.6cqw;
+    left: 50%;
+    z-index: 9;
+    width: 28cqw;
+    height: 8.4cqw;
+    translate: -50% 0;
+    border-radius: 6cqw;
+    background: #000;
+  }
+
+  .sb {
+    position: relative;
+    z-index: 8;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 13cqw;
+    padding: 4.2cqw 8cqw 0 10cqw;
+    font: 600 4.4cqw/1 var(--f-display);
+  }
+
+  .sb-r {
+    display: flex;
+    gap: 1.4cqw;
+    align-items: center;
+  }
+
+  .sb-r i {
+    display: block;
+    width: 1.3cqw;
+    border-radius: 0.5cqw;
+    background: currentColor;
+  }
+
+  .sb-r i:nth-child(1) {
+    height: 1.8cqw;
+  }
+
+  .sb-r i:nth-child(2) {
+    height: 2.6cqw;
+  }
+
+  .sb-r i:nth-child(3) {
+    height: 3.4cqw;
+  }
+
+  .sb-r b {
+    position: relative;
+    display: block;
+    width: 6.6cqw;
+    height: 3.2cqw;
+    margin-left: 1cqw;
+    border: 0.5cqw solid currentColor;
+    border-radius: 1cqw;
+  }
+
+  .sb-r b::after {
+    content: '';
+    position: absolute;
+    inset: 0.5cqw 1.6cqw 0.5cqw 0.5cqw;
+    border-radius: 0.4cqw;
+    background: currentColor;
+  }
+
+  /* Camera screen */
+  .cam {
+    background: radial-gradient(120% 80% at 50% 58%, #3a3628 0%, #1c1b17 55%, #0e0e0c 100%);
+    color: #fff;
+  }
+
+  .cam::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.018) 0 2px,
+      transparent 2px 9px
+    );
+    pointer-events: none;
+  }
+
+  /* App pieces, used by the slotted screens */
+  .screen :global(.app-h) {
+    padding: 2cqw 6cqw 3cqw;
+  }
+
+  .screen :global(.app-h small) {
+    display: block;
+    color: #5f6987;
+    font: 600 3.6cqw/1 var(--f-display);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .screen :global(.app-h strong) {
+    display: block;
+    margin-top: 1.8cqw;
+    font: 700 7.4cqw/1.1 var(--f-display);
+    letter-spacing: -0.03em;
+  }
+
+  .screen :global(.app-h span) {
+    display: block;
+    margin-top: 1.2cqw;
+    color: #4b5577;
+    font-size: 3.9cqw;
+  }
+
+  .screen :global(.tabs) {
+    display: flex;
+    gap: 1.6cqw;
+    padding: 0 6cqw 3cqw;
+  }
+
+  .screen :global(.tabs span) {
+    padding: 2cqw 3.4cqw;
+    border-radius: 99px;
+    background: #e6eaf5;
+    color: #4b5577;
+    font: 600 3.6cqw/1 var(--f-display);
+  }
+
+  .screen :global(.tabs span.on) {
+    background: #0b1433;
+    color: #fff;
+  }
+
+  .screen :global(.rows) {
+    margin: 0 4cqw;
+    padding: 1cqw 3.4cqw;
+    border-radius: 5cqw;
+    background: #fff;
+    box-shadow: 0 1px 0 #e1e5f0;
+  }
+
+  .screen :global(.row) {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 2.6cqw;
+    align-items: center;
+    padding: 2.6cqw 0;
+    border-bottom: 1px solid #edf0f6;
+  }
+
+  .screen :global(.row:last-child) {
+    border-bottom: 0;
+  }
+
+  .screen :global(.row--t) {
+    grid-template-columns: auto auto 1fr auto;
+  }
+
+  .screen :global(.q) {
+    width: 5.4cqw;
+    color: #5f6987;
+    font: 600 3.8cqw/1 var(--f-mono);
+  }
+
+  .screen :global(.thumb) {
+    width: 7cqw;
+    aspect-ratio: 63 / 88;
+    border-radius: 1cqw;
+    background: var(--t, #ffd447);
+    box-shadow: inset 0 0 0 0.7cqw rgba(0, 0, 0, 0.12);
+  }
+
+  .screen :global(.thumb--orange) {
+    --t: #ff8f45;
+  }
+
+  .screen :global(.thumb--sea) {
+    --t: #7fd3f5;
+  }
+
+  .screen :global(.thumb--moss) {
+    --t: #9edb8f;
+  }
+
+  .screen :global(.thumb--grey) {
+    --t: #c7cedb;
+  }
+
+  .screen :global(.thumb--violet) {
+    --t: #9a7cf0;
+  }
+
+  .screen :global(.nm) {
+    min-width: 0;
+  }
+
+  .screen :global(.nm b) {
+    display: block;
+    overflow: hidden;
+    font: 600 4cqw/1.2 var(--f-display);
+    letter-spacing: -0.01em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .screen :global(.nm small) {
+    display: block;
+    color: #5f6987;
+    font-size: 3.3cqw;
+    white-space: nowrap;
+  }
+
+  .screen :global(.pr) {
+    font: 600 3.8cqw/1 var(--f-mono);
+  }
+
+  .screen :global(.tabbar) {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    justify-content: space-around;
+    padding: 3cqw 6cqw 6cqw;
+    border-top: 1px solid #e6eaf3;
+    background: rgba(255, 255, 255, 0.94);
+  }
+
+  .screen :global(.tabbar span) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1cqw;
+    color: #6b7593;
+    font: 600 2.9cqw/1 var(--f-display);
+  }
+
+  .screen :global(.tabbar i) {
+    width: 5.4cqw;
+    height: 5.4cqw;
+    border: 0.6cqw solid currentColor;
+    border-radius: 1.6cqw;
+  }
+
+  .screen :global(.tabbar span.on) {
+    color: #1e48f5;
+  }
+
+  .screen :global(.tabbar span.on i) {
+    border-color: #1e48f5;
+    border-radius: 50%;
+    background: #1e48f5;
   }
 </style>

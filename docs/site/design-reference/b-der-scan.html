@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Voidbinder Richtung B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Public+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@500;600&display=swap">
+<style>
+:root{
+  --bg:#F4F6FB; --surface:#FFFFFF; --surface-2:#ECEFF7; --ink:#0B1433; --ink-2:#4B5577; --ink-3:#7A84A3; --line:#DBE0EC;
+  --blue:#1E48F5; --blue-deep:#0F2BB0; --blue-soft:#E2E8FF; --on-blue:#FFFFFF;
+  --pk:#FFD447; --pk-soft:#FFF2BF; --yg:#9A7CF0; --yg-soft:#ECE5FF; --mg:#FF8F45; --mg-soft:#FFE3CF; --op:#F0544A; --op-soft:#FFDCD8;
+  --ok:#12A866; --ok-soft:#D9F5E8; --phone:#0B0D13;
+  --shadow:0 30px 60px -28px rgba(11,20,51,.38), 0 8px 18px -10px rgba(11,20,51,.18);
+  --f-display:"Sora","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Public Sans","Helvetica Neue",Arial,system-ui,sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --gutter:clamp(16px,4vw,40px); --maxw:1240px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0A0F1E; --surface:#121A2E; --surface-2:#18213A; --ink:#E9EEFF; --ink-2:#A6B0CE; --ink-3:#7983A4; --line:#252F4B;
+    --blue:#4A6FFF; --blue-deep:#2D4DE0; --blue-soft:#1A2552; --on-blue:#FFFFFF;
+    --pk:#E6BE35; --pk-soft:#2E2914; --yg:#8A6FE0; --yg-soft:#231D40; --mg:#E87E3A; --mg-soft:#33221A; --op:#D9493F; --op-soft:#351B1C;
+    --ok:#2CC77F; --ok-soft:#123326;
+    --shadow:0 30px 60px -28px rgba(0,0,0,.7), 0 8px 18px -10px rgba(0,0,0,.5);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0A0F1E; --surface:#121A2E; --surface-2:#18213A; --ink:#E9EEFF; --ink-2:#A6B0CE; --ink-3:#7983A4; --line:#252F4B;
+  --blue:#4A6FFF; --blue-deep:#2D4DE0; --blue-soft:#1A2552; --on-blue:#FFFFFF;
+  --pk:#E6BE35; --pk-soft:#2E2914; --yg:#8A6FE0; --yg-soft:#231D40; --mg:#E87E3A; --mg-soft:#33221A; --op:#D9493F; --op-soft:#351B1C;
+  --ok:#2CC77F; --ok-soft:#123326;
+  --shadow:0 30px 60px -28px rgba(0,0,0,.7), 0 8px 18px -10px rgba(0,0,0,.5);
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--f-body);-webkit-font-smoothing:antialiased;overflow-x:clip}
+img,svg{max-width:100%}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;letter-spacing:-.03em;line-height:1.04}
+p{margin:0;text-wrap:pretty}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--blue);outline-offset:3px;border-radius:6px}
+.wrap{max-width:var(--maxw);margin-inline:auto;padding-inline:var(--gutter)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:.55em;font:600 16px/1 var(--f-display);letter-spacing:-.01em;padding:16px 22px;border-radius:14px;text-decoration:none;border:0;cursor:pointer;transition:transform .2s ease, background-color .2s ease, box-shadow .2s ease}
+.btn--primary{background:var(--blue);color:var(--on-blue);box-shadow:0 10px 24px -12px var(--blue)}
+.btn--primary:hover{background:var(--blue-deep);transform:translateY(-1px)}
+.btn--ghost{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn--ghost:hover{box-shadow:inset 0 0 0 1.5px var(--ink-3)}
+.btn svg{width:18px;height:18px}
+.eyebrow{display:inline-flex;align-items:center;gap:10px;font:600 13px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.eyebrow::before{content:"";width:10px;height:10px;border-radius:3px;background:var(--dot,var(--blue))}
+.h2{font-size:clamp(2rem,3.7vw,3.3rem);font-weight:700}
+.lead{font-size:clamp(17px,1.3vw,19px);color:var(--ink-2);max-width:34em}
+section{position:relative}
+main{overflow-x:clip}
+.sec{padding-block:clamp(72px,9vw,128px)}
+.mono{font-family:var(--f-mono)}
+
+/* ---------- nav ---------- */
+.nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 82%,transparent);backdrop-filter:saturate(1.4) blur(14px);-webkit-backdrop-filter:saturate(1.4) blur(14px);border-bottom:1px solid color-mix(in srgb,var(--line) 70%,transparent)}
+.nav .wrap{display:flex;align-items:center;gap:28px;height:68px}
+.brand{display:inline-flex;align-items:center;gap:10px;font:700 21px/1 var(--f-display);letter-spacing:-.035em;text-decoration:none;color:var(--ink)}
+.brand svg{width:30px;height:30px}
+.nav nav{margin-left:auto}
+.nav-links{display:flex;gap:26px;list-style:none;padding:0;margin-block:0}
+.nav-links a{font:500 15px/1 var(--f-body);text-decoration:none;color:var(--ink-2)}
+.nav-links a:hover{color:var(--ink)}
+.nav .btn{padding:12px 16px;font-size:14.5px;border-radius:12px}
+@media (max-width:820px){.nav-links{display:none}.nav .btn{margin-left:auto}}
+@media (max-width:480px){.nav-long{display:none}}
+.nav .btn{white-space:nowrap}
+
+/* ---------- trading card ---------- */
+.tc{position:relative;aspect-ratio:63/88;border-radius:5.5%/4%;container-type:inline-size;background:var(--frame);box-shadow:0 14px 30px -14px rgba(11,20,51,.5),0 2px 4px rgba(11,20,51,.18);color:var(--card-ink);isolation:isolate}
+.tc-in{position:absolute;inset:4cqw;display:flex;flex-direction:column;gap:2.4cqw;background:var(--face);border-radius:2.6cqw;padding:3cqw}
+.tc-top{display:flex;justify-content:space-between;align-items:baseline;font:700 7.4cqw/1.05 var(--f-display);letter-spacing:-.02em;padding-inline:.6cqw}
+.tc-top small{font:600 5.2cqw/1 var(--f-mono)}
+.tc-art{aspect-ratio:100/72;border-radius:1.6cqw;overflow:hidden;box-shadow:0 0 0 1.1cqw var(--artframe)}
+.tc-art svg{display:block;width:100%;height:100%}
+.tc-type{font:600 4.5cqw/1.2 var(--f-body);padding:1.3cqw 2.4cqw;background:var(--bar);color:var(--bar-ink,inherit);border-radius:1cqw;margin-top:1cqw}
+.tc-text{flex:1;display:flex;flex-direction:column;gap:1.6cqw;padding:2.4cqw;background:var(--box);color:var(--box-ink,inherit);border-radius:1.2cqw;font:500 4.2cqw/1.3 var(--f-body)}
+.tc-text b{display:flex;justify-content:space-between;font:700 4.8cqw/1.2 var(--f-display)}
+.tc-text em{opacity:.7;font-size:3.9cqw}
+.tc-foot{display:flex;justify-content:space-between;align-items:center;font:600 4cqw/1 var(--f-mono);padding-inline:.6cqw;opacity:.85}
+.tc-foot i{width:3.4cqw;height:3.4cqw;border-radius:50%;background:currentColor;display:block}
+.tc-holo{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(115deg,transparent 28%,rgba(255,255,255,.55) 42%,rgba(150,215,255,.4) 48%,rgba(255,170,235,.35) 54%,transparent 68%);background-size:260% 100%;background-position:100% 0;mix-blend-mode:overlay;transition:background-position 1.1s cubic-bezier(.2,.7,.2,1);z-index:2}
+.tc:hover .tc-holo{background-position:0 0}
+.tc--pk{--frame:linear-gradient(155deg,#FFE36E,#F2B705 60%,#E7A400);--face:#FFF8DB;--bar:#FFE58C;--box:#FFF1BE;--artframe:#D99A00;--card-ink:#2B2100}
+.tc--yg{--frame:linear-gradient(155deg,#4B3A73,#1B1233 70%);--face:linear-gradient(170deg,#5E44A8,#2D1E5C);--bar:rgba(214,178,92,.22);--bar-ink:#F2DEA6;--box:#F0E5C8;--box-ink:#2A1E0E;--artframe:#C9A24A;--card-ink:#F6E9C2}
+.tc--mg{--frame:#17130F;--face:linear-gradient(175deg,#EBCBA2,#D7A36F);--bar:#F3DFC2;--box:#F6E9D4;--artframe:#6B4A2B;--card-ink:#2A1C10}
+.tc--op{--frame:linear-gradient(155deg,#FBFAF6,#DCD9CF);--face:#FFFFFF;--bar:#E5413A;--bar-ink:#fff;--box:#FDEDEA;--artframe:#E5413A;--card-ink:#241312}
+
+/* ---------- phone ---------- */
+.phone{aspect-ratio:9/19;background:var(--phone);border-radius:15%/7.1%;padding:3.3%;box-shadow:var(--shadow),inset 0 0 0 1.5px #2C3242,inset 0 0 0 4px #0B0D13}
+.screen{position:relative;height:100%;border-radius:12%/5.7%;overflow:hidden;container-type:inline-size;background:#F5F7FC;color:#0B1433;font:400 4.4cqw/1.35 var(--f-body)}
+.screen::before{content:"";position:absolute;top:2.6cqw;left:50%;translate:-50% 0;width:28cqw;height:8.4cqw;border-radius:6cqw;background:#000;z-index:9}
+.sb{position:relative;z-index:8;display:flex;justify-content:space-between;align-items:center;padding:4.2cqw 8cqw 0 10cqw;height:13cqw;font:600 4.4cqw/1 var(--f-display)}
+.sb-r{display:flex;gap:1.4cqw;align-items:center}
+.sb-r i{display:block;width:1.3cqw;border-radius:.5cqw;background:currentColor}
+.sb-r i:nth-child(1){height:1.8cqw}.sb-r i:nth-child(2){height:2.6cqw}.sb-r i:nth-child(3){height:3.4cqw}
+.sb-r b{display:block;width:6.6cqw;height:3.2cqw;border-radius:1cqw;border:.5cqw solid currentColor;margin-left:1cqw;position:relative}
+.sb-r b::after{content:"";position:absolute;inset:.5cqw;right:1.6cqw;background:currentColor;border-radius:.4cqw}
+.app-h{padding:2cqw 6cqw 3cqw}
+.app-h small{display:block;font:600 3.6cqw/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:#7A84A3}
+.app-h strong{display:block;font:700 7.4cqw/1.1 var(--f-display);letter-spacing:-.03em;margin-top:1.8cqw}
+.app-h span{display:block;color:#4B5577;font-size:3.9cqw;margin-top:1.2cqw}
+.tabs{display:flex;gap:1.6cqw;padding:0 6cqw 3cqw}
+.tabs span{font:600 3.6cqw/1 var(--f-display);padding:2cqw 3.4cqw;border-radius:99px;background:#E6EAF5;color:#4B5577}
+.tabs span.on{background:#0B1433;color:#fff}
+.rows{margin:0 4cqw;background:#fff;border-radius:5cqw;padding:1cqw 3.4cqw;box-shadow:0 1px 0 #E1E5F0}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:2.6cqw;align-items:center;padding:2.6cqw 0;border-bottom:1px solid #EDF0F6}
+.row:last-child{border-bottom:0}
+.row .q{font:600 3.8cqw/1 var(--f-mono);color:#7A84A3;width:5.4cqw}
+.row .thumb{width:7cqw;aspect-ratio:63/88;border-radius:1cqw;background:var(--t,#FFD447);box-shadow:inset 0 0 0 .7cqw rgba(0,0,0,.12)}
+.row .nm{min-width:0}
+.row .nm b{display:block;font:600 4cqw/1.2 var(--f-display);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .nm small{display:block;font-size:3.3cqw;color:#7A84A3;white-space:nowrap}
+.row .pr{font:600 3.8cqw/1 var(--f-mono)}
+.row--t{grid-template-columns:auto auto 1fr auto}
+.tabbar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:space-around;padding:3cqw 6cqw 6cqw;background:rgba(255,255,255,.94);border-top:1px solid #E6EAF3}
+.tabbar span{display:flex;flex-direction:column;align-items:center;gap:1cqw;font:600 2.9cqw/1 var(--f-display);color:#9AA3BE}
+.tabbar span i{width:5.4cqw;height:5.4cqw;border-radius:1.6cqw;border:.6cqw solid currentColor}
+.tabbar span.on{color:#1E48F5}
+.tabbar span.on i{background:#1E48F5;border-color:#1E48F5;border-radius:50%}
+
+/* ---------- hero ---------- */
+.hero{padding-block:clamp(36px,6vw,84px) clamp(56px,7vw,96px)}
+.hero .wrap{display:grid;grid-template-columns:minmax(0,1.02fr) minmax(0,1fr);gap:clamp(24px,4vw,64px);align-items:center}
+.hero h1{font-size:clamp(2.4rem,4.6vw,4.3rem);font-weight:700;letter-spacing:-.045em;line-height:.98}
+.hero h1 .accent{color:var(--blue);text-decoration:underline;text-decoration-color:var(--pk);text-decoration-thickness:.11em;text-underline-offset:.13em;text-decoration-skip-ink:none}
+.hero .lead{margin-top:26px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
+.trust{display:flex;flex-wrap:wrap;gap:10px 22px;margin:40px 0 0;padding:20px 0 0;border-top:1px solid var(--line);list-style:none;font:600 14.5px/1 var(--f-display);color:var(--ink-2);letter-spacing:-.005em}
+.trust li{display:inline-flex;align-items:center;gap:9px}
+.trust li::before{content:"";width:9px;height:9px;border-radius:2.5px;background:var(--c)}
+.hero-visual{position:relative;aspect-ratio:1/1.12;max-height:700px;width:100%}
+.mat{position:absolute;inset:0}
+.field{position:absolute;border-radius:40px;background-color:var(--c);background-image:radial-gradient(rgba(255,255,255,.22) 1.2px,transparent 1.4px);background-size:14px 14px}
+.f-pk{--c:var(--pk);left:0;top:7%;width:60%;height:46%;rotate:-4deg}
+.f-yg{--c:var(--yg);right:0;top:0;width:46%;height:40%;border-radius:40px 40px 40px 120px}
+.f-mg{--c:var(--mg);left:7%;bottom:0;width:50%;height:42%;rotate:3deg}
+.f-op{--c:var(--op);right:3%;bottom:7%;width:38%;aspect-ratio:1;border-radius:50%}
+.loose{position:absolute;width:21%}
+.loose--a{right:5%;top:5%;rotate:13deg}
+.loose--b{left:2%;bottom:6%;rotate:-11deg}
+.phone--front{position:absolute;width:min(300px,52%);left:20%;top:3%;z-index:3}
+.phone--back{position:absolute;width:min(262px,45%);right:1%;top:15%;rotate:7deg;z-index:2}
+.callout{position:absolute;right:0;bottom:7%;z-index:4;display:flex;align-items:center;gap:10px;background:var(--surface);color:var(--ink);padding:12px 16px 12px 12px;border-radius:16px;box-shadow:var(--shadow);font:600 14px/1.2 var(--f-display)}
+.callout small{display:block;font:500 12.5px/1.3 var(--f-body);color:var(--ink-2)}
+.callout .ic{width:34px;height:34px;border-radius:10px;background:var(--ok-soft);color:var(--ok);display:grid;place-items:center}
+.callout .ic svg{width:18px;height:18px}
+
+/* camera screen */
+.cam{background:radial-gradient(120% 80% at 50% 58%,#3A3628 0%,#1C1B17 55%,#0E0E0C 100%);color:#fff}
+.cam::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.018) 0 2px,transparent 2px 9px);pointer-events:none}
+.cam-top{position:relative;z-index:3;display:flex;justify-content:space-between;padding:1cqw 5cqw}
+.pill{display:inline-flex;align-items:center;gap:1.4cqw;font:600 3.6cqw/1 var(--f-display);padding:2.2cqw 3.2cqw;border-radius:99px;background:rgba(255,255,255,.14);backdrop-filter:blur(6px)}
+.pill--ok{background:rgba(18,168,102,.25);color:#7BF0B6}
+.pill--ok::before{content:"";width:1.8cqw;height:1.8cqw;border-radius:50%;background:currentColor}
+.cam-view{position:absolute;left:0;right:0;top:20%;height:58%;display:grid;place-items:center}
+.scan-card{width:52%;rotate:-3deg}
+.det{position:absolute;width:62%;aspect-ratio:63/88;rotate:-3deg;left:50%;top:50%;translate:-50% -50%;scale:1.06}
+.det i{position:absolute;width:13cqw;height:13cqw;border:1.1cqw solid var(--det,#3DE08F);border-radius:3cqw}
+.det i:nth-child(1){left:0;top:0;border-right:0;border-bottom:0;border-radius:3cqw 0 0 0}
+.det i:nth-child(2){right:0;top:0;border-left:0;border-bottom:0;border-radius:0 3cqw 0 0}
+.det i:nth-child(3){left:0;bottom:0;border-right:0;border-top:0;border-radius:0 0 0 3cqw}
+.det i:nth-child(4){right:0;bottom:0;border-left:0;border-top:0;border-radius:0 0 3cqw 0}
+.det-tag{position:absolute;left:50%;top:-7.5cqw;translate:-50% 0;font:600 3.4cqw/1 var(--f-display);background:#3DE08F;color:#06301C;padding:1.6cqw 2.6cqw;border-radius:99px;white-space:nowrap}
+.scanline{position:absolute;left:16%;right:16%;top:6%;height:1.2cqw;border-radius:99px;background:linear-gradient(90deg,transparent,#8FB3FF,#fff,#8FB3FF,transparent);box-shadow:0 0 6cqw 2cqw rgba(110,150,255,.5);opacity:0}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:4;background:#fff;color:#0B1433;border-radius:7cqw 7cqw 0 0;padding:2.6cqw 5.4cqw 7cqw;box-shadow:0 -10px 30px rgba(0,0,0,.35)}
+.sheet .grab{width:11cqw;height:1.2cqw;border-radius:99px;background:#D4D9E6;margin:0 auto 3.4cqw}
+.res{display:grid;grid-template-columns:auto 1fr;gap:3.4cqw;align-items:center}
+.res .mini{width:13cqw}
+.res b{display:block;font:700 5.6cqw/1.1 var(--f-display);letter-spacing:-.02em}
+.res small{display:block;font:500 3.5cqw/1.3 var(--f-mono);color:#7A84A3;margin-top:1cqw}
+.tags{display:flex;gap:1.4cqw;margin-top:1.8cqw}
+.tags span{font:600 3.1cqw/1 var(--f-display);padding:1.4cqw 2.2cqw;border-radius:99px;background:#EEF1F8;color:#4B5577}
+.tags span.hl{background:#E2E8FF;color:#1E48F5}
+.prices{display:grid;grid-template-columns:1fr 1fr;gap:2.4cqw;margin-top:3.6cqw}
+.prices div{background:#F4F6FB;border-radius:3cqw;padding:2.6cqw 3cqw}
+.prices small{display:block;font:600 3cqw/1 var(--f-display);color:#7A84A3;letter-spacing:.02em}
+.prices strong{display:block;font:700 5.6cqw/1 var(--f-mono);margin-top:1.6cqw;letter-spacing:-.03em}
+.sheet .add{display:block;margin-top:3.4cqw;text-align:center;background:#1E48F5;color:#fff;font:600 4cqw/1 var(--f-display);padding:3.4cqw;border-radius:3.4cqw}
+
+/* hero orchestration */
+@media (prefers-reduced-motion:no-preference){
+  .mat .field{animation:fieldIn .9s cubic-bezier(.2,.8,.2,1) both}
+  .f-yg{animation-delay:.08s!important}.f-mg{animation-delay:.16s!important}.f-op{animation-delay:.24s!important}
+  .loose{animation:fadeIn .8s .3s both}
+  .phone--front{animation:riseIn 1s .1s cubic-bezier(.2,.8,.2,1) both}
+  .phone--back{animation:riseIn 1s .25s cubic-bezier(.2,.8,.2,1) both}
+  .scanline{animation:sweep 1.3s .9s ease-in-out both}
+  .hero .det{animation:lock .45s 2.15s cubic-bezier(.3,1.4,.4,1) both}
+  .hero .det i{animation:detColor .3s 2.15s both}
+  .hero .det-tag{animation:popIn .35s 2.45s cubic-bezier(.3,1.5,.4,1) both}
+  .hero .sheet{animation:sheetUp .7s 2.65s cubic-bezier(.2,.85,.25,1) both}
+  .hero .prices strong{animation:fadeUp .5s 3.15s both}
+  .hero .callout{animation:popIn .5s 3.35s cubic-bezier(.3,1.4,.4,1) both}
+}
+@keyframes fieldIn{from{opacity:0;transform:scale(.88)}}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes riseIn{from{opacity:0;transform:translateY(36px)}}
+@keyframes sweep{0%{opacity:0;top:6%}12%{opacity:1}88%{opacity:1}100%{opacity:0;top:92%}}
+@keyframes lock{from{scale:1.32;opacity:.35}}
+@keyframes detColor{from{border-color:rgba(255,255,255,.75)}}
+@keyframes popIn{from{opacity:0;transform:scale(.7)}}
+@keyframes sheetUp{from{transform:translateY(105%)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}}
+
+@media (max-width:960px){
+  .hero .wrap{grid-template-columns:1fr}
+  .hero-visual{max-width:620px;margin-inline:auto;aspect-ratio:1/1.05}
+}
+@media (max-width:560px){
+  .hero-visual{aspect-ratio:1/1.42}
+  .phone--front{width:60%;left:4%;top:2%}
+  .phone--back{width:52%;right:0;top:12%}
+  .callout{bottom:3%}
+  .loose--a{width:26%;right:2%;top:1%}
+  .loose--b{display:none}
+  .f-pk{width:70%;height:44%}
+  .f-yg{width:52%;height:38%}
+  .f-mg{width:58%;height:36%}
+  .f-op{width:46%}
+}
+
+/* ---------- games ---------- */
+.sec-head{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:24px 64px;align-items:end;margin-bottom:clamp(36px,4vw,56px)}
+.sec-head .eyebrow{margin-bottom:18px}
+@media (max-width:820px){.sec-head{grid-template-columns:1fr}}
+.games{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+.game{position:relative;overflow:hidden;background:var(--soft);border-radius:28px;padding:22px 22px 26px;display:flex;flex-direction:column;gap:22px;min-width:0}
+.game::before{content:"";position:absolute;width:78%;aspect-ratio:1;border-radius:50%;background:var(--c);right:-22%;top:-12%;opacity:.9}
+.game .stage{position:relative;display:grid;place-items:center;padding:14px 0 4px}
+.game .tc{width:min(66%,210px);rotate:var(--r,-3deg);transition:rotate .4s cubic-bezier(.2,.8,.2,1),translate .4s cubic-bezier(.2,.8,.2,1)}
+.game:hover .tc{rotate:0deg;translate:0 -6px}
+.game h3{font-size:24px;font-weight:700;letter-spacing:-.03em;position:relative}
+.game p{position:relative;color:var(--ink-2);font-size:15.5px;margin-top:8px}
+.game--pk{--c:var(--pk);--soft:var(--pk-soft)}
+.game--yg{--c:var(--yg);--soft:var(--yg-soft);--r:4deg}
+.game--mg{--c:var(--mg);--soft:var(--mg-soft);--r:-2deg}
+.game--op{--c:var(--op);--soft:var(--op-soft);--r:5deg}
+.game--op .tc{filter:saturate(.55);opacity:.82}
+.soon{position:absolute;z-index:3;top:16px;left:16px;font:600 12.5px/1 var(--f-display);letter-spacing:.02em;background:var(--ink);color:var(--bg);padding:8px 11px;border-radius:99px}
+@media (max-width:1060px){.games{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){
+  .games{grid-template-columns:1fr;gap:12px}
+  .game{flex-direction:row;align-items:center;padding:16px 18px 16px 14px;gap:16px}
+  .game .stage{flex:0 0 38%;padding:6px 0}
+  .game .tc{width:100%}
+  .game h3{font-size:20px}
+  .game p{font-size:14.5px;margin-top:6px}
+  .game::before{width:62%;right:auto;left:-14%;top:auto;bottom:-30%}
+  .soon{top:12px;right:12px;left:auto}
+}
+
+/* ---------- scanner ---------- */
+.scanner{background:var(--blue);color:#fff;overflow:hidden}
+.scanner::before{content:"";position:absolute;inset:0;background:radial-gradient(60% 70% at 85% 30%,rgba(255,255,255,.14),transparent 70%),radial-gradient(40% 50% at 0% 100%,rgba(0,0,40,.25),transparent 70%);pointer-events:none}
+.scanner .wrap{position:relative;display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:clamp(36px,5vw,80px);align-items:center}
+.scanner .eyebrow{color:rgba(255,255,255,.8);--dot:var(--pk)}
+.scanner .h2{margin-top:18px}
+.scanner .lead{color:rgba(255,255,255,.82);margin-top:20px}
+.facts{list-style:none;margin:36px 0 0;padding:0;display:grid;gap:4px}
+.facts li{display:grid;grid-template-columns:44px 1fr;gap:16px;align-items:center;padding:16px 0;border-top:1px solid rgba(255,255,255,.2);font:600 17.5px/1.35 var(--f-display);letter-spacing:-.015em}
+.facts .ic{width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.13);display:grid;place-items:center}
+.facts .ic svg{width:22px;height:22px}
+.scan-stage{display:flex;align-items:flex-end;gap:0;min-width:0}
+.vf{position:relative;flex:1;min-width:0;aspect-ratio:4/4.6;border-radius:30px;overflow:hidden;background:radial-gradient(90% 70% at 50% 55%,#463F2F,#1E1C17 65%,#0D0D0B);box-shadow:0 40px 80px -30px rgba(0,0,30,.6),inset 0 0 0 1px rgba(255,255,255,.08);container-type:inline-size}
+.vf::after{content:"";position:absolute;inset:0;background:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px) 0 0/100% 33.33%,linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px) 0 0/33.33% 100%;pointer-events:none}
+.vf-hud{position:absolute;z-index:3;left:4cqw;right:4cqw;top:4cqw;display:flex;justify-content:space-between;font:600 3cqw/1 var(--f-display)}
+.vf-hud span{background:rgba(0,0,0,.4);backdrop-filter:blur(6px);padding:2cqw 2.8cqw;border-radius:99px;display:inline-flex;gap:1.4cqw;align-items:center}
+.vf-hud .rec::before{content:"";width:1.6cqw;height:1.6cqw;border-radius:50%;background:#3DE08F}
+.vf-target{position:absolute;left:50%;top:47%;width:44%;translate:-50% -50%;rotate:-4deg}
+.vf-target .det{width:118%;scale:1}
+.vf-target .det i{width:9cqw;height:9cqw;border-width:.8cqw}
+.numbox{position:absolute;left:3%;bottom:2.5%;width:40%;height:7%;border:.5cqw solid #3DE08F;border-radius:1cqw;background:rgba(61,224,143,.12)}
+.numbox span{position:absolute;left:0;top:calc(100% + 1.4cqw);font:600 2.5cqw/1 var(--f-mono);background:#3DE08F;color:#06301C;padding:1cqw 1.6cqw;border-radius:.8cqw;white-space:nowrap}
+.chip{position:absolute;z-index:3;left:5cqw;bottom:5cqw;display:inline-flex;align-items:center;gap:2.4cqw;background:#fff;color:#0B1433;font:600 3.5cqw/1 var(--f-display);padding:2.6cqw 4cqw 2.6cqw 2.6cqw;border-radius:99px;box-shadow:0 10px 30px rgba(0,0,0,.35);white-space:nowrap;letter-spacing:-.01em}
+.chip .ok{width:5.4cqw;height:5.4cqw;border-radius:50%;background:#12A866;display:grid;place-items:center}
+.chip .ok svg{width:3.4cqw;height:3.4cqw}
+.chip .mono{font-weight:600}
+.variants{flex:0 0 256px;margin-left:-64px;margin-bottom:-28px;position:relative;z-index:4;background:var(--surface);color:var(--ink);border-radius:22px;padding:18px;box-shadow:0 30px 60px -20px rgba(0,0,30,.55)}
+.variants h3{font-size:15px;font-weight:700;letter-spacing:-.01em;margin-bottom:12px;display:flex;justify-content:space-between}
+.variants h3 span{font:500 12px/1.3 var(--f-body);color:var(--ink-3)}
+.var{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:10px 10px;border-radius:12px;font:600 14px/1.2 var(--f-display)}
+.var small{display:block;font:500 12px/1.3 var(--f-body);color:var(--ink-3)}
+.var .rb{width:18px;height:18px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--line)}
+.var .p{font:600 14px/1 var(--f-mono)}
+.var.on{background:var(--blue-soft)}
+.var.on .rb{box-shadow:inset 0 0 0 5px var(--blue)}
+@media (max-width:960px){.scanner .wrap{grid-template-columns:1fr}}
+@media (max-width:640px){
+  .scan-stage{flex-direction:column;align-items:stretch}
+  .variants{flex:none;margin:14px 0 0}
+}
+
+/* ---------- prices ---------- */
+.prices-sec .wrap{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:clamp(36px,5vw,80px);align-items:center}
+.prices-sec .eyebrow{--dot:var(--ok)}
+.prices-sec .h2{margin-top:18px}
+.prices-sec .lead{margin-top:20px}
+.worth{margin-top:40px;padding:26px 28px;border-radius:24px;background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.worth small{font:600 13px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+.worth strong{display:block;font:700 clamp(2.4rem,4.4vw,3.6rem)/1 var(--f-display);letter-spacing:-.05em;margin-top:12px;font-variant-numeric:tabular-nums}
+.worth .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:14px;font:500 14px/1.3 var(--f-body);color:var(--ink-2)}
+.worth .meta b{font-family:var(--f-mono);font-weight:600;color:var(--ok)}
+.fine{margin-top:16px;font-size:13px;color:var(--ink-3);max-width:40em}
+.panel{background:var(--surface);border-radius:30px;padding:clamp(18px,2.6vw,30px);box-shadow:var(--shadow),inset 0 0 0 1px var(--line);min-width:0}
+.panel-top{display:grid;grid-template-columns:clamp(96px,22%,150px) 1fr;gap:clamp(16px,2.4vw,28px);align-items:center}
+.panel-top h3{font-size:clamp(22px,2.2vw,28px);font-weight:700}
+.panel-top .sub{font:500 13.5px/1.4 var(--f-mono);color:var(--ink-3);margin-top:6px}
+.src{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.src span{display:inline-flex;align-items:baseline;gap:10px;padding:11px 14px;border-radius:14px;background:var(--surface-2);font:600 13.5px/1 var(--f-display);color:var(--ink-2)}
+.src b{font:700 18px/1 var(--f-mono);color:var(--ink);letter-spacing:-.03em}
+.chart{margin-top:26px;padding-top:20px;border-top:1px solid var(--line)}
+.chart-h{display:flex;justify-content:space-between;align-items:baseline;font:600 13.5px/1 var(--f-display);color:var(--ink-2)}
+.chart-h span:last-child{font:500 12.5px/1 var(--f-mono);color:var(--ink-3)}
+.chart svg{display:block;width:100%;height:auto;margin-top:14px;overflow:visible}
+.chart-x{display:flex;justify-content:space-between;font:500 12px/1 var(--f-mono);color:var(--ink-3);margin-top:8px}
+@media (max-width:960px){.prices-sec .wrap{grid-template-columns:1fr}}
+
+/* ---------- reseller ---------- */
+.reseller{background:var(--surface);border-block:1px solid var(--line)}
+.reseller .wrap{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:clamp(36px,6vw,96px);align-items:center}
+.res-visual{position:relative;display:grid;place-items:center;padding:28px 0}
+.res-visual::before{content:"";position:absolute;inset:6% 4%;border-radius:40px;background:var(--blue-soft)}
+.res-visual::after{content:"";position:absolute;width:34%;aspect-ratio:1;border-radius:50%;background:var(--pk);right:0;top:2%}
+.phone--static{position:relative;z-index:1;width:min(300px,74%)}
+.reseller .eyebrow{--dot:var(--mg)}
+.reseller .h2{margin-top:18px}
+.reseller .lead{margin-top:20px}
+.rfacts{list-style:none;margin:36px 0 0;padding:0}
+.rfacts li{display:grid;grid-template-columns:48px 1fr;gap:18px;padding:22px 0;border-top:1px solid var(--line)}
+.rfacts .ic{width:48px;height:48px;border-radius:14px;background:var(--surface-2);color:var(--blue);display:grid;place-items:center}
+.rfacts .ic svg{width:24px;height:24px}
+.rfacts h3{font-size:21px;font-weight:700;letter-spacing:-.025em}
+.rfacts p{color:var(--ink-2);margin-top:6px;font-size:16px}
+.bulk{margin:0 4cqw 3cqw;background:#0B1433;color:#fff;border-radius:5cqw;padding:3.6cqw 4cqw}
+.bulk-top{display:flex;justify-content:space-between;font:600 3.6cqw/1 var(--f-display)}
+.bulk-top b{font-family:var(--f-mono)}
+.bar{height:1.8cqw;border-radius:99px;background:rgba(255,255,255,.15);margin-top:2.6cqw;overflow:hidden}
+.bar i{display:block;height:100%;width:72%;border-radius:inherit;background:#3DE08F}
+.export{position:absolute;left:5cqw;right:5cqw;bottom:21cqw;background:#1E48F5;color:#fff;text-align:center;font:600 3.9cqw/1 var(--f-display);padding:3.6cqw;border-radius:3.6cqw;box-shadow:0 8px 20px -8px #1E48F5}
+@media (max-width:860px){.reseller .wrap{grid-template-columns:1fr}.res-visual{order:2}}
+
+/* ---------- streamer ---------- */
+.streamer .eyebrow{--dot:var(--yg)}
+.streamer .sec-head p a{font-weight:600;color:var(--blue);text-underline-offset:4px;text-decoration-thickness:1.5px;display:inline-flex;align-items:center;gap:6px;margin-top:14px}
+.stream{position:relative;aspect-ratio:16/9;border-radius:clamp(14px,2vw,26px);overflow:hidden;container-type:inline-size;background:radial-gradient(60% 80% at 30% 20%,#2A2160,transparent 70%),radial-gradient(50% 60% at 90% 10%,#173B7A,transparent 70%),#0B0B18;box-shadow:var(--shadow),0 0 0 1px var(--line)}
+.table{position:absolute;left:-10%;right:-10%;bottom:-30%;height:75%;border-radius:50% 50% 0 0/22% 22% 0 0;background:radial-gradient(70% 60% at 50% 30%,#2E5A4A,#173328 70%);box-shadow:inset 0 2cqw 4cqw rgba(255,255,255,.06)}
+.table::after{content:"";position:absolute;inset:0;border-radius:inherit;background-image:radial-gradient(rgba(255,255,255,.06) 1px,transparent 1.2px);background-size:1.2cqw 1.2cqw}
+.fan{position:absolute;left:31%;top:23%;width:38%;height:56%}
+.fan .tc{position:absolute;width:30%;top:8%;left:35%;transform-origin:50% 120%}
+.fan .tc:nth-child(1){rotate:-18deg;translate:-46% 6%}
+.fan .tc:nth-child(2){rotate:-2deg;translate:0 -2%}
+.fan .tc:nth-child(3){rotate:16deg;translate:48% 8%}
+.pack{position:absolute;left:12%;top:40%;width:13%;aspect-ratio:3/5;rotate:-14deg;border-radius:1cqw;background:linear-gradient(120deg,#C7CEDB,#F5F7FA 30%,#9BA6BA 55%,#E9EDF3 75%,#AEB7C8);box-shadow:0 2cqw 3cqw rgba(0,0,0,.45)}
+.pack::before,.pack::after{content:"";position:absolute;left:0;right:0;height:7%;background:repeating-linear-gradient(90deg,rgba(0,0,0,.18) 0 .5cqw,transparent .5cqw 1.1cqw)}
+.pack::before{top:0}.pack::after{bottom:0}
+.pack span{position:absolute;inset:22% 14%;border-radius:.8cqw;background:linear-gradient(160deg,var(--yg),var(--blue))}
+.live{position:absolute;left:2.4cqw;top:2.4cqw;display:flex;gap:1cqw;font:700 1.6cqw/1 var(--f-display)}
+.live span{background:#E5413A;color:#fff;padding:.9cqw 1.3cqw;border-radius:.6cqw;letter-spacing:.06em}
+.live em{font-style:normal;background:rgba(0,0,0,.5);color:#fff;padding:.9cqw 1.3cqw;border-radius:.6cqw;font-weight:600}
+.cam-bubble{position:absolute;right:2.4cqw;top:2.4cqw;width:18cqw;aspect-ratio:4/3;border-radius:1.4cqw;overflow:hidden;background:linear-gradient(160deg,#3B4A6B,#1B2235);box-shadow:0 0 0 .3cqw rgba(255,255,255,.25)}
+.cam-bubble::before{content:"";position:absolute;width:30%;aspect-ratio:1;border-radius:50%;background:#C9A88C;left:35%;top:22%}
+.cam-bubble::after{content:"";position:absolute;width:64%;height:40%;border-radius:50% 50% 0 0;background:#E5413A;left:18%;bottom:-6%}
+.ovl{position:absolute;left:2.4cqw;right:2.4cqw;bottom:2.4cqw;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,.9fr);gap:2cqw;align-items:stretch;background:rgba(11,14,30,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-radius:1.8cqw;padding:1.8cqw;color:#fff;box-shadow:inset 0 0 0 .15cqw rgba(255,255,255,.12)}
+.ovl .pull{display:flex;gap:1.6cqw;align-items:center}
+.ovl .pull .tc{width:7.6cqw;box-shadow:none}
+.ovl small{display:block;font:600 1.25cqw/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.ovl .pull b{display:block;font:700 2.2cqw/1.1 var(--f-display);margin-top:.8cqw;letter-spacing:-.02em}
+.ovl .pull strong{display:inline-block;font:700 2.6cqw/1 var(--f-mono);margin-top:.9cqw;color:#3DE08F;letter-spacing:-.03em}
+.ovl .tot{border-left:.12cqw solid rgba(255,255,255,.15);padding-left:2cqw;display:flex;flex-direction:column;justify-content:center}
+.ovl .tot .nums{display:flex;justify-content:space-between;align-items:baseline;margin-top:.9cqw}
+.ovl .tot .nums b{font:700 3cqw/1 var(--f-mono);letter-spacing:-.04em}
+.ovl .tot .nums span{font:600 1.5cqw/1 var(--f-mono);color:rgba(255,255,255,.65)}
+.ovl .tot .bar{height:1cqw;margin-top:1.2cqw}
+.ovl .tot .bar i{width:53%;background:linear-gradient(90deg,#3DE08F,#A7F3C9)}
+.ovl .log{border-left:.12cqw solid rgba(255,255,255,.15);padding-left:2cqw;display:flex;flex-direction:column;justify-content:center;gap:.8cqw;font:500 1.45cqw/1.2 var(--f-body)}
+.ovl .log div{display:flex;justify-content:space-between;gap:1cqw;color:rgba(255,255,255,.85)}
+.ovl .log div span:last-child{font-family:var(--f-mono);color:#fff}
+.ovl-brand{position:absolute;right:2.4cqw;bottom:calc(2.4cqw + 100% - 0px);font:600 1.3cqw/1 var(--f-display)}
+.stream-tag{position:absolute;right:3.6cqw;top:-3cqw}
+@media (max-width:600px){
+  .stream{aspect-ratio:auto;height:auto;padding-top:56.25%}
+  .ovl{grid-template-columns:auto 1fr;bottom:2cqw}
+  .ovl .log{display:none}
+  .ovl small{font-size:2.2cqw}.ovl .pull b{font-size:3.4cqw}.ovl .pull strong{font-size:3.8cqw}
+  .ovl .tot .nums b{font-size:4.2cqw}.ovl .tot .nums span{font-size:2.6cqw}
+  .ovl .pull .tc{width:11cqw}
+  .live{font-size:2.6cqw}.cam-bubble{width:22cqw}
+}
+
+/* ---------- open source ---------- */
+.os .eyebrow{--dot:var(--ink)}
+.plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.plan{border-radius:30px;padding:clamp(24px,3.4vw,44px);display:flex;flex-direction:column;gap:18px;min-width:0}
+.plan--self{background:var(--surface);box-shadow:inset 0 0 0 1px var(--line)}
+.plan--host{background:var(--ink);color:var(--bg);position:relative;overflow:hidden}
+.plan--host::after{content:"";position:absolute;width:46%;aspect-ratio:1;border-radius:50%;background:var(--blue);right:-12%;top:-18%;opacity:.9}
+.plan > *{position:relative;z-index:1}
+.plan small{font:600 13px/1 var(--f-display);letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+.plan h3{font-size:clamp(2rem,3.6vw,3.1rem);font-weight:700;letter-spacing:-.045em}
+.plan h3 .soft{opacity:.55}
+.plan p{font-size:16.5px;opacity:.85;max-width:30em}
+.term{margin-top:auto;font:500 14px/1.7 var(--f-mono);background:var(--surface-2);border-radius:16px;padding:16px 18px;color:var(--ink-2);overflow-x:auto}
+.term b{color:var(--blue);font-weight:600}
+.checks{list-style:none;margin:auto 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.checks li{font:600 13.5px/1 var(--f-display);padding:10px 13px;border-radius:99px;background:color-mix(in srgb,var(--bg) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--bg) 22%,transparent)}
+.plan .btn{align-self:flex-start}
+.plan--host .btn--ghost{color:var(--bg);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--bg) 40%,transparent)}
+@media (max-width:760px){.plans{grid-template-columns:1fr}}
+
+/* ---------- waitlist ---------- */
+.wl{padding-bottom:clamp(56px,7vw,96px)}
+.wl-card{position:relative;overflow:hidden;background:var(--blue);color:#fff;border-radius:36px;padding:clamp(28px,5vw,72px);display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:40px;align-items:center}
+.wl-card .h2{max-width:11em}
+.wl-card p.lead{color:rgba(255,255,255,.85);margin-top:18px}
+form{display:grid;gap:14px;margin-top:30px;max-width:520px}
+.field-row{display:flex;gap:10px;flex-wrap:wrap}
+.field-row input{flex:1 1 220px;min-width:0;font:500 16px/1 var(--f-body);padding:17px 18px;border-radius:14px;border:0;background:#fff;color:#0B1433;box-shadow:inset 0 0 0 1.5px rgba(11,20,51,.08)}
+.field-row input::placeholder{color:#7A84A3}
+.field-row input:focus-visible{outline:3px solid var(--pk);outline-offset:2px}
+.wl .btn--primary{background:var(--ink);color:var(--bg);box-shadow:none}
+.wl .btn--primary:hover{background:#000}
+.consent{display:grid;grid-template-columns:22px 1fr;gap:12px;font-size:14px;line-height:1.5;color:rgba(255,255,255,.88);cursor:pointer}
+.consent input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--pk)}
+.consent input:focus-visible{outline:3px solid var(--pk);outline-offset:2px}
+.thanks{display:none;font:600 17px/1.4 var(--f-display);background:rgba(255,255,255,.14);border-radius:14px;padding:16px 18px}
+form.done .thanks{display:block}
+form.done .field-row,form.done .consent{display:none}
+.wl-art{position:relative;aspect-ratio:1/1;max-width:420px;width:100%;justify-self:end}
+.wl-art .field{border-radius:32px}
+.wl-art .a{--c:var(--pk);left:0;top:0;width:56%;height:52%;rotate:-5deg}
+.wl-art .b{--c:var(--yg);right:0;top:8%;width:44%;height:44%;border-radius:50%}
+.wl-art .c{--c:var(--mg);left:8%;bottom:0;width:50%;height:44%;rotate:4deg}
+.wl-art .d{--c:var(--op);right:4%;bottom:4%;width:40%;height:40%}
+.wl-art .tc{position:absolute;width:38%;left:31%;top:24%;rotate:-6deg;z-index:2}
+@media (max-width:860px){.wl-card{grid-template-columns:1fr}.wl-art{max-width:300px;justify-self:start}}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line);padding-block:40px 48px;font-size:14.5px;color:var(--ink-2)}
+footer .wrap{display:grid;gap:22px}
+.f-top{display:flex;flex-wrap:wrap;align-items:center;gap:16px 32px}
+.f-links{display:flex;flex-wrap:wrap;gap:8px 22px;list-style:none;margin:0;padding:0}
+.f-links a{text-decoration:none;font-weight:500}
+.f-links a:hover{color:var(--ink);text-decoration:underline;text-underline-offset:4px}
+.powered{margin-left:auto;font:500 13.5px/1 var(--f-body);color:var(--ink-3)}
+.powered b{color:var(--ink-2);font-weight:600}
+.rights{font-size:13px;color:var(--ink-3);padding-top:18px;border-top:1px solid var(--line);display:flex;flex-wrap:wrap;gap:6px 24px;justify-content:space-between}
+@media (max-width:640px){.powered{margin-left:0;width:100%}}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9ED8FF"/><stop offset="1" stop-color="#E4F6FF"/></linearGradient>
+    <radialGradient id="g-void" cx=".5" cy=".45" r=".7"><stop offset="0" stop-color="#7B4FD8"/><stop offset=".55" stop-color="#2B1656"/><stop offset="1" stop-color="#0E0820"/></radialGradient>
+    <linearGradient id="g-dusk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3E3A6E"/><stop offset=".45" stop-color="#C8607A"/><stop offset=".8" stop-color="#F7A65A"/><stop offset="1" stop-color="#FFD58A"/></linearGradient>
+    <linearGradient id="g-sea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7FD3F5"/><stop offset=".55" stop-color="#CDEFFA"/><stop offset=".56" stop-color="#2C8FC4"/><stop offset="1" stop-color="#145C8E"/></linearGradient>
+    <linearGradient id="g-fox" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB25C"/><stop offset="1" stop-color="#F06A1E"/></linearGradient>
+    <linearGradient id="g-area" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1E48F5" stop-opacity=".16"/><stop offset="1" stop-color="#1E48F5" stop-opacity="0"/></linearGradient>
+  </defs>
+  <symbol id="art-fox" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-sky)"/>
+    <circle cx="80" cy="15" r="9" fill="#FFF4B8"/>
+    <path d="M0 50 Q24 40 50 47 T100 43 V72 H0Z" fill="#9EDB8F"/>
+    <path d="M0 60 Q30 52 62 60 T100 57 V72 H0Z" fill="#5FBF6B"/>
+    <path d="M57 50 C73 49 84 35 76 22 C73 33 64 39 52 42Z" fill="url(#g-fox)"/>
+    <path d="M76 22 C75 28 72 31 68 33 C74 33 78 28 76 22Z" fill="#FFF7E6"/>
+    <ellipse cx="46" cy="49" rx="14" ry="8.5" fill="url(#g-fox)"/>
+    <path d="M27 41 L34 23 L39.5 33 L46.5 22 L48.5 39 Q43 47 33 45Z" fill="url(#g-fox)"/>
+    <path d="M30 42 Q36 46 44 43 L41 46 Q35 48 30 42Z" fill="#FFF7E6"/>
+    <circle cx="38.5" cy="37" r="1.7" fill="#1D1A2E"/>
+    <path d="M38 52 v6 M50 52 v6" stroke="#E0611A" stroke-width="2.6" stroke-linecap="round"/>
+    <g fill="#FFFFFF"><path d="M18 18 l1.4 3.6 3.6 1.4 -3.6 1.4 -1.4 3.6 -1.4 -3.6 -3.6 -1.4 3.6 -1.4z"/><path d="M60 14 l.9 2.3 2.3.9 -2.3.9 -.9 2.3 -.9 -2.3 -2.3 -.9 2.3 -.9z"/><path d="M88 34 l.9 2.3 2.3.9 -2.3.9 -.9 2.3 -.9 -2.3 -2.3 -.9 2.3 -.9z"/></g>
+  </symbol>
+  <symbol id="art-warden" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-void)"/>
+    <g fill="none" stroke="#D8B45A" stroke-opacity=".5" stroke-width=".6"><circle cx="50" cy="34" r="27"/><circle cx="50" cy="34" r="21"/><path d="M50 4 V64 M20 34 H80"/></g>
+    <path d="M50 22 L22 12 L30 30 L14 34 L32 40 L26 56 L46 44Z" fill="#3A2470" stroke="#C9A24A" stroke-width=".8"/>
+    <path d="M50 22 L78 12 L70 30 L86 34 L68 40 L74 56 L54 44Z" fill="#3A2470" stroke="#C9A24A" stroke-width=".8"/>
+    <path d="M50 16 L60 34 L50 58 L40 34Z" fill="#1A0F36" stroke="#E7C870" stroke-width="1"/>
+    <ellipse cx="50" cy="33" rx="6.5" ry="4" fill="#E7C870"/>
+    <ellipse cx="50" cy="33" rx="1.6" ry="3.4" fill="#1A0F36"/>
+    <g fill="#B993FF" opacity=".8"><circle cx="18" cy="60" r="1"/><circle cx="84" cy="62" r="1.2"/><circle cx="12" cy="14" r=".8"/><circle cx="90" cy="10" r=".9"/></g>
+  </symbol>
+  <symbol id="art-coral" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-dusk)"/>
+    <path d="M0 18 Q20 8 40 16 T80 12 T100 16 V0 H0Z" fill="#2B2850" opacity=".7"/>
+    <path d="M62 4 L56 20 L61 20 L54 34" fill="none" stroke="#FFF2C4" stroke-width="1.4" stroke-linejoin="round"/>
+    <path d="M0 58 Q25 50 50 56 T100 52 V72 H0Z" fill="#5A2E3E"/>
+    <g fill="none" stroke="#FF6F61" stroke-width="3.2" stroke-linecap="round"><path d="M36 60 C36 48 30 42 24 34"/><path d="M36 52 C42 44 48 40 52 30"/><path d="M30 44 C26 42 22 42 18 44"/><path d="M45 42 C50 40 54 41 58 44"/></g>
+    <g fill="none" stroke="#FFA08F" stroke-width="1.8" stroke-linecap="round"><path d="M24 34 C22 30 23 27 25 25"/><path d="M52 30 C52 26 54 24 57 23"/></g>
+    <g fill="#FFE1A8" opacity=".85"><circle cx="18" cy="44" r="1.4"/><circle cx="58" cy="44" r="1.4"/><circle cx="25" cy="25" r="1.4"/><circle cx="57" cy="23" r="1.4"/></g>
+    <path d="M70 60 Q80 46 90 60Z" fill="#3E1F2C"/>
+  </symbol>
+  <symbol id="art-sail" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-sea)"/>
+    <circle cx="20" cy="18" r="8" fill="#FFF0A8"/>
+    <path d="M56 8 V48" stroke="#5B3A22" stroke-width="1.6"/>
+    <path d="M57 10 Q76 22 74 44 L57 44Z" fill="#FFFFFF"/>
+    <path d="M55 14 Q42 28 44 44 L55 44Z" fill="#F4E9D6"/>
+    <path d="M57 10 L66 8 L57 6Z" fill="#E5413A"/>
+    <path d="M36 46 H80 L74 54 H42Z" fill="#7A4A26"/>
+    <g fill="none" stroke="#E8F7FF" stroke-width="1.3" stroke-linecap="round" opacity=".85"><path d="M4 58 q6 -3 12 0 t12 0"/><path d="M60 62 q6 -3 12 0 t12 0"/><path d="M30 66 q6 -3 12 0"/></g>
+    <g fill="none" stroke="#24405C" stroke-width="1" stroke-linecap="round"><path d="M80 16 q2 -2 4 0 q2 -2 4 0"/><path d="M86 24 q1.5 -1.5 3 0 q1.5 -1.5 3 0"/></g>
+  </symbol>
+  <symbol id="i-chip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M9 15.5h6M10 6h4"/><rect x="9" y="9" width="6" height="4" rx="1"/></g></symbol>
+  <symbol id="i-offline" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 8.5a14 14 0 0 1 4.6-2.8M10.5 5.1a14 14 0 0 1 11 3.4M5.5 12a9 9 0 0 1 3.6-2M14.6 10.2A9 9 0 0 1 18.5 12M9 15.5a4.5 4.5 0 0 1 6 0"/><circle cx="12" cy="19" r="1" fill="currentColor"/><path d="M3 3l18 18"/></g></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/></g></symbol>
+  <symbol id="i-stack" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="12" height="15" rx="2"/><path d="M4 7v11a3 3 0 0 0 3 3h9"/></g></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-5 4 3 8-8"/><path d="M15 7h5v5"/></g></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></g></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="mark" viewBox="0 0 32 32">
+    <rect x="3" y="6" width="19" height="23" rx="4" fill="#1E48F5"/>
+    <g fill="#F4F6FB"><circle cx="6.5" cy="11.5" r="1.4"/><circle cx="6.5" cy="17.5" r="1.4"/><circle cx="6.5" cy="23.5" r="1.4"/></g>
+    <g transform="rotate(12 21 14)"><rect x="13.5" y="2.5" width="14" height="19" rx="2.6" fill="#FFD447" stroke="#0B1433" stroke-width="1.6"/><rect x="16" y="5.5" width="9" height="6.5" rx="1" fill="#0B1433" opacity=".85"/></g>
+  </symbol>
+</svg>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Voidbinder Startseite"><svg aria-hidden="true"><use href="#mark"/></svg>Voidbinder</a>
+    <nav aria-label="Hauptnavigation"><ul class="nav-links">
+      <li><a href="#spiele">Spiele</a></li>
+      <li><a href="#scanner">Scanner</a></li>
+      <li><a href="#preise">Preise</a></li>
+      <li><a href="#streamer">Streamer</a></li>
+    </ul></nav>
+    <a class="btn btn--primary" href="#warteliste"><span class="nav-long">Auf die&nbsp;</span>Warteliste</a>
+  </div>
+</header>
+
+<main id="top">
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div>
+      <h1>Deine ganze Sammlung. Eine App. <span class="accent">Mit echten Preisen.</span></h1>
+      <p class="lead">Pokémon, Yu-Gi-Oh!, Magic und One Piece in einer Mappe: scannen, bewerten, Decks bauen. Offline, auf Deutsch, mit Cardmarket-Preisen.</p>
+      <div class="cta">
+        <a class="btn btn--primary" href="#warteliste">Auf die Warteliste <svg aria-hidden="true"><use href="#i-arrow"/></svg></a>
+        <a class="btn btn--ghost" href="#open-source"><svg aria-hidden="true"><use href="#i-code"/></svg>Quellcode ansehen</a>
+      </div>
+      <ul class="trust" aria-label="Kurz gesagt">
+        <li style="--c:var(--blue)">Open Source</li>
+        <li style="--c:var(--pk)">Aus Deutschland</li>
+        <li style="--c:var(--ok)">Offline</li>
+        <li style="--c:var(--op)">4 Spiele</li>
+      </ul>
+    </div>
+
+    <div class="hero-visual" role="img" aria-label="Handy scannt die Beispielkarte Glimmerfuchs und zeigt sie mit Preis an, dahinter eine Deckliste">
+      <div class="mat">
+        <span class="field f-pk"></span><span class="field f-yg"></span><span class="field f-mg"></span><span class="field f-op"></span>
+      </div>
+      <div class="loose loose--a"><div class="tc tc--yg"><div class="tc-in"><div class="tc-top">Nebelwächter</div><div class="tc-art"><svg><use href="#art-warden"/></svg></div><div class="tc-type">Schatten / Effekt</div><div class="tc-text"><em>Wird er aufgedeckt, schweigt das Feld.</em></div><div class="tc-foot"><span>NBW-017</span><i></i></div></div><span class="tc-holo"></span></div></div>
+      <div class="loose loose--b"><div class="tc tc--mg"><div class="tc-in"><div class="tc-top">Sturmkoralle</div><div class="tc-art"><svg><use href="#art-coral"/></svg></div><div class="tc-type">Wesen · Riffhüter</div><div class="tc-text"><em>Sie wächst nur, wenn der Himmel bricht.</em></div><div class="tc-foot"><span>118/274</span><i></i></div></div><span class="tc-holo"></span></div></div>
+
+      <div class="phone phone--back">
+        <div class="screen">
+          <div class="sb"><span>9:41</span><span class="sb-r"><i></i><i></i><i></i><b></b></span></div>
+          <div class="app-h"><small>Deck</small><strong>Funkenrudel</strong><span>60/60 Karten · 41,70 €</span></div>
+          <div class="tabs"><span class="on">Liste</span><span>Kurve</span><span>Preise</span></div>
+          <div class="rows">
+            <div class="row row--t"><span class="q">4×</span><span class="thumb"></span><span class="nm"><b>Glimmerfuchs</b><small>Funkenflug</small></span><span class="pr">12,80</span></div>
+            <div class="row row--t"><span class="q">3×</span><span class="thumb" style="--t:#FF8F45"></span><span class="nm"><b>Funkenwelpe</b><small>Funkenflug</small></span><span class="pr">1,20</span></div>
+            <div class="row row--t"><span class="q">2×</span><span class="thumb" style="--t:#7FD3F5"></span><span class="nm"><b>Wellenotter</b><small>Gezeitenruf</small></span><span class="pr">4,60</span></div>
+            <div class="row row--t"><span class="q">4×</span><span class="thumb" style="--t:#9EDB8F"></span><span class="nm"><b>Moosigel</b><small>Waldlicht</small></span><span class="pr">0,80</span></div>
+            <div class="row row--t"><span class="q">2×</span><span class="thumb" style="--t:#C7CEDB"></span><span class="nm"><b>Forscherrucksack</b><small>Hilfe</small></span><span class="pr">2,10</span></div>
+            <div class="row row--t"><span class="q">1×</span><span class="thumb" style="--t:#9A7CF0"></span><span class="nm"><b>Dämmerluchs</b><small>Nachtpfad</small></span><span class="pr">9,90</span></div>
+          </div>
+          <div class="tabbar"><span><i></i>Mappe</span><span class="on"><i></i>Decks</span><span><i></i>Scan</span><span><i></i>Profil</span></div>
+        </div>
+      </div>
+
+      <div class="phone phone--front">
+        <div class="screen cam">
+          <div class="sb"><span>9:41</span><span class="sb-r"><i></i><i></i><i></i><b></b></span></div>
+          <div class="cam-top"><span class="pill">Pokémon</span><span class="pill pill--ok">Offline</span></div>
+          <div class="cam-view">
+            <div class="tc tc--pk scan-card"><div class="tc-in"><div class="tc-top">Glimmerfuchs<small>70</small></div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-type">Funkenwesen · Stufe 1</div><div class="tc-text"><b>Funkensprung<span>30</span></b><em>Sein Schweif leuchtet, wenn er Fremde wittert.</em></div><div class="tc-foot"><span>042/198</span><i></i></div></div><span class="tc-holo"></span></div>
+            <div class="det"><i></i><i></i><i></i><i></i><span class="det-tag">Erkannt</span></div>
+            <div class="scanline"></div>
+          </div>
+          <div class="sheet">
+            <div class="grab"></div>
+            <div class="res">
+              <div class="mini"><div class="tc tc--pk"><div class="tc-in"><div class="tc-top">&nbsp;</div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-text"></div></div></div></div>
+              <div><b>Glimmerfuchs</b><small>Funkenflug · 042/198</small><div class="tags"><span class="hl">Holo</span><span>Near Mint</span><span>DE</span></div></div>
+            </div>
+            <div class="prices">
+              <div><small>Cardmarket</small><strong>3,20 €</strong></div>
+              <div><small>TCGplayer</small><strong>3.60 $</strong></div>
+            </div>
+            <span class="add">Zur Sammlung</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="callout"><span class="ic"><svg><use href="#i-offline"/></svg></span><span>Ohne Netz erkannt<small>Bilderkennung läuft auf dem Handy</small></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- GAMES -->
+<section class="sec" id="spiele" style="padding-top:clamp(24px,4vw,56px)">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="eyebrow">Spiele</span><h2 class="h2">Vier Spiele, eine Mappe.</h2></div>
+      <p class="lead">Jedes Spiel hat seine eigenen Sets, Nummern und Varianten. Voidbinder kennt sie alle und sortiert deine Karten so, wie du sie im Ordner hast.</p>
+    </div>
+    <div class="games">
+      <article class="game game--pk">
+        <div class="stage"><div class="tc tc--pk"><div class="tc-in"><div class="tc-top">Glimmerfuchs<small>70</small></div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-type">Funkenwesen · Stufe 1</div><div class="tc-text"><b>Funkensprung<span>30</span></b><em>Sein Schweif leuchtet, wenn er Fremde wittert.</em></div><div class="tc-foot"><span>042/198</span><i></i></div></div><span class="tc-holo"></span></div></div>
+        <div><h3>Pokémon</h3><p>Sets, Nummern und Varianten bis zum Reverse Holo, in deutscher und englischer Ausgabe.</p></div>
+      </article>
+      <article class="game game--yg">
+        <div class="stage"><div class="tc tc--yg"><div class="tc-in"><div class="tc-top">Nebelwächter</div><div class="tc-art"><svg><use href="#art-warden"/></svg></div><div class="tc-type">Schatten / Effekt</div><div class="tc-text"><em>Wird diese Karte aufgedeckt, kann für eine Runde keine Falle aktiviert werden.</em></div><div class="tc-foot"><span>NBW-DE017</span><i></i></div></div><span class="tc-holo"></span></div></div>
+        <div><h3>Yu-Gi-Oh!</h3><p>Seltenheiten und Erstauflagen erkennt der Scanner mit, damit dein Ordner richtig bewertet ist.</p></div>
+      </article>
+      <article class="game game--mg">
+        <div class="stage"><div class="tc tc--mg"><div class="tc-in"><div class="tc-top">Sturmkoralle</div><div class="tc-art"><svg><use href="#art-coral"/></svg></div><div class="tc-type">Wesen · Riffhüter</div><div class="tc-text"><em>Wenn ein Gewitter beginnt, erhält jede Koralle +1/+1.</em></div><div class="tc-foot"><span>118/274</span><i></i></div></div><span class="tc-holo"></span></div></div>
+        <div><h3>Magic: The Gathering</h3><p>Foil oder nicht: alle Drucke einer Karte nebeneinander, mit Preis pro Edition.</p></div>
+      </article>
+      <article class="game game--op">
+        <span class="soon">Kommt später</span>
+        <div class="stage"><div class="tc tc--op"><div class="tc-in"><div class="tc-top">Salzwindsegler<small>5</small></div><div class="tc-art"><svg><use href="#art-sail"/></svg></div><div class="tc-type">Crew · Hafenstadt</div><div class="tc-text"><em>Wer gegen den Wind segelt, kommt als Erster an.</em></div><div class="tc-foot"><span>SW1-031</span><i></i></div></div><span class="tc-holo"></span></div></div>
+        <div><h3>One Piece</h3><p>Steht auf der Liste. Sag uns bei der Anmeldung, wenn du darauf wartest.</p></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- SCANNER -->
+<section class="scanner sec" id="scanner">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Scanner</span>
+      <h2 class="h2">Karte vor die Kamera, fertig.</h2>
+      <p class="lead">Kein Abtippen, keine Suche nach dem richtigen Set. Die App liest die Karte, findet den Druck und schlägt dir die passende Variante vor.</p>
+      <ul class="facts">
+        <li><span class="ic"><svg aria-hidden="true"><use href="#i-chip"/></svg></span>Nummer und Set werden auf dem Handy erkannt</li>
+        <li><span class="ic"><svg aria-hidden="true"><use href="#i-offline"/></svg></span>Funktioniert ohne Netz</li>
+        <li><span class="ic"><svg aria-hidden="true"><use href="#i-layers"/></svg></span>Varianten mit Preis zur Auswahl</li>
+      </ul>
+    </div>
+    <div class="scan-stage" role="img" aria-label="Kamerasucher erkennt die Beispielkarte Glimmerfuchs, Nummer 042/198, 3,20 Euro">
+      <div class="vf">
+        <div class="vf-hud"><span class="rec">Live-Erkennung</span><span>Set: Funkenflug</span></div>
+        <div class="vf-target">
+          <div class="tc tc--pk"><div class="tc-in"><div class="tc-top">Glimmerfuchs<small>70</small></div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-type">Funkenwesen · Stufe 1</div><div class="tc-text"><b>Funkensprung<span>30</span></b><em>Sein Schweif leuchtet, wenn er Fremde wittert.</em></div><div class="tc-foot"><span>042/198</span><i></i></div></div><span class="tc-holo"></span>
+            <div class="numbox"></div>
+          </div>
+          <div class="det"><i></i><i></i><i></i><i></i></div>
+        </div>
+        <div class="chip"><span class="ok"><svg><use href="#i-check"/></svg></span>Glimmerfuchs · <span class="mono">042/198</span> · <span class="mono">3,20 €</span></div>
+      </div>
+      <div class="variants">
+        <h3>Varianten <span>3 Drucke</span></h3>
+        <div class="var"><span class="rb"></span><span>Normal<small>Funkenflug</small></span><span class="p">1,10 €</span></div>
+        <div class="var on"><span class="rb"></span><span>Holo<small>Funkenflug</small></span><span class="p">3,20 €</span></div>
+        <div class="var"><span class="rb"></span><span>Reverse Holo<small>Funkenflug</small></span><span class="p">2,40 €</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICES -->
+<section class="prices-sec sec" id="preise">
+  <div class="wrap">
+    <div>
+      <span class="eyebrow">Preise</span>
+      <h2 class="h2">Was ist deine Sammlung wert?</h2>
+      <p class="lead">Jede Karte bekommt ihren Tagespreis, die Mappe zählt mit. Du siehst auf einen Blick, was im Ordner steckt und welche Karte sich bewegt.</p>
+      <div class="worth">
+        <small>Sammlungswert</small>
+        <strong>1.284,50 €</strong>
+        <div class="meta"><span>612 Karten in 3 Spielen</span><span><b>+38,20 €</b> in 90 Tagen</span></div>
+      </div>
+      <p class="fine">Preise von Cardmarket und TCGplayer, Stand des Tages. Zustandspreise sind Schätzungen.</p>
+    </div>
+    <div class="panel">
+      <div class="panel-top">
+        <div class="tc tc--pk"><div class="tc-in"><div class="tc-top">Glimmerfuchs<small>70</small></div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-type">Funkenwesen · Stufe 1</div><div class="tc-text"><b>Funkensprung<span>30</span></b><em>Sein Schweif leuchtet, wenn er Fremde wittert.</em></div><div class="tc-foot"><span>042/198</span><i></i></div></div><span class="tc-holo"></span></div>
+        <div>
+          <h3>Glimmerfuchs</h3>
+          <div class="sub">Funkenflug · 042/198 · Holo · NM</div>
+          <div class="src">
+            <span>Cardmarket <b>3,20 €</b></span>
+            <span>TCGplayer <b>3.60 $</b></span>
+          </div>
+        </div>
+      </div>
+      <div class="chart">
+        <div class="chart-h"><span>Preisverlauf, 90 Tage</span><span>Cardmarket, Trend</span></div>
+        <svg viewBox="0 0 600 150" role="img" aria-label="Preis stieg in 90 Tagen von etwa 2,80 auf 3,20 Euro">
+          <g stroke="var(--line)" stroke-width="1" stroke-dasharray="3 5"><path d="M0 30 H600"/><path d="M0 125 H600"/></g>
+          <text x="0" y="22" fill="var(--ink-3)" font-family="JetBrains Mono, monospace" font-size="16">3,40 €</text>
+          <text x="0" y="116" fill="var(--ink-3)" font-family="JetBrains Mono, monospace" font-size="16">2,80 €</text>
+          <path d="M0 118 L13 114 L26 119 L39 110 L52 112 L65 105 L78 108 L91 102 L104 106 L117 99 L130 103 L143 96 L156 98 L169 104 L182 100 L195 93 L208 96 L221 90 L234 93 L247 87 L260 92 L273 97 L286 94 L299 88 L312 84 L325 89 L338 82 L351 79 L364 83 L377 77 L390 81 L403 75 L416 72 L429 76 L442 70 L455 67 L468 72 L481 66 L494 63 L507 68 L520 61 L533 58 L546 63 L559 57 L572 55 L585 59 L600 54 V150 H0Z" fill="url(#g-area)"/>
+          <path d="M0 118 L13 114 L26 119 L39 110 L52 112 L65 105 L78 108 L91 102 L104 106 L117 99 L130 103 L143 96 L156 98 L169 104 L182 100 L195 93 L208 96 L221 90 L234 93 L247 87 L260 92 L273 97 L286 94 L299 88 L312 84 L325 89 L338 82 L351 79 L364 83 L377 77 L390 81 L403 75 L416 72 L429 76 L442 70 L455 67 L468 72 L481 66 L494 63 L507 68 L520 61 L533 58 L546 63 L559 57 L572 55 L585 59 L600 54" fill="none" stroke="var(--blue)" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>
+          <circle cx="600" cy="54" r="5.5" fill="var(--surface)" stroke="var(--blue)" stroke-width="2.6"/>
+        </svg>
+        <div class="chart-x"><span>vor 90 Tagen</span><span>heute 3,20 €</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RESELLER -->
+<section class="reseller sec" id="haendler">
+  <div class="wrap">
+    <div class="res-visual" role="img" aria-label="Massenscan in der App: 214 Karten erfasst, Liste mit Preisen, Export als Cardmarket-CSV">
+      <div class="phone phone--static">
+        <div class="screen">
+          <div class="sb"><span>9:41</span><span class="sb-r"><i></i><i></i><i></i><b></b></span></div>
+          <div class="app-h"><small>Massenscan</small><strong>Stapel Oktober</strong><span>Läuft, nächste Karte unter die Kamera</span></div>
+          <div class="bulk"><div class="bulk-top"><span>214 von ~300 Karten</span><b>486,90 €</b></div><div class="bar"><i></i></div></div>
+          <div class="rows">
+            <div class="row"><span class="thumb"></span><span class="nm"><b>Glimmerfuchs</b><small>042/198 · Holo · NM</small></span><span class="pr">3,20</span></div>
+            <div class="row"><span class="thumb" style="--t:#9A7CF0"></span><span class="nm"><b>Nebelwächter</b><small>NBW-DE017 · 1. Aufl.</small></span><span class="pr">18,40</span></div>
+            <div class="row"><span class="thumb" style="--t:#FF8F45"></span><span class="nm"><b>Sturmkoralle</b><small>118/274 · Foil · EX</small></span><span class="pr">6,75</span></div>
+            <div class="row"><span class="thumb" style="--t:#7FD3F5"></span><span class="nm"><b>Wellenotter</b><small>077/198 · NM</small></span><span class="pr">2,30</span></div>
+            <div class="row"><span class="thumb" style="--t:#9EDB8F"></span><span class="nm"><b>Moosigel</b><small>012/198 · NM</small></span><span class="pr">0,20</span></div>
+          </div>
+          <span class="export">Als Cardmarket-CSV exportieren</span>
+          <div class="tabbar"><span class="on"><i></i>Mappe</span><span><i></i>Decks</span><span><i></i>Scan</span><span><i></i>Profil</span></div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <span class="eyebrow">Für Händler</span>
+      <h2 class="h2">Bestand in Minuten erfasst.</h2>
+      <p class="lead">Ankauf auf dem Tisch, Kiste aus dem Keller, Ware für den nächsten Markt: Karte für Karte unter die Kamera, die Liste schreibt sich selbst.</p>
+      <ul class="rfacts">
+        <li><span class="ic"><svg aria-hidden="true"><use href="#i-stack"/></svg></span><div><h3>Massenscan</h3><p>Karten nacheinander unter die Kamera schieben. Die App zählt mit, erkennt Dubletten und legt Stapel an.</p></div></li>
+        <li><span class="ic"><svg aria-hidden="true"><use href="#i-trend"/></svg></span><div><h3>Preisverlauf pro Karte</h3><p>Jede Karte im Bestand hat ihren Verlauf. Du siehst, was steigt, und entscheidest, wann du verkaufst.</p></div></li>
+        <li><span class="ic"><svg aria-hidden="true"><use href="#i-file"/></svg></span><div><h3>Export als Cardmarket-CSV</h3><p>Bestand als CSV im Cardmarket-Format, mit Zustand, Sprache und Anzahl. Hochladen statt abtippen.</p></div></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- STREAMER -->
+<section class="streamer sec" id="streamer">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="eyebrow">Streamer Kit</span><h2 class="h2">Pack Opening im Stream, jeder Pull mit Preis im Overlay.</h2></div>
+      <p class="lead">Ein Browser-Overlay für OBS: Du scannst die gezogene Karte, der Chat sieht Name, Preis und wie weit der Pack schon gegen den Boxpreis steht.<br><a href="#streamer">Monday Pack Attack auf Twitch <svg width="16" height="16" aria-hidden="true"><use href="#i-arrow"/></svg></a></p>
+    </div>
+    <div class="stream" role="img" aria-label="Beispiel eines Stream-Overlays: letzter Pull Nebelwächter für 18,40 Euro, gezogen 46,90 Euro von 89,00 Euro Boxpreis">
+      <div class="table"></div>
+      <div class="pack"><span></span></div>
+      <div class="fan">
+        <div class="tc tc--mg"><div class="tc-in"><div class="tc-top">Sturmkoralle</div><div class="tc-art"><svg><use href="#art-coral"/></svg></div><div class="tc-type">Wesen · Riffhüter</div><div class="tc-text"><em>Sie wächst nur, wenn der Himmel bricht.</em></div><div class="tc-foot"><span>118/274</span><i></i></div></div></div>
+        <div class="tc tc--yg"><div class="tc-in"><div class="tc-top">Nebelwächter</div><div class="tc-art"><svg><use href="#art-warden"/></svg></div><div class="tc-type">Schatten / Effekt</div><div class="tc-text"><em>Wird er aufgedeckt, schweigt das Feld.</em></div><div class="tc-foot"><span>NBW-017</span><i></i></div></div><span class="tc-holo" style="background-position:30% 0"></span></div>
+        <div class="tc tc--pk"><div class="tc-in"><div class="tc-top">Glimmerfuchs<small>70</small></div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-type">Funkenwesen · Stufe 1</div><div class="tc-text"><b>Funkensprung<span>30</span></b></div><div class="tc-foot"><span>042/198</span><i></i></div></div></div>
+      </div>
+      <div class="live"><span>LIVE</span><em>1.204 Zuschauer</em></div>
+      <div class="cam-bubble"></div>
+      <div class="ovl">
+        <div class="pull">
+          <div class="tc tc--yg"><div class="tc-in"><div class="tc-top">&nbsp;</div><div class="tc-art"><svg><use href="#art-warden"/></svg></div><div class="tc-text"></div></div></div>
+          <div><small>Letzter Pull</small><b>Nebelwächter</b><strong>18,40 €</strong></div>
+        </div>
+        <div class="tot">
+          <small>Gezogen gegen Boxpreis</small>
+          <div class="nums"><b>46,90 €</b><span>von 89,00 €</span></div>
+          <div class="bar"><i></i></div>
+        </div>
+        <div class="log">
+          <small>Pack 7 von 18</small>
+          <div><span>Sturmkoralle</span><span>6,75 €</span></div>
+          <div><span>Glimmerfuchs</span><span>3,20 €</span></div>
+          <div><span>Wellenotter</span><span>2,30 €</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OPEN SOURCE -->
+<section class="os sec" id="open-source" style="padding-top:0">
+  <div class="wrap">
+    <div class="sec-head">
+      <div><span class="eyebrow">Open Source</span><h2 class="h2">Offen. Und trotzdem bequem.</h2></div>
+      <p class="lead">Der komplette Code liegt offen. Du kannst Voidbinder selbst betreiben oder uns den Server überlassen.</p>
+    </div>
+    <div class="plans">
+      <article class="plan plan--self">
+        <small>Selbst hosten</small>
+        <h3>0 €</h3>
+        <p>Auf deinem Rechner, deinem NAS oder deinem Server. Deine Daten bleiben, wo du sie hinstellst, und du kannst jede Zeile nachlesen.</p>
+        <div class="term"><span>$</span> git clone voidbinder<br><span>$</span> <b>docker compose up -d</b></div>
+        <a class="btn btn--ghost" href="#open-source"><svg aria-hidden="true"><use href="#i-code"/></svg>Quellcode ansehen</a>
+      </article>
+      <article class="plan plan--host">
+        <small>Gehostet</small>
+        <h3>Weniger als ein Booster <span class="soft">im Monat.</span></h3>
+        <p>Wir betreiben Server, Backups und den täglichen Preisabgleich in Deutschland. Du scannst einfach.</p>
+        <ul class="checks"><li>Sync auf allen Geräten</li><li>Tägliche Preise</li><li>Backups</li><li>Server in Deutschland</li></ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- WAITLIST -->
+<section class="wl" id="warteliste">
+  <div class="wrap">
+    <div class="wl-card">
+      <div>
+        <h2 class="h2">Sei bei der Beta dabei.</h2>
+        <p class="lead">Wir schreiben dir, sobald die Beta startet. Eine Mail, kein Newsletter.</p>
+        <form id="wl-form" novalidate>
+          <div class="field-row">
+            <label class="sr" for="wl-mail">E-Mail-Adresse</label>
+            <input id="wl-mail" type="email" name="email" autocomplete="email" placeholder="du@beispiel.de" required>
+            <button class="btn btn--primary" type="submit">Eintragen</button>
+          </div>
+          <label class="consent"><input type="checkbox" name="consent" required><span>Ich bin einverstanden, dass Voidbinder meine E-Mail-Adresse speichert, um mich über den Beta-Start zu informieren.</span></label>
+          <p class="thanks" role="status">Danke, du stehst auf der Liste.</p>
+        </form>
+      </div>
+      <div class="wl-art" aria-hidden="true">
+        <span class="field a"></span><span class="field b"></span><span class="field c"></span><span class="field d"></span>
+        <div class="tc tc--pk"><div class="tc-in"><div class="tc-top">Glimmerfuchs<small>70</small></div><div class="tc-art"><svg><use href="#art-fox"/></svg></div><div class="tc-type">Funkenwesen · Stufe 1</div><div class="tc-text"><b>Funkensprung<span>30</span></b><em>Sein Schweif leuchtet, wenn er Fremde wittert.</em></div><div class="tc-foot"><span>042/198</span><i></i></div></div><span class="tc-holo"></span></div>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="f-top">
+      <a class="brand" href="#top"><svg aria-hidden="true"><use href="#mark"/></svg>Voidbinder</a>
+      <ul class="f-links">
+        <li><a href="#">Impressum</a></li>
+        <li><a href="#">Datenschutz</a></li>
+        <li><a href="#">GitHub</a></li>
+        <li><a href="#">Twitch</a></li>
+      </ul>
+      <span class="powered">Powered by <b>Voidcom</b></span>
+    </div>
+    <div class="rights">
+      <span>Pokémon, Yu-Gi-Oh!, Magic: The Gathering und One Piece sind Marken ihrer jeweiligen Inhaber. Voidbinder ist ein unabhängiges Projekt.</span>
+      <span>© 2026 Voidbinder · Betrieben in Deutschland</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var f=document.getElementById('wl-form');
+  f.addEventListener('submit',function(e){
+    e.preventDefault();
+    var m=f.email, c=f.consent;
+    if(!m.checkValidity()){m.focus();m.setCustomValidity('');m.reportValidity();return;}
+    if(!c.checked){c.focus();c.reportValidity();return;}
+    f.classList.add('done');
+  });
+})();
+</script>
+
+</html>

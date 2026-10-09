@@ -12,7 +12,7 @@ const links = [
   { href: `${home}#games`, label: d.nav.games },
   { href: `${home}#scanner`, label: d.nav.scanner },
   { href: `${home}#prices`, label: d.nav.prices },
-  { href: `${home}#open-source`, label: d.nav.openSource },
+  { href: `${home}#streamer`, label: d.nav.streamer },
 ];
 const { pathname: path, search } = Astro.url;
 ---
@@ -46,91 +46,126 @@ const { pathname: path, search } = Astro.url;
           ))
         }
       </ul>
-      <a class="btn btn-primary btn-sm" href={`${home}#waitlist`}>{d.nav.cta}</a>
+      <a class="btn btn--primary cta" href={`${home}#waitlist`}
+        ><span class="cta-long">{d.nav.cta}</span><span class="cta-short">{d.nav.ctaShort}</span></a
+      >
     </div>
   </nav>
 </header>
 
 <style>
   .nav {
-    position: fixed;
-    inset: 0 0 auto;
-    z-index: 10;
-    border-bottom: 1px solid var(--outline);
-    background: rgba(8, 8, 8, 0.78);
-    -webkit-backdrop-filter: var(--glass-blur);
-    backdrop-filter: var(--glass-blur);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: saturate(1.4) blur(14px);
+    backdrop-filter: saturate(1.4) blur(14px);
   }
 
   .nav-inner {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--space-5);
+    gap: 28px;
     height: var(--nav-height);
   }
 
   .nav-links {
     display: flex;
-    gap: var(--space-6);
+    gap: 26px;
+    margin: 0 0 0 auto;
+    padding: 0;
+    list-style: none;
   }
 
-  .nav-links a,
-  .lang a {
+  .nav-links a {
     display: inline-flex;
     align-items: center;
     min-height: 24px;
-    color: var(--on-surface-muted);
-    font-size: var(--text-small);
+    color: var(--ink-2);
+    font: 500 15px/1 var(--f-body);
     text-decoration: none;
   }
 
   .nav-links a:hover,
   .lang a:hover {
-    color: var(--on-surface);
+    color: var(--ink);
   }
 
   .nav-end {
     display: flex;
     align-items: center;
-    gap: var(--space-5);
+    gap: 12px;
   }
 
   .lang {
     display: flex;
-    gap: var(--space-1);
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
   .lang a {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
     min-width: 32px;
     min-height: 32px;
-    font-size: var(--label-size);
-    font-weight: 500;
-    letter-spacing: var(--label-tracking);
+    color: var(--ink-2);
+    font: 600 13px/1 var(--f-display);
+    letter-spacing: 0.04em;
+    text-decoration: none;
   }
 
   .lang a[aria-current] {
-    color: var(--on-surface);
+    color: var(--ink);
     text-decoration: underline;
-    text-decoration-color: var(--primary);
+    text-decoration-color: var(--pk);
+    text-decoration-thickness: 3px;
     text-underline-offset: 6px;
   }
 
-  @media (max-width: 879px) {
+  .cta {
+    min-height: 0;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14.5px;
+  }
+
+  .cta-short {
+    display: none;
+  }
+
+  @media (max-width: 820px) {
     .nav-links {
       display: none;
+    }
+
+    .nav-end {
+      margin-left: auto;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .cta-long {
+      display: none;
+    }
+
+    .cta-short {
+      display: inline;
     }
   }
 
   /* 320 to 379 px: logo, language switch and button must fit without clipping (WCAG 1.4.10). */
   @media (max-width: 379px) {
     .nav-inner {
-      gap: var(--space-3);
+      gap: 12px;
     }
 
     .nav-end {
-      gap: var(--space-2);
+      gap: 4px;
     }
   }
 

@@ -76,5 +76,6 @@ const jsonLd = {
 <meta name="twitter:title" content={title} />
 <meta name="twitter:description" content={description} />
 <meta name="twitter:image" content={ogImage} />
-<meta name="theme-color" content="#080808" />
+<meta name="theme-color" content="#F4F6FB" media="(prefers-color-scheme: light)" />
+<meta name="theme-color" content="#0A0F1E" media="(prefers-color-scheme: dark)" />
 <script type="application/ld+json" set:html={JSON.stringify(jsonLd).replaceAll('<', '\\u003c')} />

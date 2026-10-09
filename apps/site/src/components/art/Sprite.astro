@@ -1,0 +1,126 @@
+---
+// Artwork of the invented example cards (never real card art), referenced with <use href="#art-…">.
+// Rendered once per page that shows cards. Zero-size, not display: none, so the gradients resolve.
+---
+
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false">
+  <defs>
+    <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1"
+      ><stop offset="0" stop-color="#9ED8FF"></stop><stop offset="1" stop-color="#E4F6FF"
+      ></stop></linearGradient
+    >
+    <radialGradient id="g-void" cx=".5" cy=".45" r=".7"
+      ><stop offset="0" stop-color="#7B4FD8"></stop><stop offset=".55" stop-color="#2B1656"
+      ></stop><stop offset="1" stop-color="#0E0820"></stop></radialGradient
+    >
+    <linearGradient id="g-dusk" x1="0" y1="0" x2="0" y2="1"
+      ><stop offset="0" stop-color="#3E3A6E"></stop><stop offset=".45" stop-color="#C8607A"
+      ></stop><stop offset=".8" stop-color="#F7A65A"></stop><stop offset="1" stop-color="#FFD58A"
+      ></stop></linearGradient
+    >
+    <linearGradient id="g-sea" x1="0" y1="0" x2="0" y2="1"
+      ><stop offset="0" stop-color="#7FD3F5"></stop><stop offset=".55" stop-color="#CDEFFA"
+      ></stop><stop offset=".56" stop-color="#2C8FC4"></stop><stop offset="1" stop-color="#145C8E"
+      ></stop></linearGradient
+    >
+    <linearGradient id="g-fox" x1="0" y1="0" x2="1" y2="1"
+      ><stop offset="0" stop-color="#FFB25C"></stop><stop offset="1" stop-color="#F06A1E"
+      ></stop></linearGradient
+    >
+  </defs>
+  <symbol id="art-fox" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-sky)"></rect>
+    <circle cx="80" cy="15" r="9" fill="#FFF4B8"></circle>
+    <path d="M0 50 Q24 40 50 47 T100 43 V72 H0Z" fill="#9EDB8F"></path>
+    <path d="M0 60 Q30 52 62 60 T100 57 V72 H0Z" fill="#5FBF6B"></path>
+    <path d="M57 50 C73 49 84 35 76 22 C73 33 64 39 52 42Z" fill="url(#g-fox)"></path>
+    <path d="M76 22 C75 28 72 31 68 33 C74 33 78 28 76 22Z" fill="#FFF7E6"></path>
+    <ellipse cx="46" cy="49" rx="14" ry="8.5" fill="url(#g-fox)"></ellipse>
+    <path d="M27 41 L34 23 L39.5 33 L46.5 22 L48.5 39 Q43 47 33 45Z" fill="url(#g-fox)"></path>
+    <path d="M30 42 Q36 46 44 43 L41 46 Q35 48 30 42Z" fill="#FFF7E6"></path>
+    <circle cx="38.5" cy="37" r="1.7" fill="#1D1A2E"></circle>
+    <path d="M38 52 v6 M50 52 v6" stroke="#E0611A" stroke-width="2.6" stroke-linecap="round"
+    ></path>
+    <g fill="#FFFFFF"
+      ><path d="M18 18 l1.4 3.6 3.6 1.4 -3.6 1.4 -1.4 3.6 -1.4 -3.6 -3.6 -1.4 3.6 -1.4z"
+      ></path><path d="M60 14 l.9 2.3 2.3.9 -2.3.9 -.9 2.3 -.9 -2.3 -2.3 -.9 2.3 -.9z"
+      ></path><path d="M88 34 l.9 2.3 2.3.9 -2.3.9 -.9 2.3 -.9 -2.3 -2.3 -.9 2.3 -.9z"
+      ></path></g
+    >
+  </symbol>
+  <symbol id="art-warden" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-void)"></rect>
+    <g fill="none" stroke="#D8B45A" stroke-opacity=".5" stroke-width=".6"
+      ><circle cx="50" cy="34" r="27"></circle><circle cx="50" cy="34" r="21"></circle><path
+        d="M50 4 V64 M20 34 H80"></path></g
+    >
+    <path
+      d="M50 22 L22 12 L30 30 L14 34 L32 40 L26 56 L46 44Z"
+      fill="#3A2470"
+      stroke="#C9A24A"
+      stroke-width=".8"></path>
+    <path
+      d="M50 22 L78 12 L70 30 L86 34 L68 40 L74 56 L54 44Z"
+      fill="#3A2470"
+      stroke="#C9A24A"
+      stroke-width=".8"></path>
+    <path d="M50 16 L60 34 L50 58 L40 34Z" fill="#1A0F36" stroke="#E7C870" stroke-width="1"></path>
+    <ellipse cx="50" cy="33" rx="6.5" ry="4" fill="#E7C870"></ellipse>
+    <ellipse cx="50" cy="33" rx="1.6" ry="3.4" fill="#1A0F36"></ellipse>
+    <g fill="#B993FF" opacity=".8"
+      ><circle cx="18" cy="60" r="1"></circle><circle cx="84" cy="62" r="1.2"></circle><circle
+        cx="12"
+        cy="14"
+        r=".8"></circle><circle cx="90" cy="10" r=".9"></circle></g
+    >
+  </symbol>
+  <symbol id="art-coral" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-dusk)"></rect>
+    <path d="M0 18 Q20 8 40 16 T80 12 T100 16 V0 H0Z" fill="#2B2850" opacity=".7"></path>
+    <path
+      d="M62 4 L56 20 L61 20 L54 34"
+      fill="none"
+      stroke="#FFF2C4"
+      stroke-width="1.4"
+      stroke-linejoin="round"></path>
+    <path d="M0 58 Q25 50 50 56 T100 52 V72 H0Z" fill="#5A2E3E"></path>
+    <g fill="none" stroke="#FF6F61" stroke-width="3.2" stroke-linecap="round"
+      ><path d="M36 60 C36 48 30 42 24 34"></path><path d="M36 52 C42 44 48 40 52 30"></path><path
+        d="M30 44 C26 42 22 42 18 44"></path><path d="M45 42 C50 40 54 41 58 44"></path></g
+    >
+    <g fill="none" stroke="#FFA08F" stroke-width="1.8" stroke-linecap="round"
+      ><path d="M24 34 C22 30 23 27 25 25"></path><path d="M52 30 C52 26 54 24 57 23"></path></g
+    >
+    <g fill="#FFE1A8" opacity=".85"
+      ><circle cx="18" cy="44" r="1.4"></circle><circle cx="58" cy="44" r="1.4"></circle><circle
+        cx="25"
+        cy="25"
+        r="1.4"></circle><circle cx="57" cy="23" r="1.4"></circle></g
+    >
+    <path d="M70 60 Q80 46 90 60Z" fill="#3E1F2C"></path>
+  </symbol>
+  <symbol id="art-sail" viewBox="0 0 100 72">
+    <rect width="100" height="72" fill="url(#g-sea)"></rect>
+    <circle cx="20" cy="18" r="8" fill="#FFF0A8"></circle>
+    <path d="M56 8 V48" stroke="#5B3A22" stroke-width="1.6"></path>
+    <path d="M57 10 Q76 22 74 44 L57 44Z" fill="#FFFFFF"></path>
+    <path d="M55 14 Q42 28 44 44 L55 44Z" fill="#F4E9D6"></path>
+    <path d="M57 10 L66 8 L57 6Z" fill="#E5413A"></path>
+    <path d="M36 46 H80 L74 54 H42Z" fill="#7A4A26"></path>
+    <g fill="none" stroke="#E8F7FF" stroke-width="1.3" stroke-linecap="round" opacity=".85"
+      ><path d="M4 58 q6 -3 12 0 t12 0"></path><path d="M60 62 q6 -3 12 0 t12 0"></path><path
+        d="M30 66 q6 -3 12 0"></path></g
+    >
+    <g fill="none" stroke="#24405C" stroke-width="1" stroke-linecap="round"
+      ><path d="M80 16 q2 -2 4 0 q2 -2 4 0"></path><path d="M86 24 q1.5 -1.5 3 0 q1.5 -1.5 3 0"
+      ></path></g
+    >
+  </symbol>
+</svg>
+
+<style>
+  .sprite {
+    position: absolute;
+    overflow: hidden;
+  }
+</style>

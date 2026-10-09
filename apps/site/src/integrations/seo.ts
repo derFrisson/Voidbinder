@@ -60,22 +60,33 @@ function meta(html: string, property: string): string {
 
 async function loadFonts() {
   const require = createRequire(import.meta.url);
-  // Satori reads TTF/OTF/WOFF, not WOFF2, so the OG images use Fontsource's WOFF build of Inter.
-  const load = (weight: 400 | 500) =>
-    readFile(require.resolve(`@fontsource/inter/files/inter-latin-${weight}-normal.woff`));
+  // Satori reads TTF/OTF/WOFF, not WOFF2, so the OG images use Fontsource's WOFF builds of the
+  // site fonts: Sora for the title, Public Sans for the rest.
+  const load = (family: string, weight: number) =>
+    readFile(require.resolve(`@fontsource/${family}/files/${family}-latin-${weight}-normal.woff`));
   return [
-    { name: 'Inter', data: await load(400), weight: 400 as const, style: 'normal' as const },
-    { name: 'Inter', data: await load(500), weight: 500 as const, style: 'normal' as const },
+    { name: 'Sora', data: await load('sora', 700), weight: 700 as const, style: 'normal' as const },
+    {
+      name: 'Public Sans',
+      data: await load('public-sans', 400),
+      weight: 400 as const,
+      style: 'normal' as const,
+    },
+    {
+      name: 'Public Sans',
+      data: await load('public-sans', 600),
+      weight: 600 as const,
+      style: 'normal' as const,
+    },
   ];
 }
 
-// Brand tokens from src/styles/global.css (satori has no CSS variables).
-const bg = '#080808';
-const text = '#f4f4f2';
-const muted = 'rgba(244, 244, 242, 0.64)';
-const edge = 'rgba(244, 244, 242, 0.14)';
-const pink = '#f5b4be';
-const pinkFaint = 'rgba(245, 180, 190, 0.12)';
+// Brand tokens from src/styles/global.css, light theme (satori has no CSS variables).
+const bg = '#F4F6FB';
+const ink = '#0B1433';
+const ink2 = '#4B5577';
+const blue = '#1E48F5';
+const fields = { pk: '#FFD447', yg: '#9A7CF0', mg: '#FF8F45', op: '#F0544A' };
 
 type Node = { type: string; props: { style?: Record<string, unknown>; children?: unknown } };
 const div = (style: Record<string, unknown>, children?: unknown): Node => ({
@@ -83,30 +94,47 @@ const div = (style: Record<string, unknown>, children?: unknown): Node => ({
   props: { style: { display: 'flex', ...style }, children },
 });
 
-/** An empty 63:88 card: hairline frame, name bar, art window, text lines. Never artwork. */
-function card(rotate: number, left: number, accent: boolean): Node {
-  const line = accent ? pink : edge;
+/** A soft colour field of the hero, absolutely placed. */
+const field = (color: string, style: Record<string, unknown>): Node =>
+  div({ position: 'absolute', background: color, borderRadius: 36, ...style });
+
+/** The invented example card as plain shapes: yellow frame, sky art window, text box. No art. */
+function card(): Node {
   return div(
     {
       position: 'absolute',
-      left,
-      top: 40,
-      width: 252,
-      height: 352,
-      flexDirection: 'column',
-      padding: 22,
-      gap: 14,
-      border: `2px solid ${line}`,
-      borderRadius: 6,
-      background: accent ? pinkFaint : bg,
-      transform: `rotate(${rotate}deg)`,
+      left: 96,
+      top: 118,
+      width: 220,
+      height: 307,
+      padding: 10,
+      borderRadius: 14,
+      background: '#F2B705',
+      transform: 'rotate(-5deg)',
+      boxShadow: '0 24px 40px -18px rgba(11, 20, 51, 0.55)',
     },
     [
-      div({ width: 120, height: 4, background: line }),
-      div({ height: 136, border: `2px solid ${line}`, borderRadius: 2 }),
-      div({ width: 200, height: 4, background: line }),
-      div({ width: 168, height: 4, background: line }),
-      div({ width: 120, height: 4, background: line }),
+      div(
+        {
+          flexDirection: 'column',
+          flexGrow: 1,
+          gap: 9,
+          padding: 9,
+          borderRadius: 8,
+          background: '#FFF8DB',
+        },
+        [
+          div({ width: 120, height: 12, borderRadius: 3, background: '#2B2100' }),
+          div({
+            height: 128,
+            borderRadius: 4,
+            background: 'linear-gradient(180deg, #9ED8FF, #E4F6FF 70%, #9EDB8F 70%)',
+            border: '4px solid #D99A00',
+          }),
+          div({ height: 16, borderRadius: 3, background: '#FFE58C' }),
+          div({ flexGrow: 1, borderRadius: 4, background: '#FFF1BE' }),
+        ],
+      ),
     ],
   );
 }
@@ -122,42 +150,76 @@ async function renderOgImage(
       width: '100%',
       height: '100%',
       background: bg,
-      color: text,
-      fontFamily: 'Inter',
+      color: ink,
+      fontFamily: 'Public Sans',
       padding: 72,
     },
     [
-      div({ flexDirection: 'column', width: 690, justifyContent: 'space-between' }, [
+      div({ flexDirection: 'column', width: 680, justifyContent: 'space-between' }, [
         div({ alignItems: 'center', gap: 16 }, [
-          div({ position: 'relative', width: 44, height: 44, background: pink, borderRadius: 4 }, [
+          div({ position: 'relative', width: 46, height: 46 }, [
             div({
               position: 'absolute',
-              left: 13,
-              top: 8,
-              width: 18,
-              height: 26,
-              background: bg,
-              borderRadius: 2,
+              left: 4,
+              top: 9,
+              width: 28,
+              height: 34,
+              borderRadius: 6,
+              background: blue,
+            }),
+            div({
+              position: 'absolute',
+              left: 20,
+              top: 2,
+              width: 21,
+              height: 28,
+              borderRadius: 4,
+              background: fields.pk,
+              border: `2.5px solid ${ink}`,
+              transform: 'rotate(12deg)',
             }),
           ]),
-          div({ fontSize: 32, fontWeight: 500, letterSpacing: '-0.02em' }, 'Voidbinder'),
-        ]),
-        div({ flexDirection: 'column', gap: 24 }, [
           div(
-            { fontSize: 60, fontWeight: 500, lineHeight: 1.08, letterSpacing: '-0.025em' },
+            { fontFamily: 'Sora', fontSize: 34, fontWeight: 700, letterSpacing: '-0.035em' },
+            'Voidbinder',
+          ),
+        ]),
+        div({ flexDirection: 'column', gap: 22 }, [
+          div(
+            {
+              fontFamily: 'Sora',
+              fontSize: 62,
+              fontWeight: 700,
+              lineHeight: 1.02,
+              letterSpacing: '-0.045em',
+            },
             heading,
           ),
-          div({ fontSize: 24, lineHeight: 1.45, color: muted }, description),
+          div({ fontSize: 25, lineHeight: 1.45, color: ink2 }, description),
         ]),
-        div(
-          { fontSize: 16, letterSpacing: '0.12em', color: muted, textTransform: 'uppercase' },
+        div({ alignItems: 'center', gap: 12, fontSize: 18, fontWeight: 600, color: ink2 }, [
+          div({ width: 12, height: 12, borderRadius: 3, background: blue }),
           'voidbinder.de · Pre-alpha',
-        ),
+        ]),
       ]),
       div({ position: 'relative', flexGrow: 1 }, [
-        card(-14, 60, false),
-        card(-4, 140, false),
-        card(8, 220, true),
+        field(fields.pk, {
+          left: 10,
+          top: 40,
+          width: 230,
+          height: 230,
+          transform: 'rotate(-4deg)',
+        }),
+        field(fields.yg, { right: -20, top: 0, width: 170, height: 200 }),
+        field(fields.mg, {
+          left: 40,
+          bottom: 20,
+          width: 200,
+          height: 190,
+          transform: 'rotate(3deg)',
+        }),
+        field(fields.op, { right: 0, bottom: 50, width: 150, height: 150, borderRadius: 75 }),
+        card(),
       ]),
     ],
   );

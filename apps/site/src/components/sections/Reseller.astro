@@ -1,0 +1,243 @@
+---
+import { amount, money, t, type Locale } from '../../i18n';
+import Phone from '../art/Phone.astro';
+import Icon from '../Icon.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale).reseller;
+const tabbar = t(locale).hero.tabbar;
+const icons = ['stack', 'trend', 'file'] as const;
+const rows = [
+  { thumb: '', name: 'Glimmerfuchs', meta: '042/198 · Holo · NM', price: 3.2 },
+  { thumb: 'violet', name: 'Nebelwächter', meta: `NBW-DE017 · ${d.screen.firstEdition}`, price: 18.4 },
+  { thumb: 'orange', name: 'Sturmkoralle', meta: '118/274 · Foil · EX', price: 6.75 },
+  { thumb: 'sea', name: 'Wellenotter', meta: '077/198 · NM', price: 2.3 },
+  { thumb: 'moss', name: 'Moosigel', meta: '012/198 · NM', price: 0.2 },
+];
+---
+
+<section class="reseller sec" id="resellers" aria-labelledby="reseller-title">
+  <div class="wrap">
+    <div class="res-visual" role="img" aria-label={d.art}>
+      <Phone class="phone--static">
+        <div class="app-h">
+          <small>{d.screen.label}</small><strong>{d.screen.title}</strong><span
+            >{d.screen.status}</span
+          >
+        </div>
+        <div class="bulk">
+          <div class="bulk-top">
+            <span>{d.screen.progress}</span><b>{money(locale, 486.9)}</b>
+          </div>
+          <div class="bar"><i></i></div>
+        </div>
+        <div class="rows">
+          {
+            rows.map((r) => (
+              <div class="row">
+                <span class:list={['thumb', r.thumb && `thumb--${r.thumb}`]} />
+                <span class="nm">
+                  <b>{r.name}</b>
+                  <small>{r.meta}</small>
+                </span>
+                <span class="pr">{amount(locale, r.price)}</span>
+              </div>
+            ))
+          }
+        </div>
+        <span class="export">{d.screen.export}</span>
+        <div class="tabbar">
+          {
+            tabbar.map((tab, i) => (
+              <span class:list={{ on: i === 0 }}>
+                <i />
+                {tab}
+              </span>
+            ))
+          }
+        </div>
+      </Phone>
+    </div>
+    <div>
+      <span class="eyebrow">{d.label}</span>
+      <h2 id="reseller-title" class="h2">{d.title}</h2>
+      <p class="lead">{d.lede}</p>
+      <ul class="rfacts">
+        {
+          d.facts.map((fact, i) => (
+            <li>
+              <span class="ic">
+                <Icon name={icons[i] ?? 'stack'} />
+              </span>
+              <div>
+                <h3>{fact.title}</h3>
+                <p>{fact.text}</p>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </div>
+</section>
+
+<style>
+  .reseller {
+    border-block: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+    gap: clamp(36px, 6vw, 96px);
+    align-items: center;
+  }
+
+  .res-visual {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 28px 0;
+  }
+
+  .res-visual::before {
+    content: '';
+    position: absolute;
+    inset: 6% 4%;
+    border-radius: 40px;
+    background: var(--blue-soft);
+  }
+
+  .res-visual::after {
+    content: '';
+    position: absolute;
+    top: 2%;
+    right: 0;
+    width: 34%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: var(--pk);
+  }
+
+  .res-visual :global(.phone--static) {
+    position: relative;
+    z-index: 1;
+    width: min(300px, 74%);
+  }
+
+  .eyebrow {
+    --dot: var(--mg);
+  }
+
+  .h2 {
+    margin-top: 18px;
+  }
+
+  .lead {
+    margin-top: 20px;
+  }
+
+  .rfacts {
+    margin: 36px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rfacts li {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 18px;
+    padding: 22px 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .ic {
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--surface-2);
+    color: var(--blue-ink);
+  }
+
+  .ic :global(svg) {
+    width: 24px;
+    height: 24px;
+  }
+
+  h3 {
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+  }
+
+  .rfacts p {
+    margin-top: 6px;
+    color: var(--ink-2);
+    font-size: 16px;
+  }
+
+  /* Phone screen */
+  .bulk {
+    margin: 0 4cqw 3cqw;
+    padding: 3.6cqw 4cqw;
+    border-radius: 5cqw;
+    background: #0b1433;
+    color: #fff;
+  }
+
+  .bulk-top {
+    display: flex;
+    justify-content: space-between;
+    font: 600 3.6cqw/1 var(--f-display);
+  }
+
+  .bulk-top b {
+    font-family: var(--f-mono);
+  }
+
+  .bar {
+    height: 1.8cqw;
+    margin-top: 2.6cqw;
+    overflow: hidden;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, 0.15);
+  }
+
+  .bar i {
+    display: block;
+    width: 72%;
+    height: 100%;
+    border-radius: inherit;
+    background: #3de08f;
+  }
+
+  .export {
+    position: absolute;
+    right: 5cqw;
+    bottom: 21cqw;
+    left: 5cqw;
+    padding: 3.6cqw;
+    border-radius: 3.6cqw;
+    background: #1e48f5;
+    box-shadow: 0 8px 20px -8px #1e48f5;
+    color: #fff;
+    font: 600 3.9cqw/1 var(--f-display);
+    text-align: center;
+  }
+
+  @media (max-width: 860px) {
+    .wrap {
+      grid-template-columns: 1fr;
+    }
+
+    .res-visual {
+      order: 2;
+    }
+  }
+</style>

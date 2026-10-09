@@ -16,17 +16,10 @@ const footerLinks = [
 ---
 
 <footer class="footer" aria-label={d.a11y.footer}>
-  <div class="wrap footer-inner">
-    <div class="brand">
+  <div class="wrap">
+    <div class="f-top">
       <Logo href={`/${locale}/`} label={d.a11y.home} />
-      <p class="muted small">{d.footer.tagline}</p>
-      <p class="label">
-        <a class="voidcom" href={links.voidcom}>{d.footer.poweredBy}</a>
-      </p>
-    </div>
-    <div class="col">
-      <h2 class="label">{d.footer.linksLabel}</h2>
-      <ul>
+      <ul class="f-links">
         {
           footerLinks.map((l) => (
             <li>
@@ -35,80 +28,89 @@ const footerLinks = [
           ))
         }
       </ul>
+      <p class="powered">{d.footer.poweredBy} <a href={links.voidcom}>Voidcom</a></p>
     </div>
-    <div class="fine">
-      <p>{d.footer.license}</p>
+    <div class="rights">
       <p>{d.footer.trademarks}</p>
+      <p>{d.footer.rights}</p>
     </div>
   </div>
 </footer>
 
 <style>
   .footer {
-    border-top: 1px solid var(--outline);
+    padding-block: 40px 48px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-2);
+    font-size: 14.5px;
   }
 
-  .footer-inner {
+  .wrap {
     display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: var(--space-7) var(--space-6);
-    padding-block: var(--space-8) var(--space-6);
+    gap: 22px;
   }
 
-  .brand {
+  .f-top {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-3);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px 32px;
   }
 
-  .voidcom {
-    color: var(--on-surface-muted);
-    text-decoration: none;
+  .f-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
   }
 
-  .voidcom:hover {
-    color: var(--primary);
-  }
-
-  .col h2 {
-    padding-bottom: var(--space-3);
-    border-bottom: 1px solid var(--outline);
-  }
-
-  .col ul {
-    display: grid;
-    gap: var(--space-1);
-    padding-top: var(--space-3);
-  }
-
-  .col a {
+  .f-links a {
     display: inline-flex;
     align-items: center;
     min-height: 28px;
-    color: var(--on-surface-muted);
-    font-size: var(--text-small);
+    font-weight: 500;
     text-decoration: none;
   }
 
-  .col a:hover {
-    color: var(--on-surface);
+  .f-links a:hover,
+  .powered a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+    text-underline-offset: 4px;
   }
 
-  .fine {
-    display: grid;
-    grid-column: 1 / -1;
-    gap: var(--space-2);
-    padding-top: var(--space-5);
-    border-top: 1px solid var(--outline);
-    color: var(--on-surface-dim);
-    font-size: var(--label-size);
-    line-height: 1.6;
+  .powered {
+    margin-left: auto;
+    color: var(--ink-3);
+    font: 500 13.5px/1 var(--f-body);
   }
 
-  @media (max-width: 639px) {
-    .footer-inner {
-      grid-template-columns: 1fr;
+  .powered a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    color: var(--ink-2);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .rights {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 6px 24px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+    color: var(--ink-3);
+    font-size: 13px;
+  }
+
+  @media (max-width: 640px) {
+    .powered {
+      width: 100%;
+      margin-left: 0;
     }
   }
 </style>

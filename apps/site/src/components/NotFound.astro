@@ -3,7 +3,7 @@
 // i18n dictionaries, because no other page needs it.
 import type { Locale } from '../i18n';
 import Base from '../layouts/Base.astro';
-import Arrow from './Arrow.astro';
+import Icon from './Icon.astro';
 
 interface Props {
   locale: Locale;
@@ -31,12 +31,12 @@ const copy = {
 
 <Base locale={locale} title={copy.title} description={copy.description} noindex>
   <section class="wrap intro not-found" aria-labelledby="not-found-title">
-    <div class="pocket card-shape" aria-hidden="true"></div>
-    <h1 id="not-found-title" class="display-m">{copy.heading}</h1>
-    <p class="lede">{copy.lede}</p>
+    <div class="pocket" aria-hidden="true"><span></span></div>
+    <h1 id="not-found-title">{copy.heading}</h1>
+    <p class="lead">{copy.lede}</p>
     <div class="actions">
-      <a class="btn btn-primary" href={`/${locale}/`}>{copy.home}<Arrow /></a>
-      <a class="btn btn-outlined" href={copy.other.href} hreflang={copy.other.lang} lang={copy.other.lang}
+      <a class="btn btn--primary" href={`/${locale}/`}>{copy.home}<Icon name="arrow" /></a>
+      <a class="btn btn--ghost" href={copy.other.href} hreflang={copy.other.lang} lang={copy.other.lang}
         >{copy.other.label}</a
       >
     </div>
@@ -45,20 +45,46 @@ const copy = {
 
 <style>
   .not-found {
-    padding-top: var(--space-9);
+    padding-block: clamp(48px, 8vw, 112px);
   }
 
+  /* An empty binder pocket on a yellow field: the card is missing. */
   .pocket {
-    width: 96px;
-    margin-bottom: var(--space-7);
-    border-style: dashed;
+    position: relative;
+    width: 132px;
+    aspect-ratio: 1;
+    margin-bottom: 36px;
+    border-radius: 32px;
+    background-color: var(--pk);
+    background-image: radial-gradient(rgba(255, 255, 255, 0.22) 1.2px, transparent 1.4px);
+    background-size: 14px 14px;
+    rotate: -4deg;
+  }
+
+  .pocket span {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 62px;
+    aspect-ratio: 63 / 88;
+    translate: -50% -50%;
+    rotate: 8deg;
+    border: 2.5px dashed #0b1433;
+    border-radius: 7px;
+  }
+
+  h1 {
+    max-width: 16ch;
+    font-size: clamp(2.2rem, 4.4vw, 3.6rem);
+    font-weight: 700;
+    letter-spacing: -0.045em;
   }
 
   .actions {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: var(--space-3);
-    margin-top: var(--space-6);
+    gap: 12px;
+    margin-top: 32px;
   }
 </style>
