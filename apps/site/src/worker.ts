@@ -1,7 +1,7 @@
 import { handle } from '@astrojs/cloudflare/handler';
 import { securityHeaders } from './security-headers';
-import { handleUnsubscribe, isOneClickUnsubscribe } from './server/waitlist/handlers';
-import { withWaitlist } from './server/waitlist/runtime';
+import { handleUnsubscribe, isOneClickUnsubscribe, purgeExpired } from './server/waitlist/handlers';
+import { withWaitlist, withWaitlistRepo } from './server/waitlist/runtime';
 
 /**
  * Worker entry (wrangler.jsonc `main`). Astro's `security.checkOrigin` runs before any Astro
@@ -19,6 +19,19 @@ export default {
       : await handle(request, env, ctx);
     // Prod is the environment whose SITE_URL is astro.config `site`; only it sends HSTS.
     return withSecurityHeaders(response, env.SITE_URL === import.meta.env.SITE);
+  },
+  /** Cron Trigger (wrangler.jsonc `triggers`): the waitlist retention purge. Errors propagate so a failed run shows up as one. */
+  async scheduled(controller, env, ctx) {
+    await withWaitlistRepo(ctx, (repo) =>
+      purgeExpired({
+        repo,
+        pendingDays: env.WAITLIST_PENDING_RETENTION_DAYS,
+        unsubscribedDays: env.WAITLIST_UNSUBSCRIBED_RETENTION_DAYS,
+        now: () => new Date(controller.scheduledTime),
+        log: console.log,
+        warn: console.warn,
+      }),
+    );
   },
 } satisfies ExportedHandler<Env>;
 

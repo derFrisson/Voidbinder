@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { WaitlistDeps } from './handlers';
 import { bindingMailSender, logMailSender } from './mail';
-import { DrizzleWaitlistRepository } from './repository';
+import { DrizzleWaitlistRepository, type WaitlistRepository } from './repository';
 
 /**
  * Runs one waitlist request with the Cloudflare bindings. The pool lives for this request only
@@ -24,6 +24,22 @@ export async function withWaitlist(
       unsubscribeSecret: env.UNSUBSCRIBE_SECRET,
       rateLimit: async (key) => (await env.RL_WAITLIST.limit({ key })).success,
     });
+  } finally {
+    ctx.waitUntil(pool.end());
+  }
+}
+
+/**
+ * Runs the scheduled path (Cron Trigger) with a database only: no rate limit, no mail. Same
+ * per-invocation pool as `withWaitlist`.
+ */
+export async function withWaitlistRepo<T>(
+  ctx: { waitUntil(promise: Promise<unknown>): void },
+  run: (repo: WaitlistRepository) => Promise<T>,
+): Promise<T> {
+  const pool = new Pool({ connectionString: env.HYPERDRIVE.connectionString, max: 1 });
+  try {
+    return await run(new DrizzleWaitlistRepository(drizzle(pool)));
   } finally {
     ctx.waitUntil(pool.end());
   }

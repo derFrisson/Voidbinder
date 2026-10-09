@@ -67,4 +67,46 @@ describe.skipIf(!url)('DrizzleWaitlistRepository (Postgres)', () => {
     // @ts-expect-error invalid on purpose
     await expect(repo.update(row.id, { status: 'deleted' })).rejects.toThrow();
   });
+
+  it('deleteExpired removes only expired pending and unsubscribed rows', async () => {
+    const cutoff = new Date('2026-09-01T00:00:00Z');
+    const mk = (tag: string, status: 'pending' | 'confirmed' | 'unsubscribed', d: Date) =>
+      repo.insert({
+        ...base,
+        email: `it-purge-${tag}-${crypto.randomUUID()}@example.test`,
+        confirmTokenHash: `p-${crypto.randomUUID()}`,
+        status,
+        confirmExpiresAt: d,
+        unsubscribedAt: status === 'unsubscribed' ? d : null,
+      });
+    const before = new Date(cutoff.getTime() - 1);
+    const rows = {
+      pendingOld: await mk('po', 'pending', before),
+      pendingEdge: await mk('pe', 'pending', cutoff),
+      confirmedOld: await mk('co', 'confirmed', before),
+      unsubOld: await mk('uo', 'unsubscribed', before),
+      unsubEdge: await mk('ue', 'unsubscribed', cutoff),
+      // A pending row with an old unsubscribed_at must survive: the unsubscribed rule is status-bound.
+      pendingWithOldUnsub: await repo.insert({
+        ...base,
+        email: `it-purge-pu-${crypto.randomUUID()}@example.test`,
+        confirmTokenHash: `p-${crypto.randomUUID()}`,
+        status: 'pending',
+        confirmExpiresAt: cutoff,
+        unsubscribedAt: before,
+      }),
+    };
+    // The shared database may hold other rows (a dev database), so the counts are only checked
+    // for our rows: exactly one pending and one unsubscribed row of ours are older than the cutoff.
+    const counts = await repo.deleteExpired({ pendingBefore: cutoff, unsubscribedBefore: cutoff });
+    expect(counts.pending).toBeGreaterThanOrEqual(1);
+    expect(counts.unsubscribed).toBeGreaterThanOrEqual(1);
+    const alive = async (r: { id: string } | null) => !!(r && (await repo.findById(r.id)));
+    expect(await alive(rows.pendingOld)).toBe(false);
+    expect(await alive(rows.unsubOld)).toBe(false);
+    expect(await alive(rows.pendingEdge)).toBe(true);
+    expect(await alive(rows.unsubEdge)).toBe(true);
+    expect(await alive(rows.confirmedOld)).toBe(true);
+    expect(await alive(rows.pendingWithOldUnsub)).toBe(true);
+  });
 });

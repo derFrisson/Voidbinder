@@ -16,7 +16,13 @@
     "directory": "./dist/client",
   },
   "workers_dev": false,
-  "vars": { "SITE_URL": "http://localhost:4321" },
+  "vars": {
+    "SITE_URL": "http://localhost:4321",
+    "WAITLIST_PENDING_RETENTION_DAYS": 30,
+    "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
+  },
+  // Daily retention purge of the waitlist (docs/site/waitlist.md). UTC.
+  "triggers": { "crons": ["17 3 * * *"] },
   // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
   "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
   // Local Postgres from the root docker-compose.yml.
@@ -35,7 +41,12 @@
     "dev": {
       "name": "voidbinder-site-dev",
       "workers_dev": true,
-      "vars": { "SITE_URL": "https://voidbinder-site-dev.frisson.workers.dev" },
+      "vars": {
+        "SITE_URL": "https://voidbinder-site-dev.frisson.workers.dev",
+        "WAITLIST_PENDING_RETENTION_DAYS": 30,
+        "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
+      },
+      "triggers": { "crons": ["17 3 * * *"] },
       "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
       // Placeholder: replace with the id from `wrangler hyperdrive create voidbinder-dev ...`.
       "hyperdrive": [
@@ -57,7 +68,12 @@
         { "pattern": "voidbinder.de", "custom_domain": true },
         { "pattern": "www.voidbinder.de", "custom_domain": true },
       ],
-      "vars": { "SITE_URL": "https://voidbinder.de" },
+      "vars": {
+        "SITE_URL": "https://voidbinder.de",
+        "WAITLIST_PENDING_RETENTION_DAYS": 30,
+        "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
+      },
+      "triggers": { "crons": ["17 3 * * *"] },
       "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
       // Placeholder: replace with the id from `wrangler hyperdrive create voidbinder-prod ...`.
       "hyperdrive": [

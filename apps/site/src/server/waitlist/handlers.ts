@@ -6,7 +6,7 @@ import {
   type WaitlistSignup,
 } from '@voidbinder/shared/waitlist';
 import { alreadyListedMail, confirmationMail, type MailSender } from './mail';
-import type { WaitlistRepository } from './repository';
+import type { PurgeCounts, WaitlistRepository } from './repository';
 import type { WaitlistSignupRow } from './schema';
 
 export interface WaitlistDeps {
@@ -296,4 +296,54 @@ export async function isOneClickUnsubscribe(request: Request): Promise<boolean> 
   if (request.method !== 'POST' || new URL(request.url).pathname !== '/api/waitlist/unsubscribe')
     return false;
   return (await readBody(request.clone()))?.['List-Unsubscribe'] === 'One-Click';
+}
+
+export const DEFAULT_PENDING_RETENTION_DAYS = 30;
+export const DEFAULT_UNSUBSCRIBED_RETENTION_DAYS = 365;
+
+export interface RetentionDeps {
+  repo: WaitlistRepository;
+  /** Raw `vars` values; anything but a positive whole number falls back to the default. */
+  pendingDays?: unknown;
+  unsubscribedDays?: unknown;
+  now?(): Date;
+  log?(message: string, ...rest: unknown[]): void;
+  warn?(message: string, ...rest: unknown[]): void;
+}
+
+function retentionDays(raw: unknown, fallback: number, name: string, warn: RetentionDeps['warn']) {
+  const n = typeof raw === 'string' && raw.trim() !== '' ? Number(raw) : raw;
+  if (typeof n === 'number' && Number.isInteger(n) && n > 0) return n;
+  if (raw !== undefined) warn?.(`[waitlist] ${name}=${String(raw)} is invalid, using ${fallback}`);
+  else warn?.(`[waitlist] ${name} is not set, using ${fallback}`);
+  return fallback;
+}
+
+/**
+ * Scheduled retention purge (VB-47): unconfirmed sign-ups whose confirmation link expired more
+ * than `pendingDays` ago and unsubscribed rows older than `unsubscribedDays` are deleted.
+ * Confirmed rows stay until the beta-start mail (docs/site/waitlist.md).
+ */
+export async function purgeExpired(deps: RetentionDeps): Promise<PurgeCounts> {
+  const now = (deps.now?.() ?? new Date()).getTime();
+  const days = (raw: unknown, fallback: number, name: string) =>
+    retentionDays(raw, fallback, name, deps.warn);
+  const counts = await deps.repo.deleteExpired({
+    pendingBefore: new Date(
+      now -
+        days(deps.pendingDays, DEFAULT_PENDING_RETENTION_DAYS, 'WAITLIST_PENDING_RETENTION_DAYS') *
+          DAY_MS,
+    ),
+    unsubscribedBefore: new Date(
+      now -
+        days(
+          deps.unsubscribedDays,
+          DEFAULT_UNSUBSCRIBED_RETENTION_DAYS,
+          'WAITLIST_UNSUBSCRIBED_RETENTION_DAYS',
+        ) *
+          DAY_MS,
+    ),
+  });
+  deps.log?.('[waitlist] retention purge', counts);
+  return counts;
 }

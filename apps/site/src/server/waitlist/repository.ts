@@ -1,8 +1,17 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, lt, or } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { waitlistSignups, type NewWaitlistSignupRow, type WaitlistSignupRow } from './schema';
 
 export type WaitlistPatch = Partial<Omit<WaitlistSignupRow, 'id' | 'email' | 'createdAt'>>;
+
+export interface ExpiryCutoffs {
+  pendingBefore: Date;
+  unsubscribedBefore: Date;
+}
+export interface PurgeCounts {
+  pending: number;
+  unsubscribed: number;
+}
 
 /** Storage seam for the waitlist handlers; tests use an in-memory fake. */
 export interface WaitlistRepository {
@@ -12,6 +21,12 @@ export interface WaitlistRepository {
   /** Inserts a new sign-up; null when the address already exists (a concurrent sign-up won). */
   insert(row: NewWaitlistSignupRow): Promise<WaitlistSignupRow | null>;
   update(id: string, patch: WaitlistPatch): Promise<void>;
+  /**
+   * Retention purge. Deletes `pending` rows whose `confirm_expires_at` is before `pendingBefore`
+   * and `unsubscribed` rows whose `unsubscribed_at` is before `unsubscribedBefore` (a row exactly
+   * at the cutoff stays). `confirmed` rows are never touched. Returns the number deleted.
+   */
+  deleteExpired(cutoffs: ExpiryCutoffs): Promise<PurgeCounts>;
 }
 
 export class DrizzleWaitlistRepository implements WaitlistRepository {
@@ -45,5 +60,27 @@ export class DrizzleWaitlistRepository implements WaitlistRepository {
 
   async update(id: string, patch: WaitlistPatch) {
     await this.db.update(waitlistSignups).set(patch).where(eq(waitlistSignups.id, id));
+  }
+
+  async deleteExpired({ pendingBefore, unsubscribedBefore }: ExpiryCutoffs): Promise<PurgeCounts> {
+    const deleted = await this.db
+      .delete(waitlistSignups)
+      .where(
+        or(
+          and(
+            eq(waitlistSignups.status, 'pending'),
+            lt(waitlistSignups.confirmExpiresAt, pendingBefore),
+          ),
+          and(
+            eq(waitlistSignups.status, 'unsubscribed'),
+            lt(waitlistSignups.unsubscribedAt, unsubscribedBefore),
+          ),
+        ),
+      )
+      .returning({ status: waitlistSignups.status });
+    return {
+      pending: deleted.filter((r) => r.status === 'pending').length,
+      unsubscribed: deleted.filter((r) => r.status === 'unsubscribed').length,
+    };
   }
 }
