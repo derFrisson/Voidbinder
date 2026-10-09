@@ -167,19 +167,6 @@ export const de = {
     privacy: 'Datenschutz',
     source: 'Quellcode',
   },
-  // Rights notices per game (docs/marketing/card-imagery-legal.md, section 7). Wizards' Fan Content
-  // Policy requires its notice verbatim, so the Magic notice is English in both locales.
-  notices: {
-    mtg: 'Voidbinder is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.',
-    pokemon:
-      'Pokémon und die Namen der Pokémon-Figuren sind Marken von Nintendo. Kartenbilder und -texte © The Pokémon Company, Nintendo, Game Freak und/oder Creatures. Voidbinder wird nicht von Pokémon, Nintendo, Game Freak oder Creatures produziert, befürwortet oder unterstützt und ist mit ihnen nicht verbunden.',
-    yugioh:
-      'Yu-Gi-Oh!-Kartenbilder und -texte © 4K Media Inc., eine Tochtergesellschaft von Konami Digital Entertainment, Inc. Voidbinder wird nicht von 4K Media oder Konami Digital Entertainment produziert, befürwortet oder unterstützt und ist mit ihnen nicht verbunden.',
-    onepiece:
-      'Kartenbilder und -texte des ONE PIECE Card Game © Eiichiro Oda/Shueisha, Toei Animation; das Spiel wird von Bandai herausgegeben. Voidbinder wird nicht von Bandai, Shueisha oder Toei Animation produziert oder befürwortet und ist mit ihnen nicht verbunden.',
-    scryfall:
-      'Magic-Kartendaten und -bilder über Scryfall. Voidbinder wird nicht von Scryfall befürwortet.',
-  },
 };
 
 export type Dict = typeof de;

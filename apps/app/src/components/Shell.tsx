@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NOTICES, SCRYFALL_ATTRIBUTION } from '@voidbinder/shared/notices';
 import { useSession } from '../api/queries/me';
 import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
@@ -272,7 +273,10 @@ function PhoneHeader({ title, back }: { title: string; back: boolean }) {
   );
 }
 
-/** Rights notices of every game plus the links Impressum, Datenschutz and Powered by Voidcom. */
+/**
+ * Rights notices of every game (@voidbinder/shared/notices, VB-57), then Powered by Voidcom,
+ * Impressum, Datenschutz and the source code.
+ */
 export function Footer() {
   const t = useT();
   const locale = useLocale();
@@ -291,15 +295,19 @@ export function Footer() {
         {t.footer.notices}
       </Text>
       <View className="gap-2">
-        {(['mtg', 'pokemon', 'yugioh', 'onepiece', 'scryfall'] as const).map((k) => (
+        {(['mtg', 'pokemon', 'yugioh', 'onepiece'] as const).map((game) => (
+          // Wizards' notice is English in both locales (Fan Content Policy, verbatim).
           <Text
-            key={k}
-            lang={k === 'mtg' ? 'en' : locale}
+            key={game}
+            lang={game === 'mtg' ? 'en' : locale}
             className="font-body text-xs leading-5 text-ink-3"
           >
-            {t.notices[k]}
+            {NOTICES[game][locale]}
           </Text>
         ))}
+        <Text className="font-body text-xs leading-5 text-ink-3">
+          {SCRYFALL_ATTRIBUTION[locale]}
+        </Text>
       </View>
       <View className="flex-row flex-wrap items-center gap-x-5 gap-y-2">
         <Text className="font-body text-sm text-ink-3">

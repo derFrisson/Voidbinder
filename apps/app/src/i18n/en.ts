@@ -159,14 +159,4 @@ export const en: Dict = {
     privacy: 'Privacy',
     source: 'Source code',
   },
-  notices: {
-    mtg: de.notices.mtg,
-    pokemon:
-      'Pokémon and Pokémon character names are trademarks of Nintendo. Card images and text are © The Pokémon Company, Nintendo, Game Freak and/or Creatures. Voidbinder is not produced by, endorsed by, supported by, or affiliated with Pokémon, Nintendo, Game Freak or Creatures.',
-    yugioh:
-      'Yu-Gi-Oh! card images and text are © 4K Media Inc., a subsidiary of Konami Digital Entertainment, Inc. Voidbinder is not produced by, endorsed by, supported by, or affiliated with 4K Media or Konami Digital Entertainment.',
-    onepiece:
-      'ONE PIECE Card Game card images and text © Eiichiro Oda/Shueisha, Toei Animation; the game is published by Bandai. Voidbinder is not produced by, endorsed by, or affiliated with Bandai, Shueisha or Toei Animation.',
-    scryfall: 'Magic card data and images via Scryfall. Voidbinder is not endorsed by Scryfall.',
-  },
 };

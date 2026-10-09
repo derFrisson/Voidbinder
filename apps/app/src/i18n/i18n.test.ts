@@ -15,8 +15,7 @@ function leaves(value: unknown, prefix = ''): [string, string][] {
   return Object.entries(value).flatMap(([k, v]) => leaves(v, prefix ? `${prefix}.${k}` : k));
 }
 
-// Proper names, words both languages share, and the Wizards notice, which the Fan Content
-// Policy requires verbatim (English) in every locale.
+// Proper names and words both languages share.
 const SAME_IN_BOTH = new Set([
   'Pokémon',
   'Yu‑Gi‑Oh!',
@@ -28,7 +27,6 @@ const SAME_IN_BOTH = new Set([
   'Deutsch',
   'English',
   'Euro (€)',
-  de.notices.mtg,
 ]);
 
 describe('i18n', () => {
