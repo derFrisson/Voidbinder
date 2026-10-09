@@ -1,29 +1,38 @@
 import type { BlobStore, CardStore, JobQueue } from '@voidbinder/core';
-import { Hono } from 'hono';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { requestId } from 'hono/request-id';
 import { secureHeaders } from 'hono/secure-headers';
+import { createAuth, type Auth, type AuthConfig } from './auth';
 import { accessLog } from './middleware/access-log';
 import { notFound, onError } from './middleware/errors';
 import { noStoreByDefault } from './middleware/headers';
 import { adminRoutes } from './routes/admin';
 import { catalogRoutes } from './routes/catalog';
 import { healthRoutes } from './routes/health';
+import { meRoutes } from './routes/me';
 
 /** The platform seams one request works with (ADR 0001). */
 export interface Platform {
   cardStore: CardStore;
   blobStore: BlobStore;
   jobQueue: JobQueue;
+  /** Drizzle on the cache-disabled pool (ADR 0004): auth, profile, everything read after a write. */
+  db: NodePgDatabase;
   /** Releases per-request resources (the database connection). */
   close(): Promise<void>;
 }
 
 export interface AppDeps {
-  /** Origin of the web app; the only origin besides Expo web dev that CORS admits. */
+  /** Origin of the web app (`APP_URL`); CORS and Better Auth admit it. */
   appUrl: string;
+  /** Further origins CORS and Better Auth admit (`CORS_EXTRA_ORIGINS`: Expo web dev, never prod). */
+  extraOrigins: string[];
   /** Reported by /health: the short git sha of the deploy, "local" otherwise. */
   version: string;
+  /** Better Auth settings (src/auth); the origins come from `appUrl` and `extraOrigins`. */
+  auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail'>;
   /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
   adminToken?: string | undefined;
   /** Called once per request; the platform is closed after the response. */
@@ -31,40 +40,63 @@ export interface AppDeps {
 }
 
 export interface AppEnv {
-  Variables: { platform: Platform; requestId: string };
+  Variables: {
+    platform: Platform;
+    requestId: string;
+    /** Better Auth for this request, built on first use (src/auth). */
+    auth: () => Auth;
+  };
 }
 
-/** Expo web dev server (`expo start --web`). */
-const EXPO_WEB_DEV = 'http://localhost:8081';
+/** `waitUntil` of the request; `app.request` in tests has no ExecutionContext, so run inline. */
+function waitUntil(c: Context<AppEnv>, promise: Promise<unknown>): void {
+  try {
+    c.executionCtx.waitUntil(promise);
+  } catch {
+    // The promise runs anyway; its errors are handled by whoever made it.
+  }
+}
 
 /** Builds the API from injected dependencies, so tests need no Cloudflare bindings. */
 export function createApp(deps: AppDeps) {
-  return new Hono<AppEnv>()
-    .use(requestId())
-    .use(accessLog)
-    .use(secureHeaders())
-    .use(noStoreByDefault)
-    .use(cors({ origin: [deps.appUrl, EXPO_WEB_DEV], credentials: true }))
-    .use(async (c, next) => {
-      const platform = deps.openPlatform();
-      c.set('platform', platform);
-      try {
-        await next();
-      } finally {
-        const closing = platform.close();
-        // ponytail: `app.request` in tests has no ExecutionContext, so close inline there.
+  const origins = [deps.appUrl, ...deps.extraOrigins];
+  const authConfig: AuthConfig = { ...deps.auth, appUrl: deps.appUrl, trustedOrigins: origins };
+  return (
+    new Hono<AppEnv>()
+      .use(requestId())
+      .use(accessLog)
+      .use(secureHeaders())
+      .use(noStoreByDefault)
+      .use(cors({ origin: origins, credentials: true }))
+      .use(async (c, next) => {
+        const platform = deps.openPlatform();
+        c.set('platform', platform);
+        let auth: Auth | undefined;
+        c.set('auth', () => {
+          auth ??= createAuth(authConfig, { db: platform.db, waitUntil: (p) => waitUntil(c, p) });
+          return auth;
+        });
         try {
-          c.executionCtx.waitUntil(closing);
-        } catch {
-          await closing;
+          await next();
+        } finally {
+          const closing = platform.close();
+          // ponytail: `app.request` in tests has no ExecutionContext, so close inline there.
+          try {
+            c.executionCtx.waitUntil(closing);
+          } catch {
+            await closing;
+          }
         }
-      }
-    })
-    .route('/health', healthRoutes(deps.version))
-    .route('/catalog', catalogRoutes())
-    .route('/admin', adminRoutes(deps.adminToken))
-    .notFound(notFound)
-    .onError(onError);
+      })
+      .route('/health', healthRoutes(deps.version))
+      // Better Auth: sign-up, sign-in, sign-out, verification, password reset (README.md).
+      .on(['GET', 'POST'], '/auth/*', (c) => c.var.auth().handler(c.req.raw))
+      .route('/me', meRoutes())
+      .route('/catalog', catalogRoutes())
+      .route('/admin', adminRoutes(deps.adminToken))
+      .notFound(notFound)
+      .onError(onError)
+  );
 }
 
 export type App = ReturnType<typeof createApp>;

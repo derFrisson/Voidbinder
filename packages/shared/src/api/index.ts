@@ -22,3 +22,4 @@ export const ErrorResponseSchema = z.object({
 export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 
 export * from './catalog.js';
+export * from './me.js';

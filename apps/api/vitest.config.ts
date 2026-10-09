@@ -30,7 +30,14 @@ export default defineConfig({
             optimizer: {
               ssr: {
                 enabled: true,
-                include: ['pg'],
+                // Pre-bundled: loading Better Auth module by module in workerd made the first
+                // request slower than the 5 s test timeout on CI.
+                include: [
+                  'pg',
+                  'better-auth',
+                  'better-auth/plugins',
+                  '@better-auth/drizzle-adapter',
+                ],
                 rolldownOptions: { external: [...builtinModules, /^node:/] },
               },
             },
