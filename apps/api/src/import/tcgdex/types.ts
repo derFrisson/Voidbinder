@@ -58,7 +58,7 @@ export interface TcgdexCard {
   regulationMark?: string;
   legal?: { standard?: boolean; expanded?: boolean };
   variants?: TcgdexVariants;
-  variants_detailed?: { type: string; thirdParty?: TcgdexThirdParty }[];
+  variants_detailed?: { type: string; size?: string; thirdParty?: TcgdexThirdParty }[];
   thirdParty?: TcgdexThirdParty;
   [key: string]: unknown;
 }

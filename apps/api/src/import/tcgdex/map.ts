@@ -149,7 +149,8 @@ function marketplaceIds(card: TcgdexCard): Record<string, unknown> | undefined {
   const variants = Object.fromEntries(
     (card.variants_detailed ?? [])
       .filter((v) => v.thirdParty)
-      .map((v) => [v.type, ids(v.thirdParty)]),
+      // `holo_standard` and `holo_jumbo` are different products with different ids.
+      .map((v) => [[v.type, v.size].filter(Boolean).join('_'), ids(v.thirdParty)]),
   );
   if (!own) return undefined;
   return {

@@ -127,6 +127,24 @@ describe('mapPrint', () => {
     expect(externalIds).not.toHaveProperty('cardmarket');
   });
 
+  it('keys the marketplace ids per variant by type and size', () => {
+    const jumbo = {
+      ...card('en', 'swsh3-136'),
+      variants_detailed: [
+        { type: 'holo', size: 'standard', thirdParty: { cardmarket: 1 } },
+        { type: 'holo', size: 'jumbo', thirdParty: { cardmarket: 2 } },
+        { type: 'reverse', thirdParty: { cardmarket: 3 } },
+      ],
+    };
+    expect(mapPrint(jumbo, undefined).externalIds.tcgdex_marketplace).toMatchObject({
+      variants: {
+        holo_standard: { cardmarket: 1 },
+        holo_jumbo: { cardmarket: 2 },
+        reverse: { cardmarket: 3 },
+      },
+    });
+  });
+
   it('has no marketplace entry and no image for a card without them', () => {
     const bare = card('en', 'swsh3-1');
     delete bare.image;
