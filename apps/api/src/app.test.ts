@@ -123,3 +123,26 @@ describe('access log', () => {
     });
   });
 });
+
+describe('POST /admin/import/scryfall', () => {
+  it('starts the import with the admin token only', async () => {
+    const jobs: { type: string }[] = [];
+    const jobQueue = { send: async (job: { type: string }) => void jobs.push(job) };
+    const post = (app: ReturnType<typeof testApp>, token?: string) =>
+      app.request('/admin/import/scryfall', {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+
+    const app = testApp({ adminToken: 'secret-token', jobQueue });
+    expect((await post(app)).status).toBe(401);
+    expect((await post(app, 'wrong-token')).status).toBe(401);
+    const res = await post(app, 'secret-token');
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ status: 'started' });
+    expect(jobs).toEqual([{ type: 'scryfall-import', payload: {} }]);
+
+    // Without ADMIN_TOKEN the route does not exist.
+    expect((await post(testApp({ jobQueue }), 'anything')).status).toBe(404);
+  });
+});

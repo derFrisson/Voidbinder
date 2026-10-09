@@ -1,4 +1,6 @@
 # Local overrides for `pnpm --filter api dev`: `cp .dev.vars.example .dev.vars` (gitignored).
-# Values here override the top-level `vars` in wrangler.jsonc. The API needs no secrets yet;
-# auth (VB-24) adds its secret here.
+# Values here override the top-level `vars` in wrangler.jsonc. Any value works locally.
 APP_URL=http://localhost:8081
+# Bearer token of /admin/** (POST /admin/import/scryfall). Deployed environments:
+# openssl rand -base64 32 | pnpm exec wrangler secret put ADMIN_TOKEN --env dev|prod
+ADMIN_TOKEN=local-dev-admin-token
