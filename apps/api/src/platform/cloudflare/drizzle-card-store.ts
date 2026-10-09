@@ -1,5 +1,6 @@
 import type { CardStore } from '@voidbinder/core';
 import type { Game } from '@voidbinder/shared';
+import { COPYRIGHT } from '@voidbinder/shared/notices';
 import type {
   Card,
   CardResponse,
@@ -267,7 +268,14 @@ export class DrizzleCardStore implements CardStore {
 
   async getCard(id: string): Promise<CardResponse | null> {
     const card = await this.card(id);
-    return card && { card, prints: await this.printDetails(eq(prints.cardId, id)) };
+    return (
+      card && {
+        card,
+        prints: await this.printDetails(eq(prints.cardId, id)),
+        // The card page shows it with each print's `artist` (VB-57).
+        copyright: COPYRIGHT[card.game],
+      }
+    );
   }
 
   async importRunning(source: string): Promise<boolean> {
@@ -288,6 +296,6 @@ export class DrizzleCardStore implements CardStore {
   async getPrint(id: string): Promise<PrintResponse | null> {
     const [print] = await this.printDetails(eq(prints.id, id));
     const card = print && (await this.card(print.cardId));
-    return print && card ? { print, card } : null;
+    return print && card ? { print, card, copyright: COPYRIGHT[card.game] } : null;
   }
 }

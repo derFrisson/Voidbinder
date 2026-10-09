@@ -10,7 +10,6 @@ import {
   type SetPageResponse,
   type SetsResponse,
 } from '@voidbinder/shared/api';
-import { COPYRIGHT } from '@voidbinder/shared/notices';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
@@ -61,20 +60,13 @@ export function catalogRoutes() {
       },
     )
     .get('/cards/:id', zValidator('param', IdParam, throwOnInvalid), async (c) => {
-      const card: CardResponse = found(
-        await c.var.platform.cardStore.getCard(c.req.valid('param').id),
-        'Card',
-      );
-      // The card page shows each print's `artist` and this line next to the image (VB-57).
-      const body = { ...card, copyright: COPYRIGHT[card.card.game] };
+      const card = await c.var.platform.cardStore.getCard(c.req.valid('param').id);
+      const body: CardResponse = found(card, 'Card');
       return c.json(body, 200);
     })
     .get('/prints/:id', zValidator('param', IdParam, throwOnInvalid), async (c) => {
-      const print: PrintResponse = found(
-        await c.var.platform.cardStore.getPrint(c.req.valid('param').id),
-        'Print',
-      );
-      const body = { ...print, copyright: COPYRIGHT[print.card.game] };
+      const print = await c.var.platform.cardStore.getPrint(c.req.valid('param').id);
+      const body: PrintResponse = found(print, 'Print');
       return c.json(body, 200);
     });
 }
