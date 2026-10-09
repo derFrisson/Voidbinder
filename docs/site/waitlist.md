@@ -19,7 +19,8 @@ backed by PostgreSQL (Hyperdrive + Drizzle) and Cloudflare Email Service.
 Accepts `application/x-www-form-urlencoded` or `multipart/form-data` (fields `email`,
 `locale` = `de|en`, `consent` = `on`, `website` = honeypot, must be empty) and `application/json`
 (`{ "email": "…", "locale": "de", "consent": true, "website": "" }`). An unknown locale falls back
-to `de`; the address is trimmed and lower-cased; at most 254 characters.
+to `de`; the address is trimmed and lower-cased; at most 254 characters. The body is read up to
+8 KiB, whatever `Content-Length` claims, and refused past that.
 
 | Case                         | Form post                                         | JSON                           |
 | ---------------------------- | ------------------------------------------------- | ------------------------------ |
@@ -29,6 +30,7 @@ to `de`; the address is trimmed and lower-cased; at most 254 characters.
 | Consent missing              | `303` → `/{locale}/waitlist/error?reason=consent` | `400 {"error":"consent"}`      |
 | Database or mail failure     | `303` → `/{locale}/waitlist/error?reason=server`  | `500 {"error":"server"}`       |
 | Rate limited (5 / 60 s / IP) | `429` text, `Retry-After: 60`                     | `429 {"error":"rate_limited"}` |
+| Body over 8 KiB              | `413` text                                        | `413 {"error":"too_large"}`    |
 | Other content type           | `415 {"error":"content-type"}`                    |                                |
 
 What happens behind the same `pending` answer (no email enumeration):
@@ -46,14 +48,30 @@ What happens behind the same `pending` answer (no email enumeration):
 expired (7 days) or to one already confirmed. Expired, unknown or malformed tokens, and old links of
 an unsubscribed address: `303` → `/{locale}/waitlist/expired` (`de` when the token is unknown).
 
-### `GET|POST /api/waitlist/unsubscribe?token=…`
+### `/api/waitlist/unsubscribe`
 
-Sets the sign-up to `unsubscribed` (idempotent, `unsubscribed_at` keeps the first time). `GET`
-answers `303` → `/{locale}/waitlist/unsubscribed`; `POST` is the RFC 8058 one-click request mail
-providers send for `List-Unsubscribe-Post: List-Unsubscribe=One-Click` and answers `200`. An
-unknown token gets the same answer and changes nothing.
+The mails link to `/api/waitlist/unsubscribe?token=…&lang=de|en` and carry the same URL in
+`List-Unsubscribe` with `List-Unsubscribe-Post: List-Unsubscribe=One-Click`.
 
-The status pages under `/{locale}/waitlist/` belong to the site (VB-16), not to this backend.
+| Request                                                                          | Effect       | Answer                                         |
+| -------------------------------------------------------------------------------- | ------------ | ---------------------------------------------- |
+| `GET ?token=…&lang=…` (the link in the mail)                                     | none         | `303` → `/{lang}/waitlist/unsubscribe?token=…` |
+| `POST`, form body `token=…` (the button on that page, same-origin)               | unsubscribes | `303` → `/{locale}/waitlist/unsubscribed`      |
+| `POST ?token=…`, body `List-Unsubscribe=One-Click` (RFC 8058, from mail clients) | unsubscribes | `200`                                          |
+| Body over 8 KiB                                                                  | none         | `413`                                          |
+
+`lang` falls back to `de`; after a `POST` the locale is the row's, or `lang` (body or query, then
+`de`) when the token matches nothing. Unsubscribing is idempotent (`unsubscribed_at` keeps the first
+time). An unknown, tampered or malformed token gets the same answer and changes nothing, since that
+address is not subscribed.
+
+The `GET` changes nothing because mail security scanners (Microsoft Defender Safe Links and the
+like) open links before the reader does. The page `/{locale}/waitlist/unsubscribe` shows one button
+that POSTs `token` (and `lang`) as `application/x-www-form-urlencoded` to
+`/api/waitlist/unsubscribe`.
+
+The status pages under `/{locale}/waitlist/`, including the unsubscribe page, belong to the site
+(VB-16), not to this backend.
 
 ## Data
 
@@ -67,17 +85,20 @@ Table `waitlist_signups` (`apps/site/src/server/waitlist/schema.ts`):
 | `status`                    | `pending`, `confirmed` or `unsubscribed` (check constraint) |
 | `confirm_token_hash`        | SHA-256 (hex) of the confirmation token, unique             |
 | `confirm_expires_at`        | 7 days after the last confirmation mail                     |
-| `unsubscribe_token_hash`    | SHA-256 (hex) of the unsubscribe token, unique              |
 | `consent_text_version`      | `WAITLIST_CONSENT_VERSION` at sign-up                       |
 | `created_at`                | first sign-up                                               |
 | `confirmed_at`              | null until confirmed                                        |
 | `unsubscribed_at`           | null unless unsubscribed                                    |
 | `last_confirmation_sent_at` | last mail of any kind, drives the 24 h window               |
 
-Tokens are 32 random bytes, base64url; only their hashes are stored. Because the raw unsubscribe
-token exists only in the mail, every mail carries a fresh one and older unsubscribe links stop
-working. No IP addresses or user agents are stored; the rate limiter counts per IP at the edge and
-keeps nothing in the database.
+The confirmation token is 32 random bytes, base64url; only its hash is stored, and every
+confirmation mail carries a new one. The unsubscribe token is
+`<id>.<base64url(HMAC-SHA256(UNSUBSCRIBE_SECRET, id))>` and is not stored at all: the server
+recomputes it, every mail of a row carries the same token, and its links stay valid for the life of
+the row, also after the address unsubscribes and signs up again. The handler checks the HMAC
+(constant time) before it looks anything up. Changing `UNSUBSCRIBE_SECRET` invalidates every
+unsubscribe link already mailed. No IP addresses or user agents are stored; the rate limiter counts
+per IP at the edge and keeps nothing in the database.
 
 When the consent text next to the form changes, bump `WAITLIST_CONSENT_VERSION` in
 `packages/shared/src/waitlist.ts`.
@@ -85,6 +106,7 @@ When the consent text next to the form changes, bump `WAITLIST_CONSENT_VERSION` 
 ## Local development
 
 ```sh
+cp apps/site/.dev.vars.example apps/site/.dev.vars     # UNSUBSCRIBE_SECRET for astro dev
 docker compose up -d                                   # Postgres 18 on localhost:5434
 export DATABASE_URL=postgres://voidbinder:voidbinder@localhost:5434/voidbinder
 pnpm --filter site db:migrate                          # apply apps/site/drizzle/*.sql
@@ -108,14 +130,17 @@ skipped with a message.
 All bindings live in `apps/site/wrangler.jsonc`, once at the top level (local) and once per env
 (`dev`, `prod`), because environments do not inherit bindings.
 
-| Binding / var | local                   | `dev`                                             | `prod`                  |
-| ------------- | ----------------------- | ------------------------------------------------- | ----------------------- |
-| `SITE_URL`    | `http://localhost:4321` | `https://voidbinder-site-dev.frisson.workers.dev` | `https://voidbinder.de` |
-| `HYPERDRIVE`  | Docker Postgres         | **placeholder id**, create the config             | **placeholder id**      |
-| `EMAIL`       | simulated               | `hello@voidbinder.de`                             | `hello@voidbinder.de`   |
-| `RL_WAITLIST` | namespace `1700`        | namespace `1701`                                  | namespace `1702`        |
+| Binding / var                 | local                   | `dev`                                             | `prod`                  |
+| ----------------------------- | ----------------------- | ------------------------------------------------- | ----------------------- |
+| `SITE_URL`                    | `http://localhost:4321` | `https://voidbinder-site-dev.frisson.workers.dev` | `https://voidbinder.de` |
+| `HYPERDRIVE`                  | Docker Postgres         | **placeholder id**, create the config             | **placeholder id**      |
+| `EMAIL`                       | simulated               | `hello@voidbinder.de`                             | `hello@voidbinder.de`   |
+| `RL_WAITLIST`                 | namespace `1700`        | namespace `1701`                                  | namespace `1702`        |
+| `UNSUBSCRIBE_SECRET` (secret) | `.dev.vars`             | `wrangler secret put`                             | `wrangler secret put`   |
 
-No secrets are involved: the Hyperdrive config holds the database credentials on Cloudflare's side.
+`UNSUBSCRIBE_SECRET` is the only secret; the Hyperdrive config holds the database credentials on
+Cloudflare's side. `secrets.required` in `wrangler.jsonc` makes `wrangler deploy` fail while it is
+unset.
 
 1. **Database.** Create the database and a role for the site on the Postgres that dev / prod use,
    then apply the migrations from the workstation:
@@ -139,12 +164,31 @@ No secrets are involved: the Hyperdrive config holds the database credentials on
 
 3. **Email Sending** is enabled for voidbinder.de (DKIM selector `cf-bounce`, return path
    `cf-bounce.voidbinder.de`); `hello@voidbinder.de` must stay an allowed sender.
-4. **Deploy** as in [environments.md](../environments.md): `pnpm --filter site deploy:dev`.
+4. **Unsubscribe secret**, once per environment, from `apps/site`:
+   `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev` (and
+   `--env prod`). Keep it: a new value breaks every unsubscribe link already mailed.
+5. **Deploy** as in [environments.md](../environments.md): `pnpm --filter site deploy:dev`.
 
 ## Notes
 
 - Astro's `security.checkOrigin` rejects cross-site form posts to these routes from browsers
-  (`Sec-Fetch-Site: cross-site` or a foreign `Origin`). Same-site form posts, JSON requests and
-  the server-to-server one-click unsubscribe POST of mail providers (no `Origin`) pass.
-- Confirmation and unsubscribe links work on `GET` as the contract asks. Mail security scanners that
-  open links can therefore confirm or unsubscribe on the reader's behalf.
+  (`Sec-Fetch-Site: cross-site` or a foreign `Origin`); same-site form posts and JSON requests
+  pass. It runs before any Astro middleware and has no per-route switch, so the RFC 8058 one-click
+  POST (body `List-Unsubscribe=One-Click` to `/api/waitlist/unsubscribe`) is answered by the Worker
+  entry `apps/site/src/worker.ts` before Astro and passes whatever `Origin` a client sends. Only
+  that request skips the check. To see it with `pnpm dev` running:
+
+  ```sh
+  # one-click with a foreign Origin: 200
+  curl -si -X POST 'http://localhost:4321/api/waitlist/unsubscribe?token=x' \
+    -H 'Origin: https://evil.example' \
+    -H 'Content-Type: application/x-www-form-urlencoded' --data 'List-Unsubscribe=One-Click' | head -1
+  # form post to /api/waitlist with a foreign Origin: 403
+  curl -si -X POST http://localhost:4321/api/waitlist \
+    -H 'Origin: https://evil.example' \
+    -H 'Content-Type: application/x-www-form-urlencoded' --data 'email=a@b.de&consent=on' | head -1
+  ```
+
+- Confirmation stays a plain `GET` link, as usual for double opt-in. A mail scanner that opens it
+  confirms the address on the reader's behalf; that risk is accepted. Unsubscribing needs a `POST`
+  (see above), so scanners cannot unsubscribe anyone.
