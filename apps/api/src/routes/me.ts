@@ -6,9 +6,8 @@ import {
 } from '@voidbinder/shared/api';
 import { eq } from 'drizzle-orm';
 import { Hono } from 'hono';
-import { HTTPException } from 'hono/http-exception';
 import type { AppEnv } from '../app';
-import { requireUser } from '../auth/middleware';
+import { requireFreshUser, unauthorized } from '../auth/middleware';
 import { user } from '../db/schema/auth';
 import { throwOnInvalid } from '../middleware/errors';
 
@@ -28,15 +27,16 @@ function toMe(row: typeof user.$inferSelect): MeResponse {
 }
 
 /**
- * `GET /me`, `PATCH /me`, `DELETE /me`. They read and write the `user` row directly (not the
- * session's cached copy), so a PATCH shows up on the next GET at once.
+ * `GET /me`, `PATCH /me`, `DELETE /me`. They check the session in the database (not the cookie
+ * cache), so a revoked session fails here at once, and read and write the `user` row directly, so
+ * a PATCH shows up on the next GET at once.
  */
 export function meRoutes() {
   return new Hono<AppEnv>()
-    .use(requireUser)
+    .use(requireFreshUser)
     .get('/', async (c) => {
       const [row] = await c.var.platform.db.select().from(user).where(eq(user.id, c.var.user.id));
-      if (!row) throw new HTTPException(401, { message: 'Sign in first' });
+      if (!row) throw unauthorized();
       return c.json(toMe(row), 200);
     })
     .patch('/', zValidator('json', UpdateMeRequestSchema, throwOnInvalid), async (c) => {
@@ -45,7 +45,7 @@ export function meRoutes() {
         .set({ ...c.req.valid('json'), updatedAt: new Date() })
         .where(eq(user.id, c.var.user.id))
         .returning();
-      if (!row) throw new HTTPException(401, { message: 'Sign in first' });
+      if (!row) throw unauthorized();
       return c.json(toMe(row), 200);
     })
     .delete('/', async (c) => {
