@@ -23,7 +23,6 @@ describe.skipIf(!url)('DrizzleWaitlistRepository (Postgres)', () => {
     status: 'pending' as const,
     confirmTokenHash: `c-${crypto.randomUUID()}`,
     confirmExpiresAt: new Date('2026-10-16T12:00:00Z'),
-    unsubscribeTokenHash: `u-${crypto.randomUUID()}`,
     consentTextVersion: '2026-10-09',
     lastConfirmationSentAt: new Date('2026-10-09T12:00:00Z'),
   };
@@ -37,17 +36,16 @@ describe.skipIf(!url)('DrizzleWaitlistRepository (Postgres)', () => {
     await pool.end();
   });
 
-  it('inserts, finds by email and token hashes, and refuses a duplicate address', async () => {
+  it('inserts, finds by email, token hash and id, and refuses a duplicate address', async () => {
     const row = await repo.insert(base);
     expect(row).toMatchObject({ ...base, confirmedAt: null, unsubscribedAt: null });
     expect(row?.id).toMatch(/^[0-9a-f-]{36}$/);
-    expect(
-      await repo.insert({ ...base, confirmTokenHash: 'x', unsubscribeTokenHash: 'y' }),
-    ).toBeNull();
+    expect(await repo.insert({ ...base, confirmTokenHash: 'x' })).toBeNull();
 
     expect((await repo.findByEmail(email))?.id).toBe(row?.id);
     expect((await repo.findByConfirmTokenHash(base.confirmTokenHash))?.id).toBe(row?.id);
-    expect((await repo.findByUnsubscribeTokenHash(base.unsubscribeTokenHash))?.id).toBe(row?.id);
+    expect((await repo.findById(row?.id ?? ''))?.email).toBe(email);
+    expect(await repo.findById(crypto.randomUUID())).toBeNull();
     expect(await repo.findByEmail('missing@example.test')).toBeNull();
   });
 

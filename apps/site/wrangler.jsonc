@@ -17,6 +17,8 @@
   },
   "workers_dev": false,
   "vars": { "SITE_URL": "http://localhost:4321" },
+  // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
+  "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
   // Local Postgres from the root docker-compose.yml.
   "hyperdrive": [
     {
@@ -34,6 +36,7 @@
       "name": "voidbinder-site-dev",
       "workers_dev": true,
       "vars": { "SITE_URL": "https://voidbinder-site-dev.frisson.workers.dev" },
+      "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
       // Placeholder: replace with the id from `wrangler hyperdrive create voidbinder-dev ...`.
       "hyperdrive": [
         {
@@ -55,6 +58,7 @@
         { "pattern": "www.voidbinder.de", "custom_domain": true },
       ],
       "vars": { "SITE_URL": "https://voidbinder.de" },
+      "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
       // Placeholder: replace with the id from `wrangler hyperdrive create voidbinder-prod ...`.
       "hyperdrive": [
         {

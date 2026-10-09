@@ -8,7 +8,7 @@ export type WaitlistPatch = Partial<Omit<WaitlistSignupRow, 'id' | 'email' | 'cr
 export interface WaitlistRepository {
   findByEmail(email: string): Promise<WaitlistSignupRow | null>;
   findByConfirmTokenHash(hash: string): Promise<WaitlistSignupRow | null>;
-  findByUnsubscribeTokenHash(hash: string): Promise<WaitlistSignupRow | null>;
+  findById(id: string): Promise<WaitlistSignupRow | null>;
   /** Inserts a new sign-up; null when the address already exists (a concurrent sign-up won). */
   insert(row: NewWaitlistSignupRow): Promise<WaitlistSignupRow | null>;
   update(id: string, patch: WaitlistPatch): Promise<void>;
@@ -30,8 +30,8 @@ export class DrizzleWaitlistRepository implements WaitlistRepository {
     return this.findOne(eq(waitlistSignups.confirmTokenHash, hash));
   }
 
-  findByUnsubscribeTokenHash(hash: string) {
-    return this.findOne(eq(waitlistSignups.unsubscribeTokenHash, hash));
+  findById(id: string) {
+    return this.findOne(eq(waitlistSignups.id, id));
   }
 
   async insert(row: NewWaitlistSignupRow) {

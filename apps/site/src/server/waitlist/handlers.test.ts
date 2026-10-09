@@ -3,7 +3,9 @@ import {
   handleConfirm,
   handleSignup,
   handleUnsubscribe,
+  handleUnsubscribeLink,
   hashToken,
+  isOneClickUnsubscribe,
   type WaitlistDeps,
 } from './handlers';
 import type { MailMessage } from './mail';
@@ -21,8 +23,8 @@ class FakeRepo implements WaitlistRepository {
   findByConfirmTokenHash(hash: string) {
     return this.find((r) => r.confirmTokenHash === hash);
   }
-  findByUnsubscribeTokenHash(hash: string) {
-    return this.find((r) => r.unsubscribeTokenHash === hash);
+  findById(id: string) {
+    return this.find((r) => r.id === id);
   }
   async insert(row: NewWaitlistSignupRow) {
     if (this.rows.some((r) => r.email === row.email)) return null;
@@ -61,6 +63,7 @@ beforeEach(() => {
   deps = {
     repo,
     siteUrl: SITE,
+    unsubscribeSecret: 'test-unsubscribe-secret',
     now: () => now,
     rateLimit: async () => allowed,
     mail: {
@@ -96,8 +99,12 @@ const signupForm = (email = 'Ash@Example.com', locale = 'de') =>
 const signupJson = (email = 'ash@example.com', locale = 'en') =>
   handleSignup(jsonReq({ email, locale, consent: true, website: '' }), deps);
 
+const TOKEN = {
+  confirm: '[A-Za-z0-9_-]{43}',
+  unsubscribe: '[0-9a-f-]{36}\\.[A-Za-z0-9_-]{43}&lang=(?:de|en)',
+};
 function linkFrom(mail: MailMessage | undefined, kind: 'confirm' | 'unsubscribe'): string {
-  const m = mail?.text.match(new RegExp(`${SITE}/api/waitlist/${kind}\\?token=[A-Za-z0-9_-]{43}`));
+  const m = mail?.text.match(new RegExp(`${SITE}/api/waitlist/${kind}\\?token=${TOKEN[kind]}`));
   if (!m) throw new Error(`no ${kind} link`);
   return m[0];
 }
@@ -110,11 +117,28 @@ const row = () => only(repo.rows[0]);
 const mail = (i: number) => only(sent[i]);
 
 const get = (url: string) => new Request(url);
-const post = (url: string) =>
+const formPost = (url: string, body: string) =>
   new Request(url, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: 'List-Unsubscribe=One-Click',
+    body,
+  });
+/** RFC 8058 one-click request: the List-Unsubscribe URL, marker in the body. */
+const oneClick = (url: string) => formPost(url, 'List-Unsubscribe=One-Click');
+/** The form on the site's unsubscribe page: token in the body. */
+const pageForm = (link: string) =>
+  formPost(
+    `${SITE}/api/waitlist/unsubscribe`,
+    new URLSearchParams({ token: new URL(link).searchParams.get('token') ?? '' }).toString(),
+  );
+const tokenOf = (link: string) => new URL(link).searchParams.get('token') ?? '';
+/** A body of `bytes` bytes without Content-Length, so only the read itself can enforce the cap. */
+const streamed = (bytes: number) =>
+  new ReadableStream<Uint8Array>({
+    start(c) {
+      c.enqueue(new TextEncoder().encode(`email=a%40b.de&website=${'x'.repeat(bytes)}`));
+      c.close();
+    },
   });
 
 describe('POST /api/waitlist', () => {
@@ -214,7 +238,7 @@ describe('POST /api/waitlist', () => {
   it('starts a fresh double opt-in for an unsubscribed address', async () => {
     await signupForm();
     await handleConfirm(get(linkFrom(sent[0], 'confirm')), deps);
-    await handleUnsubscribe(get(linkFrom(sent[0], 'unsubscribe')), deps);
+    await handleUnsubscribe(oneClick(linkFrom(sent[0], 'unsubscribe')), deps);
     expect(row().status).toBe('unsubscribed');
 
     const res = await signupForm();
@@ -312,6 +336,46 @@ describe('POST /api/waitlist', () => {
     expect(res.status).toBe(415);
   });
 
+  it('refuses a body over 8 KiB with 413, whatever Content-Length says', async () => {
+    for (const type of ['application/x-www-form-urlencoded', 'application/json']) {
+      const res = await handleSignup(
+        new Request(`${SITE}/api/waitlist`, {
+          method: 'POST',
+          headers: { 'content-type': type },
+          body: streamed(9000),
+          duplex: 'half',
+        } as RequestInit),
+        deps,
+      );
+      expect(res.status).toBe(413);
+    }
+    const multipart = new FormData();
+    multipart.set('email', 'a@b.de');
+    multipart.set('website', 'x'.repeat(9000));
+    // Encoded up front: cancelling undici's lazily generated multipart stream rejects in Node.
+    const encoded = new Response(multipart);
+    const res = await handleSignup(
+      new Request(`${SITE}/api/waitlist`, {
+        method: 'POST',
+        headers: { 'content-type': encoded.headers.get('content-type') ?? '' },
+        body: await encoded.arrayBuffer(),
+      }),
+      deps,
+    );
+    expect(res.status).toBe(413);
+    const json = await handleSignup(jsonReq({ email: 'a@b.de', pad: 'x'.repeat(9000) }), deps);
+    expect(await json.json()).toEqual({ error: 'too_large' });
+    expect(repo.rows).toHaveLength(0);
+  });
+
+  it('reads a body just under 8 KiB', async () => {
+    const res = await handleSignup(
+      form({ email: 'a@b.de', locale: 'en', consent: 'on', pad: 'x'.repeat(8000) }),
+      deps,
+    );
+    expect(res.headers.get('location')).toBe('/en/waitlist/pending');
+  });
+
   it('reports a failed mail and lets the next attempt send again', async () => {
     failMail = true;
     const res = await signupForm();
@@ -346,40 +410,61 @@ describe('GET /api/waitlist/confirm', () => {
     expect(row().status).toBe('pending');
   });
 
-  it('sends an unknown or malformed token to the expired page', async () => {
+  it('sends an unknown token to the expired page', async () => {
     const unknown = `${SITE}/api/waitlist/confirm?token=${'A'.repeat(43)}`;
     expect((await handleConfirm(get(unknown), deps)).headers.get('location')).toBe(
       '/de/waitlist/expired',
     );
-    expect((await handleConfirm(get(`${SITE}/api/waitlist/confirm?token=x`), deps)).status).toBe(
-      303,
-    );
-    expect(
-      (await handleConfirm(get(`${SITE}/api/waitlist/confirm`), deps)).headers.get('location'),
-    ).toBe('/de/waitlist/expired');
+  });
+
+  it('sends a malformed or short token to the expired page without touching storage', async () => {
+    repo.findByConfirmTokenHash = () => Promise.reject(new Error('storage touched'));
+    for (const query of ['?token=x', `?token=${'A'.repeat(42)}`, `?token=${'A'.repeat(43)}!`, '']) {
+      const res = await handleConfirm(get(`${SITE}/api/waitlist/confirm${query}`), deps);
+      expect(res.status).toBe(303);
+      expect(res.headers.get('location')).toBe('/de/waitlist/expired');
+    }
   });
 
   it('does not re-confirm an unsubscribed address from an old link', async () => {
     await signupForm();
-    await handleUnsubscribe(get(linkFrom(sent[0], 'unsubscribe')), deps);
+    await handleUnsubscribe(oneClick(linkFrom(sent[0], 'unsubscribe')), deps);
     const res = await handleConfirm(get(linkFrom(sent[0], 'confirm')), deps);
     expect(res.headers.get('location')).toBe('/de/waitlist/expired');
     expect(row().status).toBe('unsubscribed');
   });
 });
 
-describe('/api/waitlist/unsubscribe', () => {
-  it('unsubscribes via GET, idempotently', async () => {
+describe('GET /api/waitlist/unsubscribe', () => {
+  it('changes nothing and forwards to the page with the button', async () => {
     await signupJson();
-    const url = linkFrom(sent[0], 'unsubscribe');
-    const res = await handleUnsubscribe(get(url), deps);
+    const link = linkFrom(sent[0], 'unsubscribe');
+    const res = handleUnsubscribeLink(get(link));
+    expect(res.status).toBe(303);
+    expect(res.headers.get('location')).toBe(
+      `/en/waitlist/unsubscribe?${new URLSearchParams({ token: tokenOf(link) })}`,
+    );
+    expect(row().status).toBe('pending');
+  });
+
+  it('falls back to de without a known lang', () => {
+    const res = handleUnsubscribeLink(get(`${SITE}/api/waitlist/unsubscribe?lang=fr`));
+    expect(res.headers.get('location')).toBe('/de/waitlist/unsubscribe?token=');
+  });
+});
+
+describe('POST /api/waitlist/unsubscribe', () => {
+  it('unsubscribes from the page form, idempotently', async () => {
+    await signupJson();
+    const link = linkFrom(sent[0], 'unsubscribe');
+    const res = await handleUnsubscribe(pageForm(link), deps);
     expect(res.status).toBe(303);
     expect(res.headers.get('location')).toBe('/en/waitlist/unsubscribed');
     expect(repo.rows[0]).toMatchObject({ status: 'unsubscribed', unsubscribedAt: now });
 
     const first = now;
     now = new Date(now.getTime() + HOUR);
-    expect((await handleUnsubscribe(get(url), deps)).headers.get('location')).toBe(
+    expect((await handleUnsubscribe(pageForm(link), deps)).headers.get('location')).toBe(
       '/en/waitlist/unsubscribed',
     );
     expect(row().unsubscribedAt).toBe(first);
@@ -388,18 +473,81 @@ describe('/api/waitlist/unsubscribe', () => {
   it('unsubscribes via one-click POST, idempotently', async () => {
     await signupForm();
     const url = linkFrom(sent[0], 'unsubscribe');
-    expect((await handleUnsubscribe(post(url), deps)).status).toBe(200);
-    expect((await handleUnsubscribe(post(url), deps)).status).toBe(200);
+    expect((await handleUnsubscribe(oneClick(url), deps)).status).toBe(200);
+    expect((await handleUnsubscribe(oneClick(url), deps)).status).toBe(200);
     expect(row().status).toBe('unsubscribed');
   });
 
-  it('answers an unknown token the same way without changing anything', async () => {
+  it('keeps the link of the first mail working after a resend and an already-listed mail', async () => {
     await signupForm();
+    now = new Date(now.getTime() + 25 * HOUR);
+    await signupJson('ash@example.com', 'de'); // pending resend
+    await handleConfirm(get(linkFrom(sent[1], 'confirm')), deps);
+    now = new Date(now.getTime() + 25 * HOUR);
+    await signupForm(); // already listed
+    expect(sent).toHaveLength(3);
+    const links = sent.map((m) => linkFrom(m, 'unsubscribe'));
+    expect(new Set(links).size).toBe(1);
+    expect(sent.map((m) => m.headers['List-Unsubscribe'])).toEqual(links.map((l) => `<${l}>`));
+
+    expect((await handleUnsubscribe(oneClick(linkFrom(sent[0], 'unsubscribe')), deps)).status).toBe(
+      200,
+    );
+    expect(row().status).toBe('unsubscribed');
+  });
+
+  it('does nothing for a tampered token', async () => {
+    await signupForm();
+    await signupJson('other@example.com');
+    const link = linkFrom(sent[0], 'unsubscribe');
+    const token = tokenOf(link);
+    const [id, mac = ''] = token.split('.');
+    const otherId = only(repo.rows[1]).id;
+    const flipped = `${mac.slice(0, -1)}${mac.endsWith('A') ? 'B' : 'A'}`;
+    for (const forged of [`${id}.${flipped}`, `${otherId}.${mac}`]) {
+      const res = await handleUnsubscribe(
+        oneClick(`${SITE}/api/waitlist/unsubscribe?token=${forged}`),
+        deps,
+      );
+      expect(res.status).toBe(200);
+    }
+    expect(repo.rows.map((r) => r.status)).toEqual(['pending', 'pending']);
+  });
+
+  it('answers an unknown, malformed or short token the same way without touching storage', async () => {
+    await signupForm();
+    repo.findById = () => Promise.reject(new Error('storage touched'));
+    const [id] = tokenOf(linkFrom(sent[0], 'unsubscribe')).split('.');
+    for (const token of [`${crypto.randomUUID()}.${'A'.repeat(43)}`, 'x', `${id}.abc`, '']) {
+      const form = formPost(
+        `${SITE}/api/waitlist/unsubscribe`,
+        new URLSearchParams({ token, lang: 'en' }).toString(),
+      );
+      const res = await handleUnsubscribe(form, deps);
+      expect(res.headers.get('location')).toBe('/en/waitlist/unsubscribed');
+      const click = oneClick(`${SITE}/api/waitlist/unsubscribe?token=${encodeURIComponent(token)}`);
+      expect((await handleUnsubscribe(click, deps)).status).toBe(200);
+    }
+    expect(row().status).toBe('pending');
+  });
+
+  it('refuses a body over 8 KiB', async () => {
     const res = await handleUnsubscribe(
-      get(`${SITE}/api/waitlist/unsubscribe?token=${'A'.repeat(43)}`),
+      formPost(`${SITE}/api/waitlist/unsubscribe`, `token=${'x'.repeat(9000)}`),
       deps,
     );
-    expect(res.headers.get('location')).toBe('/de/waitlist/unsubscribed');
-    expect(row().status).toBe('pending');
+    expect(res.status).toBe(413);
+  });
+
+  it('recognises only the one-click request for the Worker entry', async () => {
+    const url = `${SITE}/api/waitlist/unsubscribe?token=t`;
+    const click = oneClick(url);
+    expect(await isOneClickUnsubscribe(click)).toBe(true);
+    expect(await click.text()).toBe('List-Unsubscribe=One-Click'); // body still unread
+    expect(await isOneClickUnsubscribe(formPost(url, 'token=t'))).toBe(false);
+    expect(await isOneClickUnsubscribe(get(url))).toBe(false);
+    expect(
+      await isOneClickUnsubscribe(formPost(`${SITE}/api/waitlist`, 'List-Unsubscribe=One-Click')),
+    ).toBe(false);
   });
 });

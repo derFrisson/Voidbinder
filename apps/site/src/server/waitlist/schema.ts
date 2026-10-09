@@ -2,7 +2,8 @@ import { sql } from 'drizzle-orm';
 import { check, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 // GDPR-minimal: the address, the language for mails, the consent version and timestamps.
-// No IP addresses or user agents. Tokens are stored only as SHA-256 hashes.
+// No IP addresses or user agents. The confirmation token is stored only as a SHA-256 hash; the
+// unsubscribe token is an HMAC of the id and not stored at all.
 export const waitlistSignups = pgTable(
   'waitlist_signups',
   {
@@ -12,7 +13,6 @@ export const waitlistSignups = pgTable(
     status: text('status', { enum: ['pending', 'confirmed', 'unsubscribed'] }).notNull(),
     confirmTokenHash: text('confirm_token_hash').notNull().unique(),
     confirmExpiresAt: timestamp('confirm_expires_at', { withTimezone: true }).notNull(),
-    unsubscribeTokenHash: text('unsubscribe_token_hash').notNull().unique(),
     consentTextVersion: text('consent_text_version').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     confirmedAt: timestamp('confirmed_at', { withTimezone: true }),

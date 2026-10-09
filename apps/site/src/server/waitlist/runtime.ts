@@ -21,6 +21,7 @@ export async function withWaitlist(
       // ponytail: local dev without Email Service logs the mail instead of failing.
       mail: env.EMAIL ? bindingMailSender(env.EMAIL) : logMailSender,
       siteUrl: env.SITE_URL,
+      unsubscribeSecret: env.UNSUBSCRIBE_SECRET,
       rateLimit: async (key) => (await env.RL_WAITLIST.limit({ key })).success,
     });
   } finally {

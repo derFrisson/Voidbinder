@@ -40,14 +40,17 @@ interface Copy {
   lines: Line[];
 }
 
+const amp = (url: string) => url.replace(/&/g, '&amp;');
+
 function compose(to: string, copy: Copy, unsubscribeUrl: string): MailMessage {
   const text = copy.lines.map((l) => (typeof l === 'string' ? l : l.link)).join('\n\n');
-  // Every interpolated value is our own copy or a URL built from SITE_URL and a base64url token.
+  // Every interpolated value is our own copy or a URL built from SITE_URL, base64url tokens and a
+  // locale; only the `&` between query parameters needs escaping.
   const html = `<!doctype html><html><body style="font-family:system-ui,sans-serif;font-size:15px;line-height:1.5;color:#111">${copy.lines
     .map((l) =>
       typeof l === 'string'
         ? `<p>${l.replace(/\n/g, '<br>')}</p>`
-        : `<p><a href="${l.link}">${l.link}</a></p>`,
+        : `<p><a href="${amp(l.link)}">${amp(l.link)}</a></p>`,
     )
     .join('')}</body></html>`;
   return {

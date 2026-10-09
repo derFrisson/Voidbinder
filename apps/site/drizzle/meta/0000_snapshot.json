@@ -1,5 +1,5 @@
 {
-  "id": "a9d5f5cb-4c84-430c-be12-189d8c19e8b1",
+  "id": "bb71f497-013b-41d0-8d19-64df5bd4ebef",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -42,12 +42,6 @@
         "confirm_expires_at": {
           "name": "confirm_expires_at",
           "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "unsubscribe_token_hash": {
-          "name": "unsubscribe_token_hash",
-          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
@@ -96,11 +90,6 @@
           "name": "waitlist_signups_confirm_token_hash_unique",
           "nullsNotDistinct": false,
           "columns": ["confirm_token_hash"]
-        },
-        "waitlist_signups_unsubscribe_token_hash_unique": {
-          "name": "waitlist_signups_unsubscribe_token_hash_unique",
-          "nullsNotDistinct": false,
-          "columns": ["unsubscribe_token_hash"]
         }
       },
       "policies": {},

@@ -1,0 +1,3 @@
+# Copy to .dev.vars (gitignored) for astro dev / wrangler dev. Any value works locally.
+# Deployed environments: openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod
+UNSUBSCRIBE_SECRET=local-dev-unsubscribe-secret-not-for-production
