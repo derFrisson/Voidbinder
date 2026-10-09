@@ -793,13 +793,10 @@ echo "POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '/+=')" > /opt/voidbin
 
 Copy it into the password manager entry `postgres superuser` with `cat /opt/voidbinder-db/.env`.
 
-**pgBackRest config placeholder.** The container mounts `/etc/pgbackrest/pgbackrest.conf`; create
-it now and fill it in section 7. Until the stanza exists, WAL archiving fails and Postgres keeps
-the WAL and retries; that is expected for the minutes in between.
-
-```sh
-sudo install -o "$PGUID" -g "$PGGID" -m 600 /dev/null /etc/pgbackrest/pgbackrest.conf
-```
+**pgBackRest config comes later.** The container mounts the directory `/etc/pgbackrest` (created
+in section 5), so the config file can be written in section 7 without touching the compose file.
+Until the stanza exists, WAL archiving fails and Postgres keeps the WAL and retries; that is
+expected for the minutes in between (the log shows `archive command failed`).
 
 **`/opt/voidbinder-db/docker-compose.yml`.** Create the file with
 `nano /opt/voidbinder-db/docker-compose.yml` and paste the content below. Memory settings for 8 GB
@@ -887,8 +884,8 @@ services:
         read_only: true
         bind: { create_host_path: false }
       - type: bind
-        source: /etc/pgbackrest/pgbackrest.conf
-        target: /etc/pgbackrest/pgbackrest.conf
+        source: /etc/pgbackrest
+        target: /etc/pgbackrest
         read_only: true
         bind: { create_host_path: false }
     ports:
