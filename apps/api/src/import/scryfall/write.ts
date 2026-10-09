@@ -16,6 +16,7 @@ import {
   mapPrint,
   mapSet,
   skipReason,
+  type CardRow,
   type LocalizationRow,
   type PrintRow,
 } from './map';
@@ -67,13 +68,18 @@ export async function startRun(db: Db, kind: 'full' | 'delta' | 'images'): Promi
   return run.id;
 }
 
-/** Marks the run ok and bumps `catalog_version` in one transaction (ADR 0004). */
+/**
+ * Marks the run ok and bumps `catalog_version` in one transaction (ADR 0004). Idempotent: a
+ * retried step finds the run no longer `running` and bumps nothing.
+ */
 export async function finishRun(db: Db, runId: string, stats: Record<string, unknown>) {
   await db.transaction(async (tx) => {
-    await tx
+    const finished = await tx
       .update(importRuns)
       .set({ status: 'ok', finishedAt: sql`now()`, stats })
-      .where(eq(importRuns.id, runId));
+      .where(and(eq(importRuns.id, runId), eq(importRuns.status, 'running')))
+      .returning({ id: importRuns.id });
+    if (!finished.length) return;
     await tx
       .update(appMeta)
       .set({ value: sql`(${appMeta.value}::bigint + 1)::text`, updatedAt: sql`now()` })
@@ -81,11 +87,12 @@ export async function finishRun(db: Db, runId: string, stats: Record<string, unk
   });
 }
 
+/** Marks a still running run failed; a finished run stays as it is. */
 export async function failRun(db: Db, runId: string, error: string) {
   await db
     .update(importRuns)
     .set({ status: 'failed', finishedAt: sql`now()`, error: error.slice(0, 4000) })
-    .where(eq(importRuns.id, runId));
+    .where(and(eq(importRuns.id, runId), eq(importRuns.status, 'running')));
 }
 
 export async function upsertSets(db: Db, source: ScryfallSet[]) {
@@ -189,6 +196,9 @@ export interface CardChunkStats {
   skipped: { layout: number; digital: number; noSet: number };
 }
 
+const faceCount = (card: CardRow) =>
+  (card.attributes.card_faces as unknown[] | undefined)?.length ?? 0;
+
 interface MappedPrint {
   setId: string;
   print: PrintRow;
@@ -224,8 +234,10 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
         continue;
       }
       const card = mapCard(source);
-      // Every print repeats its card; the first one in the batch writes it.
-      if (!cardRows.has(card.oracleKey)) cardRows.set(card.oracleKey, card);
+      // Every print repeats its card, some without the faces (Omen cards): the one with the most
+      // faces writes it, the first of those on a tie, so the print order does not matter.
+      const known = cardRows.get(card.oracleKey);
+      if (!known || faceCount(card) > faceCount(known)) cardRows.set(card.oracleKey, card);
       printRows.set(`${setId}|${source.collector_number}`, {
         setId,
         print: mapPrint(source),
@@ -257,7 +269,10 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
             sourceHash: excluded('source_hash'),
             ...touched,
           },
-          setWhere: sql`${cards.sourceHash} is distinct from excluded.source_hash`,
+          // A batch with only face-less prints of a card never overwrites its faces.
+          setWhere: sql`${cards.sourceHash} is distinct from excluded.source_hash
+            and jsonb_array_length(coalesce(excluded.attributes -> 'card_faces', '[]'::jsonb))
+              >= jsonb_array_length(coalesce(${cards.attributes} -> 'card_faces', '[]'::jsonb))`,
         })
         .returning(wasInserted);
       stats.cards = addStats(stats.cards, writeStats(returnedCards, cardValues.length));
