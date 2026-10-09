@@ -1,6 +1,7 @@
 # 0004: Caching for catalog and price reads
 
-- Status: Proposed (Max decides)
+- Status: Accepted
+- Decided by: Max, 2026-10-09 (the two cached configurations exist: dev `80164a75f1224f34a30fc31f0dac35ca`, prod `095f0ec41117431c8b29eec7134dde62`; `voidbinder-prod` updated to caching disabled, 10 connections)
 - Raised by: Max, 2026-10-09 ("we should definitely use caching for card data queries")
 
 ## Context
