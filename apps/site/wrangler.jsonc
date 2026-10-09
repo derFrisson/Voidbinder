@@ -1,0 +1,30 @@
+// Cloudflare config for voidbinder.de. `astro build` reads this file (CLOUDFLARE_ENV selects
+// the environment) and writes the flattened deploy config under dist/ (dist/client/wrangler.json for static output, dist/server once there are on-demand routes), which
+// `wrangler deploy` picks up via .wrangler/deploy/config.json. See docs/environments.md.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "152a1fcd0eebb96d1bc30d14b5a6af58",
+  "name": "voidbinder-site",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "./dist/client",
+  },
+  "workers_dev": false,
+  "env": {
+    "dev": {
+      "name": "voidbinder-site-dev",
+      "workers_dev": true,
+    },
+    "prod": {
+      "name": "voidbinder-site",
+      "workers_dev": false,
+      "routes": [
+        { "pattern": "voidbinder.de", "custom_domain": true },
+        { "pattern": "www.voidbinder.de", "custom_domain": true },
+      ],
+    },
+  },
+}

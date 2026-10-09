@@ -1,0 +1,26 @@
+{
+  "name": "site",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "typecheck": "astro check",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "deploy:dev": "CLOUDFLARE_ENV=dev astro build && wrangler deploy --env dev",
+    "deploy:prod": "CLOUDFLARE_ENV=prod astro build && wrangler deploy --env prod"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^14.3.4",
+    "astro": "^7.3.8"
+  },
+  "devDependencies": {
+    "@astrojs/check": "^0.9.10",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.149.0"
+  }
+}
