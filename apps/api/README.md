@@ -193,7 +193,7 @@ chunks of 1000 cards, one step per chunk. Images are never fetched: the URLs of 
 artwork are in the print's `external_ids` (`image_url`, `image_url_small`) for the image mirror
 (VB-57). Prices (`set_price`, `card_prices`) stay in the raw dump for VB-30.
 
-Mapping: `cards.oracle_key` is the card's id, `type_line` its `type`, `attributes` the stats (`rank`
+Mapping: `sets.code` is the lowercase set code (`lob`; the catalog API looks sets up lowercase), the printed one is in `external_ids.set_code`. `cards.oracle_key` is the card's id, `type_line` its `type`, `attributes` the stats (`rank`
 instead of `level` for Xyz, `?` for a `?` ATK/DEF), `legalities` the TCG and OCG ban list status
 (`Unlimited` when the card is in that format without an entry; `goat` only when listed). A print is
 one set code and number (`LOB`, `EN001`); the source lists a code once per rarity, so the first

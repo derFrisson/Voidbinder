@@ -15,6 +15,9 @@ const REGION_LANG: Record<string, string> = {
   SP: 'es',
 };
 
+/** `sets.code`: lowercase, as the catalog API's `/catalog/sets/:game/:code` looks it up. */
+export const setKey = (code: string) => code.toLowerCase();
+
 export interface ParsedCode {
   /** Part before the dash (`LOB`); the whole code when it has no dash (`DB49`). */
   setCode: string;
@@ -189,13 +192,15 @@ export function mapSets(source: YgoSet[]): SetRow[] {
     );
     const [set, ...others] = sorted as [YgoSet, ...YgoSet[]];
     const externalIds = {
+      // The catalog API looks sets up by lowercase code; the code as printed stays here.
+      set_code: set.set_code,
       set_image: set.set_image,
       editions: others.length
         ? others.map((o) => ({ name: o.set_name, date: o.tcg_date, cards: o.num_of_cards }))
         : undefined,
     };
     return {
-      code: set.set_code,
+      code: setKey(set.set_code),
       name: set.set_name,
       releasedOn: set.tcg_date ?? null,
       cardCount: set.num_of_cards ?? null,

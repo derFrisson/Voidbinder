@@ -157,13 +157,15 @@ describe('YGOPRODeck set mapping', () => {
   it('maps one row per set code with the earliest edition as the set', () => {
     const rows = mapSets(sets);
     expect(rows).toHaveLength(new Set(sets.map((s) => s.set_code)).size);
-    expect(rows.find((r) => r.code === 'LOB')).toEqual({
-      code: 'LOB',
+    // Lowercase like every set code of the catalog; the printed code is in external_ids.
+    expect(rows.find((r) => r.code === 'lob')).toEqual({
+      code: 'lob',
       name: 'Legend of Blue Eyes White Dragon',
       releasedOn: '2002-03-08',
       cardCount: 355,
       kind: null,
       externalIds: {
+        set_code: 'LOB',
         set_image: 'https://images.ygoprodeck.com/images/sets/LOB.jpg',
         editions: [
           {
@@ -175,6 +177,6 @@ describe('YGOPRODeck set mapping', () => {
       },
     });
     // No release date: null, not an invented one.
-    expect(rows.find((r) => r.code === 'CRC1')).toMatchObject({ releasedOn: null, cardCount: 1 });
+    expect(rows.find((r) => r.code === 'crc1')).toMatchObject({ releasedOn: null, cardCount: 1 });
   });
 });

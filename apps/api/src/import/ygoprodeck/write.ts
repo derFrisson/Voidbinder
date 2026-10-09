@@ -10,7 +10,7 @@ import {
 import { batches, sourceHash } from '../util';
 import { BATCH_SIZE, failRun, finishRun, type Db, type WriteStats } from '../scryfall/write';
 import type { LocalizationRow } from '../scryfall/map';
-import { mapCard, mapLocalization, mapPrints, mapSets, type MappedPrint } from './map';
+import { mapCard, mapLocalization, mapPrints, mapSets, setKey, type MappedPrint } from './map';
 import type { YgoCard, YgoSet } from './types';
 
 // Database writes of the YGOPRODeck import. Every write is an upsert keyed on a unique constraint
@@ -212,10 +212,22 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
       );
 
       // A set the sets list lacks is created from the card's `set_name` (never overwritten).
-      const wanted = new Map([...printRows.values()].map((p) => [p.setCode, p.setName]));
+      const wanted = new Map(
+        [...printRows.values()].map((p) => [
+          setKey(p.setCode),
+          { code: p.setCode, name: p.setName },
+        ]),
+      );
       const created = await tx
         .insert(sets)
-        .values([...wanted].map(([code, name]) => ({ gameId: GAME, code, name })))
+        .values(
+          [...wanted].map(([key, { code, name }]) => ({
+            gameId: GAME,
+            code: key,
+            name,
+            externalIds: { set_code: code },
+          })),
+        )
         .onConflictDoNothing({ target: [sets.gameId, sets.code] })
         .returning({ code: sets.code });
       stats.setsCreated += created.length;
@@ -235,7 +247,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
       const mapped = [...printRows.values()];
       const printValues = await Promise.all(
         mapped.map(async ({ setCode, print, oracleKey }) => {
-          const setId = setIds.get(setCode);
+          const setId = setIds.get(setKey(setCode));
           const cardId = cardIds.get(oracleKey);
           if (!setId || !cardId) throw new Error(`set ${setCode} or card ${oracleKey} missing`);
           const value = {

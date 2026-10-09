@@ -1,7 +1,9 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { appMeta, cards, importRuns, printLocalizations, prints, sets } from '../../db/schema';
-import { databaseUrl, freshDatabase } from '../../test-helpers';
+import { SetPageResponseSchema } from '@voidbinder/shared/api';
+import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
+import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
 import { CHUNK_LINES, planSteps, runYgoprodeckImport, type ImportDeps } from './pipeline';
 import { fakeYgoprodeck, fixture, MemoryBlobStore, type FakeYgoprodeck } from './test-fixtures';
 import type { Db } from './write';
@@ -47,7 +49,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
       .innerJoin(cards, eq(cards.id, prints.cardId))
-      .where(sql`${sets.code} = ${set} and ${prints.number} = ${number}`);
+      .where(sql`${sets.code} = ${set.toLowerCase()} and ${prints.number} = ${number}`);
     if (!row) throw new Error(`print ${set} ${number} missing`);
     return row;
   };
@@ -105,12 +107,13 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
   });
 
   it('writes the model: set, print, localizations, no invented finishes', async () => {
-    const [lob] = await db.select().from(sets).where(eq(sets.code, 'LOB'));
+    const [lob] = await db.select().from(sets).where(eq(sets.code, 'lob'));
     expect(lob).toMatchObject({
       gameId: 'yugioh',
       name: 'Legend of Blue Eyes White Dragon',
       releasedOn: '2002-03-08',
       cardCount: 355,
+      externalIds: { set_code: 'LOB' },
     });
     const bewd = await print('LOB', 'EN001');
     expect(bewd).toMatchObject({ card: 'Blue-Eyes White Dragon', rarity: 'Ultra Rare' });
@@ -127,6 +130,16 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(finishes).toEqual([{ f: ['normal'] }]);
   });
 
+  it('serves the set through the catalog API by its code in any case', async () => {
+    const app = testApp({ cardStore: new DrizzleCardStore(db) });
+    const res = await app.request('/catalog/sets/yugioh/LOB?lang=de');
+    expect(res.status).toBe(200);
+    const page = SetPageResponseSchema.parse(await res.json());
+    expect(page.set.name).toBe('Legend of Blue Eyes White Dragon');
+    expect(page.prints.map((p) => p.number).sort()).toEqual(['DE099', 'EN001']);
+    expect(page.prints.find((p) => p.number === 'EN001')?.name).toBe('Blauäugiger w. Drache');
+  });
+
   it('keeps a German-only code as a print of its own, with both localizations', async () => {
     const own = await print('LOB', 'DE099');
     expect(own).toMatchObject({ card: 'Raigeki', rarity: 'Super Rare' });
@@ -135,8 +148,13 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
   });
 
   it('creates a set the sets list lacks from the card, and a code without a dash as its own', async () => {
-    const [db49] = await db.select().from(sets).where(eq(sets.code, 'DB49'));
-    expect(db49).toMatchObject({ name: 'Dark Beginning 1', releasedOn: null, cardCount: null });
+    const [db49] = await db.select().from(sets).where(eq(sets.code, 'db49'));
+    expect(db49).toMatchObject({
+      name: 'Dark Beginning 1',
+      releasedOn: null,
+      cardCount: null,
+      externalIds: { set_code: 'DB49' },
+    });
     expect((await print('DB49', 'DB49')).card).toBe('Backup Soldier');
   });
 
