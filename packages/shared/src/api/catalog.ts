@@ -119,11 +119,17 @@ export type PrintDetail = z.infer<typeof PrintDetailSchema>;
 export const CardResponseSchema = z.object({
   card: CardSchema,
   prints: z.array(PrintDetailSchema),
+  /** The game's copyright line (`@voidbinder/shared/notices`), shown with a print's `artist`. */
+  copyright: z.string(),
 });
 export type CardResponse = z.infer<typeof CardResponseSchema>;
 
 /** `GET /catalog/prints/:id`. */
-export const PrintResponseSchema = z.object({ print: PrintDetailSchema, card: CardSchema });
+export const PrintResponseSchema = z.object({
+  print: PrintDetailSchema,
+  card: CardSchema,
+  copyright: z.string(),
+});
 export type PrintResponse = z.infer<typeof PrintResponseSchema>;
 
 /** `POST /admin/import/scryfall`: 202 once the import Workflow is queued. */

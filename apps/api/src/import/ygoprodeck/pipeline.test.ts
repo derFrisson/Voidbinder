@@ -31,7 +31,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
   const steps: string[] = [];
   const run = (fake: FakeYgoprodeck = {}, blobs = new MemoryBlobStore()) =>
     runYgoprodeckImport(
-      { fetch: fakeYgoprodeck(fake), blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
+      { fetch: fakeYgoprodeck(fake), raw: blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
       (name, fn) => (steps.push(name), fn()),
       { env: 'dev', date: '2026-10-10', languages: ['en', 'de'] },
     );

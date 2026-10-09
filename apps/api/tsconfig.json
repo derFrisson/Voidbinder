@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": []
   },
-  "include": ["worker-configuration.d.ts", "src", "test", "*.ts"]
+  "include": ["worker-configuration.d.ts", "src", "test", "scripts", "*.ts"]
 }
