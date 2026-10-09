@@ -1,4 +1,5 @@
 import { zValidator } from '@hono/zod-validator';
+import type { CardStore } from '@voidbinder/core';
 import { ErrorResponseSchema } from '@voidbinder/shared/api';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -134,7 +135,9 @@ describe('POST /admin/import/scryfall', () => {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-    const app = testApp({ adminToken: 'secret-token', jobQueue });
+    // No import running (the 409 is tested against Postgres in routes/admin.test.ts).
+    const cardStore = { importRunning: async () => false } as Partial<CardStore> as CardStore;
+    const app = testApp({ adminToken: 'secret-token', jobQueue, cardStore });
     expect((await post(app)).status).toBe(401);
     expect((await post(app, 'wrong-token')).status).toBe(401);
     const res = await post(app, 'secret-token');

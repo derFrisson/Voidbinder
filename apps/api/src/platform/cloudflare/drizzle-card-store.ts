@@ -17,6 +17,7 @@ import {
   appMeta,
   cards,
   games,
+  importRuns,
   printLocalizations,
   prints,
   setLocalizations,
@@ -267,6 +268,21 @@ export class DrizzleCardStore implements CardStore {
   async getCard(id: string): Promise<CardResponse | null> {
     const card = await this.card(id);
     return card && { card, prints: await this.printDetails(eq(prints.cardId, id)) };
+  }
+
+  async importRunning(source: string): Promise<boolean> {
+    const [run] = await this.db
+      .select({ id: importRuns.id })
+      .from(importRuns)
+      .where(
+        and(
+          eq(importRuns.source, source),
+          eq(importRuns.status, 'running'),
+          sql`${importRuns.startedAt} > now() - interval '6 hours'`,
+        ),
+      )
+      .limit(1);
+    return Boolean(run);
   }
 
   async getPrint(id: string): Promise<PrintResponse | null> {
