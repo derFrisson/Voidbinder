@@ -1,0 +1,315 @@
+[
+  {
+    "set_name": "2-Player Starter Deck: Yuya & Declan",
+    "set_code": "YS15",
+    "num_of_cards": 42,
+    "tcg_date": "2015-05-28",
+    "set_image": "https://images.ygoprodeck.com/images/sets/YS15.jpg"
+  },
+  {
+    "set_name": "2-Player Starter Set",
+    "set_code": "STAX",
+    "num_of_cards": 88,
+    "tcg_date": "2024-01-26"
+  },
+  {
+    "set_name": "2016 Mega-Tin Mega Pack",
+    "set_code": "MP16",
+    "num_of_cards": 239,
+    "tcg_date": "2016-09-01",
+    "set_image": "https://images.ygoprodeck.com/images/sets/MP16.jpg"
+  },
+  {
+    "set_name": "2016 Mega-Tins",
+    "set_code": "CT13",
+    "num_of_cards": 12,
+    "tcg_date": "2016-09-01",
+    "set_image": "https://images.ygoprodeck.com/images/sets/CT13.jpg"
+  },
+  {
+    "set_name": "2017 Mega-Tins",
+    "set_code": "CT14",
+    "num_of_cards": 8,
+    "tcg_date": "2017-08-24",
+    "set_image": "https://images.ygoprodeck.com/images/sets/CT14.jpg"
+  },
+  {
+    "set_name": "2019 Gold Sarcophagus Tin",
+    "set_code": "TN19",
+    "num_of_cards": 14,
+    "tcg_date": "2019-08-29",
+    "set_image": "https://images.ygoprodeck.com/images/sets/TN19.jpg"
+  },
+  {
+    "set_name": "2021 Tin of Ancient Battles",
+    "set_code": "MP21",
+    "num_of_cards": 258,
+    "tcg_date": "2021-09-30",
+    "set_image": "https://images.ygoprodeck.com/images/sets/MP21.jpg"
+  },
+  {
+    "set_name": "2022 Tin of the Pharaoh's Gods",
+    "set_code": "MP22",
+    "num_of_cards": 275,
+    "tcg_date": "2022-09-14",
+    "set_image": "https://images.ygoprodeck.com/images/sets/MP22.jpg"
+  },
+  {
+    "set_name": "2025 Mega-Pack Tin",
+    "set_code": "MP25",
+    "num_of_cards": 450,
+    "tcg_date": "2025-09-04",
+    "set_image": "https://images.ygoprodeck.com/images/sets/MP25.jpg"
+  },
+  {
+    "set_name": "25th Anniversary Rarity Collection",
+    "set_code": "RA01",
+    "num_of_cards": 79,
+    "tcg_date": "2023-11-02",
+    "set_image": "https://images.ygoprodeck.com/images/sets/RA01.jpg"
+  },
+  {
+    "set_name": "25th Anniversary Tin: Dueling Heroes",
+    "set_code": "TN23",
+    "num_of_cards": 16,
+    "tcg_date": "2023-09-07",
+    "set_image": "https://images.ygoprodeck.com/images/sets/TN23.jpg"
+  },
+  {
+    "set_name": "25th Anniversary Tin: Dueling Mirrors",
+    "set_code": "MP24",
+    "num_of_cards": 398,
+    "tcg_date": "2024-09-19"
+  },
+  {
+    "set_name": "25th Anniversary Ultimate Kaiba Set",
+    "set_code": "KC01",
+    "num_of_cards": 62,
+    "tcg_date": "2024-03-01"
+  },
+  {
+    "set_name": "Anniversary Pack",
+    "set_code": "YAP1",
+    "num_of_cards": 8,
+    "tcg_date": "2008-12-08",
+    "set_image": "https://images.ygoprodeck.com/images/sets/YAP1.jpg"
+  },
+  {
+    "set_name": "Battle Pack 2: War of the Giants",
+    "set_code": "BP02",
+    "num_of_cards": 215,
+    "tcg_date": "2013-06-28",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BP02.jpg"
+  },
+  {
+    "set_name": "Battles of Legend: Crystal Revenge",
+    "set_code": "BLCR",
+    "num_of_cards": 105,
+    "tcg_date": "2022-11-17",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BLCR.jpg"
+  },
+  {
+    "set_name": "Battles of Legend: Glorious Gallery",
+    "set_code": "BLGG",
+    "num_of_cards": 146,
+    "tcg_date": "2026-06-04",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BLGG.jpg"
+  },
+  {
+    "set_name": "Battles of Legend: Relentless Revenge",
+    "set_code": "BLRR",
+    "num_of_cards": 105,
+    "tcg_date": "2018-06-28",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BLRR.jpg"
+  },
+  {
+    "set_name": "Booster Pack Collectors Tins 2002",
+    "set_code": "BPT",
+    "num_of_cards": 6,
+    "tcg_date": "2002-10-04",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BPT.jpg"
+  },
+  {
+    "set_name": "Breakers of Shadow",
+    "set_code": "BOSH",
+    "num_of_cards": 100,
+    "tcg_date": "2016-01-14",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BOSH.jpg"
+  },
+  {
+    "set_name": "Breakers of Shadow Sneak Peek Participation Card",
+    "set_code": "BOSH",
+    "num_of_cards": 1,
+    "tcg_date": "2016-01-09",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BOSH.jpg"
+  },
+  {
+    "set_name": "Breakers of Shadow: Special Edition",
+    "set_code": "BOSH",
+    "num_of_cards": 4,
+    "tcg_date": "2016-02-25",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BOSH.jpg"
+  },
+  {
+    "set_name": "Collectible Tins 2003",
+    "set_code": "BPT",
+    "num_of_cards": 6,
+    "tcg_date": "2003-09-01",
+    "set_image": "https://images.ygoprodeck.com/images/sets/BPT.jpg"
+  },
+  { "set_name": "Crocs collaboration card", "set_code": "CRC1", "num_of_cards": 1 },
+  {
+    "set_name": "Crossover Breakers",
+    "set_code": "CRBR",
+    "num_of_cards": 60,
+    "tcg_date": "2024-12-05",
+    "set_image": "https://images.ygoprodeck.com/images/sets/CRBR.jpg"
+  },
+  {
+    "set_name": "Dark Beginning 1",
+    "set_code": "DB1",
+    "num_of_cards": 262,
+    "tcg_date": "2004-10-12",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DB1.jpg"
+  },
+  {
+    "set_name": "Dark Beginning 2",
+    "set_code": "DB2",
+    "num_of_cards": 264,
+    "tcg_date": "2005-07-27",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DB2.jpg"
+  },
+  {
+    "set_name": "Dark Legends",
+    "set_code": "DLG1",
+    "num_of_cards": 113,
+    "tcg_date": "2008-11-21",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DLG1.jpg"
+  },
+  {
+    "set_name": "Dark Legion Starter Deck",
+    "set_code": "YS15",
+    "num_of_cards": 29,
+    "tcg_date": "2015-05-29",
+    "set_image": "https://images.ygoprodeck.com/images/sets/YS15.jpg"
+  },
+  {
+    "set_name": "Dark Revelation Volume 3",
+    "set_code": "DR3",
+    "num_of_cards": 240,
+    "tcg_date": "2006-11-25",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DR3.jpg"
+  },
+  {
+    "set_name": "Duel Devastator",
+    "set_code": "DUDE",
+    "num_of_cards": 56,
+    "tcg_date": "2019-10-10",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DUDE.jpg"
+  },
+  {
+    "set_name": "Duel Power",
+    "set_code": "DUPO",
+    "num_of_cards": 106,
+    "tcg_date": "2019-04-03",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DUPO.jpg"
+  },
+  {
+    "set_name": "Duel Terminal 3",
+    "set_code": "DT03",
+    "num_of_cards": 100,
+    "tcg_date": "2010-09-25",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DT03.jpg"
+  },
+  {
+    "set_name": "Duelist Pack: Jaden Yuki",
+    "set_code": "DP1",
+    "num_of_cards": 30,
+    "tcg_date": "2006-02-08",
+    "set_image": "https://images.ygoprodeck.com/images/sets/DP1.jpg"
+  },
+  {
+    "set_name": "HERO Strike Structure Deck",
+    "set_code": "SDHS",
+    "num_of_cards": 45,
+    "tcg_date": "2015-01-29",
+    "set_image": "https://images.ygoprodeck.com/images/sets/SDHS.jpg"
+  },
+  {
+    "set_name": "Legend of Blue Eyes White Dragon",
+    "set_code": "LOB",
+    "num_of_cards": 355,
+    "tcg_date": "2002-03-08",
+    "set_image": "https://images.ygoprodeck.com/images/sets/LOB.jpg"
+  },
+  {
+    "set_name": "Legend of Blue Eyes White Dragon (25th Anniversary Edition)",
+    "set_code": "lob",
+    "num_of_cards": 14,
+    "tcg_date": "2023-04-20",
+    "set_image": "https://images.ygoprodeck.com/images/sets/LOB.jpg"
+  },
+  {
+    "set_name": "Legendary Decks II",
+    "set_code": "LDK2",
+    "num_of_cards": 130,
+    "tcg_date": "2016-10-06",
+    "set_image": "https://images.ygoprodeck.com/images/sets/LDK2.jpg"
+  },
+  {
+    "set_name": "Legendary Duelists: Season 2",
+    "set_code": "LDS2",
+    "num_of_cards": 131,
+    "tcg_date": "2021-01-21",
+    "set_image": "https://images.ygoprodeck.com/images/sets/LDS2.jpg"
+  },
+  {
+    "set_name": "Legendary Duelists: White Dragon Abyss",
+    "set_code": "LED3",
+    "num_of_cards": 56,
+    "tcg_date": "2018-09-27",
+    "set_image": "https://images.ygoprodeck.com/images/sets/LED3.jpg"
+  },
+  {
+    "set_name": "Magnificent Monsters",
+    "set_code": "MAMO",
+    "num_of_cards": 126,
+    "tcg_date": "2026-09-04",
+    "set_image": "https://images.ygoprodeck.com/images/sets/MAMO.jpg"
+  },
+  {
+    "set_name": "OTS Tournament Pack 13",
+    "set_code": "OP13",
+    "num_of_cards": 25,
+    "tcg_date": "2020-06-15",
+    "set_image": "https://images.ygoprodeck.com/images/sets/OP13.jpg"
+  },
+  {
+    "set_name": "OTS Tournament Pack 13 (POR)",
+    "set_code": "OP13",
+    "num_of_cards": 34,
+    "tcg_date": "2020-06-15",
+    "set_image": "https://images.ygoprodeck.com/images/sets/OP13.jpg"
+  },
+  {
+    "set_name": "OTS Tournament Pack 6",
+    "set_code": "OP06",
+    "num_of_cards": 26,
+    "tcg_date": "2017-12-07",
+    "set_image": "https://images.ygoprodeck.com/images/sets/OP06.jpg"
+  },
+  {
+    "set_name": "Saber Force Starter Deck",
+    "set_code": "YS15",
+    "num_of_cards": 28,
+    "tcg_date": "2015-05-29",
+    "set_image": "https://images.ygoprodeck.com/images/sets/YS15.jpg"
+  },
+  {
+    "set_name": "Speed Duel GX: Duelists of Shadows",
+    "set_code": "SGX3",
+    "num_of_cards": 221,
+    "tcg_date": "2023-03-30",
+    "set_image": "https://images.ygoprodeck.com/images/sets/SGX3.jpg"
+  }
+]

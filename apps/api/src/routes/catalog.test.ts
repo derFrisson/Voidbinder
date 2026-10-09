@@ -141,8 +141,17 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
   it('returns one print with its card', async () => {
     const [p] = await db.select({ id: prints.id }).from(prints).where(eq(prints.number, '385'));
+    // Source image URLs of every importer are served as imageUrl only.
+    await db
+      .update(prints)
+      .set({
+        externalIds: sql`${prints.externalIds} || '{"image_url":"x","image_url_small":"x","tcgdex_images":"x","tcgdex_marketplace":"x"}'::jsonb`,
+      })
+      .where(eq(prints.id, p?.id ?? ''));
     const body = PrintResponseSchema.parse((await get(`/prints/${p?.id}`)).body);
-    expect(body.print).toMatchObject({ number: '385', finishes: ['foil'] });
+    expect(body.print).toMatchObject({ number: '385', variant: '', finishes: ['foil'] });
+    for (const key of ['image_url', 'image_url_small', 'tcgdex_images', 'tcgdex_marketplace'])
+      expect(body.print.externalIds).not.toHaveProperty(key);
     expect(body.card.name).toBe('Champion of the Perished');
   });
 

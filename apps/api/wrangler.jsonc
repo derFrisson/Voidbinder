@@ -50,17 +50,23 @@
   "r2_buckets": [
     { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
   ],
-  // Catalog import (VB-26): the Workflow runs the Scryfall import; the cron starts it daily and
-  // POST /admin/import/scryfall on demand. Splitting the 2 GB all_cards dump needs more than the
-  // default 30 s of CPU in one step.
+  // Catalog import (VB-26, VB-27): one Workflow per source (Scryfall, YGOPRODeck); each cron
+  // starts one daily (CRON_SOURCES in src/import/schedule.ts maps the expression) and
+  // POST /admin/import/<source> on demand. Splitting the 2 GB Scryfall all_cards dump needs more
+  // than the default 30 s of CPU in one step.
   "workflows": [
     {
       "binding": "SCRYFALL_IMPORT",
       "name": "voidbinder-scryfall-import",
       "class_name": "ScryfallImportWorkflow",
     },
+    {
+      "binding": "YGOPRODECK_IMPORT",
+      "name": "voidbinder-ygoprodeck-import",
+      "class_name": "YgoprodeckImportWorkflow",
+    },
   ],
-  "triggers": { "crons": ["0 3 * * *"] },
+  "triggers": { "crons": ["0 3 * * *", "30 3 * * *"] },
   "limits": { "cpu_ms": 300000 },
   "env": {
     "dev": {
@@ -100,8 +106,13 @@
           "name": "voidbinder-scryfall-import-dev",
           "class_name": "ScryfallImportWorkflow",
         },
+        {
+          "binding": "YGOPRODECK_IMPORT",
+          "name": "voidbinder-ygoprodeck-import-dev",
+          "class_name": "YgoprodeckImportWorkflow",
+        },
       ],
-      "triggers": { "crons": ["30 4 * * *"] },
+      "triggers": { "crons": ["30 4 * * *", "0 5 * * *"] },
       "limits": { "cpu_ms": 300000 },
     },
     "prod": {
@@ -141,8 +152,13 @@
           "name": "voidbinder-scryfall-import",
           "class_name": "ScryfallImportWorkflow",
         },
+        {
+          "binding": "YGOPRODECK_IMPORT",
+          "name": "voidbinder-ygoprodeck-import",
+          "class_name": "YgoprodeckImportWorkflow",
+        },
       ],
-      "triggers": { "crons": ["0 3 * * *"] },
+      "triggers": { "crons": ["0 3 * * *", "30 3 * * *"] },
       "limits": { "cpu_ms": 300000 },
     },
   },

@@ -26,7 +26,7 @@ import type { ScryfallCard, ScryfallSet } from './types';
 // that leaves the row (and its updated_at) alone when the source hash is unchanged.
 
 export type Db = NodePgDatabase;
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
+export type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const GAME = 'mtg';
 /** Rows per upsert and per transaction. */
@@ -38,16 +38,18 @@ export interface WriteStats {
   unchanged: number;
 }
 
-const excluded = (column: string) => sql.raw(`excluded."${column}"`);
-/** Set on insert and on a real change only (the setWhere of every upsert below). */
-const touched = { updatedAt: sql`now()` };
+// The helpers below are shared by every importer's write module.
 
-function writeStats(returned: { inserted: boolean }[], total: number): WriteStats {
+export const excluded = (column: string) => sql.raw(`excluded."${column}"`);
+/** Set on insert and on a real change only (the setWhere of every upsert below). */
+export const touched = { updatedAt: sql`now()` };
+
+export function writeStats(returned: { inserted: boolean }[], total: number): WriteStats {
   const inserted = returned.filter((r) => r.inserted).length;
   return { inserted, updated: returned.length - inserted, unchanged: total - returned.length };
 }
 
-function addStats(a: WriteStats, b: WriteStats): WriteStats {
+export function addStats(a: WriteStats, b: WriteStats): WriteStats {
   return {
     inserted: a.inserted + b.inserted,
     updated: a.updated + b.updated,
@@ -55,9 +57,27 @@ function addStats(a: WriteStats, b: WriteStats): WriteStats {
   };
 }
 
-const ZERO: WriteStats = { inserted: 0, updated: 0, unchanged: 0 };
+export const ZERO: WriteStats = { inserted: 0, updated: 0, unchanged: 0 };
 /** `xmax = 0` holds for a row this statement inserted, not for one it updated. */
-const wasInserted = { inserted: sql<boolean>`(xmax = 0)` };
+export const wasInserted = { inserted: sql<boolean>`(xmax = 0)` };
+
+/** The English `set_localizations` row of each set code of `game`, from the set's current name. */
+export async function upsertSetNames(tx: Tx, game: string, codes: string[]) {
+  if (!codes.length) return;
+  const ids = await tx
+    .select({ id: sets.id, name: sets.name })
+    .from(sets)
+    .where(and(eq(sets.gameId, game), inArray(sets.code, codes)));
+  if (!ids.length) return;
+  await tx
+    .insert(setLocalizations)
+    .values(ids.map((s) => ({ setId: s.id, lang: 'en', name: s.name })))
+    .onConflictDoUpdate({
+      target: [setLocalizations.setId, setLocalizations.lang],
+      set: { name: excluded('name') },
+      setWhere: sql`${setLocalizations.name} is distinct from excluded.name`,
+    });
+}
 
 export async function startRun(db: Db, kind: 'full' | 'delta' | 'images'): Promise<string> {
   const [run] = await db
@@ -121,26 +141,11 @@ export async function upsertSets(db: Db, source: ScryfallSet[]) {
         })
         .returning(wasInserted);
       stats = addStats(stats, writeStats(returned, values.length));
-      const ids = await tx
-        .select({ id: sets.id, name: sets.name })
-        .from(sets)
-        .where(
-          and(
-            eq(sets.gameId, GAME),
-            inArray(
-              sets.code,
-              values.map((v) => v.code),
-            ),
-          ),
-        );
-      await tx
-        .insert(setLocalizations)
-        .values(ids.map((s) => ({ setId: s.id, lang: 'en', name: s.name })))
-        .onConflictDoUpdate({
-          target: [setLocalizations.setId, setLocalizations.lang],
-          set: { name: excluded('name') },
-          setWhere: sql`${setLocalizations.name} is distinct from excluded.name`,
-        });
+      await upsertSetNames(
+        tx,
+        GAME,
+        values.map((v) => v.code),
+      );
     });
   }
   return { ...stats, skipped: source.length - rows.length };
@@ -298,7 +303,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
         .insert(prints)
         .values(printValues)
         .onConflictDoUpdate({
-          target: [prints.setId, prints.number],
+          target: [prints.setId, prints.number, prints.variant],
           set: {
             cardId: excluded('card_id'),
             rarity: excluded('rarity'),
