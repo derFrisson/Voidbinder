@@ -1,5 +1,5 @@
 import { createApp, type App } from './app';
-import { appDeps, startScryfallImport, startTcgdexImport } from './platform/cloudflare';
+import { appDeps, startScryfallImport, startTcgdexCron } from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
@@ -14,14 +14,15 @@ export default {
   },
 
   /**
-   * Cron (prod `0 3 * * *`, dev `30 4 * * *`): the daily imports, one instance of each per day. A
-   * failed start of one never keeps the others from starting.
+   * Cron (prod `0 3 * * *`, dev `30 4 * * *`): the daily imports, one instance of each per day
+   * (TCGdex only when no TCGdex run is still going). A failed start of one never keeps the others
+   * from starting.
    */
   async scheduled(controller, env) {
     const day = new Date(controller.scheduledTime).toISOString().slice(0, 10);
     const started = await Promise.allSettled([
       startScryfallImport(env, `scryfall-${day}`),
-      startTcgdexImport(env, `tcgdex-${day}`),
+      startTcgdexCron(env, `tcgdex-${day}`),
     ]);
     const failed = started.find((r) => r.status === 'rejected');
     if (failed) throw failed.reason;

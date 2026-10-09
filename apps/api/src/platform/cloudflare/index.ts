@@ -122,3 +122,23 @@ export async function startTcgdexImport(env: Env, id?: string): Promise<void> {
   const instance = await env.TCGDEX_IMPORT.create({ ...(id && { id }), params: {} });
   log('info', { message: 'workflow started', job: 'tcgdex-import', instanceId: instance.id });
 }
+
+/**
+ * The cron's TCGdex start: skipped (and logged) while a TCGdex run is still going, which a full
+ * run or a slow day can make last past the next cron. Same check as POST /admin/import/tcgdex.
+ */
+export async function startTcgdexCron(
+  env: Env,
+  id: string,
+  platform: Pick<Platform, 'cardStore' | 'close'> = createPlatform(env),
+): Promise<void> {
+  try {
+    if (await platform.cardStore.importRunning('tcgdex')) {
+      log('info', { message: 'import still running, cron start skipped', job: 'tcgdex-import' });
+      return;
+    }
+  } finally {
+    await platform.close();
+  }
+  await startTcgdexImport(env, id);
+}
