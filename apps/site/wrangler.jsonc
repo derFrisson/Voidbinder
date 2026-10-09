@@ -48,10 +48,13 @@
       },
       "triggers": { "crons": ["17 3 * * *"] },
       "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
-      // No Hyperdrive binding until the database exists (docs/guides/database-vps.md, VB-50): the
-      // waitlist then answers with its error page. Re-add with the id from
-      // `wrangler hyperdrive create voidbinder-dev ...`:
-      // "hyperdrive": [{ "binding": "HYPERDRIVE", "id": "<id>", "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder" }],
+      "hyperdrive": [
+        {
+          "binding": "HYPERDRIVE",
+          "id": "6f5b0953850f4b7b99450961849113ab",
+          "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
+        },
+      ],
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "ratelimits": [
         { "name": "RL_WAITLIST", "namespace_id": "1701", "simple": { "limit": 5, "period": 60 } },
