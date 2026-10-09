@@ -19,7 +19,9 @@ jobs:
     # Postgres for the integration tests of the site and the API (DATABASE_URL below).
     services:
       postgres:
-        image: postgres:18-alpine
+        # Docker Hub's official image through AWS's mirror: anonymous Docker Hub pulls from
+        # GitHub's shared runner IPs hit the rate limit.
+        image: public.ecr.aws/docker/library/postgres:18-alpine
         env:
           POSTGRES_USER: voidbinder
           POSTGRES_PASSWORD: voidbinder
