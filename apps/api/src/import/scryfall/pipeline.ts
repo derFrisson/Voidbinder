@@ -33,7 +33,8 @@ export const CHUNK_LINES = 2000;
 
 export interface ImportDeps {
   fetch: Fetch;
-  blobs: BlobStore;
+  /** The private `RAW` bucket: the raw dumps (`raw/…`) and a run's chunks (`work/…`). */
+  raw: BlobStore;
   /** Opens a connection for one step and closes it afterwards. */
   withDb<T>(fn: (db: Db) => Promise<T>): Promise<T>;
 }
@@ -89,19 +90,19 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
     const others = opts.languages.filter((l) => l !== 'en');
 
     await step('download default_cards', () =>
-      download(deps.fetch, deps.blobs, files.default_cards, `${raw}/default_cards.jsonl.gz`),
+      download(deps.fetch, deps.raw, files.default_cards, `${raw}/default_cards.jsonl.gz`),
     );
     const cardSplit = await step('split default_cards', () =>
-      split(deps.blobs, `${raw}/default_cards.jsonl.gz`, `${work}/default_cards`, CHUNK_LINES),
+      split(deps.raw, `${raw}/default_cards.jsonl.gz`, `${work}/default_cards`, CHUNK_LINES),
     );
     let localizationSplit = { chunks: 0, lines: 0 };
     if (others.length) {
       await step('download all_cards', () =>
-        download(deps.fetch, deps.blobs, files.all_cards, `${raw}/all_cards.jsonl.gz`),
+        download(deps.fetch, deps.raw, files.all_cards, `${raw}/all_cards.jsonl.gz`),
       );
       localizationSplit = await step('split all_cards', () =>
         split(
-          deps.blobs,
+          deps.raw,
           `${raw}/all_cards.jsonl.gz`,
           `${work}/all_cards`,
           CHUNK_LINES,
@@ -111,7 +112,7 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
     }
 
     const sets = await step('sets', async () => {
-      const source = await fetchSets(deps.fetch, deps.blobs, `${raw}/sets.json`);
+      const source = await fetchSets(deps.fetch, deps.raw, `${raw}/sets.json`);
       return deps.withDb((db) => upsertSets(db, source));
     });
 
@@ -126,7 +127,7 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
     for (const s of planSteps(work, cardSplit.chunks, localizationSplit.chunks)) {
       if (s.kind === 'cards') {
         const r = await step(s.name, async () =>
-          deps.withDb(async (db) => importCardLines(db, await readChunk(deps.blobs, s.key))),
+          deps.withDb(async (db) => importCardLines(db, await readChunk(deps.raw, s.key))),
         );
         cards.cards = add(cards.cards, r.cards);
         cards.prints = add(cards.prints, r.prints);
@@ -134,9 +135,7 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
         for (const k of ['layout', 'digital', 'noSet'] as const) cards.skipped[k] += r.skipped[k];
       } else {
         const r = await step(s.name, async () =>
-          deps.withDb(async (db) =>
-            importLocalizationLines(db, await readChunk(deps.blobs, s.key)),
-          ),
+          deps.withDb(async (db) => importLocalizationLines(db, await readChunk(deps.raw, s.key))),
         );
         localizations.written += r.written;
         localizations.noPrint += r.noPrint;
@@ -158,7 +157,7 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
   }
   // The run is finished: a failed cleanup leaves chunks behind, never a failed run.
   try {
-    await step('clean up chunks', () => deletePrefix(deps.blobs, work));
+    await step('clean up chunks', () => deletePrefix(deps.raw, work));
   } catch (err) {
     log('warn', { message: 'chunk cleanup failed', runId, prefix: work, error: String(err) });
   }

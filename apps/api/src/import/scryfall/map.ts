@@ -97,6 +97,12 @@ function images(uris: ScryfallImageUris | undefined): Record<string, string> | u
   return Object.keys(out).length ? (out as Record<string, string>) : undefined;
 }
 
+/** The front image URLs plus the scan quality the image mirror (VB-57) waits for. */
+function frontImages(card: ScryfallCard): Record<string, unknown> | undefined {
+  const uris = images(card.image_uris ?? card.card_faces?.[0]?.image_uris);
+  return uris && { ...uris, highres_image: card.highres_image, image_status: card.image_status };
+}
+
 function joinFaces(
   faces: ScryfallFace[] | undefined,
   field: keyof ScryfallFace,
@@ -164,9 +170,8 @@ export function mapCard(print: ScryfallCard): CardRow {
 }
 
 function imageIds(card: ScryfallCard): Record<string, unknown> {
-  const front = images(card.image_uris ?? card.card_faces?.[0]?.image_uris);
   const back = card.image_uris ? undefined : images(card.card_faces?.[1]?.image_uris);
-  return { scryfall: card.id, scryfall_images: front, scryfall_back_images: back };
+  return { scryfall: card.id, scryfall_images: frontImages(card), scryfall_back_images: back };
 }
 
 export function mapPrint(card: ScryfallCard): PrintRow {

@@ -46,9 +46,11 @@
       "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
     },
   ],
-  // Locally `wrangler dev` simulates the bucket under .wrangler/state.
+  // Locally `wrangler dev` simulates the buckets under .wrangler/state. CATALOG is public through
+  // img.voidbinder.de and holds images/ only; RAW is private (raw/ dumps, work/ chunks).
   "r2_buckets": [
     { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
+    { "binding": "RAW", "bucket_name": "voidbinder-raw", "jurisdiction": "eu" },
   ],
   // Catalog import (VB-26, VB-27, VB-28): one Workflow per source (Scryfall, YGOPRODeck, TCGdex);
   // each cron starts one daily (CRON_SOURCES in src/import/schedule.ts maps the expression) and
@@ -72,7 +74,9 @@
     },
   ],
   "triggers": { "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *"] },
-  "limits": { "cpu_ms": 300000 },
+  // The image delta adds up to ~4000 subrequests (a fetch and an R2 put per image) to an import
+  // instance on top of the import's own; the default is 10,000 per instance.
+  "limits": { "cpu_ms": 300000, "subrequests": 50000 },
   "env": {
     "dev": {
       "name": "voidbinder-api-dev",
@@ -104,6 +108,7 @@
       ],
       "r2_buckets": [
         { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
+        { "binding": "RAW", "bucket_name": "voidbinder-raw", "jurisdiction": "eu" },
       ],
       "workflows": [
         {
@@ -123,7 +128,7 @@
         },
       ],
       "triggers": { "crons": ["30 4 * * *", "0 5 * * *", "30 5 * * *"] },
-      "limits": { "cpu_ms": 300000 },
+      "limits": { "cpu_ms": 300000, "subrequests": 50000 },
     },
     "prod": {
       "name": "voidbinder-api",
@@ -155,6 +160,7 @@
       ],
       "r2_buckets": [
         { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
+        { "binding": "RAW", "bucket_name": "voidbinder-raw", "jurisdiction": "eu" },
       ],
       "workflows": [
         {
@@ -174,7 +180,7 @@
         },
       ],
       "triggers": { "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *"] },
-      "limits": { "cpu_ms": 300000 },
+      "limits": { "cpu_ms": 300000, "subrequests": 50000 },
     },
   },
 }

@@ -14,9 +14,15 @@ function info(o: R2Object): BlobInfo {
 }
 
 export class R2BlobStore implements BlobStore {
-  constructor(private readonly bucket: R2Bucket) {}
+  /** `onlyPrefix`: `put` refuses every other key (the public `CATALOG` bucket takes `images/`). */
+  constructor(
+    private readonly bucket: R2Bucket,
+    private readonly onlyPrefix?: string,
+  ) {}
 
   async put(key: string, body: ByteStream | Uint8Array | string, options: BlobPutOptions) {
+    if (this.onlyPrefix && !key.startsWith(this.onlyPrefix))
+      throw new Error(`refusing to write ${key}: this bucket takes ${this.onlyPrefix} keys only`);
     const { contentType, cacheControl } = options;
     const obj = await this.bucket.put(key, body as ReadableStream | Uint8Array | string, {
       httpMetadata: { contentType, ...(cacheControl && { cacheControl }) },

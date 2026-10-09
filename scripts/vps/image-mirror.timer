@@ -1,0 +1,10 @@
+# Starts image-mirror.service daily at 05:30 UTC, after both import crons (prod 03:00, dev 04:30).
+[Unit]
+Description=Nightly Voidbinder card image mirror
+
+[Timer]
+OnCalendar=*-*-* 05:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

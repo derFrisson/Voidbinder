@@ -81,11 +81,11 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
     const lines: Record<string, number> = {};
     for (const lang of languages) {
       await step(`download ${lang}`, () =>
-        downloadCardinfo(deps.fetch, deps.blobs, lang, `${raw}/cardinfo_${lang}.json.gz`),
+        downloadCardinfo(deps.fetch, deps.raw, lang, `${raw}/cardinfo_${lang}.json.gz`),
       );
       const split = await step(`split ${lang}`, () =>
         splitCardinfo(
-          deps.blobs,
+          deps.raw,
           `${raw}/cardinfo_${lang}.json.gz`,
           `${work}/cardinfo_${lang}`,
           CHUNK_LINES,
@@ -96,7 +96,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
     }
 
     const sets = await step('sets', async () => {
-      const source = await fetchSets(deps.fetch, deps.blobs, `${raw}/cardsets.json`);
+      const source = await fetchSets(deps.fetch, deps.raw, `${raw}/cardsets.json`);
       return deps.withDb((db) => upsertSets(db, source));
     });
 
@@ -113,7 +113,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
     for (const s of planSteps(work, chunks)) {
       if (s.lang === 'en') {
         const r = await step(s.name, async () =>
-          deps.withDb(async (db) => importCardLines(db, await readChunk(deps.blobs, s.key))),
+          deps.withDb(async (db) => importCardLines(db, await readChunk(deps.raw, s.key))),
         );
         cards.cards = add(cards.cards, r.cards);
         cards.prints = add(cards.prints, r.prints);
@@ -125,7 +125,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
       } else {
         const r = await step(s.name, async () =>
           deps.withDb(async (db) =>
-            importLocalizationLines(db, await readChunk(deps.blobs, s.key), s.lang),
+            importLocalizationLines(db, await readChunk(deps.raw, s.key), s.lang),
           ),
         );
         const total = (localizations[s.lang] ??= { written: 0, noCard: 0 });
@@ -143,7 +143,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
   }
   // The run is finished: a failed cleanup leaves chunks behind, never a failed run.
   try {
-    await step('clean up chunks', () => deletePrefix(deps.blobs, work));
+    await step('clean up chunks', () => deletePrefix(deps.raw, work));
   } catch (err) {
     log('warn', { message: 'chunk cleanup failed', runId, prefix: work, error: String(err) });
   }

@@ -1,3 +1,4 @@
+import { mirrorStepFor } from './mirror-images';
 import {
   WorkflowEntrypoint,
   type WorkflowEvent,
@@ -39,8 +40,8 @@ export class TcgdexImportWorkflow extends WorkflowEntrypoint<Env, TcgdexImportPa
         mode: event.payload.mode ?? 'incremental',
       },
     );
-    // VB-57: the daily image delta, `mirrorStepFor('pokemon')`, goes here as the last step once
-    // the image mirror is merged.
-    return { runId, stats };
+    // Last step (VB-57): the oldest pending Pokémon images, at most 2000.
+    const images = await mirrorStepFor('pokemon')(this.env, step);
+    return { runId, stats, images };
   }
 }
