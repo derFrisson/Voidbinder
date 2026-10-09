@@ -34,8 +34,8 @@ backups and operations: [guides/database-vps.md](guides/database-vps.md). Locall
 
 | Environment | Hyperdrive config | Id in `apps/site/wrangler.jsonc` (`hyperdrive[0].id`) |
 | ----------- | ----------------- | ----------------------------------------------------- |
-| `dev`       | `voidbinder-dev`  | set after the runbook                                 |
-| `prod`      | `voidbinder-prod` | set after the runbook                                 |
+| `dev`       | `voidbinder-dev`  | `6f5b0953850f4b7b99450961849113ab`                    |
+| `prod`      | `voidbinder-prod` | `2f4e2569cde54e0998b734c884432765`                    |
 
 ## Secrets
 
