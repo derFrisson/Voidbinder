@@ -1,6 +1,8 @@
-# Local overrides for `pnpm --filter api dev`: `cp .dev.vars.example .dev.vars` (gitignored).
-# Values here override the top-level `vars` in wrangler.jsonc. Any value works locally.
+# Local overrides and secrets for `pnpm --filter api dev`: `cp .dev.vars.example .dev.vars`
+# (gitignored). Values here override the top-level `vars` in wrangler.jsonc.
 APP_URL=http://localhost:8081
+# Better Auth signing and encryption key, 32+ bytes: `openssl rand -base64 32`.
+BETTER_AUTH_SECRET=change-me-local-only-0123456789abcdef
 # Bearer token of /admin/** (POST /admin/import/scryfall). Deployed environments:
 # openssl rand -base64 32 | pnpm exec wrangler secret put ADMIN_TOKEN --env dev|prod
 ADMIN_TOKEN=local-dev-admin-token

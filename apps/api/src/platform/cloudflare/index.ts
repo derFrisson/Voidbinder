@@ -1,10 +1,11 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
-import type { Platform } from '../../app';
+import type { AppDeps, Platform } from '../../app';
 import { SM_WIDTH, type MirrorDeps } from '../../import/images';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
+import { bindingMailSender } from './mail-sender';
 import { R2BlobStore } from './r2-blob-store';
 import { WorkflowJobQueue } from './workflow-job-queue';
 
@@ -38,16 +39,40 @@ export function createPlatform(env: Env): Platform {
     ? openPool(env.HYPERDRIVE_CACHED.connectionString)
     : pool;
   // An unused pool opens no connection.
+  const db = drizzle(pool);
   return {
-    cardStore: new DrizzleCardStore(drizzle(pool), {
+    cardStore: new DrizzleCardStore(db, {
       catalogDb: drizzle(cachedPool),
       imageBaseUrl: env.IMAGE_BASE_URL,
     }),
     blobStore: new R2BlobStore(env.CATALOG),
     jobQueue: new WorkflowJobQueue({ 'scryfall-import': env.SCRYFALL_IMPORT }),
+    db,
     close: async () => {
       await Promise.all(cachedPool === pool ? [pool.end()] : [pool.end(), cachedPool.end()]);
     },
+  };
+}
+
+/** The app's dependencies from the Worker's vars, secrets and bindings. */
+export function appDeps(env: Env): AppDeps {
+  return {
+    appUrl: env.APP_URL,
+    // Comma-separated; blanks around the commas and empty entries are ignored.
+    extraOrigins: (env.CORS_EXTRA_ORIGINS ?? '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+    version: env.VERSION,
+    auth: {
+      secret: env.BETTER_AUTH_SECRET,
+      apiUrl: env.API_URL,
+      // Always the binding: `wrangler dev` simulates it locally, and a mail that cannot be sent
+      // is logged as an error, never with its link.
+      mail: bindingMailSender(env.EMAIL),
+    },
+    adminToken: env.ADMIN_TOKEN,
+    openPlatform: () => createPlatform(env),
   };
 }
 

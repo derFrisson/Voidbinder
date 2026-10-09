@@ -41,7 +41,13 @@ let origin = '';
 
 async function open(width: number, height: number, colorScheme: 'light' | 'dark' = 'light') {
   if (!browser) throw new Error('browser did not start');
-  const context = await browser.newContext({ viewport: { width, height }, colorScheme });
+  // Reduced motion: axe checks the resting state (the hero's final frame) instead of a frame
+  // caught mid-animation, which a busy CI runner reached and failed on contrast.
+  const context = await browser.newContext({
+    viewport: { width, height },
+    colorScheme,
+    reducedMotion: 'reduce',
+  });
   return { context, page: await context.newPage() };
 }
 

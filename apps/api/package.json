@@ -8,6 +8,10 @@
     "./client": {
       "types": "./src/client.ts",
       "default": "./src/client.ts"
+    },
+    "./auth-client": {
+      "types": "./src/auth/client.ts",
+      "default": "./src/auth/client.ts"
     }
   },
   "scripts": {
@@ -33,9 +37,11 @@
     "wrangler": "^4.149.0"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "^1.7.7",
     "@hono/zod-validator": "^0.9.1",
     "@voidbinder/core": "workspace:*",
     "@voidbinder/shared": "workspace:*",
+    "better-auth": "^1.7.7",
     "drizzle-orm": "^0.45.4",
     "hono": "^4.13.13",
     "pg": "^8.23.1",
