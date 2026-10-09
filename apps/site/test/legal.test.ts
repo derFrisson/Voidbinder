@@ -50,7 +50,8 @@ describe('legal pages', () => {
   });
 
   it('links the locale-specific legal pages in the footer of every page', () => {
-    const withFooter = pages.filter((p) => p.html.includes('<footer'));
+    // The root 404 is German and sits outside /<locale>/; its footer links /de/ like the German pages.
+    const withFooter = pages.filter((p) => p.html.includes('<footer') && /^(de|en)\//.test(p.file));
     expect(withFooter.length).toBeGreaterThanOrEqual(6);
     for (const { file, html } of withFooter) {
       const locale = file.split('/')[0];
@@ -64,8 +65,8 @@ describe('legal pages', () => {
   it('redirects the other locale slug, so the waitlist consent link works in both locales', () => {
     // The consent text links /<locale>/datenschutz/; in English that is an alias of /en/privacy.
     const redirects = readFileSync(new URL('_redirects', client), 'utf8');
-    expect(redirects).toMatch(/^\/en\/datenschutz\s+\/en\/privacy\s+301$/m);
-    expect(redirects).toMatch(/^\/de\/imprint\s+\/de\/impressum\s+301$/m);
+    expect(redirects).toMatch(/^\/en\/datenschutz\/?\s+\/en\/privacy\/\s+301$/m);
+    expect(redirects).toMatch(/^\/de\/imprint\/?\s+\/de\/impressum\/\s+301$/m);
   });
 });
 
