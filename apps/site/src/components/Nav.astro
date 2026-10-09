@@ -1,0 +1,131 @@
+---
+import { locales, localePath, t, type Locale } from '../i18n';
+import Logo from './Logo.astro';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const d = t(locale);
+const home = `/${locale}/`;
+const links = [
+  { href: `${home}#games`, label: d.nav.games },
+  { href: `${home}#scanner`, label: d.nav.scanner },
+  { href: `${home}#prices`, label: d.nav.prices },
+  { href: `${home}#open-source`, label: d.nav.openSource },
+];
+const path = Astro.url.pathname;
+---
+
+<header class="nav">
+  <nav class="wrap nav-inner" aria-label={d.a11y.nav}>
+    <Logo href={home} label={d.a11y.home} />
+    <ul class="nav-links">
+      {
+        links.map((l) => (
+          <li>
+            <a href={l.href}>{l.label}</a>
+          </li>
+        ))
+      }
+    </ul>
+    <div class="nav-end">
+      <ul class="lang" aria-label={d.a11y.language}>
+        {
+          locales.map((l) => (
+            <li>
+              <a
+                href={localePath(path, l)}
+                hreflang={l}
+                lang={l}
+                aria-current={l === locale ? 'true' : undefined}
+              >
+                {l.toUpperCase()}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+      <a class="btn btn-primary btn-sm" href={`${home}#waitlist`}>{d.nav.cta}</a>
+    </div>
+  </nav>
+</header>
+
+<style>
+  .nav {
+    position: fixed;
+    inset: 0 0 auto;
+    z-index: 10;
+    border-bottom: 1px solid var(--outline);
+    background: rgba(8, 8, 8, 0.78);
+    -webkit-backdrop-filter: var(--glass-blur);
+    backdrop-filter: var(--glass-blur);
+  }
+
+  .nav-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+    height: var(--nav-height);
+  }
+
+  .nav-links {
+    display: flex;
+    gap: var(--space-6);
+  }
+
+  .nav-links a,
+  .lang a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    color: var(--on-surface-muted);
+    font-size: var(--text-small);
+    text-decoration: none;
+  }
+
+  .nav-links a:hover,
+  .lang a:hover {
+    color: var(--on-surface);
+  }
+
+  .nav-end {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+  }
+
+  .lang {
+    display: flex;
+    gap: var(--space-1);
+  }
+
+  .lang a {
+    justify-content: center;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: var(--label-size);
+    font-weight: 500;
+    letter-spacing: var(--label-tracking);
+  }
+
+  .lang a[aria-current] {
+    color: var(--on-surface);
+    text-decoration: underline;
+    text-decoration-color: var(--primary);
+    text-underline-offset: 6px;
+  }
+
+  @media (max-width: 879px) {
+    .nav-links {
+      display: none;
+    }
+  }
+
+  @media (max-width: 379px) {
+    .nav-end {
+      gap: var(--space-2);
+    }
+  }
+</style>
