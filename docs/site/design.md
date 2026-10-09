@@ -5,8 +5,18 @@ this file: [`design-reference/b-der-scan.html`](design-reference/b-der-scan.html
 `b-der-scan-desktop.png` and `b-der-scan-mobile.png`. When this document and the mockup disagree,
 the mockup wins for look, copy and motion; the deviations below are deliberate.
 
-Tokens and the shared classes live in `apps/site/src/styles/global.css`; components use scoped
-Astro styles and reference the tokens. The marketing research behind the direction is in
+The tokens live in `packages/tokens` (`@voidbinder/tokens`): `src/tokens.ts` is the typed object
+the app reads, and its build renders the same values to `dist/tokens.css` (the custom properties
+below, light in `:root`, dark under `prefers-color-scheme: dark`), which
+`apps/site/src/styles/global.css` imports. The shared classes live in `global.css`; components use
+scoped Astro styles and reference the tokens.
+
+To change a token, edit `packages/tokens/src/tokens.ts` (both schemes when it is a colour) and this
+document, then run `pnpm test`: the package's tests check that the CSS matches the object and that
+the contrast pairs below still reach 4.5:1 (ink on `--bg`, ink-2 on the soft fields, on-blue on
+blue, ok-ink on the surface, blue-ink on `--bg`, light and dark). A new token gets its CSS name
+from the key (`blueDeep` → `--blue-deep`, `surface2` → `--surface-2`); add it to the variable list
+in `src/tokens.test.ts`. The marketing research behind the direction is in
 [`docs/marketing/`](../marketing/).
 
 ## Idea

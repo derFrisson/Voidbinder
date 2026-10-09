@@ -21,6 +21,7 @@ the app and the API come after it.
 | `apps/api`        | API (Cloudflare Worker with Hono), reserved                                                                                       |
 | `packages/core`   | Platform-agnostic domain logic                                                                                                    |
 | `packages/shared` | Zod schemas and shared types                                                                                                      |
+| `packages/tokens` | Design tokens (colours, type, space) for the site and the app                                                                     |
 | `docs`            | [ADRs](docs/adr), [environments](docs/environments.md), [database VPS runbook](docs/guides/database-vps.md), agent briefing rules |
 
 ## Getting started

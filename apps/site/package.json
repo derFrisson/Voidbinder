@@ -20,6 +20,7 @@
     "@astrojs/cloudflare": "^14.3.4",
     "@astrojs/sitemap": "^3.7.4",
     "@voidbinder/shared": "workspace:*",
+    "@voidbinder/tokens": "workspace:*",
     "astro": "^7.3.7",
     "drizzle-orm": "^0.45.3",
     "pg": "^8.23.1"
