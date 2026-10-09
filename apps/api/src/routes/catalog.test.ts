@@ -110,6 +110,11 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       tcgplayer: expect.any(Number),
     });
     expect(list[0]?.externalIds).not.toHaveProperty('scryfall_images');
+    // Artist and the game's copyright line for the card page (VB-57).
+    expect(list[0]?.artist).toEqual(expect.any(String));
+    expect((await get(`/cards/${id}`)).body).toMatchObject({
+      copyright: '©Wizards of the Coast LLC',
+    });
 
     // Once VB-57 stored the image in R2, the URL points there.
     await db
@@ -144,6 +149,9 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     const body = PrintResponseSchema.parse((await get(`/prints/${p?.id}`)).body);
     expect(body.print).toMatchObject({ number: '385', finishes: ['foil'] });
     expect(body.card.name).toBe('Champion of the Perished');
+    expect((await get(`/prints/${p?.id}`)).body).toMatchObject({
+      copyright: '©Wizards of the Coast LLC',
+    });
   });
 
   it('answers with cache headers, an ETag per catalog_version and 304 on a match', async () => {
