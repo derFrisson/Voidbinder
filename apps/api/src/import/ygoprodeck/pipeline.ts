@@ -9,6 +9,7 @@ import {
   splitCardinfo,
 } from './source';
 import {
+  CONFLICTS_KEPT,
   failRun,
   finishRun,
   importCardLines,
@@ -106,6 +107,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
       localizations: 0,
       setsCreated: 0,
       skipped: { noSets: 0, codeConflicts: 0 },
+      codeConflicts: [],
     };
     const localizations: Record<string, LocalizationChunkStats> = {};
     for (const s of planSteps(work, chunks)) {
@@ -119,6 +121,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
         cards.setsCreated += r.setsCreated;
         cards.skipped.noSets += r.skipped.noSets;
         cards.skipped.codeConflicts += r.skipped.codeConflicts;
+        cards.codeConflicts = [...cards.codeConflicts, ...r.codeConflicts].slice(0, CONFLICTS_KEPT);
       } else {
         const r = await step(s.name, async () =>
           deps.withDb(async (db) =>

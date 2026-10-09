@@ -29,6 +29,12 @@
           "set_rarity_code": "(UR)"
         },
         {
+          "set_name": "Legend of Blue Eyes White Dragon (25th Anniversary Edition)",
+          "set_code": "LOB-EN001",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
           "set_name": "Legend of Blue Eyes White Dragon",
           "set_code": "LOB-DE001",
           "set_rarity": "Ultra Rare",
@@ -90,6 +96,12 @@
         {
           "set_name": "2016 Mega-Tins",
           "set_code": "CT13-EN003",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)"
+        },
+        {
+          "set_name": "2016 Mega-Tins",
+          "set_code": "ct13-EN003",
           "set_rarity": "Ultra Rare",
           "set_rarity_code": "(UR)"
         },

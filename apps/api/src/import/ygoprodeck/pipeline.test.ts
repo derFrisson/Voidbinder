@@ -1,7 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { appMeta, cards, importRuns, printLocalizations, prints, sets } from '../../db/schema';
-import { SetPageResponseSchema } from '@voidbinder/shared/api';
+import { PrintResponseSchema, SetPageResponseSchema } from '@voidbinder/shared/api';
 import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
 import { CHUNK_LINES, planSteps, runYgoprodeckImport, type ImportDeps } from './pipeline';
@@ -81,10 +81,16 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(stats.skipped.noSets).toBe(2);
     // BLCR-EN015/016 (two cards each) and SGX3-ENE10 (two cards): the first card keeps the print.
     expect(stats.skipped.codeConflicts).toBe(3);
-    expect(stats.prints).toEqual({ inserted: 57, updated: 0, unchanged: 0 });
-    expect(stats.localizations).toBe(57);
+    expect(stats.codeConflicts).toEqual([
+      'BLCR-EN015 Secret Rare: 71620241',
+      'BLCR-EN016 Secret Rare: 71620241',
+      'SGX3-ENE10 Common: 24508238',
+    ]);
+    // One print per code and rarity: BP02-EN129, MAMO-EN038, CRBR-EN013, RA01-EN008 in several.
+    expect(stats.prints).toEqual({ inserted: 62, updated: 0, unchanged: 0 });
+    expect(stats.localizations).toBe(62);
     // The German list has 21 cards; 20 are in the catalog, one only exists in German.
-    expect(stats.otherLanguages).toEqual({ de: { written: 48, noCard: 1 } });
+    expect(stats.otherLanguages).toEqual({ de: { written: 51, noCard: 1 } });
     expect(await version()).toBe(before + 1);
 
     const [{ n: setCount } = { n: 0 }] = await db
@@ -93,6 +99,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(setCount).toBe(42);
     const [runRow] = await db.select().from(importRuns);
     expect(runRow).toMatchObject({ source: 'ygoprodeck', kind: 'full', status: 'ok' });
+    expect(runRow?.stats.codeConflicts).toEqual(stats.codeConflicts);
 
     // Raw dumps stay, the run's chunks are deleted.
     expect([...blobs.objects.keys()].sort()).toEqual([
@@ -138,6 +145,22 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(page.set.name).toBe('Legend of Blue Eyes White Dragon');
     expect(page.prints.map((p) => p.number).sort()).toEqual(['DE099', 'EN001']);
     expect(page.prints.find((p) => p.number === 'EN001')?.name).toBe('Blauäugiger w. Drache');
+    // A number in two rarities: two prints next to each other, told apart by the variant.
+    const bp02 = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/yugioh/bp02')).json(),
+    );
+    expect(bp02.prints.map((p) => [p.number, p.variant, p.rarity])).toEqual([
+      ['EN128', 'mosaic-rare', 'Mosaic Rare'],
+      ['EN129', 'mosaic-rare', 'Mosaic Rare'],
+      ['EN129', 'rare', 'Rare'],
+    ]);
+    // The source's image URLs are for the mirror (VB-57), not the API.
+    const detail = PrintResponseSchema.parse(
+      await (await app.request(`/catalog/prints/${bp02.prints[2]?.id}`)).json(),
+    );
+    expect(detail.print).toMatchObject({ variant: 'rare', externalIds: { ygoprodeck: 55144522 } });
+    expect(detail.print.externalIds).not.toHaveProperty('image_url');
+    expect(detail.print.externalIds).not.toHaveProperty('image_url_small');
   });
 
   it('keeps a German-only code as a print of its own, with both localizations', async () => {
@@ -167,7 +190,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     const before = await snapshot();
     const { stats } = await run();
     expect(stats.cards).toEqual({ inserted: 0, updated: 0, unchanged: 25 });
-    expect(stats.prints).toEqual({ inserted: 0, updated: 0, unchanged: 57 });
+    expect(stats.prints).toEqual({ inserted: 0, updated: 0, unchanged: 62 });
     expect(stats.sets).toMatchObject({ inserted: 0, updated: 0, unchanged: 39 });
     expect(stats.setsCreated).toBe(0);
     expect(stats.localizations + (stats.otherLanguages.de?.written ?? -1)).toBe(0);
@@ -184,8 +207,8 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     const changed = JSON.stringify(en);
     const { stats } = await run({ en: changed });
     expect(stats.cards).toEqual({ inserted: 0, updated: 1, unchanged: 24 });
-    // Its two prints' English localizations carry the text.
-    expect(stats.localizations).toBe(2);
+    // Its three prints' English localizations carry the text.
+    expect(stats.localizations).toBe(3);
     const [row] = await db.select().from(cards).where(eq(cards.name, 'Pot of Greed'));
     expect(row?.text).toBe('Errata.');
     expect(row?.updatedAt.getTime()).toBeGreaterThan(old?.updatedAt.getTime() ?? Infinity);

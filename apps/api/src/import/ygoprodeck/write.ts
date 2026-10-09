@@ -1,43 +1,43 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import {
-  cards,
-  importRuns,
-  printLocalizations,
-  prints,
-  setLocalizations,
-  sets,
-} from '../../db/schema';
+import { cards, importRuns, printLocalizations, prints, sets } from '../../db/schema';
 import { batches, sourceHash } from '../util';
-import { BATCH_SIZE, failRun, finishRun, type Db, type WriteStats } from '../scryfall/write';
+import {
+  addStats,
+  BATCH_SIZE,
+  excluded,
+  failRun,
+  finishRun,
+  touched,
+  upsertSetNames,
+  wasInserted,
+  writeStats,
+  ZERO,
+  type Db,
+  type Tx,
+  type WriteStats,
+} from '../scryfall/write';
 import type { LocalizationRow } from '../scryfall/map';
-import { mapCard, mapLocalization, mapPrints, mapSets, setKey, type MappedPrint } from './map';
+import {
+  mapCard,
+  mapLocalization,
+  mapPrints,
+  mapSets,
+  printKey,
+  setKey,
+  type MappedPrint,
+} from './map';
 import type { YgoCard, YgoSet } from './types';
 
 // Database writes of the YGOPRODeck import. Every write is an upsert keyed on a unique constraint
 // that leaves the row (and its updated_at) alone when the source hash is unchanged. The run
-// bookkeeping is the Scryfall importer's (`finishRun` bumps catalog_version).
+// bookkeeping and the write helpers are the Scryfall importer's (`finishRun` bumps
+// catalog_version).
 
 export { BATCH_SIZE, failRun, finishRun, type Db, type WriteStats };
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
 
 const GAME = 'yugioh';
-
-const excluded = (column: string) => sql.raw(`excluded."${column}"`);
-const touched = { updatedAt: sql`now()` };
-/** `xmax = 0` holds for a row this statement inserted, not for one it updated. */
-const wasInserted = { inserted: sql<boolean>`(xmax = 0)` };
-const ZERO: WriteStats = { inserted: 0, updated: 0, unchanged: 0 };
-
-const addStats = (a: WriteStats, b: WriteStats): WriteStats => ({
-  inserted: a.inserted + b.inserted,
-  updated: a.updated + b.updated,
-  unchanged: a.unchanged + b.unchanged,
-});
-
-function writeStats(returned: { inserted: boolean }[], total: number): WriteStats {
-  const inserted = returned.filter((r) => r.inserted).length;
-  return { inserted, updated: returned.length - inserted, unchanged: total - returned.length };
-}
+/** Conflicting codes kept per run in `import_runs.stats.codeConflicts`. */
+export const CONFLICTS_KEPT = 50;
 
 export async function startRun(db: Db): Promise<string> {
   const [run] = await db
@@ -76,28 +76,12 @@ export async function upsertSets(db: Db, source: YgoSet[]) {
       stats = addStats(stats, writeStats(returned, values.length));
       await upsertSetNames(
         tx,
+        GAME,
         values.map((v) => v.code),
       );
     });
   }
   return { ...stats, entries: source.length };
-}
-
-/** The English `set_localizations` row of each set code, from the set's current name. */
-async function upsertSetNames(tx: Tx, codes: string[]) {
-  const ids = await tx
-    .select({ id: sets.id, name: sets.name })
-    .from(sets)
-    .where(and(eq(sets.gameId, GAME), inArray(sets.code, codes)));
-  if (!ids.length) return;
-  await tx
-    .insert(setLocalizations)
-    .values(ids.map((s) => ({ setId: s.id, lang: 'en', name: s.name })))
-    .onConflictDoUpdate({
-      target: [setLocalizations.setId, setLocalizations.lang],
-      set: { name: excluded('name') },
-      setWhere: sql`${setLocalizations.name} is distinct from excluded.name`,
-    });
 }
 
 async function upsertLocalizations(tx: Tx, rows: (LocalizationRow & { printId: string })[]) {
@@ -135,6 +119,8 @@ export interface CardChunkStats {
     /** Prints whose set and number another card already holds (the source lists a code twice). */
     codeConflicts: number;
   };
+  /** The first CONFLICTS_KEPT skipped prints: `<code> <rarity>: <card id that lost it>`. */
+  codeConflicts: string[];
 }
 
 interface PendingPrint extends MappedPrint {
@@ -152,6 +138,14 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
     localizations: 0,
     setsCreated: 0,
     skipped: { noSets: 0, codeConflicts: 0 },
+    codeConflicts: [],
+  };
+  const conflict = (p: MappedPrint, oracleKey: string) => {
+    stats.skipped.codeConflicts++;
+    if (stats.codeConflicts.length < CONFLICTS_KEPT)
+      stats.codeConflicts.push(
+        `${String(p.print.externalIds.set_code ?? `${p.setCode}-${p.print.number}`)} ${p.print.rarity ?? ''}: ${oracleKey}`,
+      );
   };
   for (const batch of batches(lines, BATCH_SIZE)) {
     const cardRows = new Map<string, ReturnType<typeof mapCard>>();
@@ -167,9 +161,9 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
       cardRows.set(card.oracleKey, card);
       english.set(card.oracleKey, mapLocalization(source, 'en'));
       for (const mapped of mapPrints(source)) {
-        const key = `${mapped.setCode}|${mapped.print.number}`;
-        // Two cards under one code (the source's data): the first keeps it.
-        if (printRows.has(key)) stats.skipped.codeConflicts++;
+        const key = printKey(mapped.setCode, mapped.print.number, mapped.print.variant);
+        // Two cards under one code and rarity (the source's data): the first keeps it.
+        if (printRows.has(key)) conflict(mapped, card.oracleKey);
         else printRows.set(key, { ...mapped, oracleKey: card.oracleKey });
       }
     }
@@ -233,6 +227,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
       stats.setsCreated += created.length;
       await upsertSetNames(
         tx,
+        GAME,
         created.map((c) => c.code),
       );
       const setIds = new Map(
@@ -246,7 +241,8 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
 
       const mapped = [...printRows.values()];
       const printValues = await Promise.all(
-        mapped.map(async ({ setCode, print, oracleKey }) => {
+        mapped.map(async (m) => {
+          const { setCode, print, oracleKey } = m;
           const setId = setIds.get(setKey(setCode));
           const cardId = cardIds.get(oracleKey);
           if (!setId || !cardId) throw new Error(`set ${setCode} or card ${oracleKey} missing`);
@@ -256,7 +252,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
             cardId,
             sourceHash: await sourceHash({ print, oracleKey }),
           };
-          return { value, oracleKey };
+          return { value, oracleKey, m };
         }),
       );
       const values = printValues.map((p) => p.value);
@@ -266,7 +262,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
           .insert(prints)
           .values(slice)
           .onConflictDoUpdate({
-            target: [prints.setId, prints.number],
+            target: [prints.setId, prints.number, prints.variant],
             set: {
               rarity: excluded('rarity'),
               finishes: excluded('finishes'),
@@ -287,6 +283,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
           id: prints.id,
           setId: prints.setId,
           number: prints.number,
+          variant: prints.variant,
           cardId: prints.cardId,
         })
         .from(prints)
@@ -296,20 +293,20 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
             inArray(prints.number, [...new Set(values.map((p) => p.number))]),
           ),
         );
-      const byKey = new Map(stored.map((r) => [`${r.setId}|${r.number}`, r]));
+      const byKey = new Map(stored.map((r) => [`${r.setId}|${r.number}|${r.variant}`, r]));
       const localizations: (LocalizationRow & { printId: string })[] = [];
       let heldByOther = 0;
-      for (const { value: p, oracleKey } of printValues) {
-        const row = byKey.get(`${p.setId}|${p.number}`);
-        if (!row) throw new Error(`print ${p.setId} ${p.number} missing after upsert`);
+      for (const { value: p, oracleKey, m } of printValues) {
+        const row = byKey.get(`${p.setId}|${p.number}|${p.variant}`);
+        if (!row) throw new Error(`print ${p.setId} ${p.number} ${p.variant} missing after upsert`);
         if (row.cardId !== p.cardId) {
           heldByOther++;
+          conflict(m, oracleKey);
           continue;
         }
         const loc = english.get(oracleKey);
         if (loc) localizations.push({ ...loc, printId: row.id });
       }
-      stats.skipped.codeConflicts += heldByOther;
       // A print another card holds is neither written nor "unchanged".
       stats.prints = addStats(stats.prints, {
         ...printStats,

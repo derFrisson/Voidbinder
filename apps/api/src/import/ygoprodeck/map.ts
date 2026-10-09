@@ -88,22 +88,40 @@ export function mapCard(card: YgoCard): CardRow {
   };
 }
 
+/** `prints.variant` of a rarity: `Secret Rare` → `secret-rare`, `Collector's Rare` → `collectors-rare`. */
+export const raritySlug = (rarity: string) =>
+  rarity
+    .toLowerCase()
+    .replace(/['’]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 export interface MappedPrint {
   setCode: string;
   /** From the card's own `set_name`; names a set the sets list lacks. */
   setName: string;
-  print: PrintRow;
+  print: PrintRow & { variant: string };
 }
 
+/** Key of a print within a game: lowercase set code (as `sets.code`), number, variant. */
+export const printKey = (setCode: string, number: string, variant: string) =>
+  `${setKey(setCode)}|${number}|${variant}`;
+
 /**
- * One print per set and number. The source lists a print once per rarity, and language variants
- * (`LOB-DE005`) next to the English code (`LOB-EN005`): those fold into the English print of the
- * same number, and a variant without one (a German-only code) is a print of its own.
+ * One print per set, number and rarity: a code in another rarity is another physical card. The
+ * same code and rarity listed twice (an anniversary re-release) stays one print. Language variants
+ * (`LOB-DE005`) fold into the English print of the same number and rarity; a variant without one
+ * (a German-only code) is a print of its own.
  */
 export function mapPrints(card: YgoCard): MappedPrint[] {
-  const parsed = (card.card_sets ?? []).map((s) => ({ s, p: parseSetCode(s.set_code) }));
+  const parsed = (card.card_sets ?? []).map((s) => {
+    const rarity = s.set_rarity.trim();
+    return { s, p: parseSetCode(s.set_code), rarity, variant: raritySlug(rarity) };
+  });
   const own = new Set(
-    parsed.filter(({ p }) => !p.language).map(({ p }) => `${p.setCode}|${p.number}`),
+    parsed
+      .filter(({ p }) => !p.language)
+      .map(({ p, variant }) => printKey(p.setCode, p.number, variant)),
   );
   const image = card.card_images?.[0];
 
@@ -113,46 +131,42 @@ export function mapPrints(card: YgoCard): MappedPrint[] {
       setCode: string;
       setName: string;
       number: string;
+      rarity: string;
+      variant: string;
       language: string | null;
-      codes: string[];
+      code: string | undefined;
       variants: string[];
-      rarities: string[];
     }
   >();
-  const push = (list: string[], value: string) => {
-    if (!list.includes(value)) list.push(value);
-  };
-  for (const { s, p } of parsed) {
-    const folds = p.englishNumber !== null && own.has(`${p.setCode}|${p.englishNumber}`);
+  for (const { s, p, rarity, variant } of parsed) {
+    const folds =
+      p.englishNumber !== null && own.has(printKey(p.setCode, p.englishNumber, variant));
     const number = folds ? (p.englishNumber as string) : p.number;
-    const key = `${p.setCode}|${number}`;
+    const key = printKey(p.setCode, number, variant);
     let group = groups.get(key);
     if (!group) {
       group = {
         setCode: p.setCode,
         setName: s.set_name,
         number,
+        rarity,
+        variant,
         language: folds ? null : p.language,
-        codes: [],
+        code: undefined,
         variants: [],
-        rarities: [],
       };
       groups.set(key, group);
     }
-    if (folds) push(group.variants, s.set_code);
-    else {
-      push(group.codes, s.set_code);
-      if (s.set_rarity.trim()) push(group.rarities, s.set_rarity.trim());
-    }
+    if (!folds) group.code ??= s.set_code;
+    else if (!group.variants.includes(s.set_code)) group.variants.push(s.set_code);
   }
 
   return [...groups.values()].map((g) => {
     const externalIds = {
       ygoprodeck: card.id,
-      set_code: g.codes[0],
+      set_code: g.code,
       image_url: image?.image_url,
       image_url_small: image?.image_url_small,
-      rarities: g.rarities,
       variants: g.variants.length ? g.variants : undefined,
       language: g.language ?? undefined,
     };
@@ -161,7 +175,8 @@ export function mapPrints(card: YgoCard): MappedPrint[] {
       setName: g.setName,
       print: {
         number: g.number,
-        rarity: g.rarities[0] ?? null,
+        variant: g.variant,
+        rarity: g.rarity || null,
         // The source gives the rarity, not a finish: nothing to add beyond the plain print.
         finishes: ['normal'],
         artist: null,
@@ -183,7 +198,10 @@ export function mapLocalization(card: YgoCard, lang: string): LocalizationRow {
  */
 export function mapSets(source: YgoSet[]): SetRow[] {
   const byCode = new Map<string, YgoSet[]>();
-  for (const s of source) byCode.set(s.set_code, [...(byCode.get(s.set_code) ?? []), s]);
+  for (const s of source) {
+    const key = setKey(s.set_code);
+    byCode.set(key, [...(byCode.get(key) ?? []), s]);
+  }
   return [...byCode.values()].map((editions) => {
     const sorted = [...editions].sort(
       (a, b) =>

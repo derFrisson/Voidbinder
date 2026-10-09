@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { mapCard, mapLocalization, mapPrints, mapSets, parseSetCode } from './map';
+import {
+  mapCard,
+  mapLocalization,
+  mapPrints,
+  mapSets,
+  parseSetCode,
+  raritySlug,
+  setKey,
+} from './map';
 import { fixture } from './test-fixtures';
 import type { YgoCard, YgoSet } from './types';
 
@@ -120,14 +128,37 @@ describe('YGOPRODeck print mapping', () => {
     });
   });
 
-  it('merges the rarities of one code into its print', () => {
-    const [, bp02] = mapPrints(card('Pot of Greed'));
-    expect(bp02?.print).toMatchObject({
-      number: 'EN129',
-      rarity: 'Mosaic Rare',
+  it('maps each rarity of a code to a print of its own, the rarity slug as its variant', () => {
+    const bp02 = mapPrints(card('Pot of Greed')).filter((p) => p.setCode === 'BP02');
+    expect(bp02.map((p) => [p.print.number, p.print.variant, p.print.rarity])).toEqual([
+      ['EN129', 'mosaic-rare', 'Mosaic Rare'],
+      ['EN129', 'rare', 'Rare'],
+    ]);
+    expect(bp02[0]?.print).toMatchObject({
       finishes: ['normal'],
-      externalIds: { rarities: ['Mosaic Rare', 'Rare'] },
+      externalIds: { set_code: 'BP02-EN129' },
     });
+    expect(mapPrints(card('A Bao A Qu, the Lightless Shadow')).map((p) => p.print.variant)).toEqual(
+      ['secret-rare', 'starlight-rare', 'ultra-rare'],
+    );
+  });
+
+  it.each([
+    ['Secret Rare', 'secret-rare'],
+    ['Quarter Century Secret Rare', 'quarter-century-secret-rare'],
+    ["Collector's Rare", 'collectors-rare'],
+    ['Duel Terminal Normal Parallel Rare', 'duel-terminal-normal-parallel-rare'],
+    ['', ''],
+  ])('slugs the rarity %j as %j', (rarity, slug) => expect(raritySlug(rarity)).toBe(slug));
+
+  it('keeps one print for a code and rarity listed twice, in any case', () => {
+    // LOB-EN001 again in the 25th Anniversary Edition; CT13-EN003 once more as `ct13-EN003`.
+    const lob = mapPrints(card('Blue-Eyes White Dragon')).filter((p) => p.setCode === 'LOB');
+    expect(lob).toHaveLength(1);
+    const ct13 = mapPrints(card('Dark Magician')).filter((p) => setKey(p.setCode) === 'ct13');
+    expect(ct13.map((p) => [p.setCode, p.print.externalIds.set_code])).toEqual([
+      ['CT13', 'CT13-EN003'],
+    ]);
   });
 
   it('folds a language variant into the English print of the same number', () => {
@@ -156,7 +187,8 @@ describe('YGOPRODeck print mapping', () => {
 describe('YGOPRODeck set mapping', () => {
   it('maps one row per set code with the earliest edition as the set', () => {
     const rows = mapSets(sets);
-    expect(rows).toHaveLength(new Set(sets.map((s) => s.set_code)).size);
+    // `LOB` and `lob` are one set.
+    expect(rows).toHaveLength(new Set(sets.map((s) => setKey(s.set_code))).size);
     // Lowercase like every set code of the catalog; the printed code is in external_ids.
     expect(rows.find((r) => r.code === 'lob')).toEqual({
       code: 'lob',
