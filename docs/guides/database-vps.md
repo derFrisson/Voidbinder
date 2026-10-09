@@ -38,6 +38,7 @@ account ID (also in `apps/site/wrangler.jsonc`) and your Worker URL instead.
 | [8. Operations](#8-operations)                                                                      | 10 min now, then monthly  |
 | [9. Security notes](#9-security-notes)                                                              | 5 min                     |
 | [10. Done](#10-done)                                                                                | 10 min                    |
+| [11. Image mirror](#11-image-mirror)                                                                | 15 min, then 2 to 4 h     |
 
 Versions checked on 2026-10-09:
 
@@ -1827,3 +1828,78 @@ Then check that all of this is true:
 - [ ] The OVH snapshot above is taken.
 - [ ] Every entry of the table in section 0 is in the password manager folder `Voidbinder DB`,
       and none of them is in the repository.
+
+## 11. Image mirror
+
+The card images (Magic from Scryfall, Pokémon from TCGdex, Yu-Gi-Oh! from YGOPRODeck) are copied
+once into the R2 bucket `voidbinder-catalog` (EU jurisdiction) and served from `img.voidbinder.de`.
+The bulk load runs here, not on the workstation: `apps/api/scripts/mirror-images.ts` downloads each
+image, stores it as `images/<game>/<printId>/<lang>/orig.<ext>` plus a 320 px WebP copy `sm.webp`
+and writes the key into `prints.image_key` / `print_localizations.image_key`. After that, each
+import Workflow mirrors the prints it added itself (up to 2000 per run), so the script is needed
+again only for a new database or after failures. Details: `apps/api/README.md`, "Card images".
+
+**Node 24.** Skip if `node -v` already prints `v24.…`. Otherwise install it with
+[fnm](https://github.com/Schniz/fnm) as `ubuntu` (no root needed), then pnpm through Corepack:
+
+```sh
+curl -fsSL https://fnm.vercel.app/install | bash -s -- --skip-shell
+export PATH="$HOME/.local/share/fnm:$PATH"; eval "$(fnm env --shell bash)"
+fnm install 24 && fnm default 24
+corepack enable
+```
+
+**Repository and dependencies.** The clone from section 5 ("Alternative: apply migrations from the
+VPS itself"); if it is missing, `git clone https://github.com/derFrisson/Voidbinder.git ~/voidbinder`.
+
+```sh
+cd ~/voidbinder && git pull --ff-only && pnpm install --filter api
+```
+
+**R2 credentials.** In the Cloudflare dashboard: R2 → Manage API tokens → Create API token,
+permission **Object Read & Write**, only the bucket `voidbinder-catalog`, jurisdiction EU. Store
+the values in the password manager (`Voidbinder R2 image mirror`) and on the VPS, mode 600:
+
+```sh
+umask 077; mkdir -p ~/.config/voidbinder; read -rs KEY_ID; read -rs SECRET
+printf 'R2_ACCESS_KEY_ID=%s\nR2_SECRET_ACCESS_KEY=%s\nR2_ENDPOINT=https://<account-id>.eu.r2.cloudflarestorage.com\nR2_BUCKET=voidbinder-catalog\n' "$KEY_ID" "$SECRET" > ~/.config/voidbinder/r2.env
+unset KEY_ID SECRET; ls -l ~/.config/voidbinder/r2.env   # -rw-------
+```
+
+**Run.** `DATABASE_URL` is a login with read and write rights on the catalog tables of the target
+database (`voidbinder_migrate` from `pg.env` works; the script changes no schema). Start with a
+dry run, then a short real one, then the full run in `tmux` so it survives a dropped SSH session:
+
+```sh
+cd ~/voidbinder
+set -a; . ~/.config/voidbinder/pg.env; set +a
+DATABASE_URL=$PG_MIGRATE_URL_DEV pnpm --filter api mirror-images \
+  --env-file ~/.config/voidbinder/r2.env --game mtg --limit 200 --dry-run
+DATABASE_URL=$PG_MIGRATE_URL_DEV pnpm --filter api mirror-images \
+  --env-file ~/.config/voidbinder/r2.env --game mtg --limit 200
+tmux new -s mirror
+DATABASE_URL=$PG_MIGRATE_URL_DEV pnpm --filter api mirror-images \
+  --env-file ~/.config/voidbinder/r2.env 2>&1 | tee ~/mirror-$(date +%F).log
+```
+
+Options: `--game mtg|pokemon|yugioh` (default all), `--limit N` (rows: a print or a
+localization), `--concurrency N` (parallel downloads, default 8), `--verify` (`HEAD` both objects
+first and skip the download when they exist, for a rerun after a crash), `--dry-run` (read and
+plan only, logs a sample of keys). Use `PG_MIGRATE_URL_PROD` for `prod` only after Max's go.
+
+**Throughput.** Each source has its own rate limit: Scryfall 20 images/s, YGOPRODeck 15/s (its
+limit is 20, and a breach blocks the IP for an hour), TCGdex 8/s. A 429 stops the run. Magic is
+about 160,000 images (every print in English plus the German prints) at 20/s, a little over two
+hours and roughly 30 GB; Yu-Gi-Oh! about 15 minutes; Pokémon about 80 minutes. The log prints a
+progress line every 500 images and a summary at the end; the run is also a row in `import_runs`
+(`kind = 'images'`) with the same counts.
+
+**Rerun.** Safe at any time: the script picks only rows that still have no `image_key`, so a run
+that stopped (Ctrl-C, 429, reboot) continues where it was. Failed downloads are logged
+(`image failed`) and stay without a key for the next run. After a crash in the middle of uploads,
+add `--verify` to skip images that are already in the bucket.
+
+**verify:** the dry run lists `rows` and `images`; after the short run,
+`docker exec voidbinder-db psql -U postgres -d voidbinder_dev -tAc "select count(*) from prints where image_key is not null"`
+is above zero, and `curl -sI https://img.voidbinder.de/<one image_key>` answers `200` with
+`cache-control: public, max-age=31536000, immutable` (once the custom domain is connected).

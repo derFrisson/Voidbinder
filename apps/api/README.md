@@ -180,6 +180,42 @@ against `https://voidbinder-api-dev.frisson.workers.dev` with the deployed token
 its steps show in the dashboard or with
 `pnpm exec wrangler workflows instances list voidbinder-scryfall-import-dev`.
 
+## Card images
+
+`src/import/images.ts` (VB-57) copies every print's source image into the `CATALOG` bucket, which
+is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
+`normal`, `png`; never its missing-image placeholder), YGOPRODeck `image_url`, TCGdex `image_url`
+or its `image` base + `/high.webp` (the keys of `external_ids` the importers fill).
+
+| Key                                         | What                                                |
+| ------------------------------------------- | --------------------------------------------------- |
+| `images/<game>/<printId>/<lang>/orig.<ext>` | The source file unchanged, its content type         |
+| `images/<game>/<printId>/<lang>/sm.webp`    | 320 px wide WebP, same aspect ratio, never enlarged |
+
+Both carry `Cache-Control: public, max-age=31536000, immutable`. `prints.image_key` (English) and
+`print_localizations.image_key` hold the `orig` key; the `sm` key is the same path with
+`sm.webp`. Rows that share a source URL share one object pair (a print and its English
+localization, a Yu-Gi-Oh! card in several sets), named after the first row. Downloads are rate
+limited per source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s); a 429 stops the
+run, a failed image is logged and keeps no key, so the next run retries it. Every run is an
+`import_runs` row with source and kind `images`.
+
+Two transports share that logic:
+
+- **Bulk load:** `scripts/mirror-images.ts`, a Node script run on the database VPS
+  ([runbook section 11](../../docs/guides/database-vps.md#11-image-mirror)) with the S3 API and
+  `sharp`: `pnpm --filter api mirror-images --env-file r2.env [--game mtg] [--limit N]
+[--concurrency 8] [--verify] [--dry-run]`.
+- **Daily delta:** the last step of the import Workflow (`mirror images`) mirrors the prints the
+  run created, at most 2000 rows, with the R2 binding and the Images binding `IMAGES` for the
+  `sm` copy (billed per unique transformation; offline locally and in tests). Its failure is
+  logged and leaves the import `ok`.
+
+The catalog responses build `imageUrl` from `IMAGE_BASE_URL` + `image_key` and fall back to the
+source URL until the image is mirrored. `GET /catalog/cards/:id` and `GET /catalog/prints/:id`
+also carry `copyright`, the game's line from `@voidbinder/shared/notices` (which also exports the
+per-game notices and the Scryfall attribution); the card page shows it with the print's `artist`.
+
 ## Deploy
 
 From Max's workstation with `wrangler login` ([ADR 0002](../../docs/adr/0002-deploys-from-workstation.md)):
