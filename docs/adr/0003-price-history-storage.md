@@ -26,8 +26,8 @@ Apache-2 edition (hypertables, chunking, retention). The full edition is availab
 ## Options
 
 1. **Self-hosted PostgreSQL + TimescaleDB Community on Max's infrastructure**, reached by Workers
-   through a Cloudflare Tunnel, Workers VPC service and Hyperdrive (the pattern the Voidcom website
-   already uses). Full Timescale, EU, cost is storage only. Backups (pgBackRest), upgrades and
+   through a Cloudflare Tunnel, Workers VPC service and Hyperdrive (the pattern planned for the Voidcom
+   website). Full Timescale, EU, cost is storage only. Backups (pgBackRest), upgrades and
    monitoring are ours.
 2. **Tiger Cloud (Timescale) in an EU region.** Full Timescale, managed, Hyperdrive supported.
    Highest price of the three.
@@ -49,8 +49,10 @@ public Postgres port.
 Storage is split by kind:
 
 - **Database backups** go to Backblaze B2 (EU Central) with pgBackRest, which has its own S3
-  client (no AWS SDK). B2 is a provider separate from both the database (OVH) and the edge
-  (Cloudflare), so one account incident cannot take the database and its backups together.
+  client (no AWS SDK). B2 is a provider separate from the database (OVH) and the edge
+  (Cloudflare), so an incident on the OVH account cannot take the database and its backups
+  together. B2 Object Lock (a bucket default retention longer than the backup window) protects the
+  backups against a compromised VPS, whose B2 key could otherwise delete them.
 - **App blobs** (card images, catalog modules, raw source dumps) stay in R2: native Worker
   binding, no egress fees. The `BlobStore` seam keeps other stores possible.
 

@@ -191,9 +191,42 @@ sudo install -d -o 1000 -g 1000 -m 700 /opt/voidbinder-db/tls
 sudo install -d -m 700 /etc/pgbackrest
 ```
 
-**TLS certificate.** Hyperdrive always speaks TLS to Postgres. A self-signed certificate for the
-name `db.voidbinder.de` (no DNS record needed) encrypts the last hop from cloudflared to the
-container; the hop from Cloudflare to the VPS is already inside the tunnel.
+**TLS certificate.** Hyperdrive always speaks TLS to Postgres. The default is a Cloudflare Origin
+CA certificate for the name `db.voidbinder.de` (no DNS record needed). It is valid for 15 years, so
+nothing renews, and Workers VPC trusts Origin CA certificates
+([docs](https://developers.cloudflare.com/workers-vpc/configuration/vpc-services/#supported-tls-certificates)),
+so the VPC service in section 6 runs with certificate verification on. The private key is made on
+the VPS and never leaves it; Cloudflare signs only the request.
+
+```sh
+TLS=/opt/voidbinder-db/tls
+sudo openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
+  -subj "/CN=db.voidbinder.de" -keyout $TLS/server.key -out $TLS/server.csr
+sudo cat $TLS/server.csr
+```
+
+In the Cloudflare dashboard open the `voidbinder.de` zone → **SSL/TLS → Origin Server → Create
+Certificate**, choose **Use my private key and CSR**, paste the request, keep the hostname
+`db.voidbinder.de`, validity **15 years**, and **Create**. Copy the **Origin Certificate** (the PEM
+block) and save it on the VPS:
+
+```sh
+sudo tee $TLS/server.crt >/dev/null   # paste the certificate, then Ctrl-D
+sudo rm $TLS/server.csr
+sudo chown 1000:1000 $TLS/server.key $TLS/server.crt
+sudo chmod 600 $TLS/server.key && sudo chmod 644 $TLS/server.crt
+```
+
+**verify:** `sudo openssl x509 -in /opt/voidbinder-db/tls/server.crt -noout -subject -issuer -enddate`
+prints `subject=CN=db.voidbinder.de`, an issuer naming `CloudFlare Origin SSL Certificate Authority`
+and a `notAfter` fifteen years ahead, and
+`diff <(sudo openssl x509 -in /opt/voidbinder-db/tls/server.crt -noout -pubkey) <(sudo openssl pkey -in /opt/voidbinder-db/tls/server.key -pubout)`
+prints nothing (certificate and key belong together).
+
+**Fallback: self-signed.** If you cannot use the Origin CA, a self-signed certificate encrypts the
+last hop from cloudflared to the container (the hop from Cloudflare to the VPS is already inside
+the tunnel), but Workers VPC does not trust it, so the VPC service in section 6 must run with
+`--cert-verification-mode disabled`.
 
 ```sh
 TLS=/opt/voidbinder-db/tls
@@ -207,10 +240,24 @@ sudo chmod 600 $TLS/server.key && sudo chmod 644 $TLS/server.crt
 **verify:** `sudo openssl x509 -in /opt/voidbinder-db/tls/server.crt -noout -subject -enddate` prints
 `subject=CN=db.voidbinder.de` and a `notAfter` ten years ahead.
 
-Workers VPC trusts only publicly trusted and Cloudflare Origin CA certificates, so with this
-self-signed certificate the VPC service in section 6 uses `--cert-verification-mode disabled`. To
-get verification, replace it with a Let's Encrypt certificate through DNS-01 (no inbound port
-needed):
+**Alternative: Let's Encrypt through DNS-01** (publicly trusted, no inbound port needed, renews
+every 60 days by itself). First the deploy hook, `/usr/local/bin/voidbinder-db-cert` (mode 755),
+which copies the renewed files and reloads Postgres (it re-reads certificates on reload):
+
+```sh
+sudo tee /usr/local/bin/voidbinder-db-cert >/dev/null <<'EOF'
+#!/bin/sh
+set -eu
+install -o 1000 -g 1000 -m 644 "$RENEWED_LINEAGE/fullchain.pem" /opt/voidbinder-db/tls/server.crt
+install -o 1000 -g 1000 -m 600 "$RENEWED_LINEAGE/privkey.pem" /opt/voidbinder-db/tls/server.key
+docker exec voidbinder-db psql -U postgres -Atc 'SELECT pg_reload_conf()'
+EOF
+sudo chmod 755 /usr/local/bin/voidbinder-db-cert
+```
+
+then certbot (the hook also runs after the first issuance; before the container exists its
+`docker exec` fails, so request the certificate after section 4 is done or run the two `install`
+lines by hand):
 
 ```sh
 sudo apt install -y certbot python3-certbot-dns-cloudflare
@@ -221,19 +268,7 @@ sudo certbot certonly --dns-cloudflare --dns-cloudflare-credentials /etc/letsenc
   -d db.voidbinder.de --deploy-hook /usr/local/bin/voidbinder-db-cert
 ```
 
-with `/usr/local/bin/voidbinder-db-cert` (mode 755) copying the renewed files and reloading
-Postgres, which re-reads certificates on reload:
-
-```sh
-#!/bin/sh
-set -eu
-install -o 1000 -g 1000 -m 644 "$RENEWED_LINEAGE/fullchain.pem" /opt/voidbinder-db/tls/server.crt
-install -o 1000 -g 1000 -m 600 "$RENEWED_LINEAGE/privkey.pem" /opt/voidbinder-db/tls/server.key
-docker exec voidbinder-db psql -U postgres -Atc 'SELECT pg_reload_conf()'
-```
-
-then switch the VPC service to `--cert-verification-mode verify_ca` with `wrangler vpc service update`
-(section 6). `verify_ca` because the service addresses the container by IP, not by name.
+The VPC service uses `--cert-verification-mode verify_ca` with this certificate too (section 6).
 
 **Client authentication: `/opt/voidbinder-db/pg_hba.conf`.** cloudflared and the SSH tunnel
 both reach the container from the host side of the Docker network, `172.30.0.1`. Every TCP
@@ -335,6 +370,8 @@ services:
       - log_lock_waits=on
       - -c
       - log_temp_files=0
+      - -c
+      - log_parameter_max_length=0
     volumes:
       - type: bind
         source: /var/lib/postgresql/voidbinder
@@ -379,8 +416,9 @@ networks:
 Notes on the values: `timescaledb.max_background_workers` is the number of databases (4 with
 `postgres` and `template1`) plus concurrent jobs; `max_worker_processes` is at least that plus
 `max_parallel_workers`. `archive_timeout=300` closes a WAL segment at least every five minutes, so
-at most five minutes of writes are not yet in B2. `logging: local` rotates the container log
-(5 × 20 MB).
+at most five minutes of writes are not yet in B2. `log_parameter_max_length=0` keeps bind
+parameters (such as email addresses) out of the slow-query log. `logging: local` rotates the
+container log (5 × 20 MB).
 
 Start it:
 
@@ -528,7 +566,9 @@ sudo cloudflared service install "$TUNNEL_TOKEN"
 unset TUNNEL_TOKEN
 ```
 
-The tunnel token now lives in `/etc/systemd/system/cloudflared.service` (root only). Unattended
+Since cloudflared 2026.7.2 the service install writes the token to `/etc/cloudflared/token` (root,
+mode 0600) and the unit runs `cloudflared tunnel run --token-file /etc/cloudflared/token`, so the
+token is neither on the command line nor in the unit file. Unattended
 upgrades install Debian security updates only; cloudflared is updated with the monthly
 `apt upgrade` in section 8.
 
@@ -538,6 +578,7 @@ upgrades install Debian security updates only; cloudflared is updated with the m
 - `systemctl status cloudflared` shows `active (running)`, and
   `journalctl -u cloudflared --since -5min | grep -i 'registered tunnel connection'` shows
   connections with `protocol=quic` (Workers VPC needs QUIC, UDP 7844 out).
+- `sudo stat -c '%a %U' /etc/cloudflared/token` prints `600 root`.
 - The tunnel shows **Healthy** in the dashboard.
 
 No public hostname and no private network route are needed: the VPC service is the route. The
@@ -551,11 +592,13 @@ cd apps/site
 pnpm exec wrangler vpc service create voidbinder-psql \
   --type tcp --tcp-port 5432 --app-protocol postgresql \
   --tunnel-id <tunnel-id> --ipv4 172.30.0.10 \
-  --cert-verification-mode disabled
+  --cert-verification-mode verify_ca
 ```
 
-`disabled` because of the self-signed certificate (section 4); with a Let's Encrypt certificate run
-`pnpm exec wrangler vpc service update <vpc-service-id> --name voidbinder-psql --type tcp --tcp-port 5432 --app-protocol postgresql --tunnel-id <tunnel-id> --ipv4 172.30.0.10 --cert-verification-mode verify_ca`.
+`verify_ca` checks the certificate chain (Origin CA or Let's Encrypt, section 4) and skips the host
+name check, because the service addresses the container by IP, not by name. With the self-signed
+fallback use `--cert-verification-mode disabled` instead, or switch later with
+`pnpm exec wrangler vpc service update <vpc-service-id> --name voidbinder-psql --type tcp --tcp-port 5432 --app-protocol postgresql --tunnel-id <tunnel-id> --ipv4 172.30.0.10 --cert-verification-mode <mode>`.
 
 **verify:** the command prints a service ID; `pnpm exec wrangler vpc service list` lists
 `voidbinder-psql` with type `tcp`, port 5432 and the tunnel ID.
@@ -611,14 +654,24 @@ weeks of point-in-time recovery).
 **Bucket and key in B2** (web UI, EU Central account):
 
 1. **Buckets → Create a Bucket**: a globally unique name such as
-   `voidbinder-db-backup-<random>`, **Private**, Object Lock **off** (pgBackRest deletes expired
-   backups itself).
-2. On the bucket, **Lifecycle Settings → Keep only the last version of the file**. B2 keeps old
+   `voidbinder-db-backup-<random>`, **Private**, **Enable Object Lock** on (set it when the bucket is
+   created, default retention needs it; it can never be switched off again).
+2. On the bucket, set the **Default Retention** of Object Lock: mode **Governance**, **45 days**
+   (longer than the backup window: four weekly full backups plus the incrementals of the newest
+   one span up to five weeks). This is what keeps the backups alive when the VPS is compromised:
+   the VPS holds the B2 key, and without Object Lock an attacker with that key deletes the
+   database and all backups in one go. A locked file cannot be deleted or overwritten for 45
+   days, not even with the key; never give the application key the `bypassGovernance`
+   capability. pgBackRest's own expiry still works: its deletes only hide the file, and the
+   lifecycle rule below removes it once the lock has lapsed, so expired backups stay stored and
+   billed for up to 45 days longer. Docs:
+   [Backblaze Object Lock](https://www.backblaze.com/docs/cloud-storage-object-lock).
+3. On the bucket, **Lifecycle Settings → Keep only the last version of the file**. B2 keeps old
    versions by default; without this rule the files pgBackRest expires would still be stored and
    billed. Add no other lifecycle rule, retention is pgBackRest's job.
-3. Note the bucket's **Endpoint**, for example `s3.eu-central-003.backblazeb2.com`. The region is
+4. Note the bucket's **Endpoint**, for example `s3.eu-central-003.backblazeb2.com`. The region is
    the part between `s3.` and `.backblazeb2.com` (`eu-central-003`).
-4. **Application Keys → Add a New Application Key**: name `voidbinder-pgbackrest`, **Allow access
+5. **Application Keys → Add a New Application Key**: name `voidbinder-pgbackrest`, **Allow access
    to Bucket(s)**: only the new bucket, **Type of Access: Read and Write**, leave **Allow List All
    Bucket Names** off (pgBackRest does not list buckets). Copy `keyID` and `applicationKey`; the
    key is shown only once.
@@ -640,6 +693,10 @@ repo1-path=/pgbackrest
 repo1-retention-full=4
 repo1-cipher-type=aes-256-cbc
 repo1-cipher-pass=<passphrase>
+repo1-bundle=y
+repo1-block=y
+archive-async=y
+archive-push-queue-max=4GiB
 compress-type=zst
 process-max=2
 start-fast=y
@@ -651,6 +708,15 @@ pg1-socket-path=/var/run/postgresql
 EOF
 sudo chown 1000:1000 /etc/pgbackrest/pgbackrest.conf && sudo chmod 600 /etc/pgbackrest/pgbackrest.conf
 ```
+
+`repo1-bundle=y` and `repo1-block=y` (block incremental backups need bundling) pack the many small
+files into few objects and store only changed blocks, which suits S3; set them before the first
+full backup, because they only apply to backups made after. `archive-async=y` with
+`archive-push-queue-max=4GiB` is a deliberate trade-off
+([docs](https://pgbackrest.org/configuration.html#section-archive/option-archive-push-queue-max)):
+when B2 is unreachable for long, pgBackRest drops the queued WAL once 4 GiB are waiting, which
+ends point-in-time recovery until the next full backup, instead of letting `pg_wal` fill the data
+disk and stop Postgres; the WAL archive check in section 8 alerts long before that.
 
 `tee` keeps the existing file, so owner and mode stay as created in section 4; the last line makes
 sure. On OVH's Debian image UID 1000 on the host is usually the `debian` login user, which has `sudo` anyway.
@@ -740,7 +806,43 @@ sudo rm -rf "$DRILL"
 
 A real disaster restore is the same restore command into the emptied
 `/var/lib/postgresql/voidbinder` with the live container stopped (`docker compose down`), then
-`docker compose up -d`; add `--type=time "--target=<timestamp>"` for a point in time.
+`docker compose up -d`. Drop the drill's `--archive-mode=off`: the restored server must archive
+again. For a point in time add `--type=time "--target=<timestamp>" --target-action=promote`;
+without `--target-action=promote` recovery pauses at the target and stays read-only until you
+run `SELECT pg_wal_replay_resume()`.
+
+**Restore onto a new VPS** (the old one is gone; shut it down first if it is still running, two
+servers must not archive into one stanza):
+
+1. Do sections 1 to 3: order, base system, additional disk, including the data directory
+   `/var/lib/postgresql/voidbinder` (UID 1000, mode 0700, empty). Keep that directory; do not
+   `initdb` into it.
+2. Do section 4 up to and including the compose file, but do not start the container. The TLS
+   certificate and `pg_hba.conf` are files of the host, not of the data, so they are made again
+   (the Origin CA certificate can be issued again for the same name).
+3. Write `/etc/pgbackrest/pgbackrest.conf` as in this section, from the password manager: the same
+   B2 bucket, key and `repo1-cipher-pass`, and the same `[voidbinder]` stanza section. Do not run
+   `stanza-create`; the stanza is already in the bucket.
+4. Restore into the data directory with the image tag from the compose file:
+
+   ```sh
+   IMAGE=timescale/timescaledb-ha:pg18.6-ts2.30.2
+   sudo docker run --rm \
+     -v /var/lib/postgresql/voidbinder:/home/postgres/pgdata \
+     -v /etc/pgbackrest/pgbackrest.conf:/etc/pgbackrest/pgbackrest.conf:ro \
+     -e PGBACKREST_CONFIG=/etc/pgbackrest/pgbackrest.conf \
+     --entrypoint pgbackrest "$IMAGE" --stanza=voidbinder restore
+   ```
+
+5. `cd /opt/voidbinder-db && sudo docker compose up -d`.
+6. Install cloudflared with the same tunnel token from the password manager (section 6), the cron
+   files and the health script (sections 7 and 8). The VPC service and the Hyperdrive configs stay
+   as they are: they point at the tunnel and at `172.30.0.10`, which the new compose file keeps. The
+   roles and databases of section 5 came back with the restore.
+
+**verify:** `docker logs voidbinder-db 2>&1 | grep -E 'archive recovery complete|ready to accept connections'`
+shows both lines, `sudo docker exec voidbinder-db pgbackrest --stanza=voidbinder check` succeeds,
+and the row counts match what you expect.
 
 ## 8. Operations
 
@@ -757,15 +859,20 @@ snapshot covers the system disk only, so take both a snapshot and a fresh backup
    cd /opt/voidbinder-db
    sudo docker compose pull && sudo docker compose up -d
    for db in postgres template1 voidbinder_dev voidbinder; do
-     sudo docker exec voidbinder-db psql -X -U postgres -d "$db" -c 'ALTER EXTENSION timescaledb UPDATE'
+     sudo docker exec -i voidbinder-db psql -X -U postgres -d "$db" <<'EOF'
+   ALTER EXTENSION timescaledb UPDATE;
+   SELECT 'ALTER EXTENSION timescaledb_toolkit UPDATE' FROM pg_extension WHERE extname = 'timescaledb_toolkit' \gexec
+   EOF
    done
    ```
 
-   `ALTER EXTENSION` runs as the first command of a fresh session (`-X`), in every database that
-   has the extension. Also update the tag in the restore drill above.
+   `ALTER EXTENSION timescaledb UPDATE` runs as the first command of a fresh session (`-X`), in
+   every database that has the extension; `timescaledb_toolkit` is updated where it is installed.
+   Also update the tag in the restore drill above.
 
 **verify:** `SELECT version()` shows the new PostgreSQL minor, `\dx timescaledb` the new version in
-every database, `pgbackrest --stanza=voidbinder check` succeeds. A PostgreSQL major upgrade
+every database (`\dx` also shows `timescaledb_toolkit` at the new version wherever it is installed),
+`pgbackrest --stanza=voidbinder check` succeeds. A PostgreSQL major upgrade
 (18 → 19) is not covered here; it needs `pg_upgrade` or dump and restore and gets its own ticket.
 
 **cloudflared and the OS:** `sudo apt update && sudo apt upgrade` once a month (Docker and
@@ -792,16 +899,22 @@ sudo docker exec voidbinder-db psql -U postgres -d voidbinder -c \
 ```
 
 **Alerts (optional): disk above 80 % and backup age, as an Uptime Kuma push monitor.** Create a
-**Push** monitor in Kuma with heartbeat interval 15 minutes and copy its push URL. The script
-pushes only when everything is fine, so Kuma alerts on a full disk, a stale backup and a dead VPS
-alike.
+**Push** monitor in Kuma with heartbeat interval 20 minutes (the cron runs every 15, so one late
+or skipped run does not mark it down; alternatively keep 15 minutes and set **Retries** to 1) and
+copy its push URL. The script
+pushes only when everything is fine, so Kuma alerts on a full disk, a stale backup, a broken WAL
+archive (a B2 outage or a wrong key shows up here within 15 minutes, long before the 4 GiB queue
+limit) and a dead VPS alike. The archive check relies on `archive_timeout=300`, which only closes a
+segment when something was written; on a database that is completely idle for 15 minutes it would
+fire too, which the waitlist and the Timescale background jobs normally prevent.
 
 ```sh
 sudo install -m 600 /dev/null /etc/voidbinder-db-health.env
 echo 'KUMA_PUSH_URL=https://<kuma-host>/api/push/<token>' | sudo tee /etc/voidbinder-db-health.env >/dev/null
 sudo tee /usr/local/bin/voidbinder-db-health >/dev/null <<'EOF'
 #!/bin/sh
-# Pushes "up" to Uptime Kuma only when disks are below 80 % and the newest backup is under 36 h old.
+# Pushes "up" to Uptime Kuma only when disks are below 80 %, the newest backup is under 36 h old and
+# WAL archiving is healthy (last archive under 15 min ago, no failure since).
 set -eu
 . /etc/voidbinder-db-health.env
 for m in / /var/lib/postgresql; do
@@ -811,6 +924,10 @@ done
 last=$(docker exec voidbinder-db pgbackrest --stanza=voidbinder --output=json info | jq '.[0].backup[-1].timestamp.stop')
 age=$(( $(date +%s) - last ))
 [ "$age" -lt 129600 ] || { echo "newest backup is $age s old"; exit 1; }
+arch=$(docker exec voidbinder-db psql -U postgres -Atc "SELECT extract(epoch FROM now()-last_archived_time)::int FROM pg_stat_archiver")
+{ [ -n "$arch" ] && [ "$arch" -lt 900 ]; } || { echo "last WAL archived ${arch:-never} s ago"; exit 1; }
+failed=$(docker exec voidbinder-db psql -U postgres -Atc "SELECT coalesce(last_failed_time > last_archived_time, false) FROM pg_stat_archiver")
+[ "$failed" = f ] || { echo "WAL archiving failed after the last success"; exit 1; }
 curl -fsS -m 10 -o /dev/null "$KUMA_PUSH_URL?status=up&msg=OK"
 EOF
 sudo chmod 755 /usr/local/bin/voidbinder-db-health
@@ -821,9 +938,11 @@ echo '*/15 * * * * root /usr/local/bin/voidbinder-db-health >/dev/null' | sudo t
 turns green.
 
 **Growing the additional disk.** OVH control panel → the VPS → **Additional disks → Increase the
-disk size**, wait until the new size shows, then:
+disk size**, wait until the new size shows, then make the kernel see it:
 
 ```sh
+echo 1 | sudo tee /sys/class/block/sdb/device/rescan
+lsblk /dev/sdb   # must show the new size
 cd /opt/voidbinder-db && sudo docker compose down
 sudo umount /var/lib/postgresql
 sudo e2fsck -f /dev/sdb && sudo resize2fs /dev/sdb
@@ -841,10 +960,11 @@ sudo mount /var/lib/postgresql && sudo docker compose up -d
 - `hyperdrive_dev` and `hyperdrive_prod` have DML rights only, no DDL: they cannot create, alter
   or drop anything. Schema changes go through `voidbinder_migrate` and the SSH tunnel.
 - Secrets live on the VPS (`/opt/voidbinder-db/.env`, `/etc/pgbackrest/pgbackrest.conf`, the
-  cloudflared unit, `/etc/voidbinder-db-health.env`, all root or UID 1000 only), in Cloudflare
+  cloudflared token file `/etc/cloudflared/token`, `/etc/voidbinder-db-health.env`, all root or UID 1000 only), in Cloudflare
   (the Hyperdrive configs) and in the password manager. None of them belong in this repository;
   the Hyperdrive and VPC service ids are not secrets.
 - Backups in B2 are encrypted by pgBackRest before upload (`repo1-cipher-type`); the B2 key can
-  touch only the one bucket.
+  touch only the one bucket, and B2 Object Lock keeps every backup file for 45 days even if the
+  VPS and its key are compromised.
 - B2 holds the database backups, a provider separate from OVH (database) and Cloudflare (edge).
   App blobs (card images, catalog modules, raw dumps) stay in R2.
