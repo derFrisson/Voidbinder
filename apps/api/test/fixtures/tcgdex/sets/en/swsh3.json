@@ -1,0 +1,77 @@
+{
+  "cardCount": {
+    "firstEd": 0,
+    "holo": 69,
+    "normal": 138,
+    "official": 189,
+    "reverse": 157,
+    "total": 201
+  },
+  "cards": [
+    {
+      "id": "swsh3-1",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/1",
+      "localId": "1",
+      "name": "Butterfree V"
+    },
+    {
+      "id": "swsh3-2",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/2",
+      "localId": "2",
+      "name": "Butterfree VMAX"
+    },
+    {
+      "id": "swsh3-3",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/3",
+      "localId": "3",
+      "name": "Paras"
+    },
+    {
+      "id": "swsh3-136",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/136",
+      "localId": "136",
+      "name": "Furret"
+    },
+    {
+      "id": "swsh3-171",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/171",
+      "localId": "171",
+      "name": "Struggle Gloves"
+    },
+    {
+      "id": "swsh3-176",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/176",
+      "localId": "176",
+      "name": "Powerful Colorless Energy"
+    },
+    {
+      "id": "swsh3-188",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/188",
+      "localId": "188",
+      "name": "Pokémon Breeder's Nurturing"
+    },
+    {
+      "id": "swsh3-200",
+      "image": "https://assets.tcgdex.net/en/swsh/swsh3/200",
+      "localId": "200",
+      "name": "Turbo Patch"
+    }
+  ],
+  "id": "swsh3",
+  "legal": {
+    "expanded": true,
+    "standard": false
+  },
+  "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+  "name": "Darkness Ablaze",
+  "releaseDate": "2020-08-14",
+  "serie": {
+    "id": "swsh",
+    "name": "Sword & Shield"
+  },
+  "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol",
+  "tcgOnline": "DAA",
+  "abbreviation": {
+    "official": "DAA"
+  }
+}

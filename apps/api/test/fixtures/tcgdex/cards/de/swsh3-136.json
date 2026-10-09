@@ -1,0 +1,77 @@
+{
+  "category": "Pokémon",
+  "id": "swsh3-136",
+  "illustrator": "tetsuya koizumi",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/136",
+  "localId": "136",
+  "name": "Wiesenior",
+  "rarity": "Ungewöhnlich",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": false,
+    "normal": true,
+    "reverse": true,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Normal",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 483559,
+        "tcgplayer": 219333
+      },
+      "variantId": "endfynwn4n10gzq"
+    },
+    {
+      "type": "Reverse",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 483559,
+        "tcgplayer": 219333
+      },
+      "variantId": "cm4kqul3x1bwlz1f"
+    }
+  ],
+  "dexId": [162],
+  "hp": 110,
+  "types": ["Farblos"],
+  "evolveFrom": "Wiesor",
+  "stage": "Rang 1",
+  "attacks": [
+    {
+      "cost": ["Farblos"],
+      "name": "Wohl fühlen",
+      "effect": "Ziehe 3 Karten."
+    },
+    {
+      "cost": ["Farblos"],
+      "name": "Schwanzschmetterer",
+      "effect": "Wirf 1 Münze. Bei Zahl hat diese Attacke keine Auswirkungen.",
+      "damage": 90
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Kampf",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

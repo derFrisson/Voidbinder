@@ -32,5 +32,24 @@ export function adminRoutes(adminToken: string | undefined) {
       await c.var.platform.jobQueue.send({ type: 'scryfall-import', payload: {} });
       const body: ImportStartedResponse = { status: 'started' };
       return c.json(body, 202);
+    })
+    .post('/import/tcgdex', async (c) => {
+      // `?mode=full` refetches every set; the default only the new, incomplete and recent ones.
+      const mode = c.req.query('mode') ?? 'incremental';
+      if (mode !== 'incremental' && mode !== 'full')
+        throw new HTTPException(400, { message: 'mode must be incremental or full' });
+      if (await c.var.platform.cardStore.importRunning('tcgdex')) {
+        const error: ErrorResponse = {
+          error: {
+            code: 'import_running',
+            message: 'A TCGdex import is already running',
+            requestId: c.var.requestId,
+          },
+        };
+        return c.json(error, 409);
+      }
+      await c.var.platform.jobQueue.send({ type: 'tcgdex-import', payload: { mode } });
+      const body: ImportStartedResponse = { status: 'started' };
+      return c.json(body, 202);
     });
 }

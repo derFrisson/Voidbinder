@@ -1,0 +1,63 @@
+{
+  "category": "Pokemon",
+  "id": "swsh3-2",
+  "illustrator": "aky CG Works",
+  "image": "https://assets.tcgdex.net/en/swsh/swsh3/2",
+  "localId": "2",
+  "name": "Butterfree VMAX",
+  "rarity": "Holo Rare VMAX",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+    "name": "Darkness Ablaze",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "holo",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 482884,
+        "tcgplayer": 219055
+      },
+      "variantId": "jr7oetx1mqug9"
+    }
+  ],
+  "dexId": [12],
+  "hp": 300,
+  "types": ["Grass"],
+  "evolveFrom": "Butterfree V",
+  "stage": "VMAX",
+  "attacks": [
+    {
+      "cost": ["Grass", "Grass", "Colorless"],
+      "name": "G-Max Toxbreeze",
+      "effect": "Your opponent's Active Pokémon is now Confused and Poisoned.",
+      "damage": 150
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Fire",
+      "value": "×2"
+    }
+  ],
+  "retreat": 0,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

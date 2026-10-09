@@ -1,0 +1,46 @@
+{
+  "category": "Trainer",
+  "id": "swsh3-200",
+  "illustrator": "Toyste Beach",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/200",
+  "localId": "200",
+  "name": "Turbopflaster",
+  "rarity": "Versteckt Selten",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Holo",
+      "size": "Standard",
+      "foil": "Gold",
+      "thirdParty": {
+        "cardmarket": 483889,
+        "tcgplayer": 219317
+      },
+      "variantId": "8ebbnojbbdlcw08zyl"
+    }
+  ],
+  "effect": "Wirf 1 Münze. Lege bei Kopf 1 Basis-Energiekarte aus deinem Ablagestapel an 1 deiner Basis-Pokémon an, das kein Pokémon-GX ist.",
+  "trainerType": "Itemkarte",
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

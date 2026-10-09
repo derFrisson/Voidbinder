@@ -2,6 +2,8 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { Platform } from '../../app';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
+import type { ImportDeps as TcgdexDeps } from '../../import/tcgdex/pipeline';
+import { TcgdexClient } from '../../import/tcgdex/source';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
 import { R2BlobStore } from './r2-blob-store';
@@ -43,7 +45,10 @@ export function createPlatform(env: Env): Platform {
       imageBaseUrl: env.IMAGE_BASE_URL,
     }),
     blobStore: new R2BlobStore(env.CATALOG),
-    jobQueue: new WorkflowJobQueue({ 'scryfall-import': env.SCRYFALL_IMPORT }),
+    jobQueue: new WorkflowJobQueue({
+      'scryfall-import': env.SCRYFALL_IMPORT,
+      'tcgdex-import': env.TCGDEX_IMPORT,
+    }),
     close: async () => {
       await Promise.all(cachedPool === pool ? [pool.end()] : [pool.end(), cachedPool.end()]);
     },
@@ -76,4 +81,19 @@ export function scryfallImportDeps(env: Env): ImportDeps {
 export async function startScryfallImport(env: Env, id?: string): Promise<void> {
   const instance = await env.SCRYFALL_IMPORT.create(id ? { id } : {});
   log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
+}
+
+/** What the TCGdex import Workflow works with: paced `fetch`, the `CATALOG` bucket, a pool per step. */
+export function tcgdexImportDeps(env: Env): TcgdexDeps {
+  return {
+    client: new TcgdexClient((input, init) => fetch(input, init)),
+    blobs: new R2BlobStore(env.CATALOG),
+    withDb: (fn) => withDatabase(env, fn),
+  };
+}
+
+/** Starts a TCGdex import instance; an `id` makes it unique (the cron's one per day). */
+export async function startTcgdexImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.TCGDEX_IMPORT.create({ ...(id && { id }), params: {} });
+  log('info', { message: 'workflow started', job: 'tcgdex-import', instanceId: instance.id });
 }

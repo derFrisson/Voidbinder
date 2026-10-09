@@ -42,14 +42,19 @@
   "r2_buckets": [
     { "binding": "CATALOG", "bucket_name": "voidbinder-catalog", "jurisdiction": "eu" },
   ],
-  // Catalog import (VB-26): the Workflow runs the Scryfall import; the cron starts it daily and
-  // POST /admin/import/scryfall on demand. Splitting the 2 GB all_cards dump needs more than the
+  // Catalog import (VB-26, VB-28): the Workflows run the Scryfall and TCGdex imports; the cron
+  // starts both daily and POST /admin/import/scryfall|tcgdex on demand. Splitting the 2 GB all_cards dump needs more than the
   // default 30 s of CPU in one step.
   "workflows": [
     {
       "binding": "SCRYFALL_IMPORT",
       "name": "voidbinder-scryfall-import",
       "class_name": "ScryfallImportWorkflow",
+    },
+    {
+      "binding": "TCGDEX_IMPORT",
+      "name": "voidbinder-tcgdex-import",
+      "class_name": "TcgdexImportWorkflow",
     },
   ],
   "triggers": { "crons": ["0 3 * * *"] },
@@ -91,6 +96,11 @@
           "name": "voidbinder-scryfall-import-dev",
           "class_name": "ScryfallImportWorkflow",
         },
+        {
+          "binding": "TCGDEX_IMPORT",
+          "name": "voidbinder-tcgdex-import-dev",
+          "class_name": "TcgdexImportWorkflow",
+        },
       ],
       "triggers": { "crons": ["30 4 * * *"] },
       "limits": { "cpu_ms": 300000 },
@@ -130,6 +140,11 @@
           "binding": "SCRYFALL_IMPORT",
           "name": "voidbinder-scryfall-import",
           "class_name": "ScryfallImportWorkflow",
+        },
+        {
+          "binding": "TCGDEX_IMPORT",
+          "name": "voidbinder-tcgdex-import",
+          "class_name": "TcgdexImportWorkflow",
         },
       ],
       "triggers": { "crons": ["0 3 * * *"] },

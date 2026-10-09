@@ -1,0 +1,79 @@
+{
+  "category": "Pokémon",
+  "id": "swshp-SWSH006",
+  "illustrator": "Kouki Saitou",
+  "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH006",
+  "localId": "SWSH006",
+  "name": "Gortrom",
+  "rarity": "Promo",
+  "set": {
+    "cardCount": {
+      "official": 307,
+      "total": 307
+    },
+    "id": "swshp",
+    "logo": "https://assets.tcgdex.net/de/swsh/swshp/logo",
+    "name": "SCSC Promokarten",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Holo",
+      "size": "Standard",
+      "stamp": ["Set-Logo"],
+      "thirdParty": {
+        "cardmarket": 437154,
+        "tcgplayer": 208261
+      },
+      "variantId": "555jb0efopmyclvkikic41"
+    },
+    {
+      "type": "Holo",
+      "size": "Standard",
+      "stamp": ["Set-Logo", "Mitarbeiter"],
+      "thirdParty": {
+        "tcgplayer": 208260
+      },
+      "variantId": "2fnyg4g5382k6pl1ij0u1km1pdn"
+    }
+  ],
+  "dexId": [812],
+  "hp": 170,
+  "types": ["Pflanze"],
+  "evolveFrom": "Chimstix",
+  "stage": "Rang 2",
+  "abilities": [
+    {
+      "type": "Fähigkeit",
+      "name": "Blitztrommeln",
+      "effect": "Einmal während deines Zuges kannst du dein Deck nach bis zu 2 {G}-Energiekarten durchsuchen und sie an 1 deiner Pokémon anlegen. Mische anschließend dein Deck."
+    }
+  ],
+  "attacks": [
+    {
+      "cost": ["Pflanze", "Pflanze", "Pflanze", "Farblos"],
+      "name": "Einhämmern",
+      "damage": 140
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Feuer",
+      "value": "×2"
+    }
+  ],
+  "retreat": 3,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-09-03T15:19:07Z"
+}

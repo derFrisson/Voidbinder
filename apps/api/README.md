@@ -180,6 +180,34 @@ against `https://voidbinder-api-dev.frisson.workers.dev` with the deployed token
 its steps show in the dashboard or with
 `pnpm exec wrangler workflows instances list voidbinder-scryfall-import-dev`.
 
+### TCGdex (Pokémon)
+
+`src/import/tcgdex/` imports [TCGdex](https://tcgdex.dev) in English and German through its REST API
+(`GET /v2/{lang}/sets`, `/sets/{id}`, `/cards/{id}`), the only bulk path it has: the
+`cards-database` repository holds TypeScript sources, its releases have no assets and the GraphQL
+endpoint returns brief cards and takes no language. The client keeps under 10 requests per second,
+sends the `User-Agent` and retries 429 and 5xx (TCGdex answers 503 now and then). One Pokémon card is
+one print, so a card id (`swsh3-136`) is both `cards.oracle_key` and the print (`number` = `localId`);
+English creates it, German adds the `print_localizations` row and the set name, a card TCGdex lacks in
+German only has its English row. Prices, TCGdex's `updated` and the Pokémon TCG Pocket series
+(`tcgp`, digital) are never imported; the image URLs (`/high.webp`, `/low.webp`) go to
+`external_ids.tcgdex_images` for VB-57 and nothing is downloaded; Cardmarket and TCGplayer ids go
+to `external_ids.tcgdex_marketplace` with `mapping_confidence: 'low'` (not under `tcgplayer`, which
+`prints_tcgplayer_idx` reads), for VB-30 to verify. The Workflow `src/workflows/tcgdex-import.ts`
+(binding `TCGDEX_IMPORT`, params `{ mode }`) runs `start run`, `set list`, `sets 00000` … (25 sets
+per step: details in both languages, upserts), `plan`, `cards <set> <n>` (100 cards in both
+languages per step, upserted in one transaction) and `finish run` (counts in `stats`,
+`catalog_version` + 1; a failure marks the run `failed`); a failed step is retried alone. A full
+import is about 42,000 requests (roughly 80 minutes), so the daily run (the same cron as Scryfall,
+instance id `tcgdex-<date>`) is `incremental`: it fetches the cards only of sets that are new, have
+fewer prints or German localizations than TCGdex lists, or were released less than 90 days ago;
+`POST /admin/import/tcgdex?mode=full` with the admin token refetches every set (202, 409 while a
+TCGdex run is `running`, 400 for another mode). Rows are upserted on their unique keys and only
+written when their `source_hash` changed. Raw copies stay in R2 under `raw/<env>/tcgdex/<date>/`:
+`sets.en.json`, `sets/<lang>/<id>.json` and `cards/<set>/<chunk>.<lang>.jsonl`. Locally the same
+`pnpm --filter api dev` and `curl -X POST … localhost:8787/admin/import/tcgdex` as for Scryfall work;
+two sets in both languages (265 cards) took 60 seconds.
+
 ## Deploy
 
 From Max's workstation with `wrangler login` ([ADR 0002](../../docs/adr/0002-deploys-from-workstation.md)):
