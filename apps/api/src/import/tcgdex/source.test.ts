@@ -1,9 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import { mapLimit, TcgdexClient, type Fetch } from './source';
+import { mapLimit, retryAfterMs, TcgdexClient, type Fetch } from './source';
 
 const json = (body: unknown, status = 200, headers: HeadersInit = {}) =>
   new Response(JSON.stringify(body), { status, headers });
 const fast = { intervalMs: 0, retryDelayMs: 0, attempts: 3 };
+
+describe('retryAfterMs', () => {
+  const now = Date.parse('2026-10-10T12:00:00Z');
+  it('reads delay seconds and an HTTP date, and 0 for anything else', () => {
+    expect(retryAfterMs('3', now)).toBe(3000);
+    expect(retryAfterMs('Sat, 10 Oct 2026 12:00:05 GMT', now)).toBe(5000);
+    expect(retryAfterMs('Sat, 10 Oct 2026 11:00:00 GMT', now)).toBe(0);
+    expect(retryAfterMs('soon', now)).toBe(0);
+    expect(retryAfterMs('Infinity', now)).toBe(0);
+    expect(retryAfterMs('', now)).toBe(0);
+    expect(retryAfterMs(null, now)).toBe(0);
+  });
+});
 
 describe('TcgdexClient', () => {
   it('answers null for a 404 and keeps the raw text', async () => {

@@ -26,6 +26,14 @@ export interface Pace {
 /** About 9 requests per second. */
 export const DEFAULT_PACE: Pace = { intervalMs: 110, retryDelayMs: 1000, attempts: 4 };
 
+/** `Retry-After` as delay seconds or an HTTP date; 0 when absent, unreadable or in the past. */
+export function retryAfterMs(header: string | null, now = Date.now()): number {
+  if (!header?.trim()) return 0;
+  const seconds = Number(header);
+  const ms = Number.isFinite(seconds) ? seconds * 1000 : Date.parse(header) - now;
+  return Number.isFinite(ms) ? Math.max(0, ms) : 0;
+}
+
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 export interface Reply<T> {
@@ -67,7 +75,7 @@ export class TcgdexClient {
         }
         failure = `answered ${res.status}`;
         if (res.status !== 429 && res.status < 500) break;
-        retryAfter = Number(res.headers.get('Retry-After') ?? 0) * 1000;
+        retryAfter = retryAfterMs(res.headers.get('Retry-After'));
       } catch (err) {
         failure = String(err);
       }
