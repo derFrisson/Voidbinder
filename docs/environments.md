@@ -66,9 +66,14 @@ The API (ADR 0004) adds one cached configuration per environment for catalog and
 apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod`.
   `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset.
-- **API secrets:** `apps/api` needs none yet; its settings are `vars` in `wrangler.jsonc`
-  (`APP_URL` for CORS, `API_URL`, `IMAGE_BASE_URL`, `VERSION`). Auth (VB-24) adds the first
-  secret, with a `secrets.required` entry and a line in `apps/api/.dev.vars.example`.
+- **API secrets:** `apps/api` needs `BETTER_AUTH_SECRET` (32+ bytes; signs the session cookies
+  and tokens, [apps/api/README.md](../apps/api/README.md#authentication)). Locally
+  `cp apps/api/.dev.vars.example apps/api/.dev.vars` and set it; deployed, once per environment
+  from `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --env dev|prod`.
+  `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset;
+  changing it signs every user out. The other settings are `vars` (`APP_URL` for CORS and the mail
+  links, `API_URL`, `CORS_EXTRA_ORIGINS` for the Expo web dev origin, locally and in `dev` only,
+  `IMAGE_BASE_URL`, `VERSION`).
 - **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
   site token, read by `astro build` and baked into the static pages (it is public in the HTML).
   Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create
