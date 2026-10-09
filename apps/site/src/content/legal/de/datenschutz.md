@@ -8,10 +8,10 @@ updated: '2026-10'
 
 Verantwortlich für die Datenverarbeitung auf dieser Website im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:
 
-[MAX: Vor- und Nachname]\
-[MAX: Straße Hausnummer]\
-[MAX: PLZ Ort]\
-E-Mail: [MAX: E-Mail]
+Maximilian Tschauder\
+Hauptstraße 25\
+88630 Pfullendorf, Deutschland\
+E-Mail: max@voidcom.app
 
 ## Überblick
 
@@ -25,7 +25,7 @@ Bei jedem Aufruf verarbeitet Cloudflare technisch notwendige Daten: Ihre IP-Adre
 
 Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist die sichere Auslieferung der Website. Cloudflare verarbeitet die Daten als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Für Übermittlungen in die USA gelten die EU-Standardvertragsklauseln und, soweit Cloudflare danach zertifiziert ist, das EU-US Data Privacy Framework.
 
-Speicherdauer: Cloudflare bewahrt diese Logdaten für [MAX: Speicherdauer Cloudflare-Logs] auf und löscht sie danach.
+Speicherdauer: Wir selbst erhalten und speichern diese Logdaten nicht. Cloudflare bewahrt sie nur so lange auf, wie es für die Sicherheit und Fehlersuche des Netzwerks erforderlich ist, und löscht sie danach.
 
 ## Reichweitenmessung mit Cloudflare Web Analytics
 
@@ -60,13 +60,13 @@ Auf der Website können Sie sich für die Beta von Voidbinder eintragen.
 
 **Missbrauchsschutz.** Cloudflare begrenzt, wie oft von einer IP-Adresse aus Eintragungen möglich sind. Dafür wird die IP-Adresse kurzzeitig verarbeitet. Wir speichern sie nicht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, unser berechtigtes Interesse ist der Schutz der Warteliste vor Missbrauch.
 
-**Widerruf.** Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, mit dem Abmeldelink in jeder Mail oder per E-Mail an [MAX: E-Mail]. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt unberührt.
+**Widerruf.** Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen, mit dem Abmeldelink in jeder Mail oder per E-Mail an max@voidcom.app. Die Rechtmäßigkeit der Verarbeitung bis zum Widerruf bleibt unberührt.
 
-**Speicherdauer.** Wir speichern die Daten einer bestätigten Eintragung, bis wir Ihnen die Mail zum Beta-Start geschickt haben, längstens bis Sie sich abmelden. Danach löschen wir sie. Nicht bestätigte Eintragungen löschen wir nach [MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen].
+**Speicherdauer.** Wir speichern die Daten einer bestätigten Eintragung, bis wir Ihnen die Mail zum Beta-Start geschickt haben, längstens bis Sie sich abmelden. Danach löschen wir sie. Nicht bestätigte Eintragungen löschen wir nach 30 Tagen nach Ablauf des Bestätigungslinks, der sieben Tage gültig ist.
 
-**Nach einer Abmeldung.** Der Eintrag bleibt dann mit Ihrer E-Mail-Adresse, dem Status „abgemeldet“ und den Zeitpunkten der Eintragung, der Bestätigung und der Abmeldung gespeichert. Der Zweck ist, Ihre Einwilligung und deren Widerruf nachweisen zu können (Art. 7 Abs. 1 DSGVO) und sicherzustellen, dass keine weitere Mail an die Adresse geht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, unser berechtigtes Interesse ist dieser Nachweis und der Schutz vor ungewollten Mails. Wir bewahren den Eintrag [MAX: Aufbewahrungsfrist abgemeldeter Adressen, Vorschlag 12 Monate] auf. Auf Ihren Wunsch löschen wir ihn schon vorher vollständig, schreiben Sie dazu an [MAX: E-Mail]. Tragen Sie sich danach mit derselben Adresse erneut ein, beginnt ein neues Double-Opt-In.
+**Nach einer Abmeldung.** Der Eintrag bleibt dann mit Ihrer E-Mail-Adresse, dem Status „abgemeldet“ und den Zeitpunkten der Eintragung, der Bestätigung und der Abmeldung gespeichert. Der Zweck ist, Ihre Einwilligung und deren Widerruf nachweisen zu können (Art. 7 Abs. 1 DSGVO) und sicherzustellen, dass keine weitere Mail an die Adresse geht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, unser berechtigtes Interesse ist dieser Nachweis und der Schutz vor ungewollten Mails. Wir bewahren den Eintrag zwölf Monate auf. Auf Ihren Wunsch löschen wir ihn schon vorher vollständig, schreiben Sie dazu an max@voidcom.app. Tragen Sie sich danach mit derselben Adresse erneut ein, beginnt ein neues Double-Opt-In.
 
-**Empfänger.** Die Daten liegen in einer PostgreSQL-Datenbank bei [MAX: Datenbank-Anbieter und Region, z. B. Neon, Frankfurt]. Die Mails versenden wir mit Cloudflare Email Service. Cloudflare verarbeitet dafür Ihre E-Mail-Adresse und den Inhalt der Mail. Die Anbieter handeln als Auftragsverarbeiter nach unseren Weisungen. Für Übermittlungen in Länder außerhalb der EU und des EWR gelten Standardvertragsklauseln oder ein Angemessenheitsbeschluss der EU-Kommission.
+**Empfänger.** Die Daten liegen in einer PostgreSQL-Datenbank bei OVH SAS, 2 rue Kellermann, 59100 Roubaix, Frankreich, auf einem von uns betriebenen Server im Rechenzentrum Gravelines (Frankreich). Die Mails versenden wir mit Cloudflare Email Service. Cloudflare verarbeitet dafür Ihre E-Mail-Adresse und den Inhalt der Mail. Die Anbieter handeln als Auftragsverarbeiter nach unseren Weisungen. Für Übermittlungen in Länder außerhalb der EU und des EWR gelten Standardvertragsklauseln oder ein Angemessenheitsbeschluss der EU-Kommission.
 
 ## Externe Links
 
@@ -88,7 +88,7 @@ Sie haben nach der DSGVO das Recht auf
 - Widerspruch gegen eine Verarbeitung, die auf Art. 6 Abs. 1 lit. f beruht, aus Gründen, die sich aus Ihrer besonderen Situation ergeben (Art. 21),
 - Widerruf einer erteilten Einwilligung (Art. 7 Abs. 3).
 
-Schreiben Sie dazu an [MAX: E-Mail]. Außerdem können Sie sich bei einer Datenschutzaufsichtsbehörde beschweren. Zuständig ist [MAX: zuständige Landesdatenschutzbehörde].
+Schreiben Sie dazu an max@voidcom.app. Außerdem können Sie sich bei einer Datenschutzaufsichtsbehörde beschweren. Zuständig ist der Landesbeauftragte für den Datenschutz und die Informationsfreiheit Baden-Württemberg, Lautenschlagerstraße 20, 70173 Stuttgart.
 
 Eine automatisierte Entscheidungsfindung einschließlich Profiling findet nicht statt.
 

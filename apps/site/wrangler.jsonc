@@ -71,11 +71,11 @@
       },
       "triggers": { "crons": ["17 3 * * *"] },
       "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
-      // Placeholder: replace with the id from `wrangler hyperdrive create voidbinder-prod ...`.
+      // Hyperdrive config "voidbinder-prod" (VPC service voidbinder-psql via the Voidbinder DB tunnel).
       "hyperdrive": [
         {
           "binding": "HYPERDRIVE",
-          "id": "00000000000000000000000000000000",
+          "id": "2f4e2569cde54e0998b734c884432765",
           "localConnectionString": "postgres://voidbinder:voidbinder@localhost:5434/voidbinder",
         },
       ],

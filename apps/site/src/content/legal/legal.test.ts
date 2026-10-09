@@ -15,46 +15,39 @@ const byFile = (name: string) => {
   return f;
 };
 
-// The operator fills these before launch (docs/site/legal.md). The exact text is the contract:
-// search the repo for "[MAX:" to find what is left.
-const P = {
-  name: '[MAX: Vor- und Nachname]',
-  street: '[MAX: Straße Hausnummer]',
-  city: '[MAX: PLZ Ort]',
-  mail: '[MAX: E-Mail]',
-  phone: '[MAX: Telefon oder weiterer Kontaktweg]',
-  vat: '[MAX: USt-IdNr. falls vorhanden]',
-  db: '[MAX: Datenbank-Anbieter und Region, z. B. Neon, Frankfurt]',
-  authority: '[MAX: zuständige Landesdatenschutzbehörde]',
-  unconfirmed: '[MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen]',
-  unsubscribed: '[MAX: Aufbewahrungsfrist abgemeldeter Adressen, Vorschlag 12 Monate]',
-  logs: '[MAX: Speicherdauer Cloudflare-Logs]',
+// Operator facts filled on 2026-10-09 (docs/site/legal.md). The texts must carry them and no
+// "[MAX:" placeholder may remain; a launch with a placeholder is a bug.
+const FACTS = {
+  name: 'Maximilian Tschauder',
+  street: 'Hauptstraße 25',
+  city: '88630 Pfullendorf',
+  mail: 'max@voidcom.app',
+  vat: 'DE319838280',
+  db: 'Gravelines',
+  authority: 'Baden-Württemberg',
 };
-const known = Object.values(P);
 const required: Record<string, string[]> = {
-  'de/impressum.md': [P.name, P.street, P.city, P.mail, P.phone, P.vat],
-  'en/imprint.md': [P.name, P.street, P.city, P.mail, P.phone, P.vat],
+  'de/impressum.md': [FACTS.name, FACTS.street, FACTS.city, FACTS.mail, FACTS.vat],
+  'en/imprint.md': [FACTS.name, FACTS.street, FACTS.city, FACTS.mail, FACTS.vat],
   'de/datenschutz.md': [
-    P.name,
-    P.street,
-    P.city,
-    P.mail,
-    P.db,
-    P.authority,
-    P.unconfirmed,
-    P.unsubscribed,
-    P.logs,
+    FACTS.name,
+    FACTS.street,
+    FACTS.city,
+    FACTS.mail,
+    FACTS.db,
+    FACTS.authority,
+    '30 Tagen',
+    'zwölf Monate',
   ],
   'en/privacy.md': [
-    P.name,
-    P.street,
-    P.city,
-    P.mail,
-    P.db,
-    P.authority,
-    P.unconfirmed,
-    P.unsubscribed,
-    P.logs,
+    FACTS.name,
+    FACTS.street,
+    FACTS.city,
+    FACTS.mail,
+    FACTS.db,
+    FACTS.authority,
+    '30 days',
+    'twelve months',
   ],
 };
 
@@ -63,25 +56,15 @@ describe('legal content', () => {
     expect(files.map((f) => f.file).sort()).toEqual(Object.keys(required).sort());
   });
 
-  it.each(Object.entries(required))('%s carries every required placeholder', (name, wanted) => {
+  it.each(Object.entries(required))('%s carries every operator fact', (name, wanted) => {
     const { body } = byFile(name);
-    for (const placeholder of wanted) expect(body, placeholder).toContain(placeholder);
+    for (const fact of wanted) expect(body, fact).toContain(fact);
   });
 
-  it('writes every placeholder in the exact [MAX: …] form of the list', () => {
+  it('leaves no [MAX: …] placeholder behind', () => {
     for (const { file, body } of files) {
-      const opened = body.match(/\[MAX/g) ?? [];
-      const found = body.match(/\[MAX: [^\]\n]+\]/g) ?? [];
-      expect(found.length, `${file}: malformed placeholder`).toBe(opened.length);
-      for (const p of found) expect(known, `${file}: unknown placeholder ${p}`).toContain(p);
+      expect(body, `${file}: placeholder left`).not.toMatch(/\[MAX/);
     }
-  });
-
-  it('uses the same placeholders in German and English', () => {
-    const set = (name: string) =>
-      [...new Set(byFile(name).body.match(/\[MAX: [^\]\n]+\]/g))].sort();
-    expect(set('en/imprint.md')).toEqual(set('de/impressum.md'));
-    expect(set('en/privacy.md')).toEqual(set('de/datenschutz.md'));
   });
 
   it('keeps the heading order: no h1 in the body, no skipped level', () => {

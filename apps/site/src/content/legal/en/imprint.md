@@ -11,21 +11,20 @@ This is a courtesy translation. The [German version](/de/impressum/) is the bind
 Voidbinder (powered by Voidcom)
 
 Operator:\
-[MAX: Vor- und Nachname]\
-[MAX: Straße Hausnummer]\
-[MAX: PLZ Ort]
+Maximilian Tschauder\
+Hauptstraße 25\
+88630 Pfullendorf, Germany
 
 ## Contact
 
-Email: [MAX: E-Mail]\
-Phone or another way to reach us: [MAX: Telefon oder weiterer Kontaktweg]
+Email: max@voidcom.app
 
 ## VAT identification number
 
-VAT identification number under § 27a of the German VAT Act: [MAX: USt-IdNr. falls vorhanden]
+VAT identification number under § 27a of the German VAT Act: DE319838280
 
 ## Responsible for content under § 18 (2) MStV
 
-[MAX: Vor- und Nachname]\
-[MAX: Straße Hausnummer]\
-[MAX: PLZ Ort]
+Maximilian Tschauder\
+Hauptstraße 25\
+88630 Pfullendorf, Germany

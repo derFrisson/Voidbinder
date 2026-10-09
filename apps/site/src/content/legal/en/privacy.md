@@ -10,10 +10,10 @@ This is a courtesy translation. The [German version](/de/datenschutz/) is the bi
 
 The controller for the data processing on this website under the General Data Protection Regulation (GDPR) is:
 
-[MAX: Vor- und Nachname]\
-[MAX: Straße Hausnummer]\
-[MAX: PLZ Ort]\
-Email: [MAX: E-Mail]
+Maximilian Tschauder\
+Hauptstraße 25\
+88630 Pfullendorf, Germany\
+Email: max@voidcom.app
 
 ## Overview
 
@@ -27,7 +27,7 @@ With every visit, Cloudflare processes technically necessary data: your IP addre
 
 The legal basis is Art. 6 (1) (f) GDPR. Our legitimate interest is the secure delivery of the website. Cloudflare processes the data as a processor on our instructions under a data processing agreement. For transfers to the USA, the EU standard contractual clauses apply and, where Cloudflare is certified under it, the EU-US Data Privacy Framework.
 
-Storage period: Cloudflare keeps this log data for [MAX: Speicherdauer Cloudflare-Logs] and deletes it afterwards.
+Retention: we do not receive or store these logs ourselves. Cloudflare keeps them only as long as the security and troubleshooting of its network require and deletes them afterwards.
 
 ## Audience measurement with Cloudflare Web Analytics
 
@@ -62,13 +62,13 @@ On the website you can sign up for the Voidbinder beta.
 
 **Protection against abuse.** Cloudflare limits how often sign-ups can be made from one IP address. The IP address is processed briefly for this. We do not store it. The legal basis is Art. 6 (1) (f) GDPR, our legitimate interest is protecting the waitlist from abuse.
 
-**Withdrawal.** You can withdraw your consent at any time with effect for the future, with the unsubscribe link in every mail or by email to [MAX: E-Mail]. The lawfulness of the processing until the withdrawal is not affected.
+**Withdrawal.** You can withdraw your consent at any time with effect for the future, with the unsubscribe link in every mail or by email to max@voidcom.app. The lawfulness of the processing until the withdrawal is not affected.
 
-**Storage period.** We store the data of a confirmed sign-up until we have sent you the mail announcing the start of the beta, at most until you unsubscribe. After that we delete it. We delete sign-ups that are not confirmed after [MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen].
+**Storage period.** We store the data of a confirmed sign-up until we have sent you the mail announcing the start of the beta, at most until you unsubscribe. After that we delete it. We delete sign-ups that are not confirmed after 30 days after the confirmation link, which is valid for seven days, has expired.
 
-**After you unsubscribe.** The entry then stays stored with your email address, the status "unsubscribed" and the times of sign-up, confirmation and unsubscribing. The purpose is to be able to prove your consent and its withdrawal (Art. 7 (1) GDPR) and to make sure no further mail goes to the address. The legal basis is Art. 6 (1) (f) GDPR, our legitimate interest is this proof and protecting you from unwanted mail. We keep the entry for [MAX: Aufbewahrungsfrist abgemeldeter Adressen, Vorschlag 12 Monate]. On your request we delete it completely earlier; write to [MAX: E-Mail] for this. If you sign up again with the same address afterwards, a new double opt-in starts.
+**After you unsubscribe.** The entry then stays stored with your email address, the status "unsubscribed" and the times of sign-up, confirmation and unsubscribing. The purpose is to be able to prove your consent and its withdrawal (Art. 7 (1) GDPR) and to make sure no further mail goes to the address. The legal basis is Art. 6 (1) (f) GDPR, our legitimate interest is this proof and protecting you from unwanted mail. We keep the entry for twelve months. On your request we delete it completely earlier; write to max@voidcom.app for this. If you sign up again with the same address afterwards, a new double opt-in starts.
 
-**Recipients.** The data is stored in a PostgreSQL database with [MAX: Datenbank-Anbieter und Region, z. B. Neon, Frankfurt]. We send the mails with Cloudflare Email Service. Cloudflare processes your email address and the content of the mail for this. The providers act as processors on our instructions. For transfers to countries outside the EU and the EEA, standard contractual clauses or an adequacy decision of the EU Commission apply.
+**Recipients.** The data is stored in a PostgreSQL database with OVH SAS, 2 rue Kellermann, 59100 Roubaix, France, on a server we operate in the Gravelines data centre (France). We send the mails with Cloudflare Email Service. Cloudflare processes your email address and the content of the mail for this. The providers act as processors on our instructions. For transfers to countries outside the EU and the EEA, standard contractual clauses or an adequacy decision of the EU Commission apply.
 
 ## External links
 
@@ -90,7 +90,7 @@ Under the GDPR you have the right to
 - object to processing based on Art. 6 (1) (f), on grounds relating to your particular situation (Art. 21),
 - withdraw a consent you have given (Art. 7 (3)).
 
-Write to [MAX: E-Mail] for this. You can also lodge a complaint with a data protection supervisory authority. The competent one is [MAX: zuständige Landesdatenschutzbehörde].
+Write to max@voidcom.app for this. You can also lodge a complaint with a data protection supervisory authority. The competent one is the State Commissioner for Data Protection and Freedom of Information of Baden-Württemberg (Landesbeauftragter für den Datenschutz und die Informationsfreiheit Baden-Württemberg), Lautenschlagerstraße 20, 70173 Stuttgart, Germany.
 
 There is no automated decision-making, including profiling.
 
