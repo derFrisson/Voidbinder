@@ -401,7 +401,8 @@ describe.skipIf(!databaseUrl)('image mirror (Postgres)', () => {
     expect(stats.uploaded).toBe(stats.images);
     // A print and its English localization share one download; the low-res German scans wait.
     expect(stats.images).toBeLessThan(stats.rows);
-    expect(stats.noSource).toBeGreaterThan(0);
+    // Rows without a high-res scan are filtered in the query, never read.
+    expect(stats.noSource).toBe(0);
     expect(fetched).toHaveLength(stats.images);
     expect(store.objects.size).toBe(stats.images);
 
@@ -452,7 +453,7 @@ describe.skipIf(!databaseUrl)('image mirror (Postgres)', () => {
     const keyed = after.filter((p) => p.key !== null);
     expect(keyed).toHaveLength(before.filter((p) => p.key !== null).length);
     expect(keyed.every((p) => hasSm(p.key ?? ''))).toBe(true);
-    expect(await pendingRows(db, { game: 'mtg', sm: true })).toHaveLength(stats.noSource);
+    expect(await pendingRows(db, { game: 'mtg', sm: true })).toEqual([]);
   });
 
   it('dry run reads and plans only', async () => {
@@ -467,5 +468,40 @@ describe.skipIf(!databaseUrl)('image mirror (Postgres)', () => {
     expect(stats.rows).toBeLessThanOrEqual(5);
     expect(fetched).toEqual([]);
     expect(await db.select().from(importRuns)).toHaveLength(before.length);
+  });
+});
+
+describe.skipIf(!databaseUrl)('image mirror backlog (Postgres)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  beforeAll(async () => ({ db, drop } = await freshDatabase()));
+  afterAll(() => drop());
+
+  it('reads past rows without a source image, so they never block the cap', async () => {
+    // 2000 old low-res prints ahead of 10 newer high-res ones.
+    await db.execute(sql`
+      with s as (insert into sets (game_id, code, name) values ('mtg', 'tst', 'Test') returning id),
+        c as (insert into cards (game_id, name, oracle_key) values ('mtg', 'Card', 'o') returning id)
+      insert into prints (card_id, set_id, number, external_ids, created_at)
+      select c.id, s.id, n::text, jsonb_build_object(
+          'scryfall', 'card-' || n,
+          'scryfall_images', jsonb_build_object(
+            'highres_image', n > 2000, 'large', 'https://cards.scryfall.io/large/' || n || '.jpg')),
+        now() - interval '1 day' + n * interval '1 second'
+      from s, c, generate_series(1, 2010) n`);
+    const { deps, fetched } = fakeDeps({ resize: false });
+    const stats = await mirrorImages(
+      deps,
+      db,
+      { game: 'mtg', limit: 10 },
+      { concurrency: 2, verify: false },
+    );
+    expect(stats).toMatchObject({ rows: 10, uploaded: 10, noSource: 0 });
+    expect(fetched.sort()).toEqual(
+      Array.from(
+        { length: 10 },
+        (_, i) => `https://cards.scryfall.io/large/${2001 + i}.jpg`,
+      ).sort(),
+    );
   });
 });

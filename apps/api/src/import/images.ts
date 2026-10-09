@@ -369,8 +369,20 @@ const imageIds = (column: SQLWrapper) =>
     sql`, `,
   )})`;
 
-const needsWork = (key: SQLWrapper, sm: boolean | undefined) =>
-  sm ? sql`(${key} is null or ${key} not like '%/sm.webp')` : sql`${key} is null`;
+/**
+ * Rows `sourceUrl` can mirror (the same conditions in SQL), or that already have a key (`sm`
+ * reads `orig` back from the bucket). Filtered before the limit, so rows without a source
+ * image never fill a capped run and block the rows behind them.
+ */
+const needsWork = (ids: SQLWrapper, key: SQLWrapper, sm: boolean | undefined) => {
+  const mirrorable = sql`(${key} is not null
+    or (${sets.gameId} = 'mtg'
+      and coalesce(${ids} -> 'scryfall_images' ->> 'highres_image', 'false') = 'true')
+    or (${sets.gameId} = 'yugioh' and ${ids} ->> 'image_url' is not null)
+    or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
+  const todo = sm ? sql`(${key} is null or ${key} not like '%/sm.webp')` : sql`${key} is null`;
+  return sql`${todo} and ${mirrorable}`;
+};
 
 /**
  * Prints and localizations without `image_key` (with `sm`, also those with only the `orig`
@@ -393,7 +405,7 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
         ${imageIds(prints.externalIds)} as ids, ${prints.imageKey} as key,
         ${prints.createdAt} as created_at
       from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
-      where ${needsWork(prints.imageKey, q.sm)}${where}
+      where ${needsWork(prints.externalIds, prints.imageKey, q.sm)}${where}
       union all
       select ${printLocalizations.printId}, ${printLocalizations.lang}, 1, ${sets.gameId},
         ${imageIds(printLocalizations.externalIds)}, ${printLocalizations.imageKey},
@@ -401,7 +413,7 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
       from ${printLocalizations}
         join ${prints} on ${prints.id} = ${printLocalizations.printId}
         join ${sets} on ${sets.id} = ${prints.setId}
-      where ${needsWork(printLocalizations.imageKey, q.sm)}${where}
+      where ${needsWork(printLocalizations.externalIds, printLocalizations.imageKey, q.sm)}${where}
     ) r
     order by created_at, print_id, t, lang
     ${q.limit ? sql`limit ${q.limit}` : sql``}`);
