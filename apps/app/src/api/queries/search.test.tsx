@@ -95,13 +95,14 @@ describe('useSearch', () => {
       wrapper,
     });
     await waitFor(() => expect(result.current.data).toEqual(answer));
-    const url = new URL(`http://x${calls[0]?.path}`);
+    const url = new URL(`http://x${calls.find((c) => c.path.startsWith('/catalog/'))?.path}`);
     expect(url.pathname).toBe('/catalog/search');
     expect(Object.fromEntries(url.searchParams)).toEqual({
       q: 'adeline',
       game: 'mtg',
       set: 'mid',
       lang: 'de',
+      currency: 'EUR',
       page: '1',
     });
   });
@@ -111,6 +112,6 @@ describe('useSearch', () => {
     const { result } = renderHook(() => useSearch({ ...base, q: ' a ' }), { wrapper });
     await new Promise((r) => setTimeout(r, 20));
     expect(result.current.fetchStatus).toBe('idle');
-    expect(calls).toEqual([]);
+    expect(calls.filter((c) => c.path.startsWith('/catalog/'))).toEqual([]);
   });
 });

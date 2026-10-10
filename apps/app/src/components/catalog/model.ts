@@ -4,7 +4,7 @@ import type { PriceTag } from './seams';
 
 // The pure logic of the catalog screens: URL state, filter reducers, completion, set grouping.
 
-export const SORTS = ['number', 'name', 'rarity'] as const;
+export const SORTS = ['number', 'name', 'rarity', 'price'] as const;
 export type SetSort = (typeof SORTS)[number];
 export const VIEWS = ['grid', 'list'] as const;
 export type SetView = (typeof VIEWS)[number];
@@ -179,7 +179,7 @@ export function setValue(
   missingCount: number;
   currency: PriceTag['currency'];
   source: string;
-  asOf: string;
+  asOf: string | undefined;
 } | null {
   const first = prices.values().next().value;
   if (!first) return null;
@@ -191,7 +191,7 @@ export function setValue(
   for (const [id, price] of prices) {
     // One currency per strip: a quote in another currency is not added to the sum.
     if (price.currency !== first.currency) continue;
-    if (price.asOf > asOf) asOf = price.asOf;
+    if (price.asOf && (!asOf || price.asOf > asOf)) asOf = price.asOf;
     const have = owned.get(id)?.count ?? 0;
     if (have > 0) {
       ownedCents += price.cents * have;

@@ -42,15 +42,15 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 ## Catalog API
 
-| Route                                                             | Answer                                                           |
-| ----------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `GET /catalog/games`                                              | Games with their set counts                                      |
-| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                      |
-| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity) |
-| `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations              |
-| `GET /catalog/prints/:id`                                         | One print with its card                                          |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)  |
-| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)           |
+| Route                                                             | Answer                                                                  |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `GET /catalog/games`                                              | Games with their set counts                                             |
+| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                             |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price) |
+| `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations                     |
+| `GET /catalog/prints/:id`                                         | One print with its card                                                 |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)         |
+| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                  |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries

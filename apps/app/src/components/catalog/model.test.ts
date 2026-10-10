@@ -32,8 +32,11 @@ describe('set filters in the URL', () => {
       ),
     ).toEqual({ lang: 'en', rarity: 'rare', finish: 'foil', sort: 'name', page: 3, view: 'list' });
     expect(
-      parseFilters({ lang: 'EN!', sort: 'price', page: '0', view: 'cloud', rarity: '' }, 'de'),
+      parseFilters({ lang: 'EN!', sort: 'popularity', page: '0', view: 'cloud', rarity: '' }, 'de'),
     ).toEqual(base);
+    // The price sort is the API's `sort=price`, high to low.
+    expect(parseFilters({ sort: 'price' }, 'de').sort).toBe('price');
+    expect(toQuery({ ...base, sort: 'price' })).toMatchObject({ sort: 'price' });
     expect(parseFilters({ page: '2.5' }, 'de').page).toBe(1);
     expect(parseFilters({ page: ['4', '5'], sort: ['rarity'] }, 'de')).toMatchObject({
       page: 4,

@@ -1,9 +1,11 @@
 import type { SearchHit } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
+import { Price } from '../catalog/Cards';
+import { priceTag } from '../catalog/seams';
 import { CardImage } from './CardImage';
 
-/** A search result: image, name, set code and number in mono, set name. Opens the card page. */
+/** A search result: image, name, set code and number in mono, set name, market price. Opens the card page. */
 export function PrintTile({ hit }: { hit: SearchHit }) {
   const code = `${hit.setCode.toUpperCase()} ${hit.number}`;
   return (
@@ -23,6 +25,7 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
           <Text numberOfLines={1} className="font-body text-xs text-ink-3">
             {hit.setName}
           </Text>
+          <Price price={priceTag(hit.marketPrice)} />
         </View>
       </Pressable>
     </Link>

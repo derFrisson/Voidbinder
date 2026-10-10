@@ -28,9 +28,12 @@ page's filters (`lang`, `rarity`, `finish`, `sort`, `page`, `view`) live in the 
 come from the `facets` of `GET /catalog/sets/:game/:code` (rarity and finish counts, languages of the
 whole set). What needs the collection (owned badge, "fehlt", completion, value strip) or the prices
 renders only when `seams.ts` returns data: `useOwnedPrints` reads the signed-in user's copies of
-the whole set (`GET /collection/owned?game=&set=`), `useSetPrices` still answers nothing (the set
-page's `marketPrice` has no observation date), so a signed-out visitor sees no numbers, never
-invented ones. "Recently viewed" is
+the whole set (`GET /collection/owned?game=&set=`), `useSetPrices` maps the `marketPrice` of the
+page's prints (VB-64), so a signed-out visitor sees prices but no owned badge, "fehlt" or value
+strip, and never an invented number. The set page and
+`/search` send the profile's `currency` (EUR when signed out) after the session is known
+(`useCurrency` in `src/api/queries/cards.ts`). `marketPrice` carries the source but no date, so the
+tiles name the source only. The `price` sort is the API's `sort=price` (high to low, unpriced last). "Recently viewed" is
 `src/storage/recent.ts`: localStorage on the web behind a small `KeyValueStorage` seam, in memory
 natively until Sprint 3.
 
@@ -38,9 +41,13 @@ natively until Sprint 3.
 `rarity`, `lang`, `finish`, `page`; `src/api/queries/search.ts` maps both ways and drops the
 defaults), sends `GET /catalog/search` 250 ms after the last keystroke from two characters on and
 pages by 30. `/cards/[id]?print=` shows the print from the URL, else the newest with an image, with
-names and text in the user's language; its parts are in `src/components/card/`. Prices are absent
-until VB-30 merges: `usePrintPrices` and `usePriceHistory` (`src/api/queries/cards.ts`) answer
-`null`, the panel says there are no prices and shows no number (marker `VB-30`). "In Sammlung" and
+names and text in the user's language; its parts are in `src/components/card/`. Prices (VB-64):
+`usePrintPrices` and `usePriceHistory` (`src/api/queries/cards.ts`) read the VB-30 routes; the panel
+shows Cardmarket and TCGplayer with source, finish, near-mint and the observed time, the EX and GD
+estimates (≈), and the history line (the series of the finish from the source the currency
+prefers). A print without price rows, or a failed read, shows "no prices" and no number. The API has
+no language dimension, so there is no language switch. Search hits show their `marketPrice` like the
+set page. "In Sammlung" and
 "Auf Wunschliste" add the print (VB-31), signed out they lead to sign-in.
 
 **Collection (VB-31).** `/collection` (`src/components/collection/`, hooks in

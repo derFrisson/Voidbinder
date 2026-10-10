@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, renderApp } from '../../../test/fake-api';
 import type { Card, PrintDetail } from '@voidbinder/shared/api';
 import CardPage from '../../app/cards/[id]';
+import { printPrices } from '../../../test/prices';
 import { de } from '../../i18n/de';
 import { attributeChips } from './attributes';
 
@@ -92,7 +93,7 @@ describe('card page', () => {
     );
     expect(screen.getByText('Wachsamkeit')).toBeTruthy();
     expect(screen.getByText('gebannt')).toBeTruthy();
-    // VB-30 is not merged: the panel says so, no number anywhere.
+    // The price routes answer 404 here: the panel says so, no number anywhere.
     expect(screen.getByText('Für diesen Druck gibt es noch keine Preise.')).toBeTruthy();
     expect(screen.queryByText(/€|\$/)).toBeNull();
     // Signed out, the collection buttons lead to sign-in and say so.
@@ -105,6 +106,20 @@ describe('card page', () => {
     ).toBeTruthy();
     expect(screen.getByText(/über Scryfall/)).toBeTruthy();
     expect(screen.getAllByRole('row')).toHaveLength(3);
+  });
+
+  it('shows the real prices of the selected print in the price panel', async () => {
+    const id = card.prints[0]?.id ?? '';
+    fakeApi(
+      (c) => (c.path === `/catalog/cards/${CARD}` ? json(card) : undefined),
+      (c) =>
+        c.path.startsWith(`/catalog/prints/${id}/prices?`)
+          ? json({ ...printPrices, printId: id })
+          : undefined,
+    );
+    renderApp(<CardPage />);
+    expect(await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/)).toBeTruthy();
+    expect(screen.queryByText('Für diesen Druck gibt es noch keine Preise.')).toBeNull();
   });
 
   it('shows the print from the URL', async () => {

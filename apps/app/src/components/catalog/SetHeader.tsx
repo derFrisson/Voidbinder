@@ -134,7 +134,9 @@ export function ValueStrip({
       <View className="gap-1">
         <Text className={`${label} text-ink-2`}>{t.set.valueSource}</Text>
         <Text className="font-body text-sm text-ink-2">
-          {fmt(t.set.valueAsOf, { source: value.source, date: formatDate(value.asOf, locale) })}
+          {value.asOf
+            ? fmt(t.set.valueAsOf, { source: value.source, date: formatDate(value.asOf, locale) })
+            : value.source}
         </Text>
       </View>
     </Panel>

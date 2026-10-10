@@ -1,7 +1,7 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { useLocalSearchParams } from 'expo-router';
 import { describe, expect, it, vi } from 'vitest';
-import { fakeApi, json, renderApp } from '../test/fake-api';
+import { fakeApi, json, me, renderApp } from '../test/fake-api';
 import GameSets from './app/[game]/index';
 import SetRoute from './app/[game]/sets/[code]';
 import Home from './app/index';
@@ -120,8 +120,36 @@ describe('set page', () => {
     // Signed out: no owned badge, no "fehlt", no value strip.
     expect(screen.queryByText('fehlt')).toBeNull();
     expect(calls.find((c) => c.path.startsWith('/catalog/sets/mtg/mid'))?.path).toBe(
-      '/catalog/sets/mtg/mid?lang=de&sort=number&page=1',
+      '/catalog/sets/mtg/mid?lang=de&sort=number&page=1&currency=EUR',
     );
+  });
+
+  it("shows each print's market price with its source from the set page, EUR when signed out", async () => {
+    const market = { source: 'cardmarket', finish: 'normal', currency: 'EUR', cents: 334 };
+    fakeApi((c) =>
+      c.path.startsWith('/catalog/sets/')
+        ? json(setPage({ prints: [print(1, { marketPrice: market }), print(2)] }))
+        : undefined,
+    );
+    renderApp(
+      <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
+    );
+    expect(await screen.findByText(/3,34/)).toBeTruthy();
+    // The source, no date: `marketPrice` carries none. The print without a price shows nothing.
+    expect(screen.getByText('Cardmarket')).toBeTruthy();
+    expect(screen.getAllByText(/€/)).toHaveLength(1);
+  });
+
+  it('asks for the prices in the profile currency', async () => {
+    const calls = fakeApi(
+      (c) => (c.path === '/me' ? json({ ...me, currency: 'USD' }) : undefined),
+      (c) => (c.path.startsWith('/catalog/sets/') ? json(setPage()) : undefined),
+    );
+    renderApp(
+      <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
+    );
+    await screen.findByText('Innistrad: Midnight Hunt');
+    expect(calls.find((c) => c.path.startsWith('/catalog/sets/'))?.path).toContain('currency=USD');
   });
 
   it('renders the picture lazily with its size and an alt text, a frame without one', async () => {
@@ -157,7 +185,7 @@ describe('set page', () => {
     );
     await screen.findByText('Card 1');
     expect(calls.find((c) => c.path.startsWith('/catalog/sets/'))?.path).toBe(
-      '/catalog/sets/mtg/mid?lang=en&sort=number&page=2&rarity=rare',
+      '/catalog/sets/mtg/mid?lang=en&sort=number&page=2&rarity=rare&currency=EUR',
     );
     // The active chip toggles off; another filter resets the page.
     fireEvent.click(screen.getByRole('button', { name: /Selten/ }));
@@ -384,7 +412,7 @@ describe('set route', () => {
     renderApp(<SetRoute />);
     await screen.findByText('Card 1');
     expect(calls.find((c) => c.path.startsWith('/catalog/sets/'))?.path).toBe(
-      '/catalog/sets/mtg/mid?lang=de&sort=number&page=2&rarity=rare',
+      '/catalog/sets/mtg/mid?lang=de&sort=number&page=2&rarity=rare&currency=EUR',
     );
   });
 });
@@ -465,6 +493,19 @@ describe('collection and prices', () => {
     rerender(<ValueStrip owned={owned} prices={prices} />);
     expect(screen.getByText('Deine 2 Karten')).toBeTruthy();
     expect(screen.getByText('Fehlende 1')).toBeTruthy();
+  });
+});
+
+describe('value strip without a quote date', () => {
+  it('names the source only', () => {
+    const owned: Owned = new Map([['a', { count: 1, byFinish: { normal: 1 } }]]);
+    const prices = new Map([
+      ['a', { cents: 500, currency: 'EUR' as const, source: 'Cardmarket' }],
+      ['b', { cents: 300, currency: 'EUR' as const, source: 'Cardmarket' }],
+    ]);
+    renderApp(<ValueStrip owned={owned} prices={prices} />);
+    expect(screen.getByText('Cardmarket')).toBeTruthy();
+    expect(screen.getByText(/5,00/)).toBeTruthy();
   });
 });
 

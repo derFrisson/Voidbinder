@@ -197,12 +197,6 @@ export class DrizzleCardStore implements CardStore {
     const where = and(...filters);
 
     const name = sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`;
-    // The variants of a number follow each other (sorted by number or name).
-    const order = {
-      number: [NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
-      name: [asc(name), NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
-      rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
-    }[query.sort];
 
     const inSet = eq(prints.setId, setId);
     // One cheap lateral lookup per print on prices_current's primary key.
@@ -218,6 +212,22 @@ export class DrizzleCardStore implements CardStore {
       .orderBy(sourceOrder(query.currency))
       .limit(1)
       .as('market');
+
+    // The variants of a number follow each other (sorted by number or name).
+    const order = {
+      number: [NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      name: [asc(name), NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
+      // The price the page prints (`market`, joined laterally): prints priced in the requested
+      // currency first (a fallback source in the other currency would mix cents), unpriced last.
+      price: [
+        sql`(${market.currency} = ${query.currency}) desc nulls last`,
+        sql`${market.cents} desc nulls last`,
+        NUMBER_ORDER,
+        asc(prints.number),
+        asc(prints.variant),
+      ],
+    }[query.sort];
 
     const [[count], rows, rarities, finishes, languages] = await Promise.all([
       this.catalog

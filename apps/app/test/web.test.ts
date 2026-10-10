@@ -234,6 +234,8 @@ type Options = {
   scheme?: 'light' | 'dark';
   /** Start signed in (the protected screens). */
   session?: boolean;
+  /** An API origin: `/api/**` is answered by it instead of the fakes (the live check below). */
+  live?: string | undefined;
 };
 
 /** A page with the fake API; `posts` collects every POST body by path, `csp` every CSP violation. */
@@ -242,6 +244,7 @@ async function open({
   height = 900,
   scheme = 'light',
   session = false,
+  live,
 }: Options = {}) {
   if (!browser) throw new Error('browser did not start');
   const context = await browser.newContext({
@@ -259,6 +262,14 @@ async function open({
   page.on('console', (m) => {
     if (m.text().includes('Content Security Policy')) csp.push(m.text());
   });
+  if (live) {
+    // The browser keeps talking to its own origin; the Worker's job (the proxy) is done here.
+    await page.route('**/api/**', async (route) => {
+      const { pathname, search } = new URL(route.request().url());
+      await route.fulfill({ response: await route.fetch({ url: live + pathname + search }) });
+    });
+    return { context, page, posts, csp, queries };
+  }
   await page.route('https://img.voidbinder.de/**', (route) =>
     route.fulfill({ body: png, contentType: 'image/png' }),
   );
@@ -385,13 +396,13 @@ describe('web build', () => {
       await page.goto(`${origin}/mtg/sets/mid`);
       await page.getByRole('heading', { level: 1, name: 'Innistrad: Midnight Hunt' }).waitFor();
       await page.getByText('130 Karten, Seite 1').waitFor();
-      expect(queries.at(-1)).toBe('?lang=de&sort=number&page=1');
+      expect(queries.at(-1)).toBe('?lang=de&sort=number&page=1&currency=EUR');
       // The card with a picture loads it from the image host without a CSP violation.
       await page.getByRole('img', { name: 'Adeline 1, MID 1' }).waitFor();
       await page.getByRole('button', { name: /Selten/ }).click();
       await page.waitForURL(/\/mtg\/sets\/mid\?rarity=rare$/);
       await page.getByRole('button', { name: /Selten/, pressed: true }).waitFor();
-      expect(queries.at(-1)).toBe('?lang=de&sort=number&page=1&rarity=rare');
+      expect(queries.at(-1)).toBe('?lang=de&sort=number&page=1&rarity=rare&currency=EUR');
       await page.getByRole('radio', { name: 'Liste' }).click();
       await page.waitForURL(/rarity=rare&view=list$/);
       await page.reload();
@@ -491,6 +502,52 @@ describe('web build', () => {
       expect(csp).toEqual([]);
     } finally {
       await context.close();
+    }
+  });
+});
+
+// The same build against the real dev API: `LIVE_API=https://voidbinder-app-dev.frisson.workers.dev
+// pnpm --filter app exec vitest run --project web live` (`SHOTS=<dir>` also saves the screenshots).
+describe.skipIf(!process.env.LIVE_API)('card prices against the dev API', () => {
+  const live = process.env.LIVE_API;
+  const shots = process.env.SHOTS;
+
+  it('shows real prices on the search hit and the card page, at 1440 and 390', async () => {
+    for (const width of [1440, 390]) {
+      const { context, page } = await open({ width, height: 1000, live });
+      try {
+        await page.goto(`${origin}/search?q=adeline&game=mtg&set=mid`);
+        // The hit carries the market price and its source.
+        const hit = page.getByRole('link', { name: /^Adeline.*MID 1$/ });
+        await hit.waitFor();
+        await hit.getByText(/\d+,\d\d\s€/).waitFor();
+        await hit.getByText('Cardmarket').waitFor();
+        if (shots) await page.screenshot({ path: `${shots}/search-prices-${width}.png` });
+        await hit.click();
+        await page.getByRole('heading', { level: 2, name: 'Preise' }).waitFor();
+        // Both sources, the observed date and the estimates of EX and GD.
+        await page
+          .getByText(/^Cardmarket \(via Scryfall\) · Normal · Near Mint · Stand \d\d\.\d\d\.\d{4}/)
+          .waitFor();
+        await page.getByText(/^TCGplayer \(via TCGCSV\) · Normal · Near Mint · Stand/).waitFor();
+        const row = page.getByRole('group', { name: 'Zustand' });
+        await row
+          .getByText(/^≈ \d+,\d\d\s€/)
+          .first()
+          .waitFor();
+        expect(await row.getByText(/^(NM|EX|GD)$/).count()).toBe(3);
+        await page.getByRole('heading', { level: 3, name: /^Verlauf/ }).waitFor();
+        if (shots) {
+          await page
+            .getByRole('heading', { level: 2, name: 'Preise' })
+            .evaluate((el) => el.scrollIntoView({ block: 'start' }));
+          await page.screenshot({ path: `${shots}/card-prices-${width}.png` });
+        }
+      } finally {
+        // Requests still in flight would reject once the context is gone.
+        await page.unrouteAll({ behavior: 'ignoreErrors' });
+        await context.close();
+      }
     }
   });
 });
