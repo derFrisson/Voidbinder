@@ -350,6 +350,29 @@ export async function refreshSearchIndex(
     await deps.sleep(`wait for the running refresh ${attempt}`, LOCK_WAIT_SECONDS);
   }
 
+  try {
+    return await refreshLocked(deps, step, full, owner, started);
+  } catch (err) {
+    // A failed step would otherwise keep the lock for LOCK_TTL_MS and turn the next refreshes away.
+    await step('release lock', async () => (await unlock(deps.d1, owner).run()).meta.changes);
+    throw err;
+  }
+}
+
+/** This owner's lock only: after a TTL takeover the lock is another refresh's. */
+function unlock(d1: D1Database, owner: string): D1PreparedStatement {
+  return d1
+    .prepare(`delete from meta where key = 'lock' and json_extract(value, '$.owner') = ?1`)
+    .bind(owner);
+}
+
+async function refreshLocked(
+  deps: SearchIndexDeps,
+  step: Step,
+  full: boolean,
+  owner: string,
+  started: number,
+): Promise<RefreshStats> {
   const p = await step('plan', () => plan(deps, full));
   let rowsWritten = 0;
   for (const [i, chunk] of p.chunks.entries())
@@ -373,7 +396,7 @@ export async function refreshSearchIndex(
         `delete from name_keys
         where not exists (select 1 from names n where n.name_key = name_keys.name_key)`,
       ),
-      deps.d1.prepare(`delete from meta where key = 'lock'`),
+      unlock(deps.d1, owner),
     ]);
     const done: RefreshStats = {
       status: 'ok',

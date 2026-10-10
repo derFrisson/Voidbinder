@@ -242,4 +242,41 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     await d1.prepare(`delete from meta where key = 'lock'`).run();
     expect(await refresh()).toMatchObject({ status: 'ok' });
   });
+
+  const lockOwner = () =>
+    d1
+      .prepare(`select json_extract(value, '$.owner') as o from meta where key = 'lock'`)
+      .first('o');
+
+  it('releases its lock when a step fails', async () => {
+    let calls = 0;
+    const failing = refreshSearchIndex(
+      {
+        d1,
+        // The plan's read succeeds, the first chunk's fails.
+        withDb: (fn) => (calls++ ? Promise.reject(new Error('postgres gone')) : fn(db)),
+      },
+      (_name, fn) => fn(),
+      { full: true, owner: 'test' },
+    );
+    await expect(failing).rejects.toThrow('postgres gone');
+    expect(await lockOwner()).toBeNull();
+    expect(await refresh()).toMatchObject({ status: 'ok' });
+  });
+
+  it('leaves a lock another refresh took over', async () => {
+    const takeover = () =>
+      d1
+        .prepare(`update meta set value = ?1 where key = 'lock'`)
+        .bind(JSON.stringify({ owner: 'other', at: Date.now() }))
+        .run();
+    const stats = await refreshSearchIndex(
+      { d1, withDb: (fn) => fn(db) },
+      async (name, fn) => (name === 'finish' ? takeover().then(fn) : fn()),
+      { full: false, owner: 'test' },
+    );
+    expect(stats).toMatchObject({ status: 'ok' });
+    expect(await lockOwner()).toBe('other');
+    await d1.prepare(`delete from meta where key = 'lock'`).run();
+  });
 });
