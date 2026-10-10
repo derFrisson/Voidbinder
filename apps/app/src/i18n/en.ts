@@ -44,6 +44,7 @@ export const en: Dict = {
     recent: 'Recently viewed',
     recentSet: 'Set',
     recentCard: 'Card',
+    fresh: 'New in the catalog',
   },
   game: {
     count: '{count} sets',

@@ -25,6 +25,15 @@ export function useSets(game: Game, lang: Locale) {
   });
 }
 
+/** Every game's sets of the last 30 days, the home page's "new in the catalog" (VB-83). */
+export function useNewSets(lang: Locale) {
+  return useQuery({
+    queryKey: ['catalog', 'sets', 'new', lang],
+    queryFn: () => read(api.catalog.sets.new.$get({ query: { lang } })),
+    staleTime,
+  });
+}
+
 export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery>) {
   // The prices come in the profile's currency (EUR signed out); wait for the session to know it.
   const { currency, ready } = useCurrency();
