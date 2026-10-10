@@ -187,9 +187,7 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
   // The estimates belong to the display price's finish: not shown for a finish without a price.
   const all = display?.finish === finish ? (prices?.conditions ?? []) : [];
   const conditions = more ? all : all.filter((c) => MAIN_CONDITIONS.includes(c.condition));
-  const grades = new Intl.ListFormat(locale).format(
-    conditions.filter((c) => c.factor !== 1).map((c) => c.condition),
-  );
+  const estimated = conditions.filter((c) => c.factor !== 1).map((c) => c.condition);
   return (
     <Section
       title={t.prices.title}
@@ -258,12 +256,14 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
                   </Text>
                 </Pressable>
               ) : null}
-              <Text className="font-body text-[12.5px] text-ink-3">
-                {fmt(t.prices.estimates, {
-                  grades,
-                  basis: `${SOURCE_NAME[display.source]}, ${label(t.card.finishes, display.finish)}`,
-                })}
-              </Text>
+              {estimated.length > 0 && (
+                <Text className="font-body text-[12.5px] text-ink-3">
+                  {fmt(t.prices.estimates, {
+                    grades: new Intl.ListFormat(locale).format(estimated),
+                    basis: `${SOURCE_NAME[display.source]}, ${label(t.card.finishes, display.finish)}`,
+                  })}
+                </Text>
+              )}
             </View>
           )}
           <History printId={printId} finish={finish} />

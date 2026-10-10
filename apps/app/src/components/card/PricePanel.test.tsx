@@ -74,7 +74,8 @@ describe('PricePanel', () => {
     await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/);
     fireEvent.click(screen.getByRole('radio', { name: 'Foil' }));
     expect(await screen.findByText(/^Cardmarket \(via Scryfall\) · Foil/)).toBeTruthy();
-    expect(await screen.findByText(/^Basis: Cardmarket, Foil/)).toBeTruthy();
+    // Foil has only the observed NM: nothing to call an estimate, so no estimates sentence.
+    expect(screen.queryByText(/Schätzungen/)).toBeNull();
     expect(calls.map((c) => c.path)).toContain(
       `/catalog/prints/${PRINT}/prices?currency=EUR&finish=foil`,
     );
@@ -179,6 +180,15 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
     expect(await screen.findByText(/0,23/)).toBeTruthy();
     expect(screen.queryByText('Cardmarket')).toBeNull();
     expect(screen.queryByText('–')).toBeNull();
+  });
+});
+
+describe('PricePanel, estimates sentence', () => {
+  it('is left out when every visible grade is the observed price', async () => {
+    api({ ...printPrices, conditions: [{ condition: 'NM', factor: 1, cents: 334 }] });
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    await screen.findByRole('group', { name: 'Zustand' });
+    expect(screen.queryByText(/^Basis:/)).toBeNull();
   });
 });
 

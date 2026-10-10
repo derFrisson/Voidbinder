@@ -6,6 +6,7 @@ import {
   pickDisplayPrice,
   type PriceLike,
 } from './index.js';
+import type { PriceSource } from '@voidbinder/shared/api';
 
 const prices: PriceLike[] = [
   {
@@ -86,10 +87,28 @@ describe('pickDisplayPrice', () => {
     expect(
       pickDisplayPrice(holoOnly, { currency: 'EUR', finishes: ['holo', 'reverse'] })?.finish,
     ).toBe('holo');
-    expect(pickDisplayPrice(holoOnly, { currency: 'EUR', finish: 'etched' })?.finish).toBe(
-      'reverse',
-    );
+    expect(pickDisplayPrice(holoOnly, { currency: 'EUR', finish: 'etched' })?.finish).toBe('holo');
     expect(pickDisplayPrice([], { currency: 'EUR' })).toBeNull();
+  });
+
+  it('follows the API finishRank: listed finish, then unlisted ones alphabetically', () => {
+    const row = (source: PriceSource, finish: string): PriceLike => ({
+      source,
+      finish,
+      currency: 'EUR',
+      market: 10,
+      observedAt: '2026-10-10T03:00:00.000Z',
+    });
+    // print lists only holo: holo beats the cheaper-by-source normal row
+    const holoAndNormal = [row('cardmarket', 'normal'), row('tcgplayer', 'holo')];
+    expect(pickDisplayPrice(holoAndNormal, { currency: 'EUR', finishes: ['holo'] })?.finish).toBe(
+      'holo',
+    );
+    // only unlisted finishes: alphabetical (first_edition < reverse), not the source's pick
+    const unlisted = [row('cardmarket', 'reverse'), row('tcgplayer', 'first_edition')];
+    expect(pickDisplayPrice(unlisted, { currency: 'EUR', finishes: ['normal'] })?.finish).toBe(
+      'first_edition',
+    );
   });
 });
 

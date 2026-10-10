@@ -306,6 +306,71 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(again.prints[0]?.marketPrice).toMatchObject({ finish: 'normal', cents: 99 });
   });
 
+  // One finish rule: the set page's SQL `finishRank` and core's pickDisplayPrice must agree.
+  it('picks the same finish on the set page and the prices route', async () => {
+    const shapes = [
+      {
+        code: 'rank1',
+        finishes: ['holo'],
+        rows: [
+          { finish: 'normal', source: 'cardmarket', currency: 'EUR' },
+          { finish: 'holo', source: 'tcgplayer', currency: 'USD' },
+        ],
+        finish: 'holo',
+      },
+      {
+        code: 'rank2',
+        finishes: ['normal'],
+        rows: [
+          { finish: 'reverse', source: 'cardmarket', currency: 'EUR' },
+          { finish: 'first_edition', source: 'tcgplayer', currency: 'USD' },
+        ],
+        finish: 'first_edition',
+      },
+    ];
+    for (const shape of shapes) {
+      const [card] = await db
+        .insert(cards)
+        .values({ gameId: 'yugioh', name: shape.code, oracleKey: `ygo-${shape.code}` })
+        .returning({ id: cards.id });
+      const [set] = await db
+        .insert(sets)
+        .values({ gameId: 'yugioh', code: shape.code, name: shape.code })
+        .returning({ id: sets.id });
+      const [print] = await db
+        .insert(prints)
+        .values({
+          cardId: card?.id ?? '',
+          setId: set?.id ?? '',
+          number: '1',
+          finishes: shape.finishes,
+        })
+        .returning({ id: prints.id });
+      await db.insert(pricesCurrent).values(
+        shape.rows.map((r) => ({
+          printId: print?.id ?? '',
+          ...r,
+          centsMarket: 100,
+          observedAt: new Date('2026-10-09T03:00:00.000Z'),
+        })),
+      );
+      for (const currency of ['EUR', 'USD']) {
+        const page = SetPageResponseSchema.parse(
+          await (
+            await app.request(`/catalog/sets/yugioh/${shape.code}?currency=${currency}`)
+          ).json(),
+        );
+        const prices = PrintPricesResponseSchema.parse(
+          await (
+            await app.request(`/catalog/prints/${print?.id}/prices?currency=${currency}`)
+          ).json(),
+        );
+        expect(page.prints[0]?.marketPrice?.finish).toBe(shape.finish);
+        expect(prices.display?.finish).toBe(shape.finish);
+      }
+    }
+  });
+
   it('estimates conditions with the default factors when a game has no rows', async () => {
     const adeline = await printId('mid', '1');
     const removed = await db
