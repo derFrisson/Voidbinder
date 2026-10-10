@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { securityHeaders } from './security-headers';
+import { securityHeaders, securityHeadersFor } from './security-headers';
 import worker from './worker';
 
 // The Worker with a fake `API` service binding that records what reaches it.
@@ -60,6 +60,16 @@ describe('worker', () => {
     for (const [name, value] of Object.entries(securityHeaders))
       expect(res.headers.get(name)).toBe(value);
     expect(res.headers.get('content-security-policy')).not.toMatch(/script-src[^;]*unsafe-inline/);
+  });
+
+  it('adds the Plausible host to connect-src only when one is configured', () => {
+    const connect = (host?: string) =>
+      /connect-src ([^;]*)/.exec(securityHeadersFor(host)['Content-Security-Policy'] ?? '')?.[1];
+    expect(connect()).toBe("'self'");
+    expect(connect('')).toBe("'self'");
+    expect(connect('https://plausible.example.test/')).toBe(
+      "'self' https://plausible.example.test",
+    );
   });
 
   it('does not proxy paths that merely start with "api"', async () => {

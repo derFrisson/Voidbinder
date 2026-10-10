@@ -1,5 +1,6 @@
 import { createApp, type App } from './app';
 import { CRON_SOURCES, cronInstanceId } from './import/schedule';
+import { CachePurgingEntrypoint } from './platform/cloudflare/cache';
 import {
   appDeps,
   startScryfallImport,
@@ -24,19 +25,23 @@ const START = {
 
 let app: App | undefined;
 
-export default {
-  fetch(request, env, ctx) {
+/** The API; a class entrypoint so the import Workflows can purge its edge cache (README "Caching"). */
+export default class Api extends CachePurgingEntrypoint {
+  override fetch(request: Request) {
     // One app per isolate: the vars never change within it, the platform opens per request.
-    app ??= createApp(appDeps(env));
-    return app.fetch(request, env, ctx);
-  },
+    app ??= createApp(appDeps(this.env));
+    return app.fetch(request, this.env, this.ctx);
+  }
 
   /** Each cron starts the import CRON_SOURCES names; one Workflow instance per cron and day. */
-  async scheduled(controller, env) {
+  override async scheduled(controller: ScheduledController) {
     const source = CRON_SOURCES[controller.cron];
     if (!source) throw new Error(`no import for cron ${controller.cron}`);
-    await START[source](env, cronInstanceId(controller.cron, source, controller.scheduledTime));
-  },
-} satisfies ExportedHandler<Env>;
+    await START[source](
+      this.env,
+      cronInstanceId(controller.cron, source, controller.scheduledTime),
+    );
+  }
+}
 
 export type AppType = App;

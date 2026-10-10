@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fixture, gzip } from './scryfall/test-fixtures';
-import { batches, jsonLines, sourceHash } from './util';
+import { batches, jsonLines, PURGE_WAIT_SECONDS, purgeEdgeCache, sourceHash } from './util';
 
 async function collect(lines: AsyncIterable<string>) {
   const out: string[] = [];
@@ -40,5 +40,25 @@ describe('batches and sourceHash', () => {
       await sourceHash({ b: { d: null, c: [1, 2] }, a: 1 }),
     );
     expect(await sourceHash({ a: 1 })).not.toBe(await sourceHash({ a: 2 }));
+  });
+});
+
+describe('purgeEdgeCache', () => {
+  it('waits out the Hyperdrive window (300 s + 60 s stale) with a minute to spare, then purges', async () => {
+    const calls: unknown[][] = [];
+    await purgeEdgeCache(
+      {
+        sleep: async (name, seconds) => void calls.push(['sleep', name, seconds]),
+        purgeCache: async (tags) => void calls.push(['purge', tags]),
+      },
+      (name, fn) => (calls.push(['step', name]), fn()),
+      ['catalog'],
+    );
+    expect(PURGE_WAIT_SECONDS).toBe(420);
+    expect(calls).toEqual([
+      ['sleep', 'wait for the Hyperdrive cache', 420],
+      ['step', 'purge cache'],
+      ['purge', ['catalog']],
+    ]);
   });
 });

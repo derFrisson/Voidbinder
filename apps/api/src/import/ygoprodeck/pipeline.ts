@@ -1,5 +1,6 @@
 import { log } from '../../middleware/log';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
+import { purgeEdgeCache } from '../util';
 import {
   chunkKey,
   deletePrefix,
@@ -136,6 +137,7 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
 
     const stats = { languages, lines, sets, ...cards, otherLanguages: localizations };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
+    await purgeEdgeCache(deps, step, ['catalog']);
     result = { runId, stats };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

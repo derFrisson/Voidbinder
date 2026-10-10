@@ -16,6 +16,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "placement": { "mode": "smart" },
   "observability": { "enabled": true },
+  // Workers Caching (VB-71, README "Caching"): GET/HEAD responses are cached per their
+  // Cache-Control, so only the catalog, price and module routes (public) are stored; everything
+  // else sends no-store. Repeated in every env like the bindings.
+  "cache": { "enabled": true },
   "workers_dev": false,
   "vars": {
     "APP_URL": "http://localhost:8081",
@@ -101,6 +105,7 @@
     "dev": {
       "name": "voidbinder-api-dev",
       "workers_dev": true,
+      "cache": { "enabled": true },
       "vars": {
         "APP_URL": "https://voidbinder-app-dev.frisson.workers.dev",
         "API_URL": "https://voidbinder-api-dev.frisson.workers.dev",
@@ -167,6 +172,7 @@
     "prod": {
       "name": "voidbinder-api",
       "workers_dev": false,
+      "cache": { "enabled": true },
       "routes": [{ "pattern": "api.voidbinder.de", "custom_domain": true }],
       "vars": {
         "APP_URL": "https://app.voidbinder.de",

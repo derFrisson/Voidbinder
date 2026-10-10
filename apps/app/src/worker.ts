@@ -11,7 +11,8 @@ export default {
     const url = new URL(request.url);
     if (url.pathname === '/api' || url.pathname.startsWith('/api/'))
       return proxy(request, url, env);
-    // Not reached for assets; kept so a request that does land here still gets the app.
+    // Not reached for assets; kept so a request that does land here still gets the app. The
+    // analytics host is in the CSP of dist/_headers only, so HTML served from here would block it.
     return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
 } satisfies ExportedHandler<Env>;

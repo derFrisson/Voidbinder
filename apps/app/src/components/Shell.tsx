@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { NOTICES, SCRYFALL_ATTRIBUTION } from '@voidbinder/shared/notices';
+import { useSignOut } from '../api/queries/auth';
 import { useSession } from '../api/queries/me';
 import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
@@ -105,6 +106,28 @@ function NavItem({ tab, rail }: { tab: Tab; rail: boolean }) {
   );
 }
 
+/** Sign out under the avatar in the rail (VB-66); the profile page has the same action. */
+function RailSignOut() {
+  const t = useT();
+  const { data: me } = useSession();
+  const signOut = useSignOut();
+  if (!me) return null;
+  return (
+    <Pressable
+      role="button"
+      aria-label={t.profile.signOut}
+      aria-busy={signOut.isPending}
+      disabled={signOut.isPending}
+      onPress={() => signOut.mutate(undefined, { onSuccess: () => router.replace('/sign-in') })}
+      className={`w-16 items-center rounded-xl py-1.5 ${signOut.isPending ? 'opacity-50' : ''}`}
+    >
+      <Text className="font-display text-[11.5px] font-semibold text-ink-3 underline">
+        {t.profile.signOut}
+      </Text>
+    </Pressable>
+  );
+}
+
 /**
  * The app frame: left rail on wide screens, bottom tabs on phones, the page in between. The page
  * keeps its place in the tree when the width crosses the breakpoint; moving it would remount the
@@ -128,6 +151,7 @@ export function Shell({ children }: { children: ReactNode }) {
           {tabs.map((tab) => (
             <NavItem key={tab.key} tab={tab} rail />
           ))}
+          <RailSignOut />
         </View>
       )}
       <View className="flex-1">{children}</View>

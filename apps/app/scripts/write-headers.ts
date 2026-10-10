@@ -1,8 +1,10 @@
 // Writes dist/_headers (Workers static assets) from src/security-headers.ts after `expo export`.
 import { writeFileSync } from 'node:fs';
-import { securityHeaders } from '../src/security-headers.ts';
+import { securityHeadersFor } from '../src/security-headers.ts';
 
-const lines = Object.entries(securityHeaders).map(([name, value]) => `  ${name}: ${value}`);
+const lines = Object.entries(
+  securityHeadersFor(process.env.EXPO_PUBLIC_PLAUSIBLE_HOST || undefined),
+).map(([name, value]) => `  ${name}: ${value}`);
 writeFileSync(
   new URL('../dist/_headers', import.meta.url),
   // Hashed bundles never change; everything else (index.html) is revalidated.
