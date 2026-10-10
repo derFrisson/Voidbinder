@@ -403,8 +403,12 @@ const needsWork = (
   sm: boolean | undefined,
 ) => {
   const highres = sql`coalesce(${ids} -> 'scryfall_images' ->> 'highres_image', 'false') = 'true'`;
+  // A low-res scan never replaces a high-res key (`writeKeys`), so it is work only without one.
   const lowres =
-    table === 'prints' ? sql` or ${ids} -> 'scryfall_images' ->> 'image_status' = 'lowres'` : sql``;
+    table === 'prints'
+      ? sql` or (${ids} -> 'scryfall_images' ->> 'image_status' = 'lowres'
+          and (${key} is null or ${key} like '%-lowres.%'))`
+      : sql``;
   const mirrorable = sql`((${sets.gameId} = 'mtg' and (${highres}${lowres}))
     or (${sets.gameId} = 'yugioh' and ${ids} ->> 'image_url' is not null)
     or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;

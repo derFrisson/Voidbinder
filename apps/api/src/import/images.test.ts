@@ -606,6 +606,13 @@ describe.skipIf(!databaseUrl)('image mirror low-res scans (Postgres)', () => {
     expect(await pendingRows(db, { game: 'mtg', sm: true })).toEqual([]);
   });
 
+  it('skips a print with a high-res key whose scan went back to low-res', async () => {
+    await db.execute(sql`update prints set image_key = 'images/mtg/card-2/en/orig.jpg',
+      external_ids = jsonb_set(external_ids, '{scryfall_images,image_status}', '"lowres"')
+      where number = '2'`);
+    expect(await pendingRows(db, { game: 'mtg', sm: true })).toEqual([]);
+  });
+
   it('never replaces a high-res key with a low-res one', async () => {
     const [p3] = (await db.execute<{ id: string }>(sql`select id from prints where number = '3'`))
       .rows;
