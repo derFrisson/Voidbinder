@@ -67,6 +67,9 @@ native client runs the same code.
     offline keep one device's row (the other gets a conflict). No field-level merge.
   - "Newer" for deletes and resurrections compares clocks of different devices; a device with a
     wrong clock can win or lose such a race it should not have.
+  - A pushed `updatedAt` or `deletedAt` more than 5 minutes ahead of the server's clock is cut to
+    now plus 5 minutes, so a device clock far ahead cannot pin a row in the future for good (the
+    trigger never lowers `updated_at`); the device still syncs.
   - The unique rules (a binder name, one wish per print, language and finish) answer 409 for the
     whole push when two devices created the same thing offline; the message names the first
     pushed row that ran into one (`binders <id>: …`, `wishlist_entries <id>: …`), and the client

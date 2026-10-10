@@ -18,6 +18,7 @@ import type { Db } from '../import/scryfall/write';
 import { DrizzleCardStore } from '../platform/cloudflare/drizzle-card-store';
 import { DrizzleCollectionStore } from '../platform/cloudflare/drizzle-collection-store';
 import { DrizzleDeckStore } from '../platform/cloudflare/drizzle-deck-store';
+import { SYNC_CLOCK_ALLOWANCE_MS } from '../platform/cloudflare/drizzle-sync-store';
 import { databaseUrl, freshDatabase, testApp, testDeps } from '../test-helpers';
 
 it('needs a session', async () => {
@@ -272,8 +273,8 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
   });
 
   it('never moves updated_at back, so a REST write behind a fast device clock still conflicts', async () => {
-    // Device A's clock runs 10 minutes fast: its row is stored with a future updatedAt.
-    const ahead = new Date(Date.now() + 10 * 60_000).toISOString();
+    // Device A's clock runs 3 minutes fast (within the allowance): its row keeps the future time.
+    const ahead = new Date(Date.now() + 3 * 60_000).toISOString();
     const b = binder({ updatedAt: ahead });
     await push(ash, [{ table: 'binders', rows: [b] }]);
     // A REST edit at the real time (now(), before A's stamp) still lands after it.
@@ -292,6 +293,23 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(res.body.conflicts).toMatchObject([
       { table: 'binders', rows: [{ id: b.id, name: 'Web edit', updatedAt: web.updatedAt }] },
     ]);
+  });
+
+  it('cuts a stamp far ahead of the server clock to now plus the allowance', async () => {
+    const year = new Date(Date.now() + 365 * 24 * 3600_000).toISOString();
+    const b = binder({ updatedAt: year });
+    const created = await push(ash, [{ table: 'binders', rows: [b] }]);
+    const ceiling = Date.now() + SYNC_CLOCK_ALLOWANCE_MS;
+    const stamped = created.body.applied[0]?.updatedAt ?? '';
+    expect(Date.parse(stamped)).toBeLessThanOrEqual(ceiling);
+    const [row] = await db.select().from(binders).where(eq(binders.id, b.id));
+    expect(row?.updatedAt.toISOString()).toBe(stamped);
+
+    const del = { ...b, updatedAt: year, deletedAt: year, baseUpdatedAt: stamped };
+    expect((await push(ash, [{ table: 'binders', rows: [del] }])).status).toBe(200);
+    const [gone] = await db.select().from(binders).where(eq(binders.id, b.id));
+    expect(gone?.deletedAt?.getTime()).toBeLessThanOrEqual(Date.now() + SYNC_CLOCK_ALLOWANCE_MS);
+    expect(gone?.updatedAt.getTime()).toBeLessThanOrEqual(Date.now() + SYNC_CLOCK_ALLOWANCE_MS);
   });
 
   it('lets a newer delete win, a newer edit resurrect, and keeps a deck’s list on conflict', async () => {

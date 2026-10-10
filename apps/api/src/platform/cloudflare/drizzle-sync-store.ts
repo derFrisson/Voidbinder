@@ -48,6 +48,9 @@ const UNIQUE_RULES: Record<string, string> = {
 };
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
+
+/** How far ahead of the server a device clock may stamp a row; a later stamp is cut to that. */
+export const SYNC_CLOCK_ALLOWANCE_MS = 5 * 60_000;
 const lockKey = (userId: string, name = 'sync') =>
   sql`hashtextextended(${`voidbinder.${name}:${userId}`}, 0)`;
 
@@ -210,6 +213,16 @@ export async function syncPush(
   req: SyncPushRequest,
 ): Promise<SyncPushResponse> {
   const changes = orderChanges(req.changes);
+  // sync_stamp() never lowers updated_at, so a device clock far ahead would pin the row in the
+  // future for good: its stamps are cut to the server's now() plus the allowance.
+  const ceiling = Date.now() + SYNC_CLOCK_ALLOWANCE_MS;
+  const clamp = (t: string) => (Date.parse(t) > ceiling ? new Date(ceiling).toISOString() : t);
+  for (const c of changes)
+    if (c.table !== 'deck_entries')
+      for (const r of c.rows as PushedRow[]) {
+        r.updatedAt = clamp(r.updatedAt);
+        if (r.deletedAt) r.deletedAt = clamp(r.deletedAt);
+      }
   const pushedEntries = new Map<string, SyncDeckEntry[]>();
   for (const c of changes)
     if (c.table === 'deck_entries')

@@ -570,7 +570,9 @@ equal to the stored one writes nothing (a retried push changes nothing). `applie
 `updatedAt` the server holds for every other pushed row: the device's next `baseUpdatedAt`. An
 `updated_at` never goes back: `sync_stamp()` stores at least the old value plus 1 ms on every
 update (REST, sync, the binder-delete fan-out), to the millisecond, so a REST edit behind a device
-whose clock ran fast still conflicts with that device's next push.
+whose clock ran fast still conflicts with that device's next push. A pushed `updatedAt` or
+`deletedAt` more than 5 minutes ahead of the server is cut to now plus 5 minutes
+(`SYNC_CLOCK_ALLOWANCE_MS`), so a wrong device clock cannot pin a row in the future.
 
 ```http
 POST /sync/push
