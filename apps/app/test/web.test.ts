@@ -137,6 +137,9 @@ const banCard = (n: number, name: string) => ({
   imageUrl: 'https://img.voidbinder.de/x.png',
   setCode: 'lob',
   number: `EN00${n}`,
+  // German UI: the German code (VB-97).
+  displayNumber: `DE00${n}`,
+  cardFormat: 'japanese',
 });
 const banlist = (format: string) => ({
   format,
@@ -1043,6 +1046,7 @@ describe('web build', () => {
       await page.getByRole('heading', { level: 2, name: 'Deine betroffenen Karten' }).waitFor();
       await page.getByText('Exodia: 1× im Deck, erlaubt 0').waitFor();
       await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('Raigeki').waitFor();
+      await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('LOB DE003').waitFor();
       await page.waitForLoadState('networkidle');
       expect(await axe(page)).toEqual([]);
       // The OCG list has no date: the import's "as of" stands in.

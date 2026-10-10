@@ -1105,8 +1105,13 @@ export class DrizzleCardStore implements CardStore {
         externalIds: prints.externalIds,
         localizedImageKey: localized.imageKey,
         localizedIds: localized.externalIds,
+        localizedLang: localized.lang,
+        game: cards.gameId,
+        cardCount: sets.cardCount,
+        cardFormat: games.cardFormat,
       })
       .from(cards)
+      .innerJoin(games, eq(games.id, cards.gameId))
       .leftJoin(prints, eq(prints.cardId, cards.id))
       .leftJoin(sets, eq(sets.id, prints.setId))
       .leftJoin(localized, and(eq(localized.printId, prints.id), eq(localized.lang, lang)))
@@ -1135,6 +1140,20 @@ export class DrizzleCardStore implements CardStore {
             : null,
           setCode: r.setCode,
           number: r.number,
+          displayNumber:
+            r.setCode && r.number
+              ? printNumbers(
+                  {
+                    game: r.game as Game,
+                    setCode: r.setCode,
+                    number: r.number,
+                    cardCount: r.cardCount,
+                  },
+                  lang,
+                  r.localizedLang !== null,
+                ).displayNumber
+              : null,
+          cardFormat: r.cardFormat as CardFormat,
         },
       ]),
     );

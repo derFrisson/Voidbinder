@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CardFormatSchema } from '../index.js';
 import { LangSchema } from './catalog.js';
 
 // Yu-Gi-Oh! ban lists (VB-81): the current Forbidden & Limited List per format, its changes, and
@@ -54,6 +55,10 @@ export const BanlistCardSchema = z.object({
   imageUrl: z.url().nullable(),
   setCode: z.string().nullable(),
   number: z.string().nullable(),
+  /** The number in `?lang=` (VB-97, as on PrintSummary); null without a print. */
+  displayNumber: z.string().nullable(),
+  /** The game's card format (`CARD_FORMATS`), for the image box. */
+  cardFormat: CardFormatSchema,
 });
 export type BanlistCard = z.infer<typeof BanlistCardSchema>;
 

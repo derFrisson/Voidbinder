@@ -184,6 +184,11 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(page.set.name).toBe('Legend of Blue Eyes White Dragon');
     expect(page.prints.map((p) => p.number).sort()).toEqual(['DE099', 'EN001']);
     expect(page.prints.find((p) => p.number === 'EN001')?.name).toBe('Blauäugiger w. Drache');
+    // VB-97: the German localization shows the German code; a German-only print keeps its own.
+    expect(page.prints.map((p) => [p.number, p.displayCode, p.cardFormat]).sort()).toEqual([
+      ['DE099', 'LOB-DE099', 'japanese'],
+      ['EN001', 'LOB-DE001', 'japanese'],
+    ]);
     // A number in two rarities: two prints next to each other, told apart by the variant.
     const bp02 = SetPageResponseSchema.parse(
       await (await app.request('/catalog/sets/yugioh/bp02')).json(),
@@ -352,7 +357,12 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
       ]),
     );
     // A tile names a print to show.
-    expect(list.groups.semiLimited[0]).toMatchObject({ setCode: expect.any(String) });
+    expect(list.groups.semiLimited[0]).toMatchObject({
+      setCode: expect.any(String),
+      // In German where the print has a German localization (VB-97).
+      displayNumber: expect.stringMatching(/^DE/),
+      cardFormat: 'japanese',
+    });
     // The OCG list did not change.
     const ocg = BanlistResponseSchema.parse(
       await (await app.request('/catalog/banlist/yugioh?format=ocg')).json(),
