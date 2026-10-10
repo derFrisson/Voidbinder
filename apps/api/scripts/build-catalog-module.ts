@@ -32,7 +32,12 @@ import {
 } from '@aws-sdk/client-s3';
 import { SOURCE_PREFERENCE } from '@voidbinder/core';
 import { GameSchema } from '@voidbinder/shared';
-import { CC_BY_SA_URL, YUGIPEDIA_ATTRIBUTION } from '@voidbinder/shared/notices';
+import {
+  CC_BY_SA_URL,
+  POKEMONTCG_ATTRIBUTION,
+  POKEMONTCG_URL,
+  YUGIPEDIA_ATTRIBUTION,
+} from '@voidbinder/shared/notices';
 import {
   ModuleManifestSchema,
   type ModuleDelta,
@@ -370,9 +375,16 @@ export async function prune(
   return stale;
 }
 
-/** CC BY-SA 4.0 travels with the Yugipedia names and texts a Yu-Gi-Oh! module holds (VB-93). */
+/**
+ * CC BY-SA 4.0 travels with the Yugipedia names and texts a Yu-Gi-Oh! module holds (VB-93); the
+ * Pokémon module names pokemontcg.io for the pictures TCGdex lacks (VB-118).
+ */
 export const attributionOf = (game: string) =>
-  game === 'yugioh' ? `${YUGIPEDIA_ATTRIBUTION.en}, ${CC_BY_SA_URL}` : undefined;
+  game === 'yugioh'
+    ? `${YUGIPEDIA_ATTRIBUTION.en}, ${CC_BY_SA_URL}`
+    : game === 'pokemon'
+      ? `${POKEMONTCG_ATTRIBUTION.en}, ${POKEMONTCG_URL}`
+      : undefined;
 
 /** The manifest of a new build: the previous chain (ending at `delta.from`) plus `delta`. */
 export function nextManifest(

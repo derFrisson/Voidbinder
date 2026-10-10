@@ -284,7 +284,10 @@ export async function importCardChunk(db: Db, chunk: CardChunk): Promise<CardChu
           rarity: excluded('rarity'),
           finishes: excluded('finishes'),
           artist: excluded('artist'),
-          externalIds: excluded('external_ids'),
+          // The pokemontcg.io picture (VB-118) is that importer's: kept when TCGdex's data changes.
+          externalIds: sql`excluded.external_ids || jsonb_strip_nulls(jsonb_build_object(
+            'pokemontcg', ${prints.externalIds} -> 'pokemontcg',
+            'pokemontcg_images', ${prints.externalIds} -> 'pokemontcg_images'))`,
           releasedOn: excluded('released_on'),
           sourceHash: excluded('source_hash'),
           ...touched,

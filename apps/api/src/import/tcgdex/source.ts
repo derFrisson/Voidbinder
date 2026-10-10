@@ -45,9 +45,12 @@ export interface Reply<T> {
 export class TcgdexClient {
   private next = 0;
 
+  /** `base` and `headers` let another JSON API share the pacing (pokemontcg.io, VB-118). */
   constructor(
     private readonly fetchFn: Fetch,
     private readonly pace: Pace = DEFAULT_PACE,
+    private readonly base: string = API,
+    private readonly headers: Record<string, string> = {},
   ) {}
 
   /** Waits for this request's slot: request starts are at least `intervalMs` apart. */
@@ -83,11 +86,11 @@ export class TcgdexClient {
     throw new Error(`${init.method ?? 'GET'} ${url} ${failure}`);
   }
 
-  /** GET `path` below /v2; null on 404, an error once the attempts are used up. */
+  /** GET `path` below the base (/v2); null on 404, an error once the attempts are used up. */
   get<T>(path: string): Promise<Reply<T> | null> {
     return this.request(
-      `${API}${path}`,
-      { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } },
+      `${this.base}${path}`,
+      { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json', ...this.headers } },
       async (res) => {
         const text = await res.text();
         return { text, data: JSON.parse(text) as T };

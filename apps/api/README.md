@@ -588,6 +588,46 @@ written when their `source_hash` changed. Raw copies stay in R2 under `raw/<env>
 `pnpm --filter api dev` and `curl -X POST … localhost:8787/admin/import/tcgdex` as for Scryfall work;
 two sets in both languages (265 cards) took 60 seconds.
 
+### pokemontcg.io (Pokémon pictures TCGdex lacks)
+
+TCGdex has no picture at all for about 1,100 prints: the McDonald's collections, the Shining Fates
+Shiny Vault, Dragon Majesty, the Trainer and Galarian Galleries, `cel25cc`, `sve`, `exu`, the EX
+trainer kits, part of the SM, SWSH and SV promos (docs/research/2026-10-10-image-coverage-gaps.md).
+`src/import/pokemontcg/` (VB-118) takes those from the [Pokémon TCG API](https://pokemontcg.io)
+v2 (`https://api.pokemontcg.io/v2`, run by Scrydex now). It reads `GET /v2/sets` once per run and
+matches our sets to its sets (`match.ts`): an alias table first (the McDonald's years `2021swsh` →
+`mcd21` …, the EX trainer kits `tk-ex-latia` → `tk1a` …, `exu` → `ex10`, `svp`), then a shared
+code (TCGdex's `abbreviation.official` or `tcgOnline` = its `ptcgoCode`) with the same name, or the
+only set with the code when no other of our sets has it, then the same name and release day. For
+each matched set with prints that have neither `tcgdex_images` (VB-85's probe included) nor a
+picture from here, it fetches the set's cards (`/v2/cards?q=set.id:<id>`, 100 a page) and matches
+them by number and name (`SV001` = `SV001`, `001` = `1`, `%3F` = `?`), then the rest by a name only
+one print and one card of the set carry (the Classic Collection is `CC001`… at TCGdex and the
+original numbers there). A match stores `external_ids.pokemontcg` (the card id) and
+`pokemontcg_images` (`small`, `large`); a print with a TCGdex picture is never written, and the
+TCGdex import keeps both keys when it rewrites a print. The image mirror takes
+`pokemontcg_images.large` (a PNG of about 1 MB on `images.pokemontcg.io`) when there is no
+`tcgdex_images.high`, under the TCGdex card id. A card whose `large` has no file extension
+(`images.scrydex.com`, the newest sets) is skipped.
+
+The steps (`pokemontcg: start run`, `pokemontcg: plan`, `pokemontcg: cards <set>`, `pokemontcg:
+finish run`) run in the TCGdex Workflow after its import and before its image mirror, on Mondays
+(UTC) only, so `import_runs` has a `pokemontcg` row a week (kind `images`, weekly in the import
+health); `POST /admin/import/tcgdex?pokemontcg=true` adds them on any day. A failure marks that run
+`failed` and the mirror still runs. A fetched set is not fetched again for 30 days (`app_meta`
+`pokemontcg_checked`, set code → day), so cards it lacks are not asked for every week; the sets no
+pokemontcg.io set matches are listed in the run's `stats.unmatched`. Raw copies go to
+`raw/<env>/pokemontcg/<date>/`: `sets.json` and `cards/<pokemontcg set>.json`.
+
+Limits: without a key 1,000 requests a day and 30 a minute; the client waits 2.5 s between
+requests and retries 5xx (the API answers 500 now and then). The first run is about 40 requests,
+a weekly run one plus the sets whose 30 days are up. The optional Worker secret
+`POKEMONTCG_API_KEY` is sent as `X-Api-Key` (20,000 a day): `wrangler secret put
+POKEMONTCG_API_KEY --env dev|prod`. The API is deprecated: registrations are closed and existing
+keys work until 2027-03-01; after that the free API may stop and the sets it lacks stay on TCGdex.
+The picture files need no key. Attribution: "Card images: Pokémon TCG API (pokemontcg.io)"
+(`POKEMONTCG_ATTRIBUTION` in `@voidbinder/shared/notices`), in the Pokémon module's manifest.
+
 ### YGOPRODeck (Yu-Gi-Oh!)
 
 `src/import/ygoprodeck/` has the Scryfall shape (Workflow `src/workflows/ygoprodeck-import.ts`,
@@ -1154,7 +1194,7 @@ before), so the server kept its row; the binder was new and is stored.
 is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
 `normal`, `png`; only once Scryfall has the high-res scan, `highres_image`, and never its
 missing-image placeholder), the print's Yugipedia scan (`artwork.url`, VB-106) else YGOPRODeck
-`image_url`, TCGdex `tcgdex_images.high` (the keys of
+`image_url`, TCGdex `tcgdex_images.high`, else pokemontcg.io `pokemontcg_images.large` (VB-118; the keys of
 `external_ids` the importers fill). A low-res Magic image stays unmirrored and the API serves
 Scryfall's URL until a later run finds the scan.
 
@@ -1173,8 +1213,8 @@ id from `image_url` (`yugioh`, one artwork shared by its set prints) or the Yugi
 exists and the `orig` key until then, so `imageUrl` is the small copy whenever there is one,
 without a request to R2 (`hasSm`). Rows that share a source URL share one object pair (a print
 and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are rate limited per
-source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, Yugipedia 1/s with its own
-`User-Agent`); a 429 stops the run once the
+source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, pokemontcg.io 4/s, Yugipedia
+1/s with its own `User-Agent`); a 429 stops the run once the
 images in flight are stored, a failed image is logged and keeps its key (or none), so the next
 run retries it. A `404` or `410` from the source counts as `gone` instead (VB-89): the URL goes to
 `image_sources_gone` and the query skips every row with that source URL until the URL changes; the

@@ -19,6 +19,8 @@ export const IMPORT_CADENCE: Record<string, Cadence> = {
   yugipedia: 'weekly',
   // The weekly Yugipedia Workflow crawls the galleries after the names.
   'yugipedia-galleries': 'weekly',
+  // The pokemontcg.io pictures (VB-118): steps of the Monday TCGdex Workflow.
+  pokemontcg: 'weekly',
   // Daily on prod too: the image-mirror.service unit says DBS=dev, but import-health expects the
   // VPS drop-in `Environment="DBS=prod dev"` (docs/guides/database-vps.md section 11) to be
   // active, otherwise prod reports image-mirror as missing.
