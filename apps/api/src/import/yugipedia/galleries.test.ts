@@ -23,7 +23,7 @@ import {
   type GalleryPage,
 } from './galleries';
 import { writeLocalizations, type ImportDeps } from './pipeline';
-import { USER_AGENT } from './source';
+import { CRAWL_DELAY_MS, USER_AGENT } from './source';
 
 // Real answers (Yugipedia, 2026-10-10): the gallery titles from Quarter Century Stampede to
 // Rarity Collection 5, the wikitext of RA04's English and German and RA05's English gallery, and
@@ -316,6 +316,26 @@ Glory of the King's Hand
       'https://ms.yugipedia.com//b/bf/RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png',
     );
     expect(urls.has('RedEyesDarkDragoon-RA05-EN-StR-1E-EA.png')).toBe(false);
+  });
+  it('waits the crawl delay before every request when no delay is given', async () => {
+    vi.useFakeTimers();
+    try {
+      const requests: string[] = [];
+      // 51 files: two `imageinfo` requests, each after CRAWL_DELAY_MS.
+      const files = Array.from({ length: 51 }, (_, i) => `F${i}.png`);
+      const pending = fileUrls(fakeYugipedia(requests), files, []);
+      await vi.advanceTimersByTimeAsync(CRAWL_DELAY_MS - 1);
+      expect(requests).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(requests).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(CRAWL_DELAY_MS - 1);
+      expect(requests).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(requests).toHaveLength(2);
+      await pending;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
