@@ -21,6 +21,8 @@ import { session } from './AddDialog';
 import { QuickAdd } from './CollectButtons';
 import { parseCents } from './format';
 
+vi.mock('../card/foil-flag', () => ({ FOIL_SHEEN_ENABLED: true }));
+
 const at = '2026-10-09T03:00:00.000Z';
 const binder: Binder = {
   id: 'b0000000-0000-4000-8000-000000000001',

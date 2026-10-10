@@ -1,8 +1,10 @@
 import { screen } from '@testing-library/react';
 import type { SearchHit } from '@voidbinder/shared/api';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderApp } from '../../../test/fake-api';
 import { PrintTile } from './PrintTile';
+
+vi.mock('./foil-flag', () => ({ FOIL_SHEEN_ENABLED: true }));
 
 const hit = (marketPrice: SearchHit['marketPrice']): SearchHit => ({
   id: '59fab2d4-9883-4683-ad59-075a5bce6120',

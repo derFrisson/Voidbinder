@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { chromium, type Browser, type Locator, type Page } from 'playwright';
+import { FOIL_SHEEN_ENABLED } from '../src/components/card/foil-flag';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { history as priceHistory, printPrices } from './prices';
 
@@ -995,6 +996,7 @@ describe('web build', () => {
   it.each(['no-preference', 'reduce'] as const)(
     'puts the foil sheen on a foil print, following the pointer on the card page (motion: %s)',
     async (reducedMotion) => {
+      if (!FOIL_SHEEN_ENABLED) return; // VB-112: off until the rework
       const { context, page } = await open({ width: 1440, height: 1000, reducedMotion });
       try {
         const foil = {
@@ -1040,6 +1042,7 @@ describe('web build', () => {
   it.each(['light', 'dark'] as const)(
     'gives a scan and a flat render the same content-independent sheen in the grid (%s)',
     async (scheme) => {
+      if (!FOIL_SHEEN_ENABLED) return; // VB-112: off until the rework
       const { context, page } = await open({ width: 1440, height: 900, scheme });
       try {
         const art = { scan: 'foil-scan.webp', render: 'foil-render.webp' };
@@ -1353,8 +1356,8 @@ describe('web build', () => {
       await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('Raigeki').waitFor();
       await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('LOB DE003').waitFor();
       await page.waitForLoadState('networkidle');
-      // Pot of Greed's foil sheen is part of what axe checks (VB-112).
-      expect(await page.locator('.vb-foil').count()).toBeGreaterThan(0);
+      // Pot of Greed's foil sheen is part of what axe checks (VB-112), while it is on.
+      if (FOIL_SHEEN_ENABLED) expect(await page.locator('.vb-foil').count()).toBeGreaterThan(0);
       expect(await axe(page)).toEqual([]);
       // The OCG list has no date: the import's "as of" stands in.
       await page.getByRole('radio', { name: 'OCG' }).click();
