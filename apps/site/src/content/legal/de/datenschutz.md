@@ -154,7 +154,7 @@ Löschen Sie einen Eintrag, eine Mappe oder ein Deck, markieren wir ihn als gel�
 
 Nutzen Sie Voidbinder auf mehreren Geräten, gleicht die App Ihre Sammlung, Mappen, Wunschliste und Decks über unseren Server ab. Dabei übertragen wir dieselben Daten wie oben und den Zeitpunkt jeder Änderung nach der Uhr Ihres Geräts. Eine Kennung Ihres Geräts speichern wir dafür nicht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.
 
-<!-- TODO Max: Der Abgleich kommt mit VB-32 und der Handy-App (Sprint 3). Vor dem Start der Handy-App prüfen, ob sie zusätzliche Daten auf dem Gerät oder auf dem Server speichert. -->
+<!-- TODO Max: Die Sync-Schnittstelle ist live (VB-32). Sobald die Handy-App erscheint, prüfen, ob sie zusätzliche Daten auf dem Gerät oder auf dem Server speichert. -->
 
 ### Konto löschen
 

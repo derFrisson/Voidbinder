@@ -156,7 +156,7 @@ When you delete an entry, a binder or a deck, we mark it as deleted instead of r
 
 If you use Voidbinder on several devices, the app syncs your collection, binders, wishlist and decks through our server. For this we transfer the same data as above and the time of each change according to your device's clock. We store no ID of your device for this. The legal basis is Art. 6 (1) (b) GDPR.
 
-<!-- TODO Max: sync comes with VB-32 and the phone app (Sprint 3). Before the phone app launches, check whether it stores additional data on the device or on the server. -->
+<!-- TODO Max: Sync API is live (VB-32); recheck once the phone app ships whether it stores additional device or server data. -->
 
 ### Deleting your account
 
