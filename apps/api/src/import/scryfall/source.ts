@@ -11,12 +11,29 @@ const API = 'https://api.scryfall.com';
 
 export type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 
+const ATTEMPTS = 3;
+const MAX_WAIT_MS = 30_000;
+
+/** Seconds from a numeric `Retry-After`, else exponential 1 s, 2 s; capped so a step stays short. */
+function backoffMs(res: Response, attempt: number): number {
+  const seconds = Number(res.headers.get('Retry-After'));
+  const ms = Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 1000 * 2 ** attempt;
+  return Math.min(ms, MAX_WAIT_MS);
+}
+
+// A 429 (seen on /bulk-data, 2026-10-10) is retried in the step, 3 attempts; the Workflow step
+// retry stays the second line of defence.
 async function get(fetchFn: Fetch, url: string): Promise<Response> {
-  const res = await fetchFn(url, {
-    headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-  });
-  if (!res.ok) throw new Error(`GET ${url} answered ${res.status}`);
-  return res;
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetchFn(url, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+    });
+    if (res.ok) return res;
+    if (res.status !== 429 || attempt === ATTEMPTS - 1) {
+      throw new Error(`GET ${url} answered ${res.status}`);
+    }
+    await new Promise((r) => setTimeout(r, backoffMs(res, attempt)));
+  }
 }
 
 export type BulkFiles = Record<'default_cards' | 'all_cards', string>;

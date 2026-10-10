@@ -514,6 +514,22 @@ export async function writeArtworks(
   return (printsDone.rowCount ?? 0) + (locsDone.rowCount ?? 0);
 }
 
+/**
+ * Our sets (by code) whose name is not their gallery's (VB-109): the wiki's set name. Taken from
+ * the local catalog's Yu-Gi-Oh! sets without a gallery match on 2026-10-10; a gallery's rows are
+ * filtered by set code, so a page shared by several sets (Pharaoh Tour) serves each. Still
+ * without a TCG gallery then: 21cc (Remote Duel Extravaganza), mams (Magnificent Maestros, not
+ * released), tkn1 (San Diego Comic-Con tokens), typ1 (THANK YOU PACK), wi26 (Winner's Pack
+ * 2026-2027, OCG pages only).
+ */
+export const GALLERY_NAMES: Record<string, string> = {
+  blvo: 'Blazing Vortex',
+  liov: 'Lightning Overdrive',
+  fmr: 'Yu-Gi-Oh! Forbidden Memories Premium Edition promotional cards',
+  pt02: 'Pharaoh Tour promotional cards',
+  wc09: "Yu-Gi-Oh! 5D's World Championship 2009: Stardust Accelerator promotional cards",
+};
+
 interface PlannedSet {
   code: string;
   titles: string[];
@@ -537,7 +553,7 @@ export async function planSets(db: Db, titles: string[], date: string): Promise<
     .where(eq(sets.gameId, 'yugioh'))
     .orderBy(sets.code);
   return ours.flatMap((s) => {
-    const pages = byName.get(setNameKey(s.name));
+    const pages = byName.get(setNameKey(GALLERY_NAMES[s.code] ?? s.name));
     return pages && (checked[s.code] ?? '') <= since ? [{ code: s.code, titles: pages }] : [];
   });
 }

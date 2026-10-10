@@ -29,11 +29,12 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     withDb: (fn) => fn(db),
     purgeCache: async (tags) => void purged.push(tags),
   });
-  const run = (fake: FakeTcgcsv = {}, steps: string[] = []) =>
+  const run = (fake: FakeTcgcsv = {}, steps: string[] = [], force = false) =>
     runTcgcsvImport(deps(fakeTcgcsv(fake)), (name, fn) => (steps.push(name), fn()), {
       env: 'dev',
       date: '2026-10-09',
       delayMs: 0,
+      force,
     });
 
   beforeAll(async () => {
@@ -95,10 +96,14 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     const requests: string[] = [];
     const steps: string[] = [];
     purged.length = 0;
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
     const { stats } = await run({ requests }, steps);
+    const lines = logged.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
+    logged.mockRestore();
 
     expect(stats).toEqual({
       lastUpdated: '2026-10-09T20:05:19.000Z',
+      raw: 'raw/dev/tcgcsv/2026-10-09',
       games: {
         // 3 groups, 2 match a set; 5 card products (the booster box is none), 4 mapped (one of
         // them without a market price), "Mystery Card" unmapped.
@@ -137,12 +142,32 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'last updated',
       'groups mtg',
       'prices mtg 000',
+      'coverage mtg',
       'groups yugioh',
+      'coverage yugioh',
       'groups pokemon',
+      'coverage pokemon',
       'finish run',
       'purge cache',
     ]);
     expect(purged).toEqual([['prices']]);
+    // VB-111: one line with the coverage counts per game.
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        message: 'price coverage',
+        game: 'mtg',
+        setsWithGroup: 2,
+        unmatchedGroups: 1,
+      }),
+    );
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        message: 'price coverage',
+        game: 'pokemon',
+        sets: 0,
+        unmatchedGroups: 3,
+      }),
+    );
     // The purge reaches every page that shows a price, not only the price routes.
     for (const path of ['/catalog/sets/pokemon/sv1', '/catalog/cards/0a1b', '/catalog/search'])
       expect(cacheTags(path).split(',')).toEqual(expect.arrayContaining(purged[0] ?? ['none']));
@@ -201,6 +226,78 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     // Nothing new: the cached catalog reads stay valid, at the edge too.
     expect(await version()).toBe(before);
     expect(purged).toEqual([]);
+  });
+
+  it('imports the same build again when forced: a group a new rule matches is mapped (VB-111)', async () => {
+    const answer = (results: object[]) => JSON.stringify({ success: true, errors: [], results });
+    // Between the runs the catalog gains the set `trc` (as a new matching rule would match the
+    // group): the first run left Commander: Star Trek (24770, `TRC`) unmatched.
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'mtg', code: 'trc', name: 'Commander: Star Trek' })
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'mtg', oracleKey: 'trc-kirk', name: 'Captain Kirk' })
+      .returning({ id: cards.id });
+    const [kirk] = await db
+      .insert(prints)
+      .values({
+        setId: set?.id ?? '',
+        cardId: card?.id ?? '',
+        number: '1',
+        finishes: ['nonfoil'],
+        externalIds: { tcgplayer: '700001' },
+      })
+      .returning({ id: prints.id });
+    const before = await version();
+    const requests: string[] = [];
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { stats } = await run(
+      {
+        requests,
+        files: {
+          '1/24770/products': answer([
+            {
+              productId: 700001,
+              name: 'Captain Kirk',
+              extendedData: [{ name: 'Number', value: '1' }],
+            },
+          ]),
+          '1/24770/prices': answer([
+            { productId: 700001, marketPrice: 3.5, subTypeName: 'Normal' },
+          ]),
+        },
+      },
+      [],
+      true,
+    );
+    logged.mockRestore();
+    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 3, mapped: 5 } } });
+    expect(requests).toContain('https://tcgcsv.com/tcgplayer/1/24770/products');
+    expect(await current(kirk?.id ?? '')).toMatchObject([{ finish: 'normal', market: 350 }]);
+    expect(await version()).toBe(before + 1);
+  });
+
+  it('never fails the run on the coverage: it WARNs and goes on (VB-111)', async () => {
+    const before = await version();
+    const unread = vi.spyOn(blobs, 'get').mockRejectedValue(new Error('RAW unreachable'));
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const steps: string[] = [];
+    const { stats } = await run({}, steps, true);
+    const warnings = warned.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
+    for (const spy of [unread, warned, quiet]) spy.mockRestore();
+    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 3 } } });
+    expect(steps).toContain('finish run');
+    expect(await version()).toBe(before + 1);
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        message: 'price coverage failed',
+        game: 'mtg',
+        error: 'Error: RAW unreachable',
+      }),
+    );
   });
 
   it('keeps one prices_daily row per print, finish, source and day', async () => {
@@ -505,5 +602,56 @@ describe.skipIf(!databaseUrl)('Yu-Gi-Oh! regional prints (Postgres, VB-110)', ()
     ]);
     expect((await market('eu'))[0]).toEqual(['first_edition', 50000]);
     expect((await market('na'))[0]).toEqual(['first_edition', 90000]);
+  });
+
+  it('matches the groups of one set together: LOB, LOB-EN and its reprint (VB-111)', async () => {
+    const answer = (results: object[]) => JSON.stringify({ success: true, errors: [], results });
+    const group = (groupId: number, name: string, abbreviation: string) => ({
+      groupId,
+      name,
+      abbreviation,
+    });
+    const product = (productId: number, number: string) => ({
+      productId,
+      name: 'Blue-Eyes White Dragon',
+      extendedData: [
+        { name: 'Number', value: number },
+        { name: 'Rarity', value: 'Ultra Rare' },
+      ],
+    });
+    const price = (productId: number, marketPrice: number) => ({
+      productId,
+      marketPrice,
+      subTypeName: '1st Edition',
+    });
+    await db.delete(priceMappings);
+    // TCGplayer (2026-10-10): `LOB` holds the North American prints (LOB-001), `LOB-EN` the EN
+    // ones and the 25th Anniversary Edition their reprints, which the catalog folds into the set.
+    await run(
+      {
+        '2/groups': answer([
+          group(330, 'The Legend of Blue Eyes White Dragon', 'LOB'),
+          group(22881, 'Legend of Blue Eyes White Dragon (Worldwide English)', 'LOB-EN'),
+          group(23050, 'Legend of Blue Eyes White Dragon (25th Anniversary Edition)', 'LOB-EN'),
+        ]),
+        '2/330/products': answer([product(21792, 'LOB-001')]),
+        '2/330/prices': answer([price(21792, 1000)]),
+        '2/22881/products': answer([product(21800, 'LOB-EN001')]),
+        '2/22881/prices': answer([price(21800, 900)]),
+        '2/23050/products': answer([product(486045, 'LOB-EN001')]),
+        '2/23050/prices': answer([price(486045, 20)]),
+      },
+      true,
+    );
+    // The NA print keeps its own product: the EN product's regional claim (60) loses to it, and
+    // the reprint leaves the EN print to the older group instead of a tie.
+    expect(await mappings()).toEqual([
+      ['en', '21800', 'number_match', 70],
+      ['eu', '21800', 'region_match', 60],
+      ['na', '21792', 'number_match', 70],
+    ]);
+    expect((await market('na'))[0]).toEqual(['first_edition', 100000]);
+    expect((await market('en'))[0]).toEqual(['first_edition', 90000]);
+    expect((await market('eu'))[0]).toEqual(['first_edition', 90000]);
   });
 });

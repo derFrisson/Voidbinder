@@ -1028,6 +1028,24 @@ describe('web build', () => {
     }
   });
 
+  // VB-101: the price panel's 12 px labels and source footer on surface2, with prices on screen.
+  it('axe: dark card page with prices has no violations', async () => {
+    const { context, page } = await open({ width: 1440, height: 900, scheme: 'dark' });
+    try {
+      await page.route('**/api/catalog/prints/**', (route) => {
+        const [, id, history] =
+          /\/prints\/([^/]+)\/prices(\/history)?/.exec(route.request().url()) ?? [];
+        return route.fulfill({ json: history ? priceHistory : { ...printPrices, printId: id } });
+      });
+      await page.goto(`${origin}/cards/${CARD}`);
+      await page.getByText('Cardmarket (via Scryfall)').first().waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
   it.each(
     (['light', 'dark'] as const).flatMap((scheme) =>
       (

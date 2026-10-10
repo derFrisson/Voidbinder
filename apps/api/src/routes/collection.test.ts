@@ -10,7 +10,7 @@ import {
   OwnedResponseSchema,
   WishlistResponseSchema,
 } from '@voidbinder/shared/api';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
@@ -519,7 +519,14 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     expect(entries).toHaveLength(120);
     const lines = (await (await ash('/export.csv')).text()).trimEnd().split('\r\n');
     expect(lines).toHaveLength(121);
-    for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
+    // One statement, not 120 sequential DELETE requests (those alone outlasted the 5 s timeout
+    // on a loaded CI runner).
+    await db.delete(collectionEntries).where(
+      inArray(
+        collectionEntries.id,
+        entries.map((e) => e.id),
+      ),
+    );
   });
 
   it('exports the live entries as Cardmarket-style CSV', async () => {

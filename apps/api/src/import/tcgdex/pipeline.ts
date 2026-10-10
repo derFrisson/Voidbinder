@@ -249,6 +249,29 @@ async function importSetBatch(
   return { sets, stats, skipped };
 }
 
+const ASSETS = 'https://assets.tcgdex.net';
+
+/**
+ * VB-85: TCGdex leaves `image` out of some cards whose file is there under the usual path
+ * (`<lang>/<serie>/<set>/<localId>/high.webp`, e.g. `mep`, `svp`). For those the path is checked
+ * with one HEAD and set as `image` only when it answers, so a missing file never reaches the
+ * mirror. After the raw copy, which keeps the card as TCGdex sent it.
+ */
+async function conventionalImages(
+  client: TcgdexClient,
+  cards: (TcgdexCard | null)[],
+  lang: string,
+  set: TcgdexSet,
+) {
+  const serie = set.serie?.id;
+  if (!serie) return;
+  await mapLimit(cards, CARD_CONCURRENCY, async (card) => {
+    if (!card || card.image) return;
+    const base = `${ASSETS}/${lang}/${serie}/${set.id}/${encodeURIComponent(card.localId)}`;
+    if (await client.exists(`${base}/high.webp`)) card.image = base;
+  });
+}
+
 /**
  * One chunk of a set: its cards in every language, a raw copy, then the upserts. The last chunk
  * also marks the set as imported (`markSet`) with the 404s of every chunk (`missing` holds the
@@ -288,11 +311,12 @@ async function importChunk(
     const replies = await mapLimit(slice, CARD_CONCURRENCY, async (id) =>
       (available && !available.has(id)) || noEnglish.has(id) ? null : deps.client.card(lang, id),
     );
-    fetched[lang] = replies.map((r) => r?.data ?? null);
+    const cards = (fetched[lang] = replies.map((r) => r?.data ?? null));
     const lost = slice.filter((id, i) => !replies[i] && (!available || available.has(id)));
     if (lost.length) missingIds[lang] = lost;
     // One compact line per card, as TCGdex answered it (prices and all).
     rawLines[lang] = replies.flatMap((r) => (r ? [JSON.stringify(r.data)] : []));
+    await conventionalImages(deps.client, cards, lang, english);
   }
   await Promise.all(
     Object.entries(rawLines).map(([lang, lines]) =>

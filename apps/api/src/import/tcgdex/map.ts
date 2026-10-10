@@ -84,7 +84,8 @@ export function mapSet(set: TcgdexSet): SetRow {
     code: set.id,
     name: set.name,
     releasedOn: set.releaseDate ?? null,
-    cardCount: set.cardCount?.official ?? null,
+    // `official` is 0 for sets without a printed denominator (mep, 30th-c): fall back to `total`.
+    cardCount: set.cardCount?.official || set.cardCount?.total || null,
     kind: set.serie?.id ?? null,
     externalIds: {
       tcgdex: set.id,

@@ -35,6 +35,12 @@ export interface Platform {
   /** The signed-in user's decks (VB-34), on the cache-disabled pool. */
   deckStore: DeckStore;
   blobStore: BlobStore;
+  /**
+   * The TCGplayer price coverage of a game from the last TCGCSV run (VB-111,
+   * src/import/prices/coverage.ts); null before one. Behind the platform so the import code stays
+   * out of the app's types.
+   */
+  priceCoverage?: ((game: 'mtg' | 'yugioh' | 'pokemon') => Promise<object | null>) | undefined;
   jobQueue: JobQueue;
   /** Drizzle on the cache-disabled pool (ADR 0004): auth, profile, everything read after a write. */
   db: NodePgDatabase;

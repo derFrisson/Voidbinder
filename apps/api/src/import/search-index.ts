@@ -12,6 +12,9 @@ import { grams } from '../platform/cloudflare/d1-search-index';
 /** Bumped when what the index stores changes: every set's hash changes, so all are rewritten. */
 const SCHEMA = 'v1';
 
+/** 1 for an Extended Art print (VB-106), else null (which concat_ws skips in the hash). */
+const EXTENDED_ART = sql.raw(`case when p.external_ids #>> '{artwork,alt}' = 'EA' then 1 end`);
+
 /** Prints per chunk (one Workflow step, one D1 batch); a bigger set is a chunk of its own. */
 export const CHUNK_PRINTS = 1000;
 
@@ -88,7 +91,7 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
             from set_localizations l where l.set_id = s.id),
           (select md5(string_agg(concat_ws('|', p.id, p.card_id, c.name, p.number, p.variant,
               p.rarity, p.released_on, p.image_key,
-              p.external_ids #>> '{scryfall_images,normal}',
+              p.external_ids #>> '{scryfall_images,normal}', ${EXTENDED_ART},
               (select string_agg(concat_ws('=', pl.lang, pl.name, pl.image_key,
                   pl.external_ids #>> '{scryfall_images,normal}'), ',' order by pl.lang)
                 from print_localizations pl where pl.print_id = p.id)
@@ -198,12 +201,14 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         released_on: string | null;
         image_key: string | null;
         image_src: string | null;
+        extended_art: number | null;
       }>(sql`select p.id, p.card_id, p.set_id, c.name as card_name, p.number,
           nullif(regexp_replace(p.number, '[^0-9].*$', ''), '')::int as number_value,
           regexp_replace(lower(p.number), '[^a-z0-9]+', '', 'g') as number_alnum,
           catalog_number_key(p.number) as number_key, p.variant, p.rarity,
           p.released_on::text as released_on, p.image_key,
-          p.external_ids #>> '{scryfall_images,normal}' as image_src
+          p.external_ids #>> '{scryfall_images,normal}' as image_src,
+          ${EXTENDED_ART} as extended_art
         from prints p join cards c on c.id = p.card_id where p.set_id = any(${list}::uuid[])`),
       db.execute<{
         print_id: string;
@@ -295,6 +300,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         'released_on',
         'image_key',
         'image_src',
+        'extended_art',
       ],
       data.prints.map((p) => [
         p.id,
@@ -310,6 +316,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         p.released_on,
         p.image_key,
         p.image_src,
+        p.extended_art,
       ]),
     ),
     ...inserts(

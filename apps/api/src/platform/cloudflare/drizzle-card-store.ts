@@ -890,6 +890,7 @@ export class DrizzleCardStore implements CardStore {
           { lang: r.lang, ids: r.localized_ids },
           { lang: 'en', ids: r.external_ids },
         ]),
+        ...extendedArt(r.external_ids),
         marketPrice: displayPrice({
           cents: r.price_cents,
           currency: r.price_currency,
@@ -1120,6 +1121,7 @@ export class DrizzleCardStore implements CardStore {
             { lang: r.lang, ids: r.localized_ids },
             { lang: 'en', ids: r.external_ids },
           ]),
+          ...extendedArt(r.external_ids ?? {}),
           cardId: r.card_id ?? '',
         };
       }),

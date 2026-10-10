@@ -48,6 +48,9 @@ export async function gameSets(db: Db, game: string): Promise<CatalogSet[]> {
       code: sets.code,
       name: sets.name,
       group: sql<string | null>`${sets.externalIds} ->> 'tcgplayer_id'`,
+      // TCGdex's (Pokémon): `abbreviation.official` and `serie.name`, kept by its importer.
+      abbreviation: sql<string | null>`${sets.externalIds} -> 'abbreviation' ->> 'official'`,
+      series: sql<string | null>`${sets.externalIds} -> 'serie' ->> 'name'`,
     })
     .from(sets)
     .where(eq(sets.gameId, game));

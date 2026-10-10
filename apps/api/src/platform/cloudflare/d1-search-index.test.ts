@@ -1,5 +1,9 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { SearchSuggestQuerySchema, type SearchSuggestion } from '@voidbinder/shared/api';
+import {
+  SearchQuerySchema,
+  SearchSuggestQuerySchema,
+  type SearchSuggestion,
+} from '@voidbinder/shared/api';
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -89,6 +93,10 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     await key('lds3', 'EN121', 'images/lds3-en121.webp', 'images/lds3-en121-de.webp');
     await key('sv01', '001', 'images/sv01-001-lowres.webp', 'images/sv01-001-de.webp');
     await key('mid', '123', 'images/mid-123-lowres.webp');
+    // An Extended Art print (VB-106's gallery row), which every parity check below carries.
+    await db.execute(sql`update prints set external_ids = external_ids ||
+      '{"artwork":{"file":"SatelliteWarrior-LDS3-EN-UR-1E-EA.png","url":"https://x.test/a.png","alt":"EA"}}'
+      where number = 'EN121' and set_id = (select id from sets where code = 'lds3')`);
     const proxy = await getPlatformProxy<{ SEARCH: D1Database }>({
       configPath: new URL('../../../test/fixtures/search-index.wrangler.jsonc', import.meta.url)
         .pathname,
@@ -237,6 +245,20 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
           `${q}${extra}`,
         ).toBe(shown);
     }
+  });
+
+  it('marks an Extended Art print as the set page does (VB-109)', async () => {
+    const query = SearchSuggestQuerySchema.parse({ q: 'LDS3-EN121' });
+    const [pg, d1Answer, hits] = await Promise.all([
+      store.suggest(query, 8),
+      index.suggest(query, 8),
+      store.search(SearchQuerySchema.parse({ q: 'LDS3-EN121' }), 30),
+    ]);
+    expect(d1Answer?.result.suggestions[0]).toMatchObject({ number: 'EN121', extendedArt: true });
+    expect(d1Answer?.result).toEqual(pg);
+    expect(hits.prints[0]).toMatchObject({ number: 'EN121', extendedArt: true });
+    // Only the flagged print.
+    expect(hits.prints.filter((h) => h.extendedArt)).toHaveLength(1);
   });
 
   it('rewrites a changed set and deletes a removed one', async () => {

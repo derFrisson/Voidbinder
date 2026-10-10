@@ -8,7 +8,9 @@ import { Platform } from 'react-native';
 
 export type Recent =
   | { kind: 'set'; game: Game; code: string; name: string }
-  | { kind: 'card'; game: Game; id: string; name: string };
+  // printId and lang: the print and language it was opened in (VB-108); entries stored before
+  // that have neither and link to the card alone.
+  | { kind: 'card'; game: Game; id: string; name: string; printId?: string; lang?: string };
 
 export const RECENT_LIMIT = 8;
 const KEY = 'voidbinder.recent';
@@ -53,11 +55,22 @@ function isRecent(v: unknown): v is Recent {
     : r.kind === 'card' && typeof r.id === 'string';
 }
 
+/** A stored card with a print or language of the wrong type loses just those (hand-edited). */
+function clean(r: Recent): Recent {
+  if (r.kind !== 'card') return r;
+  const { printId, lang, ...rest } = r;
+  return {
+    ...rest,
+    ...(typeof printId === 'string' && { printId }),
+    ...(typeof lang === 'string' && { lang }),
+  };
+}
+
 /** The stored list; anything unreadable (an older shape, hand-edited) counts as empty. */
 export function readRecents(storage: KeyValueStorage): Recent[] {
   try {
     const list: unknown = JSON.parse(storage.getItem(KEY) ?? '[]');
-    return Array.isArray(list) ? list.filter(isRecent).slice(0, RECENT_LIMIT) : [];
+    return Array.isArray(list) ? list.filter(isRecent).slice(0, RECENT_LIMIT).map(clean) : [];
   } catch {
     return [];
   }

@@ -1,6 +1,7 @@
 import type { Game } from '@voidbinder/shared';
 import type { CardResponse } from '@voidbinder/shared/api';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
 import { Text, View, useWindowDimensions } from 'react-native';
 import { useCard } from '../../api/queries/catalog';
 import { CardBanBadges } from '../../components/banlist/BanBadge';
@@ -14,6 +15,7 @@ import { Page, useWide, type Crumb } from '../../components/Shell';
 import { QueryState } from '../../components/ui';
 import { useBrowsingLanguage } from '../../hooks/browsing-language';
 import { fmt, useLocale, useT } from '../../i18n';
+import { recordRecent } from '../../storage/recent';
 
 /**
  * What the page shows of a card: the selected print and the names and text in the browsing
@@ -187,9 +189,24 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
 export default function CardPage() {
   const t = useT();
   const { id, print } = useLocalSearchParams<{ id: string; print?: string }>();
-  const card = useCard(id, useBrowsingLanguage());
+  const browsing = useBrowsingLanguage();
+  const card = useCard(id, browsing);
   const view = useView(card.data, print);
   const name = view?.name ?? '';
+  const game = card.data?.card.game;
+  const printId = view?.print?.id;
+  // "Zuletzt angesehen": the card with the print and language it is shown in (VB-108).
+  useEffect(() => {
+    if (game && id && name)
+      recordRecent({
+        kind: 'card',
+        game,
+        id,
+        name,
+        ...(printId && { printId }),
+        lang: browsing,
+      });
+  }, [game, id, name, printId, browsing]);
   const crumbs: Crumb[] =
     card.data && view
       ? [

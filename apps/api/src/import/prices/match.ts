@@ -22,6 +22,10 @@ export interface CatalogSet {
   name: string;
   /** Scryfall's `tcgplayer_id` of the set (Magic only). */
   tcgplayerGroupId: number | null;
+  /** TCGdex's official abbreviation (`SVI`, Pokémon only), TCGplayer's group abbreviation. */
+  abbreviation?: string | null;
+  /** The series name (`Scarlet & Violet`, Pokémon only). */
+  series?: string | null;
 }
 
 export interface CandidatePrint {
@@ -54,27 +58,120 @@ export const normName = (name: string) =>
     .replace(/&/g, 'and')
     .replace(/[^a-z0-9]/g, '');
 
-/** A group's name without the series prefix TCGplayer puts before Pokémon sets (`SWSH03: `). */
-const groupName = (name: string) => normName(name.replace(/^[A-Z0-9]+:\s+/, ''));
+/**
+ * Groups no rule matches, by TCGplayer group id: the catalog (TCGdex) set code. Derived from
+ * TCGCSV's Pokémon groups against TCGdex's sets (2026-10-10, VB-111).
+ */
+export const GROUP_ALIASES: Readonly<Record<number, string>> = {
+  1375: 'ecard1', // Expedition
+  1863: 'sm1', // SM Base Set
+  1418: 'basep', // WoTC Promo
+  1423: 'np', // Nintendo Promos
+  1421: 'dpp', // Diamond and Pearl Promos
+  1453: 'hgssp', // HGSS Promos
+  1407: 'bwp', // Black and White Promos
+  1451: 'xyp', // XY Promos
+  2545: 'swshp', // SWSH: Sword & Shield Promo Cards
+  1455: 'bog', // Best of Promos
+  1433: 'ru1', // Rumble
+  1465: 'bw11', // Legendary Treasures: Radiant Collection (RC1…, in TCGdex's set)
+  1729: 'g1', // Generations: Radiant Collection (RC1…, in TCGdex's set)
+  24837: '30th-c', // ME: 30th Celebration Classic Collection
+  1401: '2011bw', // McDonald's Promos 2011
+  1427: '2012bw',
+  1692: '2014xy',
+  1694: '2015xy',
+  3087: '2016xy',
+  2148: '2017sm',
+  2364: '2018sm',
+  2555: '2019sm',
+  2782: '2021swsh', // McDonald's 25th Anniversary Promos
+  3150: '2022swsh',
+  23306: '2023sv',
+  24163: '2024sv',
+};
 
 /**
- * The catalog set of each group, or none: Scryfall's group id first, then the abbreviation as set
- * code, then the name. A group matches at most one set; several groups may share one set.
+ * The names a group may have in the catalog: its own without TCGplayer's series prefix
+ * (`SWSH03: `, `SM - `), then without a trailing `Base Set` (`SV01: Scarlet & Violet Base Set`), then
+ * without a leading series name, whole words only (`SV: Scarlet & Violet 151` → `151`, `EX Dragon`
+ * → `Dragon`, but not `Expedition` → `pedition`); never `Base Set` alone, which is the first set.
+ */
+function groupNames(name: string, series: ReadonlySet<string>): string[] {
+  const unprefixed = name.replace(/^[A-Z0-9]+(?::| -)\s+/, '');
+  const names = [normName(unprefixed), normName(unprefixed.replace(/\s+Base Set$/i, ''))];
+  const words = unprefixed.split(/\s+/);
+  // Longest series first, so `Sword & Shield` goes before a shorter series it starts with.
+  for (let k = words.length - 1; k > 0; k--) {
+    const rest = normName(words.slice(k).join(' '));
+    if (series.has(normName(words.slice(0, k).join(' '))) && rest && rest !== 'baseset')
+      names.push(rest);
+  }
+  return names;
+}
+
+/** `key → value` where the key is unique; a key with two different values maps to null. */
+function uniqueMap<K>(pairs: [K, string][]): Map<K, string | null> {
+  const out = new Map<K, string | null>();
+  for (const [k, v] of pairs) out.set(k, out.has(k) && out.get(k) !== v ? null : v);
+  return out;
+}
+
+/**
+ * The catalog set of each group, or none: Scryfall's group id first, then the abbreviation (TCGdex's
+ * official one, where it and the group's are each unique and the group's name holds the set's),
+ * the abbreviation as set code (`regional`, Yu-Gi-Oh!: also without a trailing region token,
+ * `LOB-EN` → `lob`), the name (`groupNames`) and last `GROUP_ALIASES`. A group matches at most one
+ * set; several groups may share one set (LOB: `LOB`, the North American prints, and two `LOB-EN`).
  */
 export function matchGroups(
   groups: readonly TcgGroup[],
   sets: readonly CatalogSet[],
+  { regional = false }: { regional?: boolean } = {},
 ): { groupId: number; setId: string }[] {
   const byGroupId = new Map(
     sets.flatMap((s) => (s.tcgplayerGroupId ? [[s.tcgplayerGroupId, s.id]] : [])),
   );
+  // `PR`, `POP`, `BKP` (Burger King Promos and BREAKpoint): an abbreviation two groups or two
+  // sets share says nothing.
+  const byAbbreviation = uniqueMap(
+    sets.flatMap((s): [string, string][] =>
+      s.abbreviation ? [[s.abbreviation.toUpperCase(), s.id]] : [],
+    ),
+  );
+  const groupAbbreviations = uniqueMap(
+    groups.flatMap((g): [string, string][] =>
+      g.abbreviation ? [[g.abbreviation.toUpperCase(), String(g.groupId)]] : [],
+    ),
+  );
   const byCode = new Map(sets.map((s) => [s.code.toLowerCase(), s.id]));
   const byName = new Map(sets.map((s) => [normName(s.name), s.id]));
+  const series = new Set(sets.flatMap((s) => (s.series ? [normName(s.series)] : [])));
+  const setNames = new Map(sets.map((s) => [s.id, normName(s.name)]));
+  // TCGplayer's abbreviations are not always TCGdex's (`BST` is EX Battle Stadium there, Battle
+  // Styles here; `TR` Team Rocket there, Team Rocket Returns here): the group's name must hold the
+  // set's (`SV: Scarlet & Violet 151` holds `151`).
+  const abbreviated = (g: TcgGroup) => {
+    const key = g.abbreviation?.toUpperCase();
+    const setId = key && groupAbbreviations.get(key) ? byAbbreviation.get(key) : undefined;
+    return setId && normName(g.name).includes(setNames.get(setId) ?? '\0') ? setId : undefined;
+  };
+  const byAbbreviationCode = (abbreviation: string) =>
+    byCode.get(abbreviation.toLowerCase()) ??
+    (regional ? byCode.get(abbreviation.toLowerCase().replace(/-(?:en|e|a|ae)$/, '')) : undefined);
+  const alias = (groupId: number) => {
+    const code = GROUP_ALIASES[groupId];
+    return code === undefined ? undefined : byCode.get(code);
+  };
   return groups.flatMap((g) => {
     const setId =
       byGroupId.get(g.groupId) ??
-      (g.abbreviation ? byCode.get(g.abbreviation.toLowerCase()) : undefined) ??
-      byName.get(groupName(g.name));
+      abbreviated(g) ??
+      (g.abbreviation ? byAbbreviationCode(g.abbreviation) : undefined) ??
+      groupNames(g.name, series)
+        .map((n) => byName.get(n))
+        .find(Boolean) ??
+      alias(g.groupId);
     return setId ? [{ groupId: g.groupId, setId }] : [];
   });
 }

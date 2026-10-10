@@ -54,7 +54,7 @@ describe('POST /admin/import/tcgdex', () => {
 });
 
 describe('POST /admin/import/tcgcsv', () => {
-  it('passes ?force=true on, which re-imports a build already imported (VB-110)', async () => {
+  it('passes ?force=true or ?force=1 on, which re-imports a build already imported (VB-110, VB-111)', async () => {
     const sent: unknown[] = [];
     const cardStore = { importRunning: async () => false } as Partial<CardStore> as CardStore;
     const app = testApp({
@@ -62,7 +62,7 @@ describe('POST /admin/import/tcgcsv', () => {
       cardStore,
       jobQueue: { send: async (job) => void sent.push(job) },
     });
-    for (const query of ['', '?force=true'])
+    for (const query of ['', '?force=true', '?force=1', '?force=yes'])
       expect(
         (
           await app.request(`/admin/import/tcgcsv${query}`, {
@@ -74,6 +74,8 @@ describe('POST /admin/import/tcgcsv', () => {
     expect(sent).toEqual([
       { type: 'tcgcsv-import', payload: { force: false } },
       { type: 'tcgcsv-import', payload: { force: true } },
+      { type: 'tcgcsv-import', payload: { force: true } },
+      { type: 'tcgcsv-import', payload: { force: false } },
     ]);
   });
 });

@@ -8,6 +8,7 @@ import { Icon } from '../components/Icon';
 import { usePalette } from '../components/palette';
 import { Page, Heading, useWide } from '../components/Shell';
 import { Button, ErrorState } from '../components/ui';
+import { hitHref } from '../hooks/browsing-language';
 import { fmt, useLocale, useT } from '../i18n';
 import { useRecents } from '../storage/recent';
 
@@ -91,6 +92,7 @@ function SearchEntry() {
 /** The last sets and cards opened on this device ("zuletzt angesehen"). */
 function Recent() {
   const t = useT();
+  const locale = useLocale();
   const recents = useRecents();
   if (recents.length === 0) return null;
   return (
@@ -101,7 +103,14 @@ function Recent() {
       <View role="list" className="flex-row flex-wrap gap-3">
         {recents.map((r) => (
           <View key={r.kind === 'set' ? `s:${r.game}:${r.code}` : `c:${r.id}`} role="listitem">
-            <Link href={r.kind === 'set' ? `/${r.game}/sets/${r.code}` : `/cards/${r.id}`} asChild>
+            <Link
+              href={
+                r.kind === 'set'
+                  ? `/${r.game}/sets/${r.code}`
+                  : hitHref({ cardId: r.id, id: r.printId, lang: r.lang }, locale)
+              }
+              asChild
+            >
               <Pressable className="min-h-[56px] max-w-[280px] justify-center gap-0.5 rounded-xl border border-line bg-surface px-4 py-2.5">
                 <Text className="font-body text-xs text-ink-3">
                   {r.kind === 'set'

@@ -269,6 +269,25 @@ describe('collection screen', () => {
     expect(getComputedStyle(picture).backgroundSize).toBe('contain');
   });
 
+  it('links a phone row’s picture to its print in its language, the row still opens the form (VB-108)', async () => {
+    fakeApi(signedIn, (c) => {
+      if (c.path === '/collection/summary') return json(summary);
+      if (c.path === '/collection/binders') return json({ binders: [] });
+      if (c.path.startsWith('/collection/entries'))
+        return json(page([{ ...entry, language: 'en' }]));
+      return undefined;
+    });
+    renderApp(<Collection />);
+    const link = await screen.findByRole('link', { name: 'Adeline, strahlende Katharerin' });
+    expect(link.getAttribute('href')).toBe(
+      `/cards/${entry.print.cardId}?print=${entry.print.id}&lang=en`,
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /Adeline, strahlende Katharerin bearbeiten/ }),
+    );
+    expect(await screen.findByRole('form')).toBeTruthy();
+  });
+
   it('saves the edit form with every field', async () => {
     const calls = collectionApi();
     renderApp(<Collection />);
