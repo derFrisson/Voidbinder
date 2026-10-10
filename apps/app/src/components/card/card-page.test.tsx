@@ -108,6 +108,20 @@ describe('card page', () => {
     expect(screen.getAllByRole('row')).toHaveLength(3);
   });
 
+  it('shows how many copies the Yu-Gi-Oh! lists allow next to the status', async () => {
+    const ygo: Card = {
+      ...card,
+      game: 'yugioh',
+      legalities: { tcg: 'Limited', ocg: 'Forbidden' },
+    };
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(ygo) : undefined));
+    renderApp(<CardPage />);
+    expect(await screen.findByText('limitiert')).toBeTruthy();
+    expect(screen.getByText('1 Kopie')).toBeTruthy();
+    expect(screen.getByText('verboten')).toBeTruthy();
+    expect(screen.getByText('0 Kopien')).toBeTruthy();
+  });
+
   it('shows the real prices of the selected print in the price panel', async () => {
     const id = card.prints[0]?.id ?? '';
     fakeApi(
