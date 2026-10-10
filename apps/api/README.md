@@ -632,6 +632,62 @@ out): the app credits it in the footer and on every Yu-Gi-Oh! card page (`YUGIPE
 `@voidbinder/shared/notices`, source and licence linked), and the offline module's `meta` and
 manifest carry it as `attribution`.
 
+### Yugipedia set galleries (Yu-Gi-Oh! artwork per print)
+
+YGOPRODeck keeps one image per passcode, the first of `card_images`, and its `card_sets` say
+nothing about artworks, so every print of a card with several artworks (125 cards, 1,683 prints
+in 412 sets in the 2026-10-10 dump: Dark Magician has nine) and every Extended Art or alternate-art
+reprint (RA05-EN141 Red-Eyes Dark Dragoon) showed the default picture. `src/import/yugipedia/galleries.ts`
+(VB-106) takes the scan each print was printed with from Yugipedia's set card galleries.
+
+**What the wiki has (checked 2026-10-10).** Namespace 3024 `Set Card Galleries` holds about 7,200
+pages, `<set> (TCG-<region>-<edition>)` for the TCG: regions `EN` (and `NA`, `EU`, `AU` on old
+sets), `DE`, `FR` (`FC`), `IT`, `SP`, `PT`; editions `1E`, `UE`, `LE` (or none). 958 of
+YGOPRODeck's 1,031 set names have one (matched on the name without case, punctuation or a `(TCG)`
+suffix), 4,169 pages in all; non-English galleries exist for about 250 sets and their scans are
+often not uploaded (RA05 has no German gallery, RA04's German page lists rows without scans). Each
+page calls `{{Set gallery|rarity=…|` once per rarity, one row per print: `number; name; rarity;
+alt // options`. Module:Card collection/modules/Set gallery/handlers builds the file name
+`<image name>-<set prefix>-<region>-<rarity abbr>-<edition>-<alt>.<ext>` (empty parts dropped,
+`png` unless `// extension::jpg`, `// file::` replaces it): the image name is the English name
+without its `(…)` disambiguation and without `#,.:'"?!&@%=[]<>/☆★・-` and spaces
+(Module:Card image name), the rarity abbreviation comes from Module:Data/static/rarity/data
+(`StR`, `UR`, `QCScR`, `PlScR`, … copied into `galleries.ts`). The alt code is a free file name
+suffix, not a fixed set of flags: `EA` (Extended Art), `AA`, `AA2`, `Alt` (alternate artworks),
+`B`/`C`/`D` and `ReprintB` (several scans of one number, LCKC-EN001 in four Blue-Eyes artworks),
+`L`/`S`/`K`/`J` (deck letters), `2`/`3` (copies). It is each gallery's own: RA04's English page
+marks Aleister's Platinum Secret Rare `AA`, the German page has no code there. Many rarities have
+no scan (of RA05's 697 files, 142 Starlight Rares missing, 7 present). `imageinfo` answers the URL
+(`https://ms.yugipedia.com//b/bf/RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png`); a request URL ending in
+`.png` gets MediaWiki's "Security redirect", so `format=json` goes last. The scans are Konami's
+card images hosted under US fair use (Yugipedia:About, `{{Fair use}}` on every file page); the wiki
+asks no credit for them (its CC BY-SA 4.0 covers original text only, which we already credit), the
+same basis as the YGOPRODeck images we mirror.
+
+**The run.** The Yugipedia Workflow runs it after the names (`POST /admin/import/yugipedia-galleries`
+starts the galleries alone, 409 while one is `running`; `import_runs` source `yugipedia-galleries`):
+`galleries: plan` lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
+gallery and not read in the last 30 days (`app_meta` map `yugipedia_galleries_checked`, set code →
+day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
+languages its prints have (`revisions`, 50 titles a request), pick the prints and languages to
+resolve, and ask `imageinfo` for their candidate files (50 a request): a print is resolved when its
+card has several artworks (`external_ids.artworks`, which the YGOPRODeck import now writes) or a
+row of its number carries an alt code; the first row of its number and rarity in the best page of
+the language (`EN` before `NA`/`EU`, 1st Edition before Unlimited) names the file, and when that
+scan is missing the same alt code in another rarity of the page (RA05's Starlight Rare Dragoon
+takes the Ultra Rare `EA` scan, the same artwork); without an alt code there is no fallback
+(another rarity may be another artwork) and a print without a row or a scan keeps the passcode
+image. The result goes to `external_ids.artwork = { file, url, alt? }` of the print (English) or
+its localization, and a changed artwork clears `image_key`; the mirror (Card images) then copies
+`artwork.url` under `images/yugioh/<file name>/<lang>/…`, one request a second. The YGOPRODeck and
+Yugipedia name upserts keep `artwork` (`keepArtwork`). `extendedArt: true` on the set page's prints
+and on `PrintDetail` marks a print whose row says `EA`; the app labels it "Extended Art". Raw
+answers: `raw/<env>/yugipedia/galleries/<date>/titles.json` and `sets-<n>.json`. A full run is
+about 15 + 96 page requests plus a few hundred `imageinfo` requests (some minutes), then the
+mirror's downloads at one a second (the Workflow's `mirror images` step after it, at most 500,
+`orig` only; the VPS script's nightly `--sm` run the rest). Not covered: one print per number and
+rarity (four Blue-Eyes artworks under LCKC-EN001 UR get the first), OCG and Speed Duel sets.
+
 ## Prices
 
 Prices are stored, never looked up live ([ADR 0003](../../docs/adr/0003-price-history-storage.md)):
@@ -899,7 +955,8 @@ before), so the server kept its row; the binder was new and is stored.
 `src/import/images.ts` (VB-57) copies every print's source image into the `CATALOG` bucket, which
 is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
 `normal`, `png`; only once Scryfall has the high-res scan, `highres_image`, and never its
-missing-image placeholder), YGOPRODeck `image_url`, TCGdex `tcgdex_images.high` (the keys of
+missing-image placeholder), the print's Yugipedia scan (`artwork.url`, VB-106) else YGOPRODeck
+`image_url`, TCGdex `tcgdex_images.high` (the keys of
 `external_ids` the importers fill). A low-res Magic image stays unmirrored and the API serves
 Scryfall's URL until a later run finds the scan.
 
@@ -910,14 +967,16 @@ Scryfall's URL until a later run finds the scan.
 
 `<sourceId>` is the source's stable id, never a database id, so `dev` and `prod` share the
 objects and a re-import never changes a key: the Scryfall card id (`mtg`), the YGOPRODeck image
-id from `image_url` (`yugioh`, one artwork shared by its set prints), the TCGdex card id
+id from `image_url` (`yugioh`, one artwork shared by its set prints) or the Yugipedia file name
+(`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`), the TCGdex card id
 (`pokemon`, e.g. `swsh3-136`). Both carry `Cache-Control: public, max-age=31536000, immutable`.
 
 `prints.image_key` (English) and `print_localizations.image_key` hold the `sm` key once that copy
 exists and the `orig` key until then, so `imageUrl` is the small copy whenever there is one,
 without a request to R2 (`hasSm`). Rows that share a source URL share one object pair (a print
 and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are rate limited per
-source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s); a 429 stops the run once the
+source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, Yugipedia 1/s with its own
+`User-Agent`); a 429 stops the run once the
 images in flight are stored, a failed image is logged and keeps its key (or none), so the next
 run retries it. Every run is an `import_runs` row with source and kind `images`, and only one
 runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image

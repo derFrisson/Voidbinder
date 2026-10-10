@@ -71,6 +71,7 @@ export function createPlatform(env: Env): Platform {
       'ygoprodeck-import': env.YGOPRODECK_IMPORT,
       'tcgcsv-import': env.TCGCSV_IMPORT,
       'yugipedia-import': env.YUGIPEDIA_IMPORT,
+      'yugipedia-galleries-import': env.YUGIPEDIA_IMPORT,
       'search-index-refresh': env.SEARCH_INDEX_REFRESH,
     }),
     db,
