@@ -160,19 +160,21 @@ shared bucket, so the web app's proxy must pass `cf-connecting-ip` on.
 "Voidbinder", 6 digits, 30 seconds (a code from the step before or after is accepted too), 10
 backup codes. In the order the app uses it, all with the session:
 
-| Step             | Request                                                      | Result                                                              |
-| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| Set up           | `POST /auth/two-factor/enable` `{ password }`                | `{ totpURI, backupCodes }`; 2FA stays off; 400 for a wrong password |
-| Turn on          | `POST /auth/two-factor/verify-totp` `{ code }`               | the first valid code turns it on (`user.two_factor_enabled`)        |
-| New backup codes | `POST /auth/two-factor/generate-backup-codes` `{ password }` | `{ backupCodes }`; the old ones stop working                        |
-| Turn off         | `POST /auth/two-factor/disable` `{ password }`               | 2FA off, secret and backup codes deleted, trusted device forgotten  |
+| Step             | Request                                                      | Result                                                                   |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Set up           | `POST /auth/two-factor/enable` `{ password }`                | `{ totpURI, backupCodes }`; 2FA stays off; 400 for a wrong password      |
+| Turn on          | `POST /auth/two-factor/verify-totp` `{ code }`               | the first valid code turns it on (`user.two_factor_enabled`)             |
+| New backup codes | `POST /auth/two-factor/generate-backup-codes` `{ password }` | `{ backupCodes }`; the old ones stop working                             |
+| Turn off         | `POST /auth/two-factor/disable` `{ password }`               | 2FA off, secret and backup codes deleted, every trusted device forgotten |
 
 - **Sign-in with 2FA:** the password step deletes the session it made and sets the signed
   `two_factor` cookie (10 minutes, 5 tries); the code step then creates the session. Any wrong code,
   TOTP or backup, answers the same 401 `{ code: "INVALID_CODE" }`; the plugin also locks the second
   step for 15 minutes after 10 failures in a row (429). `trustDevice: true` sets the `trust_device`
   cookie (HttpOnly, 30 days, renewed on each sign-in, backed by a `verification` row): that browser
-  skips the code step.
+  skips the code step. Turning 2FA off, setting it up again and a password reset delete every
+  trusted-device row of the user (`forgetTrustedDevices` in `src/auth/index.ts`), so each browser
+  gets the challenge again.
 - **Native clients** get the same challenge through the client plugin (`twoFactorClient` in
   `createApiAuthClient`): they keep the `two_factor` cookie between the two calls (Better Auth's
   Expo plugin stores cookies) and take the session token from `set-auth-token` of the code step.
@@ -182,7 +184,12 @@ backup codes. In the order the app uses it, all with the session:
   again with AES-256-GCM under `TWO_FACTOR_ENCRYPTION_KEY` (`withEncryptedTotpSecret` in
   `src/auth/two-factor.ts`, around the database adapter); the backup codes with the same key
   through the plugin's `storeBackupCodes`. A database dump alone gives neither.
-- **Password reset keeps 2FA**, and `DELETE /me` and the session revocation are unchanged.
+- **Password reset keeps 2FA** (and forgets the trusted devices); `DELETE /me` and the session
+  revocation are unchanged.
+- **Known limits of the plugin (better-auth 1.7.7):** the backup codes are encrypted, not hashed
+  (the plugin compares the stored value when it consumes one), so whoever has the database and
+  `TWO_FACTOR_ENCRYPTION_KEY` can read them. A TOTP code is not remembered once used: it works again
+  until its window ends (the 30 seconds plus one step either side), within the rate limits above.
 - **Lost both factors:** the app tells the user to write to hello@voidbinder.de. There is no
   self-service way around the second factor; support turns it off by hand after checking the
   person (delete the `two_factor` row, set `user.two_factor_enabled` to false).
