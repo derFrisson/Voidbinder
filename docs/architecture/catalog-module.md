@@ -21,8 +21,9 @@ written (`Cache-Control: public, max-age=31536000, immutable`); the manifest is 
 build (`max-age=60`). Images are not inside: the module has image keys, the URL is
 `https://img.voidbinder.de/<image_key>` as in the API.
 
-Sizes (2026-10-10, local catalog with few prices): Magic 145 MB unpacked, 37 MB gzipped;
-Yu-Gi-Oh! 62 MB, 18 MB.
+Sizes (2026-10-10): Yu-Gi-Oh! on `dev` (44,266 prints, 48,801 prices) 68 MB unpacked, 20 MB
+gzipped, built in 9 s; Magic from a local catalog with almost no prices (103,435 prints) 145 MB,
+37 MB gzipped, most of it `cards` (legalities and attributes).
 
 ## Manifest
 
