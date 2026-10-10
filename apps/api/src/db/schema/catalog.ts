@@ -197,6 +197,18 @@ export const legalityChanges = pgTable(
   (t) => [index('legality_changes_format_seen_at_idx').on(t.format, t.seenAt.desc())],
 );
 
+/**
+ * Source image URLs that answered 404 or 410 (VB-89): the image mirror skips them until the
+ * row's URL changes, and retries them on Sundays (a success deletes the row). `print_id` and
+ * `lang` name the first row that wanted it, for a look by hand.
+ */
+export const imageSourcesGone = pgTable('image_sources_gone', {
+  url: text('url').primaryKey(),
+  seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
+  printId: uuid('print_id'),
+  lang: text('lang'),
+});
+
 export const importRuns = pgTable('import_runs', {
   id: uuid('id').primaryKey().defaultRandom(),
   source: text('source').notNull(),

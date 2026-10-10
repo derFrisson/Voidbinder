@@ -1919,13 +1919,17 @@ GRANT USAGE ON SCHEMA public TO voidbinder_mirror;
 GRANT SELECT ON sets, prints, print_localizations TO voidbinder_mirror;
 GRANT UPDATE (image_key) ON prints, print_localizations TO voidbinder_mirror;
 GRANT SELECT, INSERT, UPDATE ON import_runs TO voidbinder_mirror;
+GRANT SELECT, INSERT, DELETE ON image_sources_gone TO voidbinder_mirror;
 EOF
 done
 docker exec -it voidbinder-db psql -U postgres -c '\password voidbinder_mirror'
 ```
 
 The password like the others (`openssl rand -base64 32 | tr -d '/+='`, password manager entry
-`voidbinder_mirror`). `import_runs` has a generated UUID key, so no sequence grant is needed. Add
+`voidbinder_mirror`). `import_runs` has a generated UUID key, so no sequence grant is needed.
+`image_sources_gone` (VB-89) comes with migration `0015`, which grants it to `voidbinder_mirror`
+itself when the role already exists; on a database migrated before the role was created, the
+line above does it. Add
 this line to `/opt/voidbinder-db/pg_hba.conf` (section 4) and reload:
 
 ```text
@@ -1981,7 +1985,11 @@ with the same counts.
 
 **Rerun.** Safe at any time: the script picks only rows without `image_key` (with `--sm` also
 those with only `orig`), so a run that stopped (Ctrl-C, 429, reboot) continues where it was.
-Failed downloads are logged (`image failed`) and stay as they were for the next run.
+Failed downloads are logged (`image failed`) and stay as they were for the next run. A source
+that answers `404` or `410` counts as `gone`, not `failed` (`image source gone` in the log): its
+URL goes to `image_sources_gone` and later runs skip it until the row's URL changes; the Sunday
+(UTC) runs retry every gone URL and drop the ones that answer again. To list them:
+`select url, seen_at, lang from image_sources_gone order by seen_at`.
 
 **Low-res Magic scans.** A Magic print whose Scryfall image is only `lowres` (`highres_image`
 false; about 3,000 prints, mostly sets from 2022 on) is mirrored too, under names of its own:

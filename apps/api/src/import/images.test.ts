@@ -289,10 +289,26 @@ describe('mirrorJobs', () => {
   });
 
   it('counts a failed download and leaves its rows without a key', async () => {
-    const { deps } = fakeDeps({ status: 404 });
+    const { deps } = fakeDeps({ status: 500 });
     const { stats, done } = await run(deps, [job(1)]);
-    expect(stats).toMatchObject({ failed: 1, uploaded: 0 });
+    expect(stats).toMatchObject({ failed: 1, gone: 0, uploaded: 0 });
     expect(done).toEqual([]);
+  });
+
+  it('counts a 404 or 410 as gone, not failed, and reports it (VB-89)', async () => {
+    for (const status of [404, 410]) {
+      const { deps } = fakeDeps({ status });
+      const gone: string[] = [];
+      const stats = await mirrorJobs(
+        deps,
+        [job(1)],
+        { concurrency: 1, verify: false },
+        async () => undefined,
+        async (j) => void gone.push(j.url),
+      );
+      expect(stats).toMatchObject({ failed: 0, gone: 1, uploaded: 0 });
+      expect(gone).toEqual([job(1).url]);
+    }
   });
 
   it('stops the run on a 429', async () => {
@@ -415,7 +431,7 @@ describe.skipIf(!databaseUrl)('image mirror (Postgres)', () => {
       fetch: async () => {
         running.resolve();
         await gate.promise;
-        return new Response(null, { status: 404 });
+        return new Response(null, { status: 500 });
       },
     });
     const first = mirrorImages(deps, db, { game: 'mtg' }, { concurrency: 1, verify: false });
@@ -638,5 +654,89 @@ describe.skipIf(!databaseUrl)('image mirror low-res scans (Postgres)', () => {
       where number = '3'`);
     await write('images/mtg/card-3/en/sm-lowres.webp');
     expect(await key('3')).toBe('images/mtg/card-3/en/orig.jpg');
+  });
+});
+
+describe.skipIf(!databaseUrl)('image mirror gone sources (Postgres)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  const BASE = 'https://assets.tcgdex.net/en/sv/tst/';
+  const url = (n: string) => `${BASE}${n}/high.webp`;
+  beforeAll(async () => {
+    ({ db, drop } = await freshDatabase());
+    // p1 answers 404 for good, p2 is there, p3 answers 404 until it comes back.
+    await db.execute(sql`
+      with s as (insert into sets (game_id, code, name) values ('pokemon', 'tst', 'Test') returning id),
+        c as (insert into cards (game_id, name, oracle_key) values ('pokemon', 'Card', 'o') returning id)
+      insert into prints (card_id, set_id, number, external_ids)
+      select c.id, s.id, n::text, jsonb_build_object('tcgdex', 'tst-' || n,
+          'tcgdex_images', jsonb_build_object('high', ${BASE} || n || '/high.webp'))
+      from s, c, generate_series(1, 3) n`);
+  });
+  afterAll(() => drop());
+
+  const THURSDAY = Date.parse('2026-10-08T05:30:00Z');
+  const SUNDAY = Date.parse('2026-10-11T05:30:00Z');
+  const mirror = async (missing: string[], now = THURSDAY) => {
+    const fake = fakeDeps({
+      resize: false,
+      fetch: async (u) =>
+        new Response(missing.includes(u) ? null : JPEG, {
+          status: missing.includes(u) ? 404 : 200,
+          headers: { 'content-type': 'image/webp' },
+        }),
+    });
+    fake.deps.clock = { now: () => now, sleep: async () => undefined };
+    const stats = await mirrorImages(
+      fake.deps,
+      db,
+      { game: 'pokemon' },
+      {
+        concurrency: 1,
+        verify: false,
+      },
+    );
+    return { stats, fetched: fake.fetched.sort() };
+  };
+  const goneUrls = async () =>
+    (
+      await db.execute<{ url: string }>(sql`select url from image_sources_gone order by url`)
+    ).rows.map((r) => r.url);
+
+  it('records a 404 as gone, not failed, and the next run skips it', async () => {
+    const first = await mirror([url('1'), url('3')]);
+    expect(first.stats).toMatchObject({ images: 3, uploaded: 1, gone: 2, failed: 0 });
+    expect(await goneUrls()).toEqual([url('1'), url('3')]);
+    const [p1] = (
+      await db.execute<{ print_id: string; lang: string; number: string }>(sql`
+        select g.print_id, g.lang, p.number from image_sources_gone g join prints p on p.id = g.print_id
+        where g.url = ${url('1')}`)
+    ).rows;
+    expect(p1).toMatchObject({ lang: 'en', number: '1' });
+    const [run] = await db
+      .select()
+      .from(importRuns)
+      .where(eq(importRuns.kind, 'images'))
+      .orderBy(importRuns.startedAt);
+    expect(run?.stats).toMatchObject({ gone: 2, failed: 0 });
+
+    const again = await mirror([url('1'), url('3')]);
+    expect(again.fetched).toEqual([]);
+    expect(again.stats).toMatchObject({ images: 0, gone: 0, failed: 0 });
+  });
+
+  it('retries the gone URLs on Sundays and forgets one that answers again', async () => {
+    const sunday = await mirror([url('1')], SUNDAY);
+    expect(sunday.fetched).toEqual([url('1'), url('3')]);
+    expect(sunday.stats).toMatchObject({ uploaded: 1, gone: 1, failed: 0 });
+    expect(await goneUrls()).toEqual([url('1')]);
+  });
+
+  it('retries a row whose source URL changed', async () => {
+    await db.execute(sql`update prints set external_ids = jsonb_set(external_ids,
+      '{tcgdex_images,high}', to_jsonb(${url('1b')}::text)) where number = '1'`);
+    const changed = await mirror([url('1')]);
+    expect(changed.fetched).toEqual([url('1b')]);
+    expect(changed.stats).toMatchObject({ uploaded: 1, gone: 0, failed: 0 });
   });
 });

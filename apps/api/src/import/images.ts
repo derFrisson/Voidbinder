@@ -1,6 +1,6 @@
-import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
+import { and, eq, inArray, sql, type SQLWrapper } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
-import { importRuns, printLocalizations, prints, sets } from '../db/schema';
+import { imageSourcesGone, importRuns, printLocalizations, prints, sets } from '../db/schema';
 import { USER_AGENT, type Fetch } from './scryfall/source';
 import { USER_AGENT as YUGIPEDIA_USER_AGENT } from './yugipedia/source';
 
@@ -273,15 +273,20 @@ export interface MirrorStats {
   /** Already in the bucket (`verify`). */
   reused: number;
   failed: number;
+  /** The source answered 404 or 410: recorded in `image_sources_gone`, skipped from then on. */
+  gone: number;
   bytes: number;
 }
 
 export class SourceRateLimited extends Error {}
 
+/** The source answered 404 or 410 for the image (VB-89). */
+export class SourceGone extends Error {}
+
 /**
  * Downloads and stores each job's image, calling `done` with the key to write once its objects
  * exist. A failed image is logged and counted and its rows keep their key, so the next run
- * retries it; a 429 aborts the run (YGOPRODeck blocks an IP for an hour after one). On an abort
+ * retries it; a 404 or 410 counts as `gone` and calls `gone` instead; a 429 aborts the run (YGOPRODeck blocks an IP for an hour after one). On an abort
  * the other workers finish their current image (and its `done`) before the first error is thrown.
  */
 export async function mirrorJobs(
@@ -289,6 +294,7 @@ export async function mirrorJobs(
   jobs: ImageJob[],
   opts: MirrorOptions,
   done: (job: ImageJob, key: string) => Promise<void>,
+  gone?: (job: ImageJob) => Promise<void>,
 ): Promise<MirrorStats> {
   const clock = deps.clock ?? realClock;
   const buckets = new Map<string, TokenBucket>();
@@ -297,7 +303,14 @@ export async function mirrorJobs(
     if (!b) buckets.set(game, (b = new TokenBucket(SOURCE_RATES[game] ?? 5, 1, clock)));
     return b;
   };
-  const stats: MirrorStats = { images: jobs.length, uploaded: 0, reused: 0, failed: 0, bytes: 0 };
+  const stats: MirrorStats = {
+    images: jobs.length,
+    uploaded: 0,
+    reused: 0,
+    failed: 0,
+    gone: 0,
+    bytes: 0,
+  };
   const started = clock.now();
   let next = 0;
   let finished = 0;
@@ -324,6 +337,7 @@ export async function mirrorJobs(
       // An unread body keeps the connection open (Workers allow six).
       await res.body?.cancel();
       if (res.status === 429) throw new SourceRateLimited(`${job.url} answered 429, stopping`);
+      if (res.status === 404 || res.status === 410) throw new SourceGone(`answered ${res.status}`);
       throw new Error(`answered ${res.status}`);
     }
     const type = res.headers.get('content-type')?.split(';')[0]?.trim();
@@ -373,8 +387,14 @@ export async function mirrorJobs(
           key = await one(job);
         } catch (err) {
           if (err instanceof SourceRateLimited) throw err;
-          stats.failed++;
-          deps.log('warn', { message: 'image failed', url: job.url, error: String(err) });
+          if (err instanceof SourceGone) {
+            stats.gone++;
+            deps.log('info', { message: 'image source gone', url: job.url, error: err.message });
+            await gone?.(job);
+          } else {
+            stats.failed++;
+            deps.log('warn', { message: 'image failed', url: job.url, error: String(err) });
+          }
           progress();
           continue;
         }
@@ -403,6 +423,11 @@ export interface PendingQuery {
   limit?: number | undefined;
   /** Also the rows that have only the `orig` copy (needs `MirrorDeps.resize`). */
   sm?: boolean | undefined;
+  /**
+   * Also the rows whose source URL is in `image_sources_gone`. `mirrorImages` sets it on Sundays
+   * (UTC), so a file that comes back is found within a week.
+   */
+  retryGone?: boolean | undefined;
 }
 
 const imageIds = (column: SQLWrapper) =>
@@ -415,13 +440,14 @@ const imageIds = (column: SQLWrapper) =>
  * Rows `sourceUrl` can mirror (the same conditions in SQL, `lowres` for prints only). Filtered
  * before the limit, so rows without a source image never fill a capped run and block the rows
  * behind them; that includes a keyed row whose scan Scryfall has since downgraded (`planJobs`
- * could not plan it). A `-lowres` key is work again once the high-res scan is there.
+ * could not plan it) and, unless `retryGone`, a row whose source URL answered 404 (VB-89; a
+ * changed URL is work again). A `-lowres` key is work again once the high-res scan is there.
  */
 const needsWork = (
   table: ImageTarget['table'],
   ids: SQLWrapper,
   key: SQLWrapper,
-  sm: boolean | undefined,
+  { sm, retryGone }: PendingQuery,
 ) => {
   const highres = sql`coalesce(${ids} -> 'scryfall_images' ->> 'highres_image', 'false') = 'true'`;
   // A low-res scan never replaces a high-res key (`writeKeys`), so it is work only without one.
@@ -441,7 +467,16 @@ const needsWork = (
     ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}
     or (${key} like '%-lowres.%' and ${highres})
     or (${sets.gameId} = 'yugioh' and position('/' || ${scan} || '/' in ${key}) = 0))`;
-  return sql`${todo} and ${mirrorable}`;
+  // The URL `sourceUrl` picks, to look up in `image_sources_gone`.
+  const url = sql`case ${sets.gameId}
+    when 'pokemon' then ${ids} -> 'tcgdex_images' ->> 'high'
+    when 'yugioh' then coalesce(${ids} -> 'artwork' ->> 'url', ${ids} ->> 'image_url')
+    else coalesce(${ids} -> 'scryfall_images' ->> 'large', ${ids} -> 'scryfall_images' ->> 'normal',
+      ${ids} -> 'scryfall_images' ->> 'png') end`;
+  const fresh = retryGone
+    ? sql``
+    : sql` and not exists (select from ${imageSourcesGone} where ${imageSourcesGone.url} = ${url})`;
+  return sql`${todo} and ${mirrorable}${fresh}`;
 };
 
 /**
@@ -465,7 +500,7 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
         ${imageIds(prints.externalIds)} as ids, ${prints.imageKey} as key,
         ${prints.createdAt} as created_at
       from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
-      where ${needsWork('prints', prints.externalIds, prints.imageKey, q.sm)}${where}
+      where ${needsWork('prints', prints.externalIds, prints.imageKey, q)}${where}
       union all
       select ${printLocalizations.printId}, ${printLocalizations.lang}, 1, ${sets.gameId},
         ${imageIds(printLocalizations.externalIds)}, ${printLocalizations.imageKey},
@@ -473,7 +508,7 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
       from ${printLocalizations}
         join ${prints} on ${prints.id} = ${printLocalizations.printId}
         join ${sets} on ${sets.id} = ${prints.setId}
-      where ${needsWork('print_localizations', printLocalizations.externalIds, printLocalizations.imageKey, q.sm)}${where}
+      where ${needsWork('print_localizations', printLocalizations.externalIds, printLocalizations.imageKey, q)}${where}
     ) r
     order by created_at, print_id, t, lang
     ${q.limit ? sql`limit ${q.limit}` : sql``}`);
@@ -570,9 +605,10 @@ async function mirrorRun(
   query: PendingQuery,
   opts: MirrorOptions & { dryRun?: boolean },
 ): Promise<MirrorRunStats> {
-  const rows = await pendingRows(db, query);
+  const retryGone = query.retryGone ?? new Date((deps.clock ?? realClock).now()).getUTCDay() === 0;
+  const rows = await pendingRows(db, { ...query, retryGone });
   const { jobs, noSource } = planJobs(rows);
-  const zero = { images: jobs.length, uploaded: 0, reused: 0, failed: 0, bytes: 0 };
+  const zero = { images: jobs.length, uploaded: 0, reused: 0, failed: 0, gone: 0, bytes: 0 };
   if (opts.dryRun) {
     deps.log('info', {
       message: 'image mirror dry run',
@@ -593,18 +629,34 @@ async function mirrorRun(
   if (!run) throw new Error('import_runs insert returned no row');
 
   let pending: (ImageTarget & { key: string })[] = [];
+  let urls: string[] = [];
   const flush = async () => {
-    const batch = pending;
-    pending = [];
+    const [batch, back] = [pending, urls];
+    [pending, urls] = [[], []];
     if (batch.length) await writeKeys(db, batch);
+    // A gone URL that answered again (the weekly retry).
+    if (back.length) await db.delete(imageSourcesGone).where(inArray(imageSourcesGone.url, back));
   };
   try {
     let stats: MirrorStats;
     try {
-      stats = await mirrorJobs(deps, jobs, opts, async (job, key) => {
-        pending.push(...job.targets.map((t) => ({ ...t, key })));
-        if (pending.length >= KEY_BATCH) await flush();
-      });
+      stats = await mirrorJobs(
+        deps,
+        jobs,
+        opts,
+        async (job, key) => {
+          pending.push(...job.targets.map((t) => ({ ...t, key })));
+          urls.push(job.url);
+          if (pending.length >= KEY_BATCH) await flush();
+        },
+        async (job) => {
+          const [first] = job.targets;
+          await db
+            .insert(imageSourcesGone)
+            .values({ url: job.url, printId: first?.printId, lang: first?.lang })
+            .onConflictDoNothing();
+        },
+      );
     } finally {
       await flush();
     }
