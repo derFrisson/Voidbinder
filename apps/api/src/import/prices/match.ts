@@ -39,6 +39,8 @@ export interface CandidatePrint {
   /** Scryfall's TCGplayer product ids (Magic only). */
   tcgplayer: string | null;
   tcgplayerEtched: string | null;
+  /** Yugipedia's alt code of the print's artwork (`AA`, VB-106), when it has one. */
+  artwork?: string | null;
 }
 
 export interface ProductMatch {
@@ -48,6 +50,8 @@ export interface ProductMatch {
   confidence: number;
   /** Set when the product is one finish whatever its printing (Scryfall's etched product). */
   finish?: string;
+  /** Picked among products that differ only by an artwork suffix (VB-113); logged. */
+  artwork?: true;
 }
 
 /** Lowercase letters and digits only, `&` read as `and`. */
@@ -232,17 +236,43 @@ const isRegional = (number: string) => /^(?:A|E|AE)?\d/.test(ownNumber(number));
 /** A product name without TCGplayer's suffixes (`Pikachu (Secret)`, `Charizard - 4/102`). */
 const productName = (name: string) => normName(name.replace(/\s+\(.*\)$|\s+-\s+.*$/, ''));
 
+/** TCGplayer's artwork suffix: `(Original Artwork)`, `(New Artwork)`, `(Alternate Art)`. */
+const ARTWORK = /\s+\([^()]*\bArt(?:work)?\)$/i;
+const ORIGINAL = /\(Original Art(?:work)?\)$/i;
+
 /** Products that look like single cards: TCGCSV's own test is a `Number` or `Rarity`. */
 export const isCard = (p: TcgProduct) =>
   extended(p, 'Number') !== null || extended(p, 'Rarity') !== null;
 
 /**
+ * The product of a print among products that differ only by TCGplayer's artwork suffix (VB-113,
+ * `Harpie Lady (Original Artwork)` and `(New Artwork)`, both MRD-008): a print with Yugipedia's
+ * alt code (VB-106, not `EA`) takes the one other artwork, any other the original, else the one
+ * without a suffix, else the lowest product id. Undefined when the names differ otherwise.
+ */
+function pickArtwork(products: readonly TcgProduct[], print: CandidatePrint) {
+  const bare = products.filter((p) => !ARTWORK.test(p.name));
+  const base = new Set(products.map((p) => normName(p.name.replace(ARTWORK, ''))));
+  if (products.length < 2 || base.size > 1 || bare.length > 1) return undefined;
+  const others = products.filter((p) => ARTWORK.test(p.name) && !ORIGINAL.test(p.name));
+  const [other] = others;
+  if (print.artwork && print.artwork !== 'EA' && other && others.length === 1) return other;
+  return (
+    products.find((p) => ORIGINAL.test(p.name)) ??
+    bare[0] ??
+    [...products].sort((a, b) => a.productId - b.productId)[0]
+  );
+}
+
+/**
  * Matches the products of one group to the prints of its set. `byId`: Magic, where Scryfall gives
  * the product ids; otherwise number, then a name unique in the set. A print claimed by more than
- * one product at the same best confidence is ambiguous and left unmatched. `regional`
- * (Yu-Gi-Oh!): rarities through `rarityKey`, so one product prices a number's `Common`, `Short
- * Print` and `Super Short Print`; a regional print no product claimed takes the one product of its name and rarity,
- * so one product may price several prints.
+ * one product at the same best confidence is ambiguous and left unmatched, except products of one
+ * number and rarity that differ by name: the one with the print's name wins (`Trial of Hell`, a
+ * misprint listed as LOB-012), or artwork variants (`pickArtwork`, 65). `regional` (Yu-Gi-Oh!):
+ * rarities through `rarityKey`, so one product prices a number's `Common`, `Short Print` and
+ * `Super Short Print`; a regional print no product claimed takes the one
+ * product of its name and rarity, so one product may price several prints.
  */
 export function matchProducts(
   products: readonly TcgProduct[],
@@ -274,34 +304,69 @@ export function matchProducts(
           confidence: 100,
         });
     }
-  } else {
-    const byNumber = groupBy(prints, (p) => normNumber(p.number));
-    const byName = groupBy(prints, (p) => normName(p.name));
-    for (const product of products) {
-      if (!isCard(product)) continue;
-      const number = extended(product, 'Number');
-      const rarity = extended(product, 'Rarity');
-      let same = number ? (byNumber.get(normNumber(number)) ?? []) : [];
-      // `LOB-001` and `LOB-EN001` read the same: the print with the product's own number wins.
-      const exact = same.filter((p) => number && ownNumber(p.number) === ownNumber(number));
-      if (same.length > 1 && exact.length) same = exact;
-      // Yu-Gi-Oh! prints one number in several rarities, each a print (`variant`).
-      if (same.length > 1 && rarity)
-        same = same.filter((p) => rarityKey(p.variant) === rarityKey(rarity));
-      // One TCGplayer rarity, several of YGOPRODeck's (`Common`, `Short Print`): one card.
-      const one = new Set(same.map((p) => ownNumber(p.number))).size === 1;
-      if (same.length === 1 || (regional && rarity && same.length && one)) {
-        for (const p of same)
-          found.push({ productId: product.productId, printId: p.id, ...method('number_match') });
+    return unambiguous(found);
+  }
+
+  const byNumber = groupBy(prints, (p) => normNumber(p.number));
+  const printsByName = groupBy(prints, (p) => normName(p.name));
+  /** The prints of a product's number (and rarity). */
+  const numbered = (product: TcgProduct) => {
+    const number = extended(product, 'Number');
+    const rarity = extended(product, 'Rarity');
+    let same = number ? (byNumber.get(normNumber(number)) ?? []) : [];
+    // `LOB-001` and `LOB-EN001` read the same: the print with the product's own number wins.
+    const exact = same.filter((p) => number && ownNumber(p.number) === ownNumber(number));
+    if (same.length > 1 && exact.length) same = exact;
+    // Yu-Gi-Oh! prints one number in several rarities, each a print (`variant`).
+    if (same.length > 1 && rarity)
+      same = same.filter((p) => rarityKey(p.variant) === rarityKey(rarity));
+    // One TCGplayer rarity, several of YGOPRODeck's (`Common`, `Short Print`): one card.
+    const one = new Set(same.map((p) => ownNumber(p.number))).size === 1;
+    return same.length === 1 || (regional && rarity && one) ? same : [];
+  };
+  const byName = (product: TcgProduct) => {
+    const named = printsByName.get(productName(product.name)) ?? [];
+    const [print] = named;
+    if (print && named.length === 1)
+      found.push({ productId: product.productId, printId: print.id, ...method('name_match') });
+  };
+
+  const cards = products.filter(isCard);
+  const family = (p: TcgProduct) => {
+    const number = extended(p, 'Number');
+    return number ? `${number}|${rarityKey(extended(p, 'Rarity') ?? '')}` : String(p.productId);
+  };
+  for (const same of groupBy(cards, family).values()) {
+    const [first] = same;
+    if (!first) continue;
+    const hits = numbered(first);
+    if (!hits.length) {
+      for (const product of same) byName(product);
+      continue;
+    }
+    for (const print of hits) {
+      if (same.length === 1) {
+        found.push({ productId: first.productId, printId: print.id, ...method('number_match') });
         continue;
       }
-      const named = byName.get(productName(product.name)) ?? [];
-      const [byNamed] = named;
-      if (byNamed && named.length === 1)
-        found.push({ productId: product.productId, printId: byNamed.id, ...method('name_match') });
+      const named = same.filter((p) => productName(p.name) === normName(print.name));
+      const [own] = named;
+      if (own && named.length === 1 && named.length < same.length) {
+        found.push({ productId: own.productId, printId: print.id, ...method('number_match') });
+        continue;
+      }
+      const pick = pickArtwork(same, print);
+      if (pick)
+        found.push({
+          productId: pick.productId,
+          printId: print.id,
+          method: 'number_match',
+          confidence: CONFIDENCE.number_match - 5,
+          artwork: true,
+        });
     }
-    if (regional) found.push(...regionalMatches(products, prints, found));
   }
+  if (regional) found.push(...regionalMatches(cards, prints, found));
   return unambiguous(found);
 }
 
@@ -327,8 +392,8 @@ function regionalMatches(
     const number = (p: TcgProduct) => extended(p, 'Number') ?? '';
     if (fit.length > 1) fit = fit.filter((p) => ownNumber(number(p)).startsWith('EN'));
     if (fit.length > 1) fit = fit.filter((p) => digits(number(p)) === digits(print.number));
-    const [product] = fit;
-    return product && fit.length === 1
+    const product = fit.length > 1 ? pickArtwork(fit, print) : fit[0];
+    return product
       ? [{ productId: product.productId, printId: print.id, ...method('region_match') }]
       : [];
   });

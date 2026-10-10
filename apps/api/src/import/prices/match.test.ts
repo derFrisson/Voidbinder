@@ -411,4 +411,35 @@ describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
       ['mrd-EN011-super-short-print', 476271, 'number_match', 70],
     ]);
   });
+
+  it('maps the original of two artwork products, the other one for a print with an alt code', () => {
+    const harpie = products('2/255').filter((p) => p.name.startsWith('Harpie Lady'));
+    expect(harpie.map((p) => p.name)).toEqual([
+      'Harpie Lady (Original Artwork)',
+      'Harpie Lady (New Artwork)',
+    ]);
+    const matches = matchProducts(harpie, [ygo('mrd', '008', 'Harpie Lady', 'common')], regional);
+    expect(matches).toEqual([
+      {
+        productId: 22062,
+        printId: 'mrd-008-common',
+        method: 'number_match',
+        confidence: 65,
+        artwork: true,
+      },
+    ]);
+    // Yugipedia names the print's artwork (VB-106): the other product.
+    const alt = ygo('mrd', '008', 'Harpie Lady', 'common', 'AA');
+    expect(rows(matchProducts(harpie, [alt], regional))).toEqual([
+      ['mrd-008-common', 173924, 'number_match', 65],
+    ]);
+  });
+
+  it('takes the product with the print’s name over a misprint of the same number', () => {
+    // TCGplayer lists LOB-012 twice: Trial of Nightmare and its misprint Trial of Hell.
+    const trial = products('2/330-vb113').filter((p) => p.name.startsWith('Trial of'));
+    expect(
+      rows(matchProducts(trial, [ygo('lob', '012', 'Trial of Nightmare', 'common')], regional)),
+    ).toEqual([['lob-012-common', 22539, 'number_match', 70]]);
+  });
 });

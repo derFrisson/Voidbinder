@@ -170,8 +170,16 @@ export async function importGroups(
       const candidates = await candidatePrints(db, [setId], byId ? productIds : []);
       // A product may price several prints (Yu-Gi-Oh! regional prints, VB-110).
       const matches = new Map<number, ProductMatch[]>();
-      for (const m of matchProducts(products, candidates, { byId, regional: game === 'yugioh' }))
+      for (const m of matchProducts(products, candidates, { byId, regional: game === 'yugioh' })) {
         matches.set(m.productId, [...(matches.get(m.productId) ?? []), m]);
+        if (m.artwork)
+          log('info', {
+            message: 'artwork variant picked',
+            game,
+            productId: m.productId,
+            printId: m.printId,
+          });
+      }
       const finish = (p: TcgPrice) =>
         matches.get(p.productId)?.[0]?.finish ?? finishOf(p.subTypeName);
       const mappings: MappingRow[] = prices.flatMap((p) =>

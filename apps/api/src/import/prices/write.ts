@@ -81,6 +81,7 @@ export async function candidatePrints(
       name: cards.name,
       tcgplayer,
       tcgplayerEtched: sql<string | null>`${prints.externalIds} ->> 'tcgplayer_etched'`,
+      artwork: sql<string | null>`${prints.externalIds} -> 'artwork' ->> 'alt'`,
     })
     .from(prints)
     .innerJoin(cards, eq(cards.id, prints.cardId))
