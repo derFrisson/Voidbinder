@@ -1,6 +1,7 @@
 import type { BlobStore } from '@voidbinder/core';
 import { log } from '../../middleware/log';
 import { runScryfallPrices } from '../prices/scryfall';
+import { purgeEdgeCache, type EdgeCacheDeps } from '../util';
 import {
   bulkFiles,
   chunkKey,
@@ -32,7 +33,7 @@ import {
 /** Objects per chunk and per Workflow step (~10 MB of JSON, four transactions of 500). */
 export const CHUNK_LINES = 2000;
 
-export interface ImportDeps {
+export interface ImportDeps extends EdgeCacheDeps {
   fetch: Fetch;
   /** The private `RAW` bucket: the raw dumps (`raw/…`) and a run's chunks (`work/…`). */
   raw: BlobStore;
@@ -170,6 +171,8 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
       },
     );
   }
+  // One wait and one purge for both runs; a failed price run still changed the catalog.
+  await purgeEdgeCache(deps, step, ['catalog', 'prices']);
   // The run is finished: a failed cleanup leaves chunks behind, never a failed run.
   try {
     await step('clean up chunks', () => deletePrefix(deps.raw, work));

@@ -7,6 +7,7 @@ import {
 } from 'cloudflare:workers';
 import { runTcgdexImport, type ImportOptions } from '../import/tcgdex/pipeline';
 import { tcgdexImportDeps } from '../platform/cloudflare';
+import { edgeCacheDeps } from '../platform/cloudflare/cache';
 
 /** Every step: three retries with backoff; a chunk of cards takes about half a minute. */
 const STEP = {
@@ -30,7 +31,7 @@ export interface TcgdexImportParams {
 export class TcgdexImportWorkflow extends WorkflowEntrypoint<Env, TcgdexImportParams> {
   override async run(event: WorkflowEvent<TcgdexImportParams>, step: WorkflowStep) {
     const { runId, stats } = await runTcgdexImport(
-      tcgdexImportDeps(this.env),
+      { ...tcgdexImportDeps(this.env), ...edgeCacheDeps(step) },
       // Every step result is plain JSON (counts, ids); Workflows persists it.
       (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
       {

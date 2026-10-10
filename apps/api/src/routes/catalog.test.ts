@@ -288,7 +288,10 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     it('is cached like the catalog', async () => {
       const res = await app.request('/catalog/search?q=adeline');
-      expect(res.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+      expect(res.headers.get('Cache-Control')).toBe(
+        'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
+      );
+      expect(res.headers.get('Cache-Tag')).toBe('catalog,prices');
       expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
     });
 
@@ -353,8 +356,20 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
   });
 
   it('answers with cache headers, an ETag per catalog_version and 304 on a match', async () => {
-    const first = await app.request('/catalog/sets/mtg/mid');
-    expect(first.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+    const first = await app.request('/catalog/sets/mtg/mid', {
+      headers: { Origin: 'https://app.example.test' },
+    });
+    // The edge keys on Vary: an entry filled without Origin (curl, SSR) has no ACAO for the app.
+    expect(first.headers.get('Access-Control-Allow-Origin')).toBe('https://app.example.test');
+    expect(first.headers.get('Vary')).toMatch(/\bOrigin\b/);
+    expect(first.headers.get('Cache-Control')).toBe(
+      'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
+    );
+    // Workers Caching reads its own header (s-maxage would switch off stale-while-revalidate).
+    expect(first.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
+      'public, max-age=600, stale-while-revalidate=600',
+    );
+    expect(first.headers.get('Cache-Tag')).toBe('catalog,prices');
     const etag = first.headers.get('ETag') ?? '';
     expect(etag).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
 
@@ -377,5 +392,13 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     const missing = await app.request('/catalog/sets/mtg/xyz');
     expect(missing.headers.get('Cache-Control')).toBe('no-store');
+    expect(missing.headers.get('Cache-Tag')).toBeNull();
+  });
+
+  it('keeps an unvalidated ?game= out of the Cache-Tag header', async () => {
+    // A newline in a header value throws after the handler ran; the tags come from the path only.
+    const res = await app.request(`/catalog/cards/${await cardId('Plains')}?game=x%0Ay`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Tag')).toBe('catalog,prices');
   });
 });

@@ -63,7 +63,13 @@ describe('GET /catalog/modules', () => {
       'modules/dev/pokemon/manifest.json',
       'modules/dev/yugioh/manifest.json',
     ]);
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
+    );
+    expect(res.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
+      'public, max-age=600, stale-while-revalidate=600',
+    );
+    expect(res.headers.get('Cache-Tag')).toBe('modules');
     const etag = res.headers.get('ETag');
     expect(etag).toMatch(/^"v42-[0-9a-f]{32}"$/);
     const again = await api.request('/catalog/modules', {

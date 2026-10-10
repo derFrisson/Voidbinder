@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runTcgcsvImport } from '../import/prices/pipeline';
 import { tcgcsvImportDeps } from '../platform/cloudflare';
+import { edgeCacheDeps } from '../platform/cloudflare/cache';
 
 /** Every step: three retries with backoff; a step is 25 groups, about 50 small requests. */
 const STEP = {
@@ -21,7 +22,7 @@ const STEP = {
 export class TcgcsvImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
     return runTcgcsvImport(
-      tcgcsvImportDeps(this.env),
+      { ...tcgcsvImportDeps(this.env), ...edgeCacheDeps(step) },
       (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
       { env: this.env.IMPORT_ENV, date: event.timestamp.toISOString().slice(0, 10) },
     );
