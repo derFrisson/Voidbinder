@@ -413,6 +413,8 @@ export const de = {
       commander_invalid: '{name} kann kein Commander sein.',
       colour_identity: '{name} passt nicht zur Farbidentität des Commanders.',
       no_basic_pokemon: 'Das Deck braucht mindestens ein Basis-Pokémon.',
+      too_many_ace_spec: '{count} ASS-KLASSE-Karten, höchstens eine erlaubt.',
+      too_many_radiant: '{count} Strahlende Pokémon, höchstens eines erlaubt.',
     },
     groups: {
       monster: 'Monster',

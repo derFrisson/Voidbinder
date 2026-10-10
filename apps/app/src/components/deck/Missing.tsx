@@ -124,7 +124,9 @@ export function Missing({ deck }: { deck: DeckDetail }) {
                 label={copied ? `✓ ${n.copied}` : n.copy}
                 onPress={() =>
                   void copyText(
-                    deckText(missing.map((m) => ({ quantity: m.needed - m.owned, name: m.name }))),
+                    deckText(
+                      missing.map((m) => ({ quantity: m.needed - m.owned, name: m.englishName })),
+                    ),
                   ).then(setCopied)
                 }
               />

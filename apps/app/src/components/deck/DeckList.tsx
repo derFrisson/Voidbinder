@@ -207,13 +207,10 @@ export function DeckList({
   deck,
   zone,
   onQuantity,
-  copyLimit,
 }: {
   deck: DeckDetail;
   zone: DeckZone;
   onQuantity: (entry: DeckEntry, quantity: number) => void;
-  /** Copies of a name the + allows; Infinity where the game has exceptions (basic lands). */
-  copyLimit: number;
 }) {
   const t = useT();
   const entries = deck.entries.filter((e) => e.zone === zone);
@@ -242,7 +239,8 @@ export function DeckList({
                 key={e.cardId}
                 deck={deck}
                 entry={e}
-                canAdd={copies(e.name) < copyLimit}
+                // The format's limit per name (basic lands none, a limited card one, …).
+                canAdd={e.limit === null || copies(e.name) < e.limit}
                 onQuantity={(q) => onQuantity(e, q)}
               />
             ))}

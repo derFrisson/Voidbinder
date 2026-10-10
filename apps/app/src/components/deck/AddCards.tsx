@@ -11,18 +11,16 @@ import { usePalette } from '../palette';
 /**
  * "Karten hinzufügen": the catalog search (VB-35's `GET /catalog/search`) in the deck's game, as
  * you type (250 ms after the last key, from two letters). + adds one copy of the hit's card, with
- * the hit as preferred print, to the zone the list shows.
+ * the hit as preferred print, to the zone the list shows (`onAdd` may pick another one).
  */
 export function AddCards({
   deck,
   zone,
   onAdd,
-  copyLimit,
 }: {
   deck: DeckDetail;
   zone: DeckZone;
   onAdd: (hit: SearchHit) => void;
-  copyLimit: number;
 }) {
   const t = useT();
   const locale = useLocale();
@@ -65,7 +63,9 @@ export function AddCards({
         <View role="list" className={search.isPlaceholderData ? 'opacity-60' : ''}>
           {hits.map((hit) => {
             const n = inDeck(hit.cardId);
-            const full = n >= copyLimit;
+            // The format's limit of a card already in the deck (Yu-Gi-Oh!'s ban list too).
+            const limit = deck.entries.find((e) => e.cardId === hit.cardId)?.limit ?? null;
+            const full = limit !== null && n >= limit;
             const thumb = { imageUrl: hit.imageUrl, game: deck.game } as EntryPrint;
             return (
               <View
@@ -101,7 +101,7 @@ export function AddCards({
                   role="button"
                   aria-label={
                     full
-                      ? `${fmt(a.add, { name: hit.name })}. ${fmt(a.limit, { limit: copyLimit })}`
+                      ? `${fmt(a.add, { name: hit.name })}. ${fmt(a.limit, { limit: limit ?? 0 })}`
                       : fmt(a.add, { name: hit.name })
                   }
                   aria-disabled={full}

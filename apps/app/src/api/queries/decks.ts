@@ -4,9 +4,8 @@ import type {
   DeckEntry,
   DeckEntryInput,
   MissingCard,
-  UpdateDeckRequest,
 } from '@voidbinder/shared/api';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../client';
 import { collectionKey } from './collection';
 import { read, retry } from './http';
@@ -43,26 +42,6 @@ export function useCreateDeck() {
   });
 }
 
-export function useUpdateDeck(id: string) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (json: UpdateDeckRequest) => read(api.decks[':id'].$patch({ param: { id }, json })),
-    onSuccess: (deck) => client.setQueryData(deckKey(id), deck),
-    onSettled: () => client.invalidateQueries({ queryKey: [...decksKey, 'list'] }),
-  });
-}
-
-export function useDeleteDeck() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const res = await api.decks[':id'].$delete({ param: { id } });
-      if (!res.ok) throw new Error(`API ${res.status}`);
-    },
-    onSettled: () => client.invalidateQueries({ queryKey: decksKey }),
-  });
-}
-
 /** The list the API takes, from the entries the deck shows. */
 export const toInput = (entries: readonly DeckEntry[]): DeckEntryInput[] =>
   entries.map((e) => ({
@@ -72,35 +51,44 @@ export const toInput = (entries: readonly DeckEntry[]): DeckEntryInput[] =>
     quantity: e.quantity,
   }));
 
+/** A change to the deck's list, as a function of the list (adds and steps relative to it). */
+export type EntriesUpdate = (entries: DeckEntry[]) => DeckEntry[];
+
+const entriesKey = (id: string) => [...deckKey(id), 'entries'] as const;
+
 /**
- * Writes the deck's whole list. The new quantities show at once (the rules' verdict follows with
- * the answer) and go back when the API refuses. A line the deck had not got yet shows with the
- * answer.
+ * Changes the deck's list and writes it whole. The writes of a deck queue (`scope`) and each
+ * change runs on the newest answer when its turn comes, so two quick adds both land; until then
+ * `useDeckEntries` shows the list with the pending changes on top, and a refused one drops out.
  */
 export function usePutEntries(id: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (entries: DeckEntryInput[]) =>
-      read(api.decks[':id'].entries.$put({ param: { id }, json: { entries } })),
-    onMutate: async (entries) => {
-      await client.cancelQueries({ queryKey: deckKey(id) });
-      const before = client.getQueryData<DeckDetail>(deckKey(id));
-      if (before) {
-        const next = new Map(entries.map((e) => [`${e.cardId}:${e.zone}`, e.quantity]));
-        client.setQueryData<DeckDetail>(deckKey(id), {
-          ...before,
-          entries: before.entries.flatMap((e) => {
-            const quantity = next.get(`${e.cardId}:${e.zone}`);
-            return quantity ? [{ ...e, quantity }] : [];
-          }),
-        });
-      }
-      return { before };
+    mutationKey: entriesKey(id),
+    scope: { id: `deck-entries-${id}` },
+    mutationFn: (update: EntriesUpdate) => {
+      const deck = client.getQueryData<DeckDetail>(deckKey(id));
+      // Never write a list built on nothing: it would replace the deck's.
+      if (!deck) throw new Error('Deck not loaded');
+      return read(
+        api.decks[':id'].entries.$put({
+          param: { id },
+          json: { entries: toInput(update(deck.entries)) },
+        }),
+      );
     },
-    onError: (_e, _v, ctx) => ctx?.before && client.setQueryData(deckKey(id), ctx.before),
     onSuccess: (deck) => client.setQueryData(deckKey(id), deck),
-    onSettled: () => client.invalidateQueries({ queryKey: [...decksKey, 'list'] }),
+    onSettled: () => void client.invalidateQueries({ queryKey: [...decksKey, 'list'] }),
   });
+}
+
+/** The deck's lines as they show: the API's answer with the pending changes applied in order. */
+export function useDeckEntries(id: string, entries: DeckEntry[]): DeckEntry[] {
+  const pending = useMutationState({
+    filters: { mutationKey: entriesKey(id), status: 'pending' },
+    select: (m) => m.state.variables as EntriesUpdate,
+  });
+  return pending.reduce((list, update) => update(list), entries);
 }
 
 /**

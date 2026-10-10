@@ -396,6 +396,8 @@ export const en: Dict = {
       commander_invalid: '{name} cannot be a commander.',
       colour_identity: "{name} is outside the commander's colour identity.",
       no_basic_pokemon: 'The deck needs at least one Basic Pokémon.',
+      too_many_ace_spec: '{count} ACE SPEC cards, at most one allowed.',
+      too_many_radiant: '{count} Radiant Pokémon, at most one allowed.',
     },
     groups: {
       monster: 'Monsters',

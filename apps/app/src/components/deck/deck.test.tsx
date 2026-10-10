@@ -1,12 +1,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, renderHook, screen, waitFor, within } from '@testing-library/react';
-import type { DeckDetail, DeckEntry, DecksResponse } from '@voidbinder/shared/api';
+import type { DeckDetail, DeckEntry, DeckEntryInput, DecksResponse } from '@voidbinder/shared/api';
 import { router, useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, renderApp, signedIn, type Call } from '../../../test/fake-api';
 import { setFetch } from '../../../test/fetch';
-import { useDeck, usePutEntries, useWishMissing } from '../../api/queries/decks';
+import { useDeck, useDeckEntries, usePutEntries, useWishMissing } from '../../api/queries/decks';
 import DeckPage from '../../app/(protected)/decks/[id]';
 import Decks from '../../app/(protected)/decks/index';
 import { de } from '../../i18n/de';
@@ -37,6 +37,7 @@ const line = (n: number, extra: Partial<DeckEntry>): DeckEntry => ({
   stat: { kind: 'level', value: 4 },
   print: { id: pid(n), setCode: 'lob', number: `EN00${n}`, imageUrl: null },
   owned: 3,
+  limit: 3,
   price: eur(100),
   ...extra,
 });
@@ -82,6 +83,7 @@ const deck: DeckDetail = {
       {
         cardId: id(2),
         name: 'Schleierorakel',
+        englishName: 'Veil Oracle',
         printId: pid(2),
         setCode: 'lob',
         number: 'EN002',
@@ -95,6 +97,7 @@ const deck: DeckDetail = {
       {
         cardId: id(4),
         name: 'Glasflügel-Drache',
+        englishName: 'Glass Wing Dragon',
         printId: pid(4),
         setCode: 'lob',
         number: 'EN004',
@@ -152,14 +155,46 @@ const search = {
       setCode: 'lob',
       setName: 'Legend of Blue Eyes',
     },
+    {
+      id: pid(6),
+      cardId: id(6),
+      number: 'EN006',
+      variant: '',
+      name: 'Nebeldrache',
+      rarity: 'Ultra Rare',
+      finishes: ['normal'],
+      imageUrl: null,
+      marketPrice: null,
+      typeLine: 'Synchro Effect Monster',
+      game: 'yugioh',
+      setCode: 'lob',
+      setName: 'Legend of Blue Eyes',
+    },
   ],
   page: 1,
   pageSize: 30,
-  total: 2,
+  total: 3,
 };
 
+/** A PUT's answer: the deck with the lines it was sent (known ones as they were, new ones plain). */
+const echo = (c: Call) =>
+  json({
+    ...deck,
+    entries: (c.body as { entries: DeckEntryInput[] }).entries.map((e) => {
+      const known = deck.entries.find((d) => d.cardId === e.cardId && d.zone === e.zone);
+      return known
+        ? { ...known, quantity: e.quantity }
+        : line(9, {
+            cardId: e.cardId,
+            printId: e.printId ?? null,
+            zone: e.zone,
+            quantity: e.quantity,
+          });
+    }),
+  });
+
 /** The deck routes of the fake API; PUT answers the deck with the entries it was sent. */
-function deckApi(put: (call: Call) => Response = () => json(deck)) {
+function deckApi(put: (call: Call) => Response = echo) {
   return fakeApi(signedIn, (c) => {
     if (c.method === 'GET' && c.path.startsWith(`/decks/${DECK}`)) return json(deck);
     if (c.method === 'PUT' && c.path === `/decks/${DECK}/entries`) return put(c);
@@ -199,27 +234,35 @@ describe('deck helpers', () => {
 });
 
 describe('deck hooks', () => {
-  it('usePutEntries shows a new quantity at once and rolls it back when the API refuses', async () => {
+  it('usePutEntries shows a change at once and drops it when the API refuses', async () => {
     let answer: (r: Response) => void = () => undefined;
     setFetch(async (input, init) => {
       const req = new Request(input, init);
       if (req.method === 'PUT') return new Promise<Response>((resolve) => (answer = resolve));
       return json(deck);
     });
-    const { result } = renderHook(() => ({ deck: useDeck(DECK), put: usePutEntries(DECK) }), {
-      wrapper,
-    });
-    await waitFor(() => expect(result.current.deck.data?.entries[0]?.quantity).toBe(3));
-    result.current.put.mutate([
-      { cardId: id(1), printId: null, zone: 'main', quantity: 1 },
-      { cardId: id(3), printId: null, zone: 'main', quantity: 3 },
-    ]);
-    await waitFor(() => expect(result.current.deck.data?.entries[0]?.quantity).toBe(1));
+    const { result } = renderHook(
+      () => {
+        const query = useDeck(DECK);
+        return {
+          entries: useDeckEntries(DECK, query.data?.entries ?? []),
+          put: usePutEntries(DECK),
+        };
+      },
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.entries[0]?.quantity).toBe(3));
+    result.current.put.mutate((list) =>
+      list.flatMap((e) =>
+        e.cardId === id(1) ? [{ ...e, quantity: 1 }] : e.cardId === id(3) ? [e] : [],
+      ),
+    );
+    await waitFor(() => expect(result.current.entries[0]?.quantity).toBe(1));
     // Lines left out disappear at once.
-    expect(result.current.deck.data?.entries.map((e) => e.cardId)).toEqual([id(1), id(3)]);
+    expect(result.current.entries.map((e) => e.cardId)).toEqual([id(1), id(3)]);
     answer(json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500));
     await waitFor(() => expect(result.current.put.isError).toBe(true));
-    expect(result.current.deck.data?.entries).toHaveLength(4);
+    expect(result.current.entries).toHaveLength(4);
   });
 
   it('useWishMissing adds one wish per missing card and takes "already wished" as done', async () => {
@@ -318,6 +361,51 @@ describe('deck screen', () => {
         .getByRole('button', { name: /^Nebelwächter hinzufügen/ })
         .getAttribute('aria-disabled'),
     ).toBe('true');
+  });
+
+  it('lands two quick adds, and an Extra Deck monster in the extra deck', async () => {
+    const calls = deckApi();
+    renderApp(<DeckPage />);
+    fireEvent.change(await screen.findByLabelText('Karte suchen'), {
+      target: { value: 'nebel' },
+    });
+    const addHit = await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' });
+    fireEvent.click(addHit);
+    fireEvent.click(addHit);
+    fireEvent.click(screen.getByRole('button', { name: 'Nebeldrache hinzufügen' }));
+    await waitFor(() => expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(3));
+    const last = putBody(calls);
+    expect(last).toContainEqual({ cardId: id(5), printId: pid(5), zone: 'main', quantity: 2 });
+    expect(last).toContainEqual({ cardId: id(6), printId: pid(6), zone: 'extra', quantity: 1 });
+    expect(last).toHaveLength(6);
+  });
+
+  it('stops the + at the ban list limit of a card', async () => {
+    const limited = {
+      ...deck,
+      entries: [
+        line(1, { name: 'Limitiert', quantity: 1, limit: 1 }),
+        line(2, { name: 'Frei', quantity: 1 }),
+      ],
+    };
+    fakeApi(signedIn, (c) => (c.path.startsWith(`/decks/${DECK}`) ? json(limited) : undefined));
+    renderApp(<DeckPage />);
+    const more = await screen.findByRole('button', { name: 'Limitiert: eins mehr' });
+    expect(more.getAttribute('aria-disabled')).toBe('true');
+    expect(
+      screen.getByRole('button', { name: 'Frei: eins mehr' }).getAttribute('aria-disabled'),
+    ).not.toBe('true');
+  });
+
+  it('copies the missing cards with their English names', async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    deckApi();
+    renderApp(<DeckPage />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Als Text kopieren' }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith('1 Veil Oracle\n1 Glass Wing Dragon'),
+    );
   });
 
   it('puts the missing cards on the wish list', async () => {
