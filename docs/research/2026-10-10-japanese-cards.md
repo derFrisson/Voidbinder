@@ -112,7 +112,12 @@ db.ygoresources.com `/data/card/4041` and `/data/idx/card/name/ja`; dev: Yu-Gi-O
   card, but presents itself as "access to KONAMI's database" and states no license; the official
   Konami database has no API and is not scraped. YGOPRODeck's `cardsetsinfo` covers TCG sets only.
 - **Images.** None. Yugipedia's card images are scans uploaded under fair use, not CC BY-SA, and
-  YGOPRODeck has TCG images only. An OCG print shows the card's existing (English) artwork image.
+  YGOPRODeck has TCG images only. A new OCG print row has no image key and no source URL, and
+  `imageUrl` looks only at the print's own key and its localization's, so as the code stands it
+  would show no image: the English art lives on the TCG print rows, not on the card. Step 5 adds
+  the fallback: the three queries that call `imageUrl` (set page, card page, search) take the image
+  of another print of the same card (a lateral pick by `card_id`, one print with an image key) when
+  the print has none. An OCG-only card has no other print and stays without an image.
 - **Prices.** None: TCGCSV has no OCG category (`/tcgplayer/categories`: 1 Magic, 2 YuGiOh,
   3 Pokemon, 85 Pokemon Japan), and no other source we use carries OCG prices.
 
@@ -299,7 +304,8 @@ Each step is one PR and leaves `main` working.
 4. **Prices.** TCGCSV category 85 in the TCGCSV import, matched to `region = 'jp'` Pokémon sets by
    abbreviation (number match as today).
 5. **API and search.** `region` in `SetSummary` and `?region=` on the set list; the CJK branch of
-   `search` (above); tests on a Japanese fixture.
+   `search` (above); the image fallback to another print of the same card for prints without one
+   (OCG prints, see Images above); tests on a Japanese fixture and on an OCG print.
 6. **App.** Region chips on the Pokémon and Yu-Gi-Oh! set lists, `lang = 'ja'` default on Japanese
    sets, `ja` default language when collecting a Japanese print, CJK search through the API.
 7. **Offline modules.** `LANGS` gains `ja`, `sets` gains `region` (`SCHEMA_VERSION` 2,
