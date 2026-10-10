@@ -248,8 +248,8 @@ export async function writeArtworkFlags(
   rows: ArtworkFlag[],
   setId: string | null,
 ): Promise<number> {
-  // One per print: the first product's.
-  const unique = [...new Map(rows.map((r) => [r.printId, r])).values()];
+  // One per print: the first product's (a Map keeps the last of a key, so from the end).
+  const unique = [...new Map(rows.toReversed().map((r) => [r.printId, r])).values()];
   const artwork = sql`(${prints.externalIds} -> 'artwork')`;
   // What a stale flag leaves: the gallery's keys (its `url` only with its `file`).
   const left = sql`${artwork} - (array['alt', 'alt_source', 'tcgplayer_product']
