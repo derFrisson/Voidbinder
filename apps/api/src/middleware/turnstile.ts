@@ -11,6 +11,8 @@ const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const SITEVERIFY_TIMEOUT_MS = 5000;
 /** Where the widget's token travels: this header, or a field of the JSON body. */
 const TOKEN_FIELD = 'cf-turnstile-response';
+/** Siteverify codes that blame our configuration, not the user's token. */
+const OUR_FAULT = ['missing-input-secret', 'invalid-input-secret', 'internal-error'];
 
 /**
  * The Better Auth endpoints that create or mail something for an unauthenticated caller, as paths
@@ -60,7 +62,7 @@ async function tokenOf(req: Request): Promise<string | undefined> {
  * Checks the Turnstile token of the sign-up, reset-request and resend-verification endpoints
  * (`TURNSTILE_PATHS`, POST only) with Siteverify; everything else passes. A missing, wrong,
  * spent or expired token answers 400 `turnstile_failed`; a Siteverify that cannot be reached or
- * understood answers 503 `turnstile_unavailable`, never a silent pass.
+ * understood, or that rejects our secret, answers 503 `turnstile_unavailable`, never a silent pass.
  */
 export const requireTurnstile = (config: TurnstileConfig) =>
   createMiddleware<AppEnv>(async (c, next) => {
@@ -96,11 +98,21 @@ export const requireTurnstile = (config: TurnstileConfig) =>
       return deny(503, 'turnstile_unavailable', 'Verification is unavailable, try again');
     }
     if (result.success !== true) {
+      const codes = result['error-codes'];
+      // A missing or wrong secret fails every user alike: an outage, not a failed check.
+      if (Array.isArray(codes) && codes.some((code) => OUR_FAULT.includes(code))) {
+        log('error', {
+          requestId: c.var.requestId,
+          message: 'turnstile siteverify rejected our configuration',
+          codes,
+        });
+        return deny(503, 'turnstile_unavailable', 'Verification is unavailable, try again');
+      }
       // The codes say why (invalid-input-response, timeout-or-duplicate, ...); the token stays out.
       log('warn', {
         requestId: c.var.requestId,
         message: 'turnstile verification failed',
-        codes: result['error-codes'],
+        codes,
       });
       return deny(400, 'turnstile_failed', 'Turnstile verification failed');
     }

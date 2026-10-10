@@ -119,6 +119,18 @@ describe('requireTurnstile', () => {
     error.mockRestore();
   });
 
+  it('answers 503 and logs an error when Siteverify rejects our secret, not 400', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const code of ['missing-input-secret', 'invalid-input-secret', 'internal-error']) {
+      const { post } = setup(() => verdict(false, [code]));
+      const res = await post(SIGN_UP, { headers: { 'cf-turnstile-response': 'tok' } });
+      expect(res.status).toBe(503);
+      expect(await errorCode(res)).toBe('turnstile_unavailable');
+      expect(error).toHaveBeenLastCalledWith(expect.stringContaining(code));
+    }
+    error.mockRestore();
+  });
+
   it('covers the reset request and the verification resend, and only POST on those paths', async () => {
     const { post, app, fetchFn } = setup(() => verdict(false));
     for (const path of [

@@ -3,6 +3,8 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 
 const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const TIMEOUT_MS = 5000;
+/** Siteverify codes that blame our configuration, not the user's token. */
+const OUR_FAULT = ['missing-input-secret', 'invalid-input-secret', 'internal-error'];
 
 export interface TurnstileDeps {
   /** Worker secret `TURNSTILE_SECRET`. */
@@ -20,7 +22,8 @@ export function skipsTurnstile(secret: string | undefined, siteUrl: string): boo
 
 /**
  * Checks a widget token with Siteverify. `failed`: no token, or Cloudflare says no (wrong, spent
- * or expired); `unavailable`: Siteverify could not be reached or understood, which never passes.
+ * or expired); `unavailable`: Siteverify could not be reached or understood, or rejects our own
+ * secret, which never passes.
  */
 export async function verifyTurnstile(
   deps: TurnstileDeps,
@@ -40,8 +43,14 @@ export async function verifyTurnstile(
     if (!res.ok) throw new Error(`Siteverify answered ${res.status}`);
     const result = (await res.json()) as { success?: unknown; 'error-codes'?: unknown };
     if (result.success === true) return 'ok';
+    const codes = result['error-codes'];
+    // A missing or wrong secret fails every visitor alike: an outage, not a failed check.
+    if (Array.isArray(codes) && codes.some((code) => OUR_FAULT.includes(code))) {
+      console.error('[waitlist] turnstile siteverify rejected our configuration', codes);
+      return 'unavailable';
+    }
     // The codes say why (invalid-input-response, timeout-or-duplicate, ...); the token stays out.
-    console.warn('[waitlist] turnstile verification failed', result['error-codes']);
+    console.warn('[waitlist] turnstile verification failed', codes);
     return 'failed';
   } catch (err) {
     console.error('[waitlist] turnstile siteverify unavailable', err);

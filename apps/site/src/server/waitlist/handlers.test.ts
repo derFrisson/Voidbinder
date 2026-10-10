@@ -741,6 +741,19 @@ describe('Turnstile on POST /api/waitlist', () => {
     error.mockRestore();
   });
 
+  it('answers 503 and logs an error when Siteverify rejects our secret, not 400', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const code of ['missing-input-secret', 'invalid-input-secret', 'internal-error']) {
+      siteverify.mockResolvedValue(Response.json({ success: false, 'error-codes': [code] }));
+      const res = await handleSignup(jsonReq(withToken), deps);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ error: 'turnstile_unavailable' });
+      expect(error).toHaveBeenLastCalledWith(expect.any(String), [code]);
+    }
+    expect(repo.rows).toHaveLength(0);
+    error.mockRestore();
+  });
+
   it('does not ask Cloudflare about a honeypot hit or an invalid request', async () => {
     await handleSignup(jsonReq({ ...withToken, website: 'http://spam.example' }), deps);
     await handleSignup(jsonReq({ ...withToken, email: 'nope' }), deps);

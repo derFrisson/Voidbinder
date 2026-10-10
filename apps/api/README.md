@@ -203,10 +203,11 @@ request that fails it costs no database work) reads the widget's token from the
 `cf-turnstile-response` header (or a field of that name in the JSON body) and checks it with
 Cloudflare's Siteverify (`remoteip` = `cf-connecting-ip`):
 
-| Case                                          | Answer                                                                     |
-| --------------------------------------------- | -------------------------------------------------------------------------- |
-| token missing, wrong, spent or expired        | 400 `{ error: { code: "turnstile_failed", … } }`                           |
-| Siteverify unreachable, slow (5 s) or garbled | 503 `{ error: { code: "turnstile_unavailable", … } }`, never a silent pass |
+| Case                                                                                             | Answer                                                                              |
+| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| token missing, wrong, spent or expired                                                           | 400 `{ error: { code: "turnstile_failed", … } }`                                    |
+| Siteverify unreachable, slow (5 s) or garbled                                                    | 503 `{ error: { code: "turnstile_unavailable", … } }`, never a silent pass          |
+| Siteverify rejects our secret (`missing-input-secret`, `invalid-input-secret`, `internal-error`) | 503 `turnstile_unavailable`, logged at error level: an outage, not the user's fault |
 
 Only `POST` on those paths is checked; sign-in, the reset itself and everything else are not. The
 check is skipped when `TURNSTILE_SECRET` is Cloudflare's test secret **and** `IMPORT_ENV` is
