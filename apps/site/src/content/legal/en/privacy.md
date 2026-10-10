@@ -140,7 +140,7 @@ We send you mails that belong to the account: the link to confirm your email add
 
 What you create in the web app is stored with your account: your binders (name, game, order, colour), the entries of your collection (card and printing, quantity, language, condition, finish, purchase price and currency, note), your wishlist (card, quantity, wanted language, finish and minimum condition, maximum price, note) and your decks (name, game, format, description, cards). In addition, the times each item was created and last changed. The legal basis is Art. 6 (1) (b) GDPR. Only your account sees this data; we pass it on to no one.
 
-When you delete an entry, a binder or a deck, we remove its content at once. We keep only a deletion marker without content (which list and which ID) for at most 30 days, so that your other devices take over the deletion. Then the marker is removed too.
+When you delete an entry, a binder or a deck, we remove its content at once. We keep only a deletion marker without content (which list, which ID and when it was deleted) for at most 30 days, so that your other devices take over the deletion. Then the marker is removed too.
 
 ### Sync between devices
 
