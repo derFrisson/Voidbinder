@@ -3,6 +3,8 @@ import type {
   CardResponse,
   GameSummary,
   PrintResponse,
+  SearchQuery,
+  SearchResponse,
   SetPageQuery,
   SetPageResponse,
   SetSummary,
@@ -29,6 +31,8 @@ export interface CardStore {
   ): Promise<SetPageResponse | null>;
   getCard(id: string): Promise<CardResponse | null>;
   getPrint(id: string): Promise<PrintResponse | null>;
+  /** Full-text search over card and localized print names and texts (VB-35). */
+  search(query: SearchQuery, pageSize: number): Promise<SearchResponse>;
   /**
    * True while an import run of `source` is `running` and started less than 6 h ago (an older
    * one is taken as dead). Reads fresh, never from the catalog cache.

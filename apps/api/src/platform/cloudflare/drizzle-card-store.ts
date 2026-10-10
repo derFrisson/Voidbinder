@@ -7,6 +7,8 @@ import type {
   GameSummary,
   PrintDetail,
   PrintResponse,
+  SearchQuery,
+  SearchResponse,
   SetPageQuery,
   SetPageResponse,
   SetSummary,
@@ -43,6 +45,21 @@ const english = alias(printLocalizations, 'english');
 const RARITY_ORDER = sql`case ${prints.rarity} when 'common' then 0 when 'uncommon' then 1 when 'rare' then 2 when 'mythic' then 3 else 4 end`;
 /** Numeric part of a collector number ('12a' → 12), so 2 sorts before 10. */
 const NUMBER_ORDER = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int nulls last`;
+
+/**
+ * The text-search query for `q`: websearch syntax, and the last word as a prefix (`adel` finds
+ * Adeline) unless it is negated or inside an open quote.
+ */
+function searchTsQuery(q: string): SQL {
+  const m = /^(.*?)([\p{L}\p{N}]+)$/su.exec(q);
+  const head = m?.[1] ?? '';
+  const last = m?.[2];
+  if (!last || head.endsWith('-') || (head.match(/"/g)?.length ?? 0) % 2) {
+    return sql`websearch_to_tsquery('simple', ${q})`;
+  }
+  const prefix = sql`to_tsquery('simple', ${`${last}:*`})`;
+  return head.trim() ? sql`(websearch_to_tsquery('simple', ${head}) && ${prefix})` : prefix;
+}
 
 /**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
@@ -292,6 +309,100 @@ export class DrizzleCardStore implements CardStore {
         copyright: COPYRIGHT[card.game],
       }
     );
+  }
+
+  async search(query: SearchQuery, pageSize: number): Promise<SearchResponse> {
+    const tsq = searchTsQuery(query.q);
+    // Each branch uses its own GIN index (cards_search_idx, print_localizations_search_idx); an
+    // OR across both tables would scan cards. The search columns carry no weights, so a match in
+    // the name adds 1 to ts_rank, otherwise a card whose text repeats the word outranks the card
+    // named so. A print's best rank wins.
+    const hits = sql`(
+      select print_id, max(rank) as rank from (
+        select ${prints.id} as print_id,
+          ts_rank(${cards.search}, ${tsq}) + (to_tsvector('simple', ${cards.name}) @@ ${tsq})::int as rank
+        from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
+        where ${cards.search} @@ ${tsq}
+        union all
+        select ${printLocalizations.printId},
+          ts_rank(${printLocalizations.search}, ${tsq}) +
+            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int
+        from ${printLocalizations}
+        where ${printLocalizations.search} @@ ${tsq}
+      ) h group by print_id
+    ) hits`;
+    const filters: SQL[] = [sql`true`];
+    if (query.game) filters.push(sql`${sets.gameId} = ${query.game}`);
+    if (query.set) filters.push(sql`${sets.code} = ${query.set}`);
+    if (query.rarity) filters.push(sql`${prints.rarity} = ${query.rarity}`);
+    if (query.finish) filters.push(sql`${query.finish} = any(${prints.finishes})`);
+    const joins = sql`from ${hits}
+      join ${prints} on ${prints.id} = hits.print_id
+      join ${cards} on ${cards.id} = ${prints.cardId}
+      join ${sets} on ${sets.id} = ${prints.setId}`;
+    const where = sql.join(filters, sql` and `);
+    const name = sql`coalesce(localized.name, english.name, ${cards.name})`;
+
+    type Row = {
+      id: string;
+      card_id: string;
+      number: string;
+      variant: string;
+      name: string;
+      rarity: string | null;
+      finishes: string[];
+      image_key: string | null;
+      external_ids: Ids;
+      localized_image_key: string | null;
+      localized_ids: Ids | null;
+      game: Game;
+      set_code: string;
+      set_name: string;
+    };
+    const [count, rows] = await Promise.all([
+      this.catalog.execute<{ total: number }>(
+        sql`select count(*)::int as total ${joins} where ${where}`,
+      ),
+      this.catalog.execute<Row>(sql`
+        select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
+          ${name} as name, ${prints.rarity}, ${prints.finishes}, ${prints.imageKey} as image_key,
+          ${prints.externalIds} as external_ids, localized.image_key as localized_image_key,
+          localized.external_ids as localized_ids, ${sets.gameId} as game,
+          ${sets.code} as set_code, coalesce(set_l.name, ${sets.name}) as set_name
+        ${joins}
+        left join ${printLocalizations} localized
+          on localized.print_id = ${prints.id} and localized.lang = ${query.lang}
+        left join ${printLocalizations} english
+          on english.print_id = ${prints.id} and english.lang = 'en'
+        left join ${setLocalizations} set_l
+          on set_l.set_id = ${sets.id} and set_l.lang = ${query.lang}
+        where ${where}
+        order by hits.rank desc, ${name}, ${sets.releasedOn} desc nulls last, ${sets.code},
+          ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+        limit ${pageSize} offset ${(query.page - 1) * pageSize}`),
+    ]);
+    return {
+      prints: rows.rows.map((r) => ({
+        id: r.id,
+        cardId: r.card_id,
+        number: r.number,
+        variant: r.variant,
+        name: r.name,
+        rarity: r.rarity,
+        finishes: r.finishes,
+        imageUrl: this.imageUrl(
+          query.lang,
+          { imageKey: r.localized_image_key, externalIds: r.localized_ids },
+          { imageKey: r.image_key, externalIds: r.external_ids },
+        ),
+        game: r.game,
+        setCode: r.set_code,
+        setName: r.set_name,
+      })),
+      page: query.page,
+      pageSize,
+      total: count.rows[0]?.total ?? 0,
+    };
   }
 
   async importRunning(source: string): Promise<boolean> {

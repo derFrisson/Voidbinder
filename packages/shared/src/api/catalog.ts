@@ -132,6 +132,41 @@ export const PrintResponseSchema = z.object({
 });
 export type PrintResponse = z.infer<typeof PrintResponseSchema>;
 
+/** Page size of `GET /catalog/search`. */
+export const SEARCH_PAGE_SIZE = 30;
+
+/** `GET /catalog/search?q=&game=&set=&rarity=&lang=&finish=&page=` (VB-35). Filters are exact. */
+export const SearchQuerySchema = z.object({
+  /** websearch syntax (`"exact phrase"`, `-not`, `or`); the last word matches as a prefix. */
+  q: z.string().trim().min(2).max(80),
+  game: GameSchema.optional(),
+  /** Set code, lowercase as in `/catalog/sets/:game/:code`. */
+  set: z.string().trim().toLowerCase().max(32).optional(),
+  rarity: z.string().max(32).optional(),
+  /** Language of the names; the app sends the user's. Names fall back to English. */
+  lang: LangSchema.default('en'),
+  finish: z.string().max(32).optional(),
+  page: z.coerce.number().int().min(1).max(10_000).default(1),
+});
+export type SearchQuery = z.infer<typeof SearchQuerySchema>;
+
+export const SearchHitSchema = PrintSummarySchema.extend({
+  game: GameSchema,
+  setCode: z.string(),
+  /** Set name in `?lang=`, falling back to English. */
+  setName: z.string(),
+});
+export type SearchHit = z.infer<typeof SearchHitSchema>;
+
+/** Prints whose card or localization matches, ranked by `ts_rank`, then by name. */
+export const SearchResponseSchema = z.object({
+  prints: z.array(SearchHitSchema),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  total: z.number().int(),
+});
+export type SearchResponse = z.infer<typeof SearchResponseSchema>;
+
 /** `POST /admin/import/scryfall`: 202 once the import Workflow is queued. */
 export const ImportStartedResponseSchema = z.object({ status: z.literal('started') });
 export type ImportStartedResponse = z.infer<typeof ImportStartedResponseSchema>;

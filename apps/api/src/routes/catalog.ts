@@ -1,12 +1,15 @@
 import { zValidator } from '@hono/zod-validator';
 import { GameSchema } from '@voidbinder/shared';
 import {
+  SEARCH_PAGE_SIZE,
+  SearchQuerySchema,
   SET_PAGE_SIZE,
   SetPageQuerySchema,
   SetsQuerySchema,
   type CardResponse,
   type GamesResponse,
   type PrintResponse,
+  type SearchResponse,
   type SetPageResponse,
   type SetsResponse,
 } from '@voidbinder/shared/api';
@@ -24,7 +27,10 @@ function found<T>(value: T | null, what: string): T {
   return value;
 }
 
-/** `GET /catalog/**`: games, sets, set pages, cards and prints (VB-26), cached per ADR 0004. */
+/**
+ * `GET /catalog/**`: games, sets, set pages, cards and prints (VB-26) and the search (VB-35),
+ * cached per ADR 0004.
+ */
 export function catalogRoutes() {
   return new Hono<AppEnv>()
     .use(catalogCache)
@@ -59,6 +65,13 @@ export function catalogRoutes() {
         return c.json(body, 200);
       },
     )
+    .get('/search', zValidator('query', SearchQuerySchema, throwOnInvalid), async (c) => {
+      const body: SearchResponse = await c.var.platform.cardStore.search(
+        c.req.valid('query'),
+        SEARCH_PAGE_SIZE,
+      );
+      return c.json(body, 200);
+    })
     .get('/cards/:id', zValidator('param', IdParam, throwOnInvalid), async (c) => {
       const card = await c.var.platform.cardStore.getCard(c.req.valid('param').id);
       const body: CardResponse = found(card, 'Card');
