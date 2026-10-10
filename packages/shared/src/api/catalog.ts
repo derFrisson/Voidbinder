@@ -168,7 +168,17 @@ export type PrintResponse = z.infer<typeof PrintResponseSchema>;
 /** Page size of `GET /catalog/search`. */
 export const SEARCH_PAGE_SIZE = 30;
 
-/** `GET /catalog/search?q=&game=&set=&rarity=&lang=&finish=&page=` (VB-35). Filters are exact. */
+/**
+ * Which names `q` matches (VB-79): `all` (every language's name and the English card name) or a
+ * language code, whose localized names alone then match (prints without one drop out). Set
+ * codes and numbers match either way.
+ */
+export const SearchNamesSchema = z.union([z.literal('all'), LangSchema]).default('all');
+
+/**
+ * `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` (VB-35). Filters are
+ * exact.
+ */
 export const SearchQuerySchema = z.object({
   /**
    * websearch syntax (`"exact phrase"`, `-not`, `or`); the last word matches as a prefix. A set
@@ -180,8 +190,9 @@ export const SearchQuerySchema = z.object({
   /** Set code, lowercase as in `/catalog/sets/:game/:code`. */
   set: z.string().trim().toLowerCase().max(32).optional(),
   rarity: z.string().max(32).optional(),
-  /** Language of the names; the app sends the user's. Names fall back to English. */
+  /** Language the names are shown in; the app sends the user's. Names fall back to English. */
   lang: LangSchema.default('en'),
+  names: SearchNamesSchema,
   finish: z.string().max(32).optional(),
   /** Picks the source of each hit's `marketPrice`, as on the set page. */
   currency: CurrencySchema.default('EUR'),

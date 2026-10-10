@@ -218,6 +218,22 @@ const fuzzyQuery = (q: string) => q.length >= 4;
 const prefixPattern = (q: string) => `${q.replace(/[\\%_]/g, '\\$&')}%`;
 
 /**
+ * The name filter of `?names=` (VB-79): `all` matches the English card name and every
+ * localization; a language its localizations alone (`localization` adds the language condition).
+ */
+function nameScope(names: string) {
+  const all = names === 'all';
+  return {
+    /** `branch union all` when the card name counts, else nothing. */
+    card: (branch: SQL) => (all ? sql`${branch} union all` : sql``),
+    // ponytail: `lang || ''` keeps the language off the primary key (print_id, lang); Postgres 18
+    // would skip-scan it and filter every name in that language instead of using the name's GIN
+    // index, then filter its few matches by language.
+    localization: all ? sql`` : sql`and ${printLocalizations.lang} || '' = ${names}`,
+  };
+}
+
+/**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
  * and other non-immutable functions, otherwise Hyperdrive does not cache them.
  */
@@ -581,28 +597,28 @@ export class DrizzleCardStore implements CardStore {
     // card named so. Code matches (codeHits) rank above them; names similar to `q` (pg_trgm `%`,
     // similarity 0.3 and up, so `Satelite` finds Satellite Warrior) answer only when neither finds
     // anything. A print's best rank wins.
+    const names = nameScope(query.names);
     const hits = sql`ts as (
-        select ${prints.id} as print_id,
+        ${names.card(sql`select ${prints.id} as print_id,
           ts_rank(${cards.search}, ${tsq}) + (to_tsvector('simple', ${cards.name}) @@ ${tsq})::int as rank
         from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
-        where ${cards.search} @@ ${tsq}
-        union all
-        select ${printLocalizations.printId},
+        where ${cards.search} @@ ${tsq}`)}
+        select ${printLocalizations.printId} as print_id,
           ts_rank(${printLocalizations.search}, ${tsq}) +
-            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int
+            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int as rank
         from ${printLocalizations}
-        where ${printLocalizations.search} @@ ${tsq}
+        where ${printLocalizations.search} @@ ${tsq} ${names.localization}
       ),
       code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
       fuzzy as (
-        select ${prints.id} as print_id, similarity(${cards.name}, ${query.q}) as rank
+        ${names.card(sql`select ${prints.id} as print_id, similarity(${cards.name}, ${query.q}) as rank
         from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
         where ${fuzzy} and ${cards.name} % ${query.q}
-          and not exists (select 1 from ts) and not exists (select 1 from code)
-        union all
-        select ${printLocalizations.printId}, similarity(${printLocalizations.name}, ${query.q})
+          and not exists (select 1 from ts) and not exists (select 1 from code)`)}
+        select ${printLocalizations.printId} as print_id,
+          similarity(${printLocalizations.name}, ${query.q}) as rank
         from ${printLocalizations}
-        where ${fuzzy} and ${printLocalizations.name} % ${query.q}
+        where ${fuzzy} and ${printLocalizations.name} % ${query.q} ${names.localization}
           and not exists (select 1 from ts) and not exists (select 1 from code)
       ),
       hits as (
@@ -735,21 +751,27 @@ export class DrizzleCardStore implements CardStore {
     const pattern = prefixPattern(query.q);
     const cardGame = query.game ? sql`and ${cards.gameId} = ${query.game}` : sql``;
     const setGame = query.game ? sql`and ${sets.gameId} = ${query.game}` : sql``;
-    /** Card ids with the name each matched by: the English card name or one in `lang`. */
+    const names = nameScope(query.names);
+    /** Card ids with the name each matched by, in the languages of `?names=`. */
     const named = (match: (name: SQLWrapper) => SQL) => sql`
-      select ${cards.id} as card_id, ${cards.name} as name from ${cards}
-      where ${match(cards.name)} ${cardGame}
-      union all
-      select ${prints.cardId}, ${printLocalizations.name} from ${printLocalizations}
+      ${names.card(sql`select ${cards.id} as card_id, ${cards.name} as name from ${cards}
+      where ${match(cards.name)} ${cardGame}`)}
+      select ${prints.cardId} as card_id, ${printLocalizations.name} as name
+      from ${printLocalizations}
       join ${prints} on ${prints.id} = ${printLocalizations.printId}
       join ${cards} on ${cards.id} = ${prints.cardId}
-      where ${printLocalizations.lang} = ${query.lang} and ${match(printLocalizations.name)} ${cardGame}`;
+      where ${match(printLocalizations.name)} ${names.localization} ${cardGame}`;
+    /** A print has a name in the one language of `?names=`. */
+    const hasName =
+      query.names === 'all'
+        ? sql``
+        : sql`and exists (select 1 from ${printLocalizations} where ${printLocalizations.printId} = ${prints.id} ${names.localization})`;
     /** The newest print of each card in `cte` (card_id, ord), as candidates of `tier`. */
     const newest = (cte: string, tier: number) => sql`
       select 'print' as kind, np.id, ${sql.raw(String(tier))} as tier, ${sql.raw(cte)}.ord
       from ${sql.raw(cte)} cross join lateral (
         select ${prints.id} as id from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
-        where ${prints.cardId} = ${sql.raw(cte)}.card_id
+        where ${prints.cardId} = ${sql.raw(cte)}.card_id ${hasName}
         order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
         limit 1
       ) np`;

@@ -42,18 +42,18 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 ## Catalog API
 
-| Route                                                             | Answer                                                                               |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `GET /catalog/games`                                              | Games with their set counts                                                          |
-| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                                          |
-| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price)              |
-| `GET /catalog/cards/:id?currency=`                                | Card, legalities and every print with localizations and `marketPrice`                |
-| `GET /catalog/prints/:id`                                         | One print with its card                                                              |
-| `GET /catalog/search?q=&game=&set=&rarity=&lang=&finish=&page=`   | 30 prints per page by name, text, set code and number (see Search)                   |
-| `GET /catalog/search/suggest?q=&game=&lang=`                      | Up to 8 prints and sets for the search box's typeahead (see Search)                  |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)                      |
-| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                               |
-| `GET /catalog/modules`                                            | Manifests of the offline catalog modules, one per game (see Offline catalog modules) |
+| Route                                                                  | Answer                                                                               |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET /catalog/games`                                                   | Games with their set counts                                                          |
+| `GET /catalog/games/:game/sets?lang=`                                  | Sets, newest first, with the name in `lang`                                          |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`      | Set header and 60 prints per page (`sort`: number, name, rarity, price)              |
+| `GET /catalog/cards/:id?currency=`                                     | Card, legalities and every print with localizations and `marketPrice`                |
+| `GET /catalog/prints/:id`                                              | One print with its card                                                              |
+| `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` | 30 prints per page by name, text, set code and number (see Search)                   |
+| `GET /catalog/search/suggest?q=&game=&lang=&names=`                    | Up to 8 prints and sets for the search box's typeahead (see Search)                  |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                     | Current prices, display price, condition estimates (see Prices)                      |
+| `GET /catalog/prints/:id/prices/history?days=`                         | Daily market prices per source and finish (see Prices)                               |
+| `GET /catalog/modules`                                                 | Manifests of the offline catalog modules, one per game (see Offline catalog modules) |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries
@@ -127,6 +127,13 @@ PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010
 
 - **Names and texts:** `websearch_to_tsquery('simple')` over `cards.search` and
   `print_localizations.search`, the last word as a prefix; a match in the name ranks first.
+- **Name languages (`names`):** `all` (the default) matches the English card and every
+  localization whatever `lang` is, so a German name finds its print while the names show in
+  English. A language code (`names=de`) matches only the localizations in it (name and text):
+  prints without one drop out, and the typeahead shows the newest print that has one. `lang`
+  stays the language the names are shown in. Set codes and numbers match either way. The
+  language is compared as `lang || ''`, so the planner keeps the GIN indexes on the name and
+  does not skip-scan the primary key `(print_id, lang)` for every name in that language.
 - **Set code and number:** the query loses spaces, `-`, `/`, `_` and `.` and goes lower case
   (`LDS3-EN121` → `lds3en121`). Every prefix of it is tried as a set code through
   `catalog_code_key` (lower case, letters and digits, no leading zeros in a digit run: `SV01` →
@@ -146,9 +153,10 @@ PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010
 answers `{ suggestions: [{ kind: 'print' | 'set', id, name, game, set: { code, name }, number?,
 variant?, rarity?, imageUrl?, cardId? }] }` (`packages/shared/src/api/search.ts`), at most 8, in
 this order: the exact code, other number forms and partial numbers, sets by code or name prefix,
-the first 3 prints of a set named by its code, cards whose name starts with `q` (in `lang` or
-English, shortest first), similar names. A name match shows the card's newest print. Both are
-cached like every catalog route; the typeahead embeds no price, so it is tagged `catalog` only.
+the first 3 prints of a set named by its code, cards whose name starts with `q` (in the
+languages of `names`, shortest first), similar names. A name match shows the card's newest print.
+Both are cached like every catalog route; the typeahead embeds no price, so it is tagged `catalog`
+only.
 
 ## Local development
 

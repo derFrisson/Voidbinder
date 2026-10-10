@@ -1,19 +1,20 @@
 import { z } from 'zod';
 import { GameSchema } from '../index.js';
-import { LangSchema } from './catalog.js';
+import { LangSchema, SearchNamesSchema } from './catalog.js';
 
 // Search typeahead (VB-79). The full search (`GET /catalog/search`) lives in catalog.ts.
 
 /** Most suggestions `GET /catalog/search/suggest` answers. */
 export const SUGGEST_LIMIT = 8;
 
-/** `GET /catalog/search/suggest?q=&game=&lang=` (VB-79): the typeahead of the search box. */
+/** `GET /catalog/search/suggest?q=&game=&lang=&names=` (VB-79): the typeahead of the search box. */
 export const SearchSuggestQuerySchema = z.object({
   /** A name, a set code (`lds3`), a set code and number (`LDS3-EN121`, `mid 123`) or `001/128`. */
   q: z.string().trim().min(2).max(64),
   game: GameSchema.optional(),
-  /** Language of the names; names fall back to English. */
+  /** Language the names are shown in; names fall back to English. */
   lang: LangSchema.default('en'),
+  names: SearchNamesSchema,
 });
 export type SearchSuggestQuery = z.infer<typeof SearchSuggestQuerySchema>;
 
