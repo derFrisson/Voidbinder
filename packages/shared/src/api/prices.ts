@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { CurrencySchema } from './me.js';
+import { CurrencySchema, LangSchema } from './me.js';
 
 // Prices (VB-30): integer cents with a currency on every value, never converted. Every response
 // carries the source and the time the source observed the price; condition values are estimates.
@@ -16,6 +16,8 @@ export const PriceSchema = z.object({
   /** Display name of the source, e.g. "Cardmarket (via Scryfall)". */
   sourceLabel: z.string(),
   finish: z.string(),
+  /** The language of the copies the price is for (VB-103). */
+  lang: z.string(),
   currency: CurrencySchema,
   market: z.number().int(),
   low: z.number().int().nullable(),
@@ -27,11 +29,14 @@ export type Price = z.infer<typeof PriceSchema>;
 
 /**
  * The price shown for a print: one source and finish, in that source's currency, with the time
- * the source observed it (`prices_current.observed_at`).
+ * the source observed it (`prices_current.observed_at`). `lang` is the language of the copies the
+ * price is for: the language asked for, else `en`, else another (VB-103), so the app can say when
+ * it differs from the card shown.
  */
 export const DisplayPriceSchema = z.object({
   source: PriceSourceSchema,
   finish: z.string(),
+  lang: z.string(),
   currency: CurrencySchema,
   cents: z.number().int(),
   observedAt: z.iso.datetime({ offset: true }),
@@ -46,18 +51,20 @@ export const ConditionEstimateSchema = z.object({
 });
 export type ConditionEstimate = z.infer<typeof ConditionEstimateSchema>;
 
-/** `GET /catalog/prints/:id/prices?currency=&finish=`. */
+/** `GET /catalog/prints/:id/prices?currency=&finish=&lang=`. */
 export const PricesQuerySchema = z.object({
   /** The user's currency: picks the display price's preferred source (EUR → Cardmarket). */
   currency: CurrencySchema.default('EUR'),
   /** Preferred finish of the display price; the print's `normal` (or first) otherwise. */
   finish: z.string().max(32).optional(),
+  /** The language of the card shown: per source and finish its price, else `en`, else another. */
+  lang: LangSchema.default('en'),
 });
 export type PricesQuery = z.infer<typeof PricesQuerySchema>;
 
 export const PrintPricesResponseSchema = z.object({
   printId: z.uuid(),
-  /** Every current price, per source and finish. */
+  /** Every current price, per source and finish, in `?lang=` (else `en`, else another). */
   prices: z.array(PriceSchema),
   /** null when the print has no price. */
   display: DisplayPriceSchema.nullable(),
@@ -67,12 +74,20 @@ export const PrintPricesResponseSchema = z.object({
 });
 export type PrintPricesResponse = z.infer<typeof PrintPricesResponseSchema>;
 
-/** `GET /catalog/prints/:id/prices/history?days=`. */
+/** `GET /catalog/prints/:id/prices/history?days=&lang=`. */
 export const PriceHistoryQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(3650).default(90),
+  /** Per source, finish and day the price in this language, else `en`, else another. */
+  lang: LangSchema.default('en'),
 });
+export type PriceHistoryQuery = z.infer<typeof PriceHistoryQuerySchema>;
 
-export const PricePointSchema = z.object({ date: z.iso.date(), cents: z.number().int() });
+/** One day's market price; `lang` is the language of the copies it is for (VB-103). */
+export const PricePointSchema = z.object({
+  date: z.iso.date(),
+  cents: z.number().int(),
+  lang: z.string(),
+});
 export type PricePoint = z.infer<typeof PricePointSchema>;
 
 /**

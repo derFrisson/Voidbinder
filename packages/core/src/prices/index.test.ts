@@ -12,6 +12,7 @@ const prices: PriceLike[] = [
   {
     source: 'tcgplayer',
     finish: 'normal',
+    lang: 'en',
     currency: 'USD',
     market: 120,
     observedAt: '2026-10-10T03:00:00.000Z',
@@ -19,6 +20,7 @@ const prices: PriceLike[] = [
   {
     source: 'cardmarket',
     finish: 'normal',
+    lang: 'en',
     currency: 'EUR',
     market: 95,
     observedAt: '2026-10-10T03:00:00.000Z',
@@ -26,6 +28,7 @@ const prices: PriceLike[] = [
   {
     source: 'tcgplayer_scryfall',
     finish: 'normal',
+    lang: 'en',
     currency: 'USD',
     market: 118,
     observedAt: '2026-10-10T03:00:00.000Z',
@@ -33,6 +36,7 @@ const prices: PriceLike[] = [
   {
     source: 'cardmarket',
     finish: 'foil',
+    lang: 'en',
     currency: 'EUR',
     market: 400,
     observedAt: '2026-10-10T03:00:00.000Z',
@@ -40,6 +44,7 @@ const prices: PriceLike[] = [
   {
     source: 'tcgplayer',
     finish: 'foil',
+    lang: 'en',
     currency: 'USD',
     market: 450,
     observedAt: '2026-10-10T03:00:00.000Z',
@@ -48,30 +53,34 @@ const prices: PriceLike[] = [
 
 describe('pickDisplayPrice', () => {
   it('prefers the source of the user’s currency, in its own currency', () => {
-    expect(pickDisplayPrice(prices, { currency: 'EUR' })).toEqual({
+    expect(pickDisplayPrice(prices, { currency: 'EUR', lang: 'en' })).toEqual({
       source: 'cardmarket',
       finish: 'normal',
+      lang: 'en',
       currency: 'EUR',
       cents: 95,
       observedAt: '2026-10-10T03:00:00.000Z',
     });
-    expect(pickDisplayPrice(prices, { currency: 'USD' })?.source).toBe('tcgplayer');
+    expect(pickDisplayPrice(prices, { currency: 'USD', lang: 'en' })?.source).toBe('tcgplayer');
   });
 
   it('falls back to another currency when the preferred source has no price', () => {
     const usdOnly = prices.filter((p) => p.currency === 'USD');
-    expect(pickDisplayPrice(usdOnly, { currency: 'EUR' })).toMatchObject({
+    expect(pickDisplayPrice(usdOnly, { currency: 'EUR', lang: 'en' })).toMatchObject({
       source: 'tcgplayer',
       currency: 'USD',
     });
   });
 
   it('picks the finish before the source: asked finish, normal, the print’s finishes', () => {
-    expect(pickDisplayPrice(prices, { currency: 'USD', finish: 'foil' })?.cents).toBe(450);
+    expect(pickDisplayPrice(prices, { currency: 'USD', lang: 'en', finish: 'foil' })?.cents).toBe(
+      450,
+    );
     const holoOnly: PriceLike[] = [
       {
         source: 'tcgplayer',
         finish: 'reverse',
+        lang: 'en',
         currency: 'USD',
         market: 30,
         observedAt: '2026-10-10T03:00:00.000Z',
@@ -79,36 +88,80 @@ describe('pickDisplayPrice', () => {
       {
         source: 'tcgplayer',
         finish: 'holo',
+        lang: 'en',
         currency: 'USD',
         market: 80,
         observedAt: '2026-10-10T03:00:00.000Z',
       },
     ];
     expect(
-      pickDisplayPrice(holoOnly, { currency: 'EUR', finishes: ['holo', 'reverse'] })?.finish,
+      pickDisplayPrice(holoOnly, { currency: 'EUR', lang: 'en', finishes: ['holo', 'reverse'] })
+        ?.finish,
     ).toBe('holo');
-    expect(pickDisplayPrice(holoOnly, { currency: 'EUR', finish: 'etched' })?.finish).toBe('holo');
-    expect(pickDisplayPrice([], { currency: 'EUR' })).toBeNull();
+    expect(
+      pickDisplayPrice(holoOnly, { currency: 'EUR', lang: 'en', finish: 'etched' })?.finish,
+    ).toBe('holo');
+    expect(pickDisplayPrice([], { currency: 'EUR', lang: 'en' })).toBeNull();
+  });
+
+  it('prefers the language shown, then English, then any, before the source', () => {
+    const row = (source: PriceSource, lang: string, market: number, finish = 'normal') => ({
+      source,
+      finish,
+      lang,
+      currency: source === 'cardmarket' ? ('EUR' as const) : ('USD' as const),
+      market,
+      observedAt: '2026-10-10T03:00:00.000Z',
+    });
+    const rows = [
+      row('cardmarket', 'en', 95),
+      row('cardmarket', 'de', 140),
+      row('tcgplayer', 'en', 120),
+      row('cardmarket', 'ja', 300),
+      row('cardmarket', 'de', 500, 'foil'),
+    ];
+    expect(pickDisplayPrice(rows, { currency: 'EUR', lang: 'de' })).toMatchObject({
+      lang: 'de',
+      cents: 140,
+    });
+    // A German copy's price wins over the currency's source in English.
+    expect(pickDisplayPrice(rows, { currency: 'USD', lang: 'de' })).toMatchObject({
+      source: 'cardmarket',
+      lang: 'de',
+    });
+    expect(pickDisplayPrice(rows, { currency: 'USD', lang: 'fr' })).toMatchObject({
+      source: 'tcgplayer',
+      lang: 'en',
+    });
+    // Neither the language nor English: any, by source, then by language code.
+    const others = rows.filter((r) => r.lang !== 'en');
+    expect(pickDisplayPrice(others, { currency: 'EUR', lang: 'fr' })).toMatchObject({ lang: 'de' });
+    // The finish comes first: a foil asked for is the German foil, whatever the language shown.
+    expect(pickDisplayPrice(rows, { currency: 'EUR', lang: 'en', finish: 'foil' })).toMatchObject({
+      lang: 'de',
+      cents: 500,
+    });
   });
 
   it('follows the API finishRank: listed finish, then unlisted ones alphabetically', () => {
     const row = (source: PriceSource, finish: string): PriceLike => ({
       source,
       finish,
+      lang: 'en',
       currency: 'EUR',
       market: 10,
       observedAt: '2026-10-10T03:00:00.000Z',
     });
     // print lists only holo: holo beats the cheaper-by-source normal row
     const holoAndNormal = [row('cardmarket', 'normal'), row('tcgplayer', 'holo')];
-    expect(pickDisplayPrice(holoAndNormal, { currency: 'EUR', finishes: ['holo'] })?.finish).toBe(
-      'holo',
-    );
+    expect(
+      pickDisplayPrice(holoAndNormal, { currency: 'EUR', lang: 'en', finishes: ['holo'] })?.finish,
+    ).toBe('holo');
     // only unlisted finishes: alphabetical (first_edition < reverse), not the source's pick
     const unlisted = [row('cardmarket', 'reverse'), row('tcgplayer', 'first_edition')];
-    expect(pickDisplayPrice(unlisted, { currency: 'EUR', finishes: ['normal'] })?.finish).toBe(
-      'first_edition',
-    );
+    expect(
+      pickDisplayPrice(unlisted, { currency: 'EUR', lang: 'en', finishes: ['normal'] })?.finish,
+    ).toBe('first_edition');
   });
 });
 

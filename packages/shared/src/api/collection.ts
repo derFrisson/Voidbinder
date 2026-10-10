@@ -100,6 +100,8 @@ export type EntryPrint = z.infer<typeof EntryPrintSchema>;
 export const EntryPriceSchema = z.object({
   source: PriceSourceSchema,
   finish: z.string(),
+  /** The language of the copies the price is for: the entry's, else `en`, else another (VB-103). */
+  lang: z.string(),
   currency: CurrencySchema,
   /** Near-mint market price. */
   marketCents: z.number().int(),

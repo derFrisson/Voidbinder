@@ -1,16 +1,15 @@
 import { z } from 'zod';
 import { CardFormatSchema, GameSchema } from '../index.js';
-import { CurrencySchema } from './me.js';
+import { CurrencySchema, LangSchema } from './me.js';
 import { DisplayPriceSchema } from './prices.js';
+
+export { LangSchema };
 
 // Catalog read API (`/catalog/**`, VB-26). Every response carries an ETag that includes the
 // catalog_version (ADR 0004).
 
 /** Page size of `GET /catalog/sets/:game/:code`. */
 export const SET_PAGE_SIZE = 60;
-
-/** A source language code (`en`, `de`, `ja`, `zhs`, …). */
-export const LangSchema = z.string().regex(/^[a-z]{2,3}$/);
 
 export const GameSummarySchema = z.object({
   id: GameSchema,
@@ -172,6 +171,8 @@ export type PrintDetail = z.infer<typeof PrintDetailSchema>;
 export const CardQuerySchema = z.object({
   /** Picks the source of each print's `marketPrice`, as on the set page. */
   currency: CurrencySchema.default('EUR'),
+  /** The language the page shows: each print's `marketPrice` prefers a price in it (VB-103). */
+  lang: LangSchema.default('en'),
 });
 export type CardQuery = z.infer<typeof CardQuerySchema>;
 

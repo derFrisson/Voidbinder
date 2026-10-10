@@ -510,6 +510,7 @@ const at = '2026-10-09T03:00:00.000Z';
 const eur = (cents: number): EntryPrice => ({
   source: 'cardmarket',
   finish: 'normal',
+  lang: 'en',
   currency: 'EUR',
   marketCents: cents,
   factor: 1,
@@ -522,6 +523,7 @@ describe('cheapestPrice', () => {
     {
       source,
       finish: 'normal',
+      lang: 'en',
       currency: source === 'cardmarket' ? ('EUR' as const) : ('USD' as const),
       market: cents,
       observedAt: at,
@@ -535,12 +537,35 @@ describe('cheapestPrice', () => {
       { printId: 'c', finishes: ['normal'], prices: prices('tcgplayer', 50) },
       { printId: 'd', finishes: ['normal'], prices: [] },
     ];
-    expect(cheapestPrice(prints, 'EUR')).toMatchObject({ printId: 'b', price: { unitCents: 120 } });
-    expect(cheapestPrice(prints, 'USD')).toMatchObject({
+    expect(cheapestPrice(prints, 'EUR', 'en')).toMatchObject({
+      printId: 'b',
+      price: { unitCents: 120 },
+    });
+    expect(cheapestPrice(prints, 'USD', 'en')).toMatchObject({
       printId: 'c',
       price: { currency: 'USD' },
     });
-    expect(cheapestPrice(prints.slice(3), 'EUR')).toBeNull();
+    expect(cheapestPrice(prints.slice(3), 'EUR', 'en')).toBeNull();
+  });
+
+  it('takes a print priced in the language first, then English', () => {
+    const prints = [
+      { printId: 'a', finishes: ['normal'], prices: prices('cardmarket', 50) },
+      {
+        printId: 'b',
+        finishes: ['normal'],
+        prices: prices('cardmarket', 300).map((p) => ({ ...p, lang: 'de' })),
+      },
+    ];
+    expect(cheapestPrice(prints, 'EUR', 'de')).toMatchObject({
+      printId: 'b',
+      price: { lang: 'de' },
+    });
+    expect(cheapestPrice(prints, 'EUR', 'en')).toMatchObject({
+      printId: 'a',
+      price: { lang: 'en' },
+    });
+    expect(cheapestPrice(prints, 'EUR', 'fr')).toMatchObject({ printId: 'a' });
   });
 });
 
