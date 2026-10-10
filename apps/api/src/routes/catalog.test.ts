@@ -2,15 +2,17 @@ import {
   CardResponseSchema,
   GamesResponseSchema,
   PrintResponseSchema,
+  SearchResponseSchema,
   SetPageResponseSchema,
   SetsResponseSchema,
 } from '@voidbinder/shared/api';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appMeta, cards, printLocalizations, prints } from '../db/schema';
+import { appMeta, cards, printLocalizations, prints, sets } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { DrizzleCardStore } from '../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase, testApp } from '../test-helpers';
 
@@ -159,6 +161,145 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       expect(body.print.externalIds).not.toHaveProperty(key);
     expect(body.card.name).toBe('Champion of the Perished');
     expect(body.copyright).toBe('©Wizards of the Coast LLC');
+  });
+
+  describe('GET /catalog/search', () => {
+    const search = async (query: string) =>
+      SearchResponseSchema.parse((await get(`/search?${query}`)).body);
+    const names = async (query: string) => (await search(query)).prints.map((p) => p.name);
+
+    it('finds prints by name, the last word as a prefix, with set and game', async () => {
+      const page = await search('q=adeline');
+      expect(page).toMatchObject({ page: 1, pageSize: 30, total: 1 });
+      expect(page.prints[0]).toMatchObject({
+        name: 'Adeline, Resplendent Cathar',
+        number: '1',
+        game: 'mtg',
+        setCode: 'mid',
+        setName: 'Innistrad: Midnight Hunt',
+        finishes: ['normal', 'foil'],
+      });
+      expect(await names('q=adel')).toEqual(['Adeline, Resplendent Cathar']);
+      expect(await names('q=resplendent cath')).toEqual(['Adeline, Resplendent Cathar']);
+      // websearch syntax: an exact phrase and a negated word are not prefixes.
+      expect(await names('q="adel"')).toEqual([]);
+      expect(await names('q=cathar -commando')).not.toContain('Cathar Commando');
+    });
+
+    it('matches the localized names and shows them in ?lang=, English otherwise', async () => {
+      expect(await names('q=strahlende')).toEqual(['Adeline, Resplendent Cathar']);
+      expect(await names('q=strahlende&lang=de')).toEqual(['Adeline, strahlende Katharerin']);
+      // Without a German name the English one shows.
+      expect(await names('q=commando&lang=de')).toEqual(['Cathar Commando']);
+    });
+
+    it('ranks by ts_rank with matches in the name first', async () => {
+      // A match in the name ranks above one in the text only: Ambitious Farmhand's text
+      // mentions a Plains card.
+      expect(await names('q=plains')).toEqual([
+        'Plains',
+        'Plains',
+        'Ambitious Farmhand // Seasoned Cathar',
+      ]);
+      const cathars = await names('q=cathar');
+      const named = cathars.filter((n) => /cathar/i.test(n));
+      expect(cathars.slice(0, named.length)).toEqual(named);
+      expect(named.length).toBeGreaterThan(4);
+    });
+
+    it('filters exactly by game, set, rarity and finish', async () => {
+      expect((await search('q=plains&set=neo')).prints.map((p) => p.setCode)).toEqual(['neo']);
+      expect((await search('q=plains&set=NEO')).total).toBe(1);
+      expect((await search('q=plains&game=pokemon')).total).toBe(0);
+      expect((await search('q=plains&game=mtg')).total).toBe(3);
+      expect((await names('q=cathar&rarity=rare')).sort()).toEqual([
+        'Adeline, Resplendent Cathar',
+        'Brutal Cathar // Moonrage Brute',
+      ]);
+      expect(await names('q=champion&finish=normal')).toEqual([]);
+      expect(await names('q=champion&finish=foil')).toEqual(['Champion of the Perished']);
+    });
+
+    it('pages by the given size', async () => {
+      const second = await store.search({ q: 'cathar', lang: 'en', currency: 'EUR', page: 2 }, 3);
+      const first = await store.search({ q: 'cathar', lang: 'en', currency: 'EUR', page: 1 }, 3);
+      expect(first.prints).toHaveLength(3);
+      expect(second.page).toBe(2);
+      expect(second.total).toBe(first.total);
+      expect(second.prints.map((p) => p.id)).not.toContain(first.prints[0]?.id);
+      expect(await search('q=cathar&page=9')).toMatchObject({ page: 9, prints: [] });
+    });
+
+    it('validates q and the filters', async () => {
+      for (const query of ['', 'q=a', `q=${'x'.repeat(81)}`, 'q=ab&game=chess', 'q=ab&page=0'])
+        expect((await get(`/search?${query}`)).res.status, query).toBe(400);
+      expect((await get('/search?q=%20%20ab%20')).res.status).toBe(200);
+    });
+
+    it('is cached like the catalog', async () => {
+      const res = await app.request('/catalog/search?q=adeline');
+      expect(res.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+      expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
+    });
+
+    it('uses the GIN index on cards, no sequential scan, with ~200 cards', async () => {
+      const [set] = await db.select({ id: sets.id }).from(sets).where(eq(sets.code, 'mid'));
+      const many = Array.from({ length: 200 }, (_, i) => ({
+        gameId: 'mtg',
+        name: `Synthetic Wanderer ${i}`,
+        oracleKey: `synthetic-${i}`,
+        typeLine: 'Creature',
+        text: `Filler text number ${i}.`,
+      }));
+      // The store's own queries, run as EXPLAIN. At this size a sequential scan is cheaper and
+      // the planner rightly takes it, so seqscan is switched off: when the query has an index
+      // path the plan uses it, when it has none (an OR across both tables, a wrapped column) the
+      // plan still shows the Seq Scan. The synthetic rows live in a transaction that is rolled
+      // back, so later tests see the fixture only.
+      const plans: unknown[] = [];
+      const rollback = new Error('rollback');
+      await db
+        .transaction(async (tx) => {
+          const inserted = await tx.insert(cards).values(many).returning({ id: cards.id });
+          await tx
+            .insert(prints)
+            .values(
+              inserted.map((c, i) => ({ cardId: c.id, setId: set?.id ?? '', number: `s${i}` })),
+            );
+          await tx.execute(sql`analyze cards, prints, print_localizations`);
+          await tx.execute(sql`set local enable_seqscan = off`);
+          const explaining = new Proxy(tx as unknown as NodePgDatabase, {
+            get: (target, key) =>
+              key === 'execute'
+                ? async (query: ReturnType<typeof sql>) => {
+                    const r = await target.execute(sql`explain (format json) ${query}`);
+                    plans.push(r.rows[0]?.['QUERY PLAN']);
+                    return { rows: [] };
+                  }
+                : Reflect.get(target, key),
+          });
+          await new DrizzleCardStore(db, { catalogDb: explaining }).search(
+            { q: 'adeline', lang: 'de', currency: 'EUR', game: 'mtg', page: 1 },
+            30,
+          );
+          throw rollback;
+        })
+        .catch((e: unknown) => {
+          if (e !== rollback) throw e;
+        });
+      expect(plans).toHaveLength(2);
+      const scans: string[] = [];
+      const walk = (node: unknown): void => {
+        if (Array.isArray(node)) return node.forEach(walk);
+        if (!node || typeof node !== 'object') return;
+        const n = node as Record<string, unknown>;
+        if (n['Node Type'] === 'Seq Scan') scans.push(String(n['Relation Name']));
+        Object.values(n).forEach(walk);
+      };
+      walk(plans);
+      expect(scans).not.toContain('cards');
+      expect(scans).not.toContain('print_localizations');
+    });
   });
 
   it('answers with cache headers, an ETag per catalog_version and 304 on a match', async () => {

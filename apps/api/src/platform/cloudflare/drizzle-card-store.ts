@@ -21,6 +21,8 @@ import type {
   PrintDetail,
   PrintPricesResponse,
   PrintResponse,
+  SearchQuery,
+  SearchResponse,
   SetPageQuery,
   SetPageResponse,
   SetSummary,
@@ -60,7 +62,9 @@ const localized = alias(printLocalizations, 'localized');
 const english = alias(printLocalizations, 'english');
 const RARITY_ORDER = sql`case ${prints.rarity} when 'common' then 0 when 'uncommon' then 1 when 'rare' then 2 when 'mythic' then 3 else 4 end`;
 /** Numeric part of a collector number ('12a' → 12), so 2 sorts before 10. */
-const NUMBER_ORDER = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int nulls last`;
+const NUMBER_VALUE = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int`;
+const NUMBER_ORDER = sql`${NUMBER_VALUE} nulls last`;
+
 /** The finish a set page prices: `normal`, or the print's first finish when it has no normal. */
 const LIST_FINISH = sql`case when 'normal' = any(${prints.finishes}) then 'normal' else ${prints.finishes}[1] end`;
 const DAY_MS = 86_400_000;
@@ -71,6 +75,21 @@ const sourceOrder = (currency: Currency) =>
     SOURCE_PREFERENCE[currency].map((source, i) => sql`when ${source} then ${i}`),
     sql` `,
   )} else 99 end`;
+
+/**
+ * The text-search query for `q`: websearch syntax, and the last word as a prefix (`adel` finds
+ * Adeline) unless it is negated or inside an open quote.
+ */
+function searchTsQuery(q: string): SQL {
+  const m = /^(.*?)([\p{L}\p{N}]+)$/su.exec(q);
+  const head = m?.[1] ?? '';
+  const last = m?.[2];
+  if (!last || head.endsWith('-') || (head.match(/"/g)?.length ?? 0) % 2) {
+    return sql`websearch_to_tsquery('simple', ${q})`;
+  }
+  const prefix = sql`to_tsquery('simple', ${`${last}:*`})`;
+  return head.trim() ? sql`(websearch_to_tsquery('simple', ${head}) && ${prefix})` : prefix;
+}
 
 /**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
@@ -342,6 +361,134 @@ export class DrizzleCardStore implements CardStore {
         copyright: COPYRIGHT[card.game],
       }
     );
+  }
+
+  async search(query: SearchQuery, pageSize: number): Promise<SearchResponse> {
+    const tsq = searchTsQuery(query.q);
+    // Each branch uses its own GIN index (cards_search_idx, print_localizations_search_idx); an
+    // OR across both tables would scan cards. The search columns carry no weights, so a match in
+    // the name adds 1 to ts_rank, otherwise a card whose text repeats the word outranks the card
+    // named so. A print's best rank wins.
+    const hits = sql`(
+      select print_id, max(rank) as rank from (
+        select ${prints.id} as print_id,
+          ts_rank(${cards.search}, ${tsq}) + (to_tsvector('simple', ${cards.name}) @@ ${tsq})::int as rank
+        from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
+        where ${cards.search} @@ ${tsq}
+        union all
+        select ${printLocalizations.printId},
+          ts_rank(${printLocalizations.search}, ${tsq}) +
+            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int
+        from ${printLocalizations}
+        where ${printLocalizations.search} @@ ${tsq}
+      ) h group by print_id
+    ) hits`;
+    const filters: SQL[] = [sql`true`];
+    if (query.game) filters.push(sql`${sets.gameId} = ${query.game}`);
+    if (query.set) filters.push(sql`${sets.code} = ${query.set}`);
+    if (query.rarity) filters.push(sql`${prints.rarity} = ${query.rarity}`);
+    if (query.finish) filters.push(sql`${query.finish} = any(${prints.finishes})`);
+    const joins = sql`from ${hits}
+      join ${prints} on ${prints.id} = hits.print_id
+      join ${cards} on ${cards.id} = ${prints.cardId}
+      join ${sets} on ${sets.id} = ${prints.setId}`;
+    const where = sql.join(filters, sql` and `);
+    type Row = {
+      id: string;
+      card_id: string;
+      number: string;
+      variant: string;
+      name: string;
+      rarity: string | null;
+      finishes: string[];
+      image_key: string | null;
+      external_ids: Ids;
+      localized_image_key: string | null;
+      localized_ids: Ids | null;
+      price_cents: number | null;
+      price_currency: Currency | null;
+      price_source: DisplayPrice['source'] | null;
+      price_finish: string | null;
+      game: Game;
+      set_code: string;
+      set_name: string;
+    };
+    const [count, rows] = await Promise.all([
+      this.catalog.execute<{ total: number }>(
+        sql`select count(*)::int as total ${joins} where ${where}`,
+      ),
+      // Page first, localize after: the CTE orders and cuts the hits, and only its rows are
+      // joined to the localizations (a broad query matches thousands of prints).
+      this.catalog.execute<Row>(sql`
+        with page as (
+          select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
+            ${cards.name} as card_name, ${prints.rarity}, ${prints.finishes},
+            ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
+            ${sets.id} as set_id, ${sets.gameId} as game, ${sets.code} as set_code,
+            ${sets.name} as set_name, ${sets.releasedOn} as released_on, hits.rank,
+            ${NUMBER_VALUE} as number_value
+          ${joins}
+          where ${where}
+          order by hits.rank desc, ${cards.name}, ${sets.releasedOn} desc nulls last, ${sets.code},
+            ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+          limit ${pageSize} offset ${(query.page - 1) * pageSize}
+        )
+        select page.id, page.card_id, page.number, page.variant,
+          coalesce(localized.name, english.name, page.card_name) as name, page.rarity,
+          page.finishes, page.image_key, page.external_ids,
+          localized.image_key as localized_image_key, localized.external_ids as localized_ids,
+          market.cents as price_cents, market.currency as price_currency,
+          market.source as price_source, market.finish as price_finish, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
+        from page
+        left join ${printLocalizations} localized
+          on localized.print_id = page.id and localized.lang = ${query.lang}
+        left join ${printLocalizations} english
+          on english.print_id = page.id and english.lang = 'en'
+        left join ${setLocalizations} set_l
+          on set_l.set_id = page.set_id and set_l.lang = ${query.lang}
+        left join lateral (
+          select ${pricesCurrent.centsMarket} as cents, ${pricesCurrent.currency} as currency,
+            ${pricesCurrent.source} as source, ${pricesCurrent.finish} as finish
+          from ${pricesCurrent}
+          where ${pricesCurrent.printId} = page.id and ${pricesCurrent.finish} =
+            case when 'normal' = any(page.finishes) then 'normal' else page.finishes[1] end
+          order by ${sourceOrder(query.currency)}
+          limit 1
+        ) market on true
+        order by page.rank desc, page.card_name, page.released_on desc nulls last, page.set_code,
+          page.number_value nulls last, page.number, page.variant`),
+    ]);
+    return {
+      prints: rows.rows.map((r) => ({
+        id: r.id,
+        cardId: r.card_id,
+        number: r.number,
+        variant: r.variant,
+        name: r.name,
+        rarity: r.rarity,
+        finishes: r.finishes,
+        imageUrl: this.imageUrl(
+          query.lang,
+          { imageKey: r.localized_image_key, externalIds: r.localized_ids },
+          { imageKey: r.image_key, externalIds: r.external_ids },
+        ),
+        marketPrice:
+          r.price_cents == null || !r.price_currency || !r.price_source || !r.price_finish
+            ? null
+            : {
+                cents: r.price_cents,
+                currency: r.price_currency,
+                source: r.price_source,
+                finish: r.price_finish,
+              },
+        game: r.game,
+        setCode: r.set_code,
+        setName: r.set_name,
+      })),
+      page: query.page,
+      pageSize,
+      total: count.rows[0]?.total ?? 0,
+    };
   }
 
   async importRunning(source: string): Promise<boolean> {
