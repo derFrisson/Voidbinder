@@ -73,7 +73,8 @@ const NUMBER_ORDER = sql`${NUMBER_VALUE} nulls last`;
  * prices per edition, `first_edition`, while the print says `normal`).
  */
 const finishRank = (finish: SQLWrapper, finishes: SQLWrapper) =>
-  sql`case when ${finish} = case when 'normal' = any(${finishes}) then 'normal' else (${finishes})[1] end then 0 else coalesce(array_position(${finishes}, ${finish}), 98) + 1 end`;
+  // An empty finishes array (schema default, TCGdex cards without variants) counts as ['normal'], like core.
+  sql`case when ${finish} = case when 'normal' = any(${finishes}) or cardinality(${finishes}) = 0 then 'normal' else (${finishes})[1] end then 0 else coalesce(array_position(${finishes}, ${finish}), 98) + 1 end`;
 const DAY_MS = 86_400_000;
 
 /** `currency`'s preferred source first (core's SOURCE_PREFERENCE), as an ORDER BY term. */

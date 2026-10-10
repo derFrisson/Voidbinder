@@ -327,6 +327,16 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
         ],
         finish: 'first_edition',
       },
+      {
+        // An empty finishes array counts as ['normal'] in SQL and in core.
+        code: 'rank3',
+        finishes: [],
+        rows: [
+          { finish: 'holo', source: 'cardmarket', currency: 'EUR' },
+          { finish: 'normal', source: 'tcgplayer', currency: 'USD' },
+        ],
+        finish: 'normal',
+      },
     ];
     for (const shape of shapes) {
       const [card] = await db

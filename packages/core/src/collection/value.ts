@@ -37,7 +37,8 @@ export function conditionFactor(
 
 /**
  * The price of one copy: the display price of the entry's finish (core's `pickDisplayPrice`:
- * finish, then `normal`, then the print's finishes; the currency's preferred source) times the
+ * the entry's finish, then the print's listed finish, its other finishes, then unlisted finishes
+ * alphabetically; the currency's preferred source) times the
  * condition factor. null when the print has no price.
  */
 export function priceEntry(
