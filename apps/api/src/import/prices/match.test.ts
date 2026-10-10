@@ -132,6 +132,26 @@ describe('matchGroups', () => {
     ]);
   });
 
+  it('strips a series name on a word boundary only, never down to `Base Set`', () => {
+    const sets = [
+      tcgdex('base1', 'Base Set', null, 'Base'),
+      tcgdex('ex3', 'Dragon', null, 'EX'),
+      tcgdex('pedition', 'Pedition', null, 'EX'),
+    ];
+    expect(
+      matchGroups(
+        [
+          pokemon(1, 'EX Dragon', null),
+          // `EX` is the start of the word, not a series before it.
+          pokemon(2, 'Expedition', null),
+          // `EX Base Set` would read `Base Set`, the first set of all.
+          pokemon(3, 'EX Base Set', null),
+        ],
+        sets,
+      ),
+    ).toEqual([{ groupId: 1, setId: 'set-ex3' }]);
+  });
+
   it('matches the groups no rule finds through the alias list', () => {
     const sets = [
       sv('svp', 'SVP Black Star Promos', 'SVP'),

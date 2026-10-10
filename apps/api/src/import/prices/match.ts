@@ -94,13 +94,19 @@ export const GROUP_ALIASES: Readonly<Record<number, string>> = {
 /**
  * The names a group may have in the catalog: its own without TCGplayer's series prefix
  * (`SWSH03: `, `SM - `), then without a trailing `Base Set` (`SV01: Scarlet & Violet Base Set`), then
- * without a leading series name (`SV: Scarlet & Violet 151` → `151`, `EX Dragon` → `Dragon`).
+ * without a leading series name, whole words only (`SV: Scarlet & Violet 151` → `151`, `EX Dragon`
+ * → `Dragon`, but not `Expedition` → `pedition`); never `Base Set` alone, which is the first set.
  */
-function groupNames(name: string, series: readonly string[]): string[] {
+function groupNames(name: string, series: ReadonlySet<string>): string[] {
   const unprefixed = name.replace(/^[A-Z0-9]+(?::| -)\s+/, '');
-  const own = normName(unprefixed);
-  const names = [own, normName(unprefixed.replace(/\s+Base Set$/i, ''))];
-  for (const s of series) if (own.startsWith(s) && own !== s) names.push(own.slice(s.length));
+  const names = [normName(unprefixed), normName(unprefixed.replace(/\s+Base Set$/i, ''))];
+  const words = unprefixed.split(/\s+/);
+  // Longest series first, so `Sword & Shield` goes before a shorter series it starts with.
+  for (let k = words.length - 1; k > 0; k--) {
+    const rest = normName(words.slice(k).join(' '));
+    if (series.has(normName(words.slice(0, k).join(' '))) && rest && rest !== 'baseset')
+      names.push(rest);
+  }
   return names;
 }
 
@@ -140,10 +146,7 @@ export function matchGroups(
   );
   const byCode = new Map(sets.map((s) => [s.code.toLowerCase(), s.id]));
   const byName = new Map(sets.map((s) => [normName(s.name), s.id]));
-  // Longest first, so `Sword & Shield` is stripped before a shorter series it starts with.
-  const series = [...new Set(sets.flatMap((s) => (s.series ? [normName(s.series)] : [])))]
-    .filter(Boolean)
-    .sort((a, b) => b.length - a.length);
+  const series = new Set(sets.flatMap((s) => (s.series ? [normName(s.series)] : [])));
   const setNames = new Map(sets.map((s) => [s.id, normName(s.name)]));
   // TCGplayer's abbreviations are not always TCGdex's (`BST` is EX Battle Stadium there, Battle
   // Styles here; `TR` Team Rocket there, Team Rocket Returns here): the group's name must hold the
