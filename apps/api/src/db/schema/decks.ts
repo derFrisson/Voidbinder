@@ -13,10 +13,11 @@ import { user } from './auth';
 import { syncSeqColumn } from './collection';
 import { cards, games, prints } from './catalog';
 
-// Decks (VB-34), shaped for the Sprint 3 sync engine like the collection (VB-31): the client
-// generates `id`, the server sets `updated_at` on every write (entries included), and a delete
-// sets `deleted_at` instead of removing the row. Entries are replaced as a whole, so they have no
-// tombstone of their own: the deck's `updated_at` says the list changed.
+// Decks (VB-34), shaped for the sync engine like the collection (VB-31): the client generates
+// `id`, the server sets `updated_at` on every write (entries included), and a delete removes the
+// deck with its entries and logs only the deck in `sync_deletions` (VB-75; `deleted_at` is unused
+// and goes in a later release). Entries are replaced as a whole: the deck's `updated_at` says the
+// list changed.
 
 export const decks = pgTable(
   'decks',

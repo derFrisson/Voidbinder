@@ -1,20 +1,23 @@
-import type { Locale } from '@voidbinder/shared';
 import { router, usePathname } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cardOptions } from '../../api/queries/catalog';
-import { useAddEntries, useAddWishes, useOwned } from '../../api/queries/collection';
-import { ApiError } from '../../api/queries/http';
+import { useAddEntries, useOwned } from '../../api/queries/collection';
 import { useSession } from '../../api/queries/me';
-import { fmt, useLocale, useT } from '../../i18n';
-
-/** What a print needs to be added: its id, finishes and the languages it has names in. */
-export type Collectable = { id: string; finishes: string[]; langs: string[] };
-
-/** A new entry's language: the user's when the print exists in it, else English. */
-export const entryLanguage = (print: Collectable, locale: Locale) =>
-  print.langs.includes(locale) ? locale : 'en';
+import { fmt, useT } from '../../i18n';
+import { label } from '../card/attributes';
+import { useWide } from '../Shell';
+import { hideToast, showToast } from '../Toast';
+import {
+  AddDialog,
+  defaultLanguage,
+  printOptions,
+  session,
+  useBrowsingLanguage,
+  type EntryValues,
+} from './AddDialog';
+import { IconButton } from './Controls';
 
 /**
  * A client id for the next add that survives a failed try: pressing the button again after an
@@ -36,43 +39,29 @@ function useRetryId(forId: string) {
 
 /**
  * "In Sammlung" (blue) and "Auf Wunschliste" (outlined) on the card page, with the owned line
- * ("Du hast 2× in deiner Sammlung"). Signed out, both lead to sign-in and come back here.
+ * ("Du hast 2× in deiner Sammlung"). Each opens the add dialog (language, finish, condition,
+ * quantity, binder). Signed out, both lead to sign-in and come back here.
  */
-export function CollectButtons({ print, wide }: { print: Collectable; wide: boolean }) {
+export function CollectButtons({
+  printId,
+  cardId,
+  wide,
+}: {
+  printId: string;
+  cardId: string;
+  wide: boolean;
+}) {
   const t = useT();
-  const locale = useLocale();
   const pathname = usePathname();
   const { data: me } = useSession();
-  const owned = useOwned([print.id], !!me);
-  const add = useAddEntries();
-  const wish = useAddWishes();
-  const entryId = useRetryId(print.id);
-  const wishId = useRetryId(print.id);
+  const owned = useOwned([printId], !!me);
+  const [dialog, setDialog] = useState<'entry' | 'wish' | null>(null);
   const c = t.collection;
-  const copies = owned.data?.owned[print.id] ?? 0;
-  const wishes = owned.data?.wished[print.id] ?? 0;
-  // A wish for this print exists already: the API answers 409, which reads as "on the list".
-  const wished = wishes > 0 || (wish.error instanceof ApiError && wish.error.status === 409);
+  const copies = owned.data?.owned[printId] ?? 0;
+  const wishes = owned.data?.wished[printId] ?? 0;
+  const wished = wishes > 0;
   const signIn = () => router.push({ pathname: '/sign-in', params: { next: pathname } });
-
-  const onAdd = () =>
-    me
-      ? add.mutate(
-          [
-            {
-              id: entryId.take(),
-              printId: print.id,
-              finish: print.finishes[0] ?? 'normal',
-              language: entryLanguage(print, locale),
-            },
-          ],
-          { onSuccess: entryId.done },
-        )
-      : signIn();
-  const onWish = () =>
-    me
-      ? wish.mutate([{ id: wishId.take(), printId: print.id }], { onSuccess: wishId.done })
-      : signIn();
+  const open = (kind: 'entry' | 'wish') => (me ? setDialog(kind) : signIn());
 
   // flex-1 only side by side (phone); in the desktop column it would collapse the height.
   const button = `h-11 flex-row items-center justify-center rounded-xl px-4 ${wide ? '' : 'flex-1'}`;
@@ -85,10 +74,9 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
       <View className={wide ? 'gap-2.5' : 'flex-row gap-2'}>
         <Pressable
           role="button"
-          aria-busy={add.isPending}
-          disabled={add.isPending}
-          onPress={onAdd}
-          className={`${button} bg-blue ${add.isPending ? 'opacity-60' : ''}`}
+          aria-haspopup="dialog"
+          onPress={() => open('entry')}
+          className={`${button} bg-blue`}
         >
           <Text className="font-display text-[15px] font-semibold text-on-blue">
             + {t.card.addToCollection}
@@ -96,10 +84,10 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
         </Pressable>
         <Pressable
           role="button"
-          aria-busy={wish.isPending}
+          aria-haspopup="dialog"
           aria-pressed={wished}
-          disabled={wish.isPending || wished}
-          onPress={onWish}
+          disabled={wished}
+          onPress={() => open('wish')}
           className={`${button} border border-line bg-surface`}
         >
           <Text className="font-display text-[15px] font-semibold text-ink">
@@ -108,20 +96,26 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
         </Pressable>
       </View>
       <Text role="status" className="font-body text-[12.5px] text-ink-3">
-        {!me
-          ? c.signInHint
-          : add.isError || (wish.isError && !wished)
-            ? c.addFailed
-            : line.join(' · ')}
+        {!me ? c.signInHint : line.join(' · ')}
       </Text>
+      {dialog && (
+        <AddDialog
+          kind={dialog}
+          printId={printId}
+          cardId={cardId}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </View>
   );
 }
 
 /**
- * The search's "add to collection" under a result: one copy, into `binderId` when the search was
- * opened from a binder. Says so when it is in. The language follows the card page's rule (the
- * user's when the print has it, else English), which needs the card's localizations: read once
+ * The quick "add to collection" under a tile (search, set page): one press adds one copy with the
+ * defaults (the last used or browsing language when the print has it, else English; the first
+ * finish; NM), into `binderId` when the search was opened from a binder, and says so in a toast
+ * whose "Ändern" opens the add dialog for that entry. The chevron beside it (wide screens) and a
+ * long press open the dialog before adding. The print's languages come from the card, read once
  * when the button is pressed (the card page shares that query).
  */
 export function QuickAdd({
@@ -138,49 +132,97 @@ export function QuickAdd({
   binderId?: string | undefined;
 }) {
   const t = useT();
-  const locale = useLocale();
+  const wide = useWide();
+  const browsing = useBrowsingLanguage();
   const client = useQueryClient();
   const add = useAddEntries();
   const entryId = useRetryId(printId);
   const [looking, setLooking] = useState(false);
+  const [dialog, setDialog] = useState<{ edit?: { id: string; values: EntryValues } } | null>(null);
   const c = t.collection;
   const busy = looking || add.isPending;
+  // The toast's "Ändern" opens the dialog of this tile: when the tile goes (next page, filter,
+  // navigation) the toast goes with it, instead of a button that does nothing.
+  const toastKey = useRef<number | undefined>(undefined);
+  // Only the toast this tile showed: without a key, hideToast() would hide any tile's toast.
+  useEffect(
+    () => () => {
+      if (toastKey.current !== undefined) hideToast(toastKey.current);
+    },
+    [],
+  );
+  // The toast's button is gone once "Ändern" is pressed, so the dialog opened from it has nothing
+  // to return focus to: it goes to this tile's button. (After a tick, so the dialog's own focus
+  // trap has let go first.)
+  const button = useRef<View>(null);
+  const closeDialog = () => {
+    const fromToast = !!dialog?.edit;
+    setDialog(null);
+    if (fromToast) setTimeout(() => button.current?.focus(), 0);
+  };
   const onAdd = async () => {
     setLooking(true);
     // Without the card (offline, error) English is the safe language.
-    const langs = await client
-      .fetchQuery(cardOptions(cardId))
-      .then((d) => d.prints.find((p) => p.id === printId)?.localizations.map((l) => l.lang) ?? [])
-      .catch(() => []);
+    const data = await client.fetchQuery(cardOptions(cardId)).catch(() => undefined);
     setLooking(false);
-    add.mutate(
-      [
-        {
-          id: entryId.take(),
-          printId,
-          finish,
-          language: entryLanguage({ id: printId, finishes: [finish], langs }, locale),
-          ...(binderId && { binderId }),
-        },
-      ],
-      { onSuccess: entryId.done },
-    );
+    const values: EntryValues = {
+      language: defaultLanguage(printOptions(data, printId).languages, browsing),
+      finish,
+      condition: 'NM',
+      quantity: 1,
+      binderId,
+    };
+    const id = entryId.take();
+    add.mutate([{ id, printId, ...values }], {
+      onSuccess: () => {
+        entryId.done();
+        session.language = values.language;
+        toastKey.current = showToast({
+          text: fmt(c.dialog.addedAs, {
+            details: `${values.language.toUpperCase()} · ${label(t.card.finishes, finish)} · ${values.condition}`,
+          }),
+          action: { label: c.dialog.change, onPress: () => setDialog({ edit: { id, values } }) },
+        });
+      },
+    });
   };
   return (
-    <Pressable
-      role="button"
-      aria-label={`${t.card.addToCollection}: ${name}`}
-      aria-busy={busy}
-      disabled={busy}
-      onPress={onAdd}
-      className="h-9 flex-row items-center justify-center rounded-lg border border-line bg-surface px-2"
-    >
-      <Text
-        numberOfLines={1}
-        className={`font-display text-[13px] font-semibold ${add.isSuccess ? 'text-ok-ink' : 'text-ink'}`}
+    <View className="flex-row gap-1">
+      <Pressable
+        ref={button}
+        role="button"
+        aria-label={`${t.card.addToCollection}: ${name}`}
+        aria-busy={busy}
+        disabled={busy}
+        onPress={onAdd}
+        onLongPress={() => setDialog({})}
+        className="h-9 flex-1 flex-row items-center justify-center rounded-lg border border-line bg-surface px-2"
       >
-        {add.isSuccess ? `✓ ${c.added}` : add.isError ? c.addFailed : c.add}
-      </Text>
-    </Pressable>
+        <Text
+          numberOfLines={1}
+          className={`font-display text-[13px] font-semibold ${add.isSuccess ? 'text-ok-ink' : 'text-ink'}`}
+        >
+          {add.isSuccess ? `✓ ${c.added}` : add.isError ? c.addFailed : c.add}
+        </Text>
+      </Pressable>
+      {wide && (
+        <IconButton
+          icon="down"
+          label={fmt(c.dialog.options, { name })}
+          haspopup
+          onPress={() => setDialog({})}
+        />
+      )}
+      {dialog && (
+        <AddDialog
+          kind="entry"
+          printId={printId}
+          cardId={cardId}
+          binderId={binderId}
+          edit={dialog.edit}
+          onClose={closeDialog}
+        />
+      )}
+    </View>
   );
 }

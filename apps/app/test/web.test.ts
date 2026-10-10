@@ -245,6 +245,7 @@ const collectionApi: Record<string, unknown> = {
     ],
   },
   wishlist: { entries: [], page: 1, pageSize: 50, total: 0 },
+  owned: { owned: {}, byFinish: {}, wished: {} },
 };
 
 // Two-factor setup (VB-68): what POST /auth/two-factor/enable answers.
@@ -809,6 +810,80 @@ describe('web build', () => {
       await page.goto(origin + path);
       await page.getByText('Nebelwacht').first().waitFor();
       await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // The add dialog (VB-80): a modal dialog on the card page, as a sheet on the phone.
+  // `SHOTS=<dir>` also saves a screenshot of the open dialog.
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          [1440, 900],
+          [390, 844],
+        ] as const
+      ).map(([width, height]) => [scheme, width, height] as const),
+    ),
+  )('axe: %s card page add dialog at %i px, and it adds', async (scheme, width, height) => {
+    const { context, page, posts, csp } = await open({ width, height, scheme, session: true });
+    try {
+      await page.goto(`${origin}/cards/${CARD}`);
+      await page.getByRole('button', { name: '+ In Sammlung' }).click();
+      const dialog = page.getByRole('dialog', { name: 'In die Sammlung legen' });
+      await dialog.getByRole('radiogroup', { name: 'Sprache' }).waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      if (process.env.SHOTS)
+        await page.screenshot({ path: `${process.env.SHOTS}/add-dialog-${scheme}-${width}.png` });
+      // Focus is in the dialog and stays there.
+      await page.keyboard.press('Tab');
+      expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+      await dialog.getByRole('radio', { name: 'Englisch' }).click();
+      await dialog.getByRole('radio', { name: 'Foil' }).click();
+      await dialog.getByRole('radio', { name: 'EX' }).click();
+      await dialog.getByRole('button', { name: 'Hinzufügen' }).click();
+      await dialog.waitFor({ state: 'detached' });
+      expect(posts.get('/api/collection/entries')).toEqual([
+        expect.objectContaining({ language: 'en', finish: 'foil', condition: 'EX', quantity: 1 }),
+      ]);
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // The quick add under the tiles (VB-80): set page and search signed in, the toast and its
+  // "Ändern", which opens the dialog for the entry just added.
+  it.each([
+    [1440, 900],
+    [390, 844],
+  ] as const)('axe: quick add, toast and change dialog at %i px', async (width, height) => {
+    const { context, page, posts, csp } = await open({ width, height, session: true });
+    const shot = (name: string) =>
+      process.env.SHOTS
+        ? page.screenshot({ path: `${process.env.SHOTS}/${name}-${width}.png` })
+        : undefined;
+    try {
+      await page.goto(`${origin}/mtg/sets/mid`);
+      await page.getByRole('button', { name: 'In Sammlung: Adeline 1, MID 1' }).waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      await shot('set-quick-add');
+      await page.goto(`${origin}/search?q=adeline`);
+      await page.getByRole('button', { name: /^In Sammlung: Adeline/ }).click();
+      await page.getByText('Als DE · Normal · NM hinzugefügt').waitFor();
+      expect(posts.get('/api/collection/entries')).toEqual([
+        expect.objectContaining({ language: 'de', finish: 'normal', condition: 'NM' }),
+      ]);
+      expect(await axe(page)).toEqual([]);
+      await shot('search-toast');
+      await page.getByRole('button', { name: 'Ändern' }).click();
+      const dialog = page.getByRole('dialog', { name: 'Hinzugefügte Karte ändern' });
+      await dialog.getByRole('radiogroup', { name: 'Sprache' }).waitFor();
       expect(await axe(page)).toEqual([]);
       expect(csp).toEqual([]);
     } finally {

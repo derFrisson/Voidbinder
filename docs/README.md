@@ -7,6 +7,7 @@
 | [environments.md](environments.md) | Environments, config, secrets and deploy commands.                               |
 | [site](site)                       | Promo site docs: design, SEO, accessibility, legal, waitlist.                    |
 | [marketing](marketing)             | Research on competitors and card imagery rights.                                 |
+| [research](research)               | Research for a ticket: sources probed, options, a build plan.                    |
 | [sprints](sprints)                 | Sprint plans and results.                                                        |
 | [agents](agents)                   | Briefing rules and prompts for AI agents working on tickets.                     |
 

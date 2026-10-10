@@ -15,12 +15,15 @@ export function IconButton({
   onPress,
   disabled = false,
   expanded,
+  haspopup = false,
 }: {
   icon: IconName;
   label: string;
   onPress: () => void;
   disabled?: boolean;
   expanded?: boolean;
+  /** It opens a dialog. */
+  haspopup?: boolean;
 }) {
   const palette = usePalette();
   return (
@@ -30,6 +33,7 @@ export function IconButton({
       aria-disabled={disabled}
       disabled={disabled}
       {...(expanded !== undefined && { 'aria-expanded': expanded })}
+      {...(haspopup && { 'aria-haspopup': 'dialog' as const })}
       onPress={onPress}
       className={`h-9 w-9 items-center justify-center rounded-lg ${disabled ? 'opacity-40' : ''}`}
     >
@@ -43,9 +47,11 @@ export function Stepper({
   value,
   onChange,
   label,
+  max = 9999,
 }: {
   value: number;
   onChange: (value: number) => void;
+  max?: number;
   /** Names the buttons: "{label}: eins weniger". */
   label: { less: string; more: string };
 }) {
@@ -69,9 +75,10 @@ export function Stepper({
       <Pressable
         role="button"
         aria-label={label.more}
-        disabled={value >= 9999}
+        aria-disabled={value >= max}
+        disabled={value >= max}
         onPress={() => onChange(value + 1)}
-        className={button}
+        className={`${button} ${value >= max ? 'opacity-40' : ''}`}
       >
         <Icon name="plus" size={16} color={palette.ink2} />
       </Pressable>

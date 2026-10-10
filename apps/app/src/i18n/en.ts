@@ -339,6 +339,16 @@ export const en: Dict = {
     wished: '{count}× on your wish list',
     signInHint: 'Sign in to collect cards.',
     ownedBadge: '{count}× owned',
+    dialog: {
+      title: 'Add to collection',
+      wishTitle: 'Add to wish list',
+      editTitle: 'Change the card you added',
+      add: 'Add',
+      wish: 'Add to wish list',
+      options: '{name}: choose language, condition and more',
+      addedAs: 'Added as {details}',
+      change: 'Change',
+    },
   },
   decks: {
     title: 'Decks',

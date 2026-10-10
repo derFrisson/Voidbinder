@@ -23,6 +23,13 @@ describe('parseCodeQuery', () => {
     ['sv03.5 12', 'sv03512', null],
     ['mid 123', 'mid123', null],
     ['MID-123', 'mid123', null],
+    ['mid 123a', 'mid123a', null],
+    ['war 97★', 'war97', null],
+    ['MID-123★', 'mid123', null],
+    ['Pokémon', null, null],
+    ['Æther Vial', null, null],
+    ['Séance', null, null],
+    ['ポケモンGX', null, null],
     ['lds3', 'lds3', null],
     ['121', '121', { number: '121', total: null }],
     ['001/128', '001128', { number: '001', total: 128 }],
@@ -34,7 +41,20 @@ describe('parseCodeQuery', () => {
     ['averyveryverylongname', null, null],
     ['12345', '12345', null],
   ])('%j', (q, code, number) => {
-    expect(parseCodeQuery(q)).toEqual({ code, number });
+    expect(parseCodeQuery(q)).toMatchObject({ code, number });
+  });
+
+  it.each([
+    ['swsh1 25', [5]],
+    ['sv03.5 12', [4, 5]],
+    ['LDS3-EN121', [4]],
+    ['blgg-de 024', [4, 6]],
+    [' sv1 ', []],
+    ['war 97★', [3]],
+    ['lds3en121', []],
+    ['Black Lotus!', []],
+  ])('splits of %j', (q, splits) => {
+    expect(parseCodeQuery(q).splits).toEqual(splits);
   });
 });
 
@@ -91,13 +111,23 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     const blgg = await set('yugioh', 'blgg', 'Battles of Legend: Chapter 1', '2024-01-11', 100);
     await print(blgg, 'yugioh', 'Ghostrick Angel of Mischief', 'EN024');
     const sv01 = await set('pokemon', 'sv01', 'Scarlet & Violet', '2023-03-31', 198);
-    await print(sv01, 'pokemon', 'Pineco', '001');
+    await print(sv01, 'pokemon', 'Pineco', '001', 'Tannza');
     await print(sv01, 'pokemon', 'Forretress ex', '005');
     const sv10 = await set('pokemon', 'sv10', 'Destined Rivals', '2025-05-30', 182);
     await print(sv10, 'pokemon', 'Ethan’s Pinsir', '001');
+    // Pineco's newest print has no German name.
+    await print(sv10, 'pokemon', 'Pineco', '090');
+    // TCGdex numbers older sets without padding: `swsh1 25` could also be swsh12 #5.
+    const swsh1 = await set('pokemon', 'swsh1', 'Sword & Shield', '2020-02-07', 202);
+    await print(swsh1, 'pokemon', 'Flapple', '25');
+    const swsh12 = await set('pokemon', 'swsh12', 'Silver Tempest', '2022-11-11', 195);
+    await print(swsh12, 'pokemon', 'Scyther', '5');
     const base1 = await set('pokemon', 'base1', 'Base', '1999-01-09', 102);
     await print(base1, 'pokemon', 'Alakazam', '1');
     await print(base1, 'pokemon', 'Midas Touch', '50');
+    const war = await set('mtg', 'war', 'War of the Spark', '2019-05-03', 264);
+    await print(war, 'mtg', 'Finale of Promise', '97★');
+    await print(war, 'mtg', 'Tamiyo, Collector of Tales', '123a');
     const mid = await set('mtg', 'mid', 'Innistrad: Midnight Hunt', '2021-09-24', 277);
     await print(mid, 'mtg', 'Midnight Reaper', '123');
     await print(mid, 'mtg', 'Adeline, Resplendent Cathar', '1');
@@ -138,6 +168,14 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ['001/198', 'sv01 001'],
     ['mid 123', 'mid 123'],
     ['MID-123', 'mid 123'],
+    // The split the user typed wins over the newer set the other split names.
+    ['swsh1 25', 'swsh1 25'],
+    ['swsh12 5', 'swsh12 5'],
+    ['sv1 01', 'sv01 001'],
+    ['sv10 1', 'sv10 001'],
+    ['war 123a', 'war 123a'],
+    ['WAR-97★', 'war 97★'],
+    ['war 97', 'war 97★'],
     ['Satelite', 'lds3 EN121'],
     ['Satelite Warior', 'lds3 EN121'],
     ['Satellitenkriger', 'lds3 EN121'],
@@ -203,6 +241,15 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ]);
   });
 
+  it.each([
+    ['swsh1 25', 'swsh1 25', 'swsh12 5'],
+    ['swsh12 5', 'swsh12 5', 'swsh1 25'],
+    ['sv1 01', 'sv01 001', 'sv10 001'],
+    ['sv10 1', 'sv10 001', 'sv01 001'],
+  ])('suggests the split typed in %j first', async (q, first, second) => {
+    expect((await suggest(q)).map(label).slice(0, 2)).toEqual([first, second]);
+  });
+
   it('suggests a set by code with its first prints, then names starting with q', async () => {
     const mid = await suggest('mid');
     expect(mid.map(label)).toEqual(['set mid', 'mid 1', 'mid 123', 'mid 200', 'base1 50']);
@@ -234,11 +281,44 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       'Satyr Wayfinder 1',
     ]);
     expect(await suggest('sat', '&game=pokemon')).toEqual([]);
-    expect((await suggest('pineco')).map(label)).toEqual(['sv01 001']);
+    expect((await suggest('pineco')).map(label)).toEqual(['sv10 090']);
+  });
+
+  it('?names= picks the languages names match in, all of them by default', async () => {
+    const first = async (q: string, extra = '') => {
+      const [hit] = (await search(q, extra)).prints;
+      return hit && `${hit.setCode} ${hit.number} ${hit.name}`;
+    };
+    // A German-only name is found while the names show in English.
+    for (const extra of ['', '&names=all&lang=en', '&names=de'])
+      expect(await first('satellitenkrieger', extra), extra).toBe('lds3 EN121 Satellite Warrior');
+    // An English-only print drops out with German names.
+    expect((await search('stardust')).total).toBe(1);
+    expect((await search('stardust', '&names=de')).total).toBe(0);
+
+    for (const extra of ['', '&names=all&lang=en', '&names=de'])
+      expect(
+        (await suggest('satellitenk', extra)).map((s) => s.name),
+        extra,
+      ).toEqual(['Satellite Warrior']);
+    expect((await suggest('stardust')).map((s) => s.name)).toEqual(['Stardust Dragon']);
+    expect(await suggest('stardust', '&names=de')).toEqual([]);
+    // The newest print with a German name, not the card's newest.
+    expect((await suggest('tannza')).map(label)).toEqual(['sv10 090']);
+    expect(
+      (await suggest('tannza', '&names=de&lang=de')).map((s) => `${label(s)} ${s.name}`),
+    ).toEqual(['sv01 001 Tannza']);
   });
 
   it('validates q and is cached like the catalog', async () => {
-    for (const query of ['', 'q=a', `q=${'x'.repeat(65)}`, 'q=ab&game=chess', 'q=ab&lang=x'])
+    for (const query of [
+      '',
+      'q=a',
+      `q=${'x'.repeat(65)}`,
+      'q=ab&game=chess',
+      'q=ab&lang=x',
+      'q=ab&names=german',
+    ])
       expect((await get(`/search/suggest?${query}`)).res.status, query).toBe(400);
     const res = await app.request('/catalog/search/suggest?q=lds3');
     expect(res.status).toBe(200);

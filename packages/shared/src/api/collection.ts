@@ -5,8 +5,8 @@ import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
 
 // The collection (`/collection/**`, VB-31): binders, the have list and the wish list of the
-// signed-in user. Rows carry a client-generated `id` and `updatedAt`, and a delete is a tombstone
-// on the server, so the Sprint 3 sync engine can use the same tables.
+// signed-in user. Rows carry a client-generated `id` and `updatedAt`, so the sync engine
+// (`/sync/**`) uses the same tables; a delete removes the row (VB-75).
 
 /** Page size of `GET /collection/entries` and `GET /collection/wishlist`. */
 export const COLLECTION_PAGE_SIZE = 50;
