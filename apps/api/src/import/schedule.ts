@@ -1,5 +1,5 @@
 /** An import that a cron starts daily. */
-export type ScheduledSource = 'scryfall' | 'ygoprodeck' | 'tcgdex' | 'tcgcsv';
+export type ScheduledSource = 'scryfall' | 'ygoprodeck' | 'tcgdex' | 'tcgcsv' | 'yugipedia';
 
 /**
  * Cron expression of wrangler.jsonc (every environment) → the import it starts. The only place
@@ -16,10 +16,13 @@ export const CRON_SOURCES: Record<string, ScheduledSource> = {
   // build and ends after one request when 20:30 imported it.
   '30 20 * * *': 'tcgcsv',
   '30 22 * * *': 'tcgcsv',
+  // prod and local, weekly (VB-93): Mondays after the YGOPRODeck run
+  '30 4 * * 1': 'yugipedia',
   // dev
   '30 4 * * *': 'scryfall',
   '0 5 * * *': 'ygoprodeck',
   '30 5 * * *': 'tcgdex',
+  '0 6 * * 1': 'yugipedia',
 };
 
 /** Suffix of a second cron of one source on the same day, so the Workflow instance ids differ. */

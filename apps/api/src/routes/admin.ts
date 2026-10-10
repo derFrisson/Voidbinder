@@ -39,6 +39,8 @@ export function adminRoutes(adminToken: string | undefined) {
         }),
       )
       .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
+      // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
+      .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))
       // A manual price mapping (VB-30): confidence 100, never overwritten by the importers.
       // `tcgplayer` only: the Scryfall sources write by print, never through price_mappings.
       .put(

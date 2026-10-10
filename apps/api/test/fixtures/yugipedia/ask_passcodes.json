@@ -1,0 +1,236 @@
+{
+  "query": {
+    "printrequests": [
+      { "label": "", "key": "", "redi": "", "typeid": "_wpg", "mode": 2 },
+      {
+        "label": "Password",
+        "key": "Password",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "English name",
+        "key": "English_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "German name",
+        "key": "German_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "German lore",
+        "key": "German_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "German Pendulum Effect",
+        "key": "German_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "French name",
+        "key": "French_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "French lore",
+        "key": "French_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "French Pendulum Effect",
+        "key": "French_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Italian name",
+        "key": "Italian_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Italian lore",
+        "key": "Italian_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Italian Pendulum Effect",
+        "key": "Italian_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Spanish name",
+        "key": "Spanish_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Spanish lore",
+        "key": "Spanish_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Spanish Pendulum Effect",
+        "key": "Spanish_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Portuguese name",
+        "key": "Portuguese_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Portuguese lore",
+        "key": "Portuguese_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Portuguese Pendulum Effect",
+        "key": "Portuguese_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      }
+    ],
+    "results": {
+      "Lev Shaddoll Fusion": {
+        "printouts": {
+          "Password": ["34950192"],
+          "English name": ["Lev Shaddoll Fusion"],
+          "German name": ["Lev-Schattenpuppen-Fusion"],
+          "German lore": [
+            "Wenn diese Karte aktiviert wird: Lege 1 Fusionsmonster von deinem Extra Deck auf den Friedhof. Du kannst 1 Fusionsmonster als Tribut anbieten; beschw\u00f6re 1 \u201eSchattenpuppe\u201c-Fusionsmonster mit einer unterschiedlichen Eigenschaft als Spezialbeschw\u00f6rung von deinem Extra Deck (dies wird als Fusionsbeschw\u00f6rung behandelt), aber seine ATK werden zu 0. Du kannst jeden Effekt von \u201eLev-Schattenpuppen-Fusion\u201c nur einmal pro Spielzug verwenden, zus\u00e4tzlich kannst du in dem Spielzug, in dem du einen der Effekte dieser Karte aktivierst, keine Spezialbeschw\u00f6rungen vom Extra Deck durchf\u00fchren, au\u00dfer von \u201eSchattenpuppe\u201c-Monstern."
+          ],
+          "German Pendulum Effect": [],
+          "French name": ["Fusion Marionnette de l'Ombre Lev"],
+          "French lore": [
+            "Lorsque cette carte est activ\u00e9e : envoyez 1 Monstre Fusion depuis votre Extra Deck au Cimeti\u00e8re. Vous pouvez Sacrifier 1 Monstre Fusion ; Invoquez Sp\u00e9cialement 1 Monstre Fusion \"Marionnette de l'Ombre\" d'Attribut diff\u00e9rent depuis votre Extra Deck (ceci est trait\u00e9 comme Invocation Fusion), mais son ATK devient 0. Vous ne pouvez utiliser chaque effet de \"Fusion Marionnette de l'Ombre Lev\" qu'une fois par tour, et aussi, vous ne pouvez pas Invoquer Sp\u00e9cialement (monstres \"Marionnette de l'Ombre\" exclus) depuis l'Extra Deck le tour o\u00f9 vous activez un effet de cette carte."
+          ],
+          "French Pendulum Effect": [],
+          "Italian name": ["Fusione Lev Bambolaombra"],
+          "Italian lore": [
+            "Quando questa carta viene attivata: manda 1 Mostro Fusione dal tuo Extra Deck al Cimitero. Puoi offrire come Tributo 1 Mostro Fusione; Evoca Specialmente 1 Mostro Fusione \"Bambolaombra\" con un Attributo diverso dal tuo Extra Deck (questa viene considerata come un'Evocazione tramite Fusione), ma il suo ATK diventa 0. Puoi utilizzare ogni effetto di \"Fusione Lev Bambolaombra\" una sola volta per turno, inoltre non puoi Evocare Specialmente dall'Extra Deck nel turno in cui attivi uno dei due effetti di questa carta, eccetto mostri \"Bambolaombra\"."
+          ],
+          "Italian Pendulum Effect": [],
+          "Spanish name": ["Fusi\u00f3n Lev Sombra\u00f1eca"],
+          "Spanish lore": [
+            "Cuando esta carta es activada: manda al Cementerio 1 Monstruo de Fusi\u00f3n en tu Deck Extra. Puedes Sacrificar 1 Monstruo de Fusi\u00f3n; Invoca de Modo Especial 1 Monstruo de Fusi\u00f3n \"Sombra\u00f1eca\" con un Atributo diferente desde tu Deck Extra (esto se trata como una Invocaci\u00f3n por Fusi\u00f3n), pero su ATK se convierte en 0. S\u00f3lo puedes usar cada efecto de \"Fusi\u00f3n Lev Sombra\u00f1eca\" una vez por turno, y adem\u00e1s no puedes Invocar de Modo Especial desde el Deck Extra el turno en el que activas cualquiera de los efectos de esta carta, excepto monstruos \"Sombra\u00f1eca\"."
+          ],
+          "Spanish Pendulum Effect": [],
+          "Portuguese name": ["Fus\u00e3o Lev Sombraneco"],
+          "Portuguese lore": [
+            "Quando este card for ativado: envie 1 Monstro de Fus\u00e3o do seu Deck Adicional para o Cemit\u00e9rio. Voc\u00ea pode oferecer como Tributo 1 Monstro de Fus\u00e3o; Invoque por Invoca\u00e7\u00e3o-Especial 1 Monstro de Fus\u00e3o \"Sombraneco\" com um Atributo diferente do seu Deck Adicional (isso \u00e9 considerado uma Invoca\u00e7\u00e3o-Fus\u00e3o), mas o ATK dele se torna 0. Voc\u00ea s\u00f3 pode usar cada efeito de \"Fus\u00e3o Lev Sombraneco\" uma vez por turno e, al\u00e9m disso, voc\u00ea n\u00e3o pode Invocar por Invoca\u00e7\u00e3o-Especial do Deck Adicional no turno em que ativar qualquer um dos efeitos deste card, exceto monstros \"Sombraneco\"."
+          ],
+          "Portuguese Pendulum Effect": []
+        },
+        "fulltext": "Lev Shaddoll Fusion",
+        "fullurl": "https://yugipedia.com/wiki/Lev_Shaddoll_Fusion",
+        "namespace": 0,
+        "exists": "1",
+        "displaytitle": ""
+      },
+      "Odd-Eyes Pendulum Dragon": {
+        "printouts": {
+          "Password": ["16178681"],
+          "English name": ["Odd-Eyes Pendulum Dragon"],
+          "German name": ["Bunt\u00e4ugiger Pendeldrache"],
+          "German lore": [
+            "Falls diese Karte gegen ein Monster eines Gegners k\u00e4mpft, wird der Kampfschaden verdoppelt, den diese Karte deinem Gegner zuf\u00fcgt."
+          ],
+          "German Pendulum Effect": [
+            "Du kannst den Kampfschaden, den du aus einem Angriff erh\u00e4ltst, an dem ein Pendelmonster beteiligt ist, das du kontrollierst, auf 0 reduzieren. W\u00e4hrend deiner End Phase: Du kannst diese Karte zerst\u00f6ren und falls du dies tust, f\u00fcge deiner Hand 1 Pendelmonster mit 1500 oder weniger ATK von deinem Deck hinzu. Du kannst jeden Pendeleffekt von \u201eBunt\u00e4ugiger Pendeldrache\u201c nur einmal pro Spielzug verwenden."
+          ],
+          "French name": ["Dragon Pendule aux Yeux Impairs"],
+          "French lore": [
+            "Si cette carte combat un monstre de l'adversaire, les dommages de combat inflig\u00e9s par cette carte \u00e0 votre adversaire sont doubl\u00e9s."
+          ],
+          "French Pendulum Effect": [
+            "Vous pouvez r\u00e9duire \u00e0 0 les dommages de combat que vous recevez d'une attaque impliquant un Monstre Pendule que vous contr\u00f4lez. Durant votre End Phase : vous pouvez d\u00e9truire cette carte, et si vous le faites, ajoutez 1 Monstre Pendule avec max. 1500 ATK depuis votre Deck \u00e0 votre main. Vous ne pouvez utiliser chaque Effet Pendule de \"Dragon Pendule aux Yeux Impairs\" qu'une fois par tour."
+          ],
+          "Italian name": ["Drago Pendulum Occhi Diversi"],
+          "Italian lore": [
+            "Se questa carta combatte con un mostro dell'avversario, qualsiasi danno da combattimento che questa carta infligge al tuo avversario viene raddoppiato."
+          ],
+          "Italian Pendulum Effect": [
+            "Puoi ridurre a 0 il danno da combattimento che subisci da un attacco che coinvolge un Mostro Pendulum che controlli. Durante la tua End Phase: puoi distruggere questa carta e, se lo fai, aggiungi 1 Mostro Pendulum con ATK 1500 o inferiore dal tuo Deck alla tua mano. Puoi utilizzare ogni Effetto Pendulum di \"Drago Pendulum Occhi Diversi\" una sola volta per turno."
+          ],
+          "Spanish name": ["Drag\u00f3n de P\u00e9ndulo de Ojos An\u00f3malos"],
+          "Spanish lore": [
+            "Si esta carta batalla con un monstruo del adversario, cualquier da\u00f1o de batalla que esta carta inflija a tu adversario se duplica."
+          ],
+          "Spanish Pendulum Effect": [
+            "Puedes reducir a 0 el da\u00f1o de batalla que recibas de un ataque que involucre a un Monstruo de P\u00e9ndulo que controles. Durante tu End Phase: puedes destruir esta carta y, si lo haces, a\u00f1ade a tu mano 1 Monstruo de P\u00e9ndulo con 1500 ATK o menos en tu Deck. S\u00f3lo puedes usar cada Efecto de P\u00e9ndulo de \"Drag\u00f3n de P\u00e9ndulo de Ojos An\u00f3malos\" una vez por turno."
+          ],
+          "Portuguese name": ["Drag\u00e3o P\u00eandulo de Olhos An\u00f4malos"],
+          "Portuguese lore": [
+            "Se este card batalhar um monstro do oponente, qualquer dano de batalha que este card causar ao seu oponente \u00e9 dobrado."
+          ],
+          "Portuguese Pendulum Effect": [
+            "Voc\u00ea pode reduzir a 0 o dano de batalha que voc\u00ea sofrer de um ataque envolvendo um Monstro P\u00eandulo que voc\u00ea controla. Durante sua Fase Final: voc\u00ea pode destruir este card e, se isso acontecer, adicione 1 Monstro P\u00eandulo com 1500 ou menos de ATK do seu Deck \u00e0 sua m\u00e3o. Voc\u00ea s\u00f3 pode usar cada Efeito de P\u00eandulo de \"Drag\u00e3o P\u00eandulo de Olhos An\u00f4malos\" uma vez por turno."
+          ]
+        },
+        "fulltext": "Odd-Eyes Pendulum Dragon",
+        "fullurl": "https://yugipedia.com/wiki/Odd-Eyes_Pendulum_Dragon",
+        "namespace": 0,
+        "exists": "1",
+        "displaytitle": ""
+      }
+    },
+    "serializer": "SMW\\Serializers\\QueryResultSerializer",
+    "version": 2,
+    "meta": {
+      "hash": "f12d718212f911f270d8ae9a367862b9",
+      "count": 2,
+      "offset": 0,
+      "source": "",
+      "time": "0.057810"
+    }
+  }
+}

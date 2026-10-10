@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { MAIL_FROM } from '../../auth/mail';
 import type { CardStore } from '@voidbinder/core';
-import { appDeps, startTcgcsvCron, startTcgdexCron } from './index';
+import { appDeps, startTcgcsvCron, startTcgdexCron, startYugipediaCron } from './index';
 
 const env = (vars: Record<string, unknown>) =>
   ({ APP_URL: 'https://app.example.test', ...vars }) as unknown as Env;
@@ -100,5 +100,30 @@ describe('startTcgcsvCron', () => {
     expect(close).toHaveBeenCalled();
     expect(info).toHaveBeenCalledWith(expect.stringContaining('cron start skipped'));
     info.mockRestore();
+  });
+});
+
+describe('startYugipediaCron', () => {
+  it('starts the weekly instance unless a Yugipedia run is going', async () => {
+    for (const running of [false, true]) {
+      const create = vi.fn(async () => ({ id: 'i1' }));
+      const asked: string[] = [];
+      const platform = {
+        cardStore: {
+          importRunning: async (source: string) => (asked.push(source), running),
+        } as Partial<CardStore> as CardStore,
+        close: async () => {},
+      };
+      const info = vi.spyOn(console, 'log').mockImplementation(() => {});
+      await startYugipediaCron(
+        env({ YUGIPEDIA_IMPORT: { create } }),
+        'yugipedia-2026-10-12',
+        platform,
+      );
+      info.mockRestore();
+      expect(asked).toEqual(['yugipedia']);
+      if (running) expect(create).not.toHaveBeenCalled();
+      else expect(create).toHaveBeenCalledWith({ id: 'yugipedia-2026-10-12' });
+    }
   });
 });
