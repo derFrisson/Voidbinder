@@ -296,9 +296,12 @@ export function diffModules(oldPath: string, newPath: string): string {
 
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 
-export const moduleFile = (game: string, version: number) => `catalog-${game}-v${version}.sqlite`;
-export const deltaFile = (game: string, from: number, to: number) =>
-  `catalog-${game}-v${from}-v${to}.sql.gz`;
+// The schema version is part of the name: a module key is immutable (one year cache), so a schema
+// bump on an unchanged catalog_version must never overwrite the published object.
+export const moduleFile = (game: string, version: number, schema = SCHEMA_VERSION) =>
+  `catalog-${game}-v${version}-s${schema}.sqlite`;
+export const deltaFile = (game: string, from: number, to: number, schema = SCHEMA_VERSION) =>
+  `catalog-${game}-v${from}-v${to}-s${schema}.sql.gz`;
 
 /**
  * What the CLI does before it builds. `skip`: the published module is this version with this
@@ -408,7 +411,9 @@ async function main() {
     const published = s3 ? await s3.getManifest(`${prefix}/manifest.json`) : null;
     const localVersions = () =>
       readdirSync(out)
-        .map((f) => new RegExp(`^catalog-${game}-v(\\d+)\\.sqlite$`).exec(f)?.[1])
+        .map(
+          (f) => new RegExp(`^catalog-${game}-v(\\d+)-s${SCHEMA_VERSION}\\.sqlite$`).exec(f)?.[1],
+        )
         .filter((v) => v !== undefined)
         .map(Number);
     const options = { published, current, upload: Boolean(s3), schemaVersion: SCHEMA_VERSION };

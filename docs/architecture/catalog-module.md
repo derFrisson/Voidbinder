@@ -9,11 +9,11 @@ is a thin reader of this contract.
 
 ## Files
 
-| R2 key (`<env>`: `dev`, `prod`)                        | What                                         |
-| ------------------------------------------------------ | -------------------------------------------- |
-| `modules/<env>/<game>/manifest.json`                   | The latest version, its files and the deltas |
-| `modules/<env>/<game>/catalog-<game>-v<n>.sqlite.gz`   | The module of catalog_version `n`, gzipped   |
-| `modules/<env>/<game>/catalog-<game>-v<a>-v<b>.sql.gz` | SQL that turns module `a` into module `b`    |
+| R2 key (`<env>`: `dev`, `prod`)                                  | What                                         |
+| ---------------------------------------------------------------- | -------------------------------------------- |
+| `modules/<env>/<game>/manifest.json`                             | The latest version, its files and the deltas |
+| `modules/<env>/<game>/catalog-<game>-v<n>-s<schema>.sqlite.gz`   | The module of catalog_version `n`, gzipped   |
+| `modules/<env>/<game>/catalog-<game>-v<a>-v<b>-s<schema>.sql.gz` | SQL that turns module `a` into module `b`    |
 
 A build whose `schemaVersion` differs from the published one is never skipped and starts a fresh
 chain (`deltas` empty). Image keys can lag up to one build: the nightly run waits for the image
@@ -53,7 +53,7 @@ until then.
   "minAppSchemaVersion": 1,
   "builtAt": "2026-10-11T06:30:04.120Z",
   "module": {
-    "url": "https://img.voidbinder.de/modules/prod/yugioh/catalog-yugioh-v1042.sqlite.gz",
+    "url": "https://img.voidbinder.de/modules/prod/yugioh/catalog-yugioh-v1042-s1.sqlite.gz",
     "size": 18313256,
     "sha256": "…",
     "rawSize": 62373888,

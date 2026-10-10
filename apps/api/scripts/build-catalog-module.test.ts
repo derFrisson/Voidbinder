@@ -111,7 +111,7 @@ describe('prune', () => {
       minAppSchemaVersion: 1,
       builtAt: BUILT_AT,
       module: {
-        url: file(`catalog-mtg-v${version}.sqlite.gz`),
+        url: file(`catalog-mtg-v${version}-s1.sqlite.gz`),
         size: 1,
         sha256: 'a'.repeat(64),
         rawSize: 1,
@@ -120,7 +120,7 @@ describe('prune', () => {
       deltas: deltas.map(([from, to]) => ({
         from,
         to,
-        url: file(`catalog-mtg-v${from}-v${to}.sql.gz`),
+        url: file(`catalog-mtg-v${from}-v${to}-s1.sql.gz`),
         size: 1,
         sha256: 'c'.repeat(64),
       })),
@@ -130,16 +130,16 @@ describe('prune', () => {
     const keys = new Set(
       [
         'manifest.json',
-        'catalog-mtg-v1.sqlite.gz',
-        'catalog-mtg-v3.sqlite.gz',
-        'catalog-mtg-v5.sqlite.gz',
-        'catalog-mtg-v1-v3.sql.gz',
-        'catalog-mtg-v3-v5.sql.gz',
-        'catalog-mtg-v5-v7.sql.gz',
-        'catalog-mtg-v7.sqlite.gz',
+        'catalog-mtg-v1-s1.sqlite.gz',
+        'catalog-mtg-v3-s1.sqlite.gz',
+        'catalog-mtg-v5-s1.sqlite.gz',
+        'catalog-mtg-v1-v3-s1.sql.gz',
+        'catalog-mtg-v3-v5-s1.sql.gz',
+        'catalog-mtg-v5-v7-s1.sql.gz',
+        'catalog-mtg-v7-s1.sqlite.gz',
       ].map((f) => `modules/dev/mtg/${f}`),
     );
-    keys.add('modules/dev/pokemon/catalog-pokemon-v1.sqlite.gz');
+    keys.add('modules/dev/pokemon/catalog-pokemon-v1-s1.sqlite.gz');
     const store = {
       list: async (prefix: string) => [...keys].filter((k) => k.startsWith(prefix)),
       delete: async (key: string) => void keys.delete(key),
@@ -149,10 +149,10 @@ describe('prune', () => {
     const deleted = await prune(store, 'modules/dev/mtg', next, previous);
     expect(deleted.sort()).toEqual(
       [
-        'catalog-mtg-v1.sqlite.gz',
-        'catalog-mtg-v3.sqlite.gz',
-        'catalog-mtg-v1-v3.sql.gz',
-        'catalog-mtg-v3-v5.sql.gz',
+        'catalog-mtg-v1-s1.sqlite.gz',
+        'catalog-mtg-v3-s1.sqlite.gz',
+        'catalog-mtg-v1-v3-s1.sql.gz',
+        'catalog-mtg-v3-v5-s1.sql.gz',
       ]
         .map((f) => `modules/dev/mtg/${f}`)
         .sort(),
@@ -160,16 +160,16 @@ describe('prune', () => {
     expect([...keys].sort()).toEqual(
       [
         'modules/dev/mtg/manifest.json',
-        'modules/dev/mtg/catalog-mtg-v5.sqlite.gz',
-        'modules/dev/mtg/catalog-mtg-v5-v7.sql.gz',
-        'modules/dev/mtg/catalog-mtg-v7.sqlite.gz',
-        'modules/dev/pokemon/catalog-pokemon-v1.sqlite.gz',
+        'modules/dev/mtg/catalog-mtg-v5-s1.sqlite.gz',
+        'modules/dev/mtg/catalog-mtg-v5-v7-s1.sql.gz',
+        'modules/dev/mtg/catalog-mtg-v7-s1.sqlite.gz',
+        'modules/dev/pokemon/catalog-pokemon-v1-s1.sqlite.gz',
       ].sort(),
     );
     // The next run drops v5 too.
     await prune(store, 'modules/dev/mtg', manifest(9, [[7, 9]]), next);
-    expect(keys.has('modules/dev/mtg/catalog-mtg-v5.sqlite.gz')).toBe(false);
-    expect(keys.has('modules/dev/mtg/catalog-mtg-v7.sqlite.gz')).toBe(true);
+    expect(keys.has('modules/dev/mtg/catalog-mtg-v5-s1.sqlite.gz')).toBe(false);
+    expect(keys.has('modules/dev/mtg/catalog-mtg-v7-s1.sqlite.gz')).toBe(true);
   });
 });
 
@@ -180,7 +180,7 @@ describe('nextManifest', () => {
     minAppSchemaVersion: 1,
     builtAt: BUILT_AT,
     module: {
-      url: 'https://img.example.test/modules/dev/mtg/catalog-mtg-v2.sqlite.gz',
+      url: 'https://img.example.test/modules/dev/mtg/catalog-mtg-v2-s1.sqlite.gz',
       size: 10,
       sha256: 'a'.repeat(64),
       rawSize: 20,
@@ -190,7 +190,7 @@ describe('nextManifest', () => {
   const delta = (from: number, to: number) => ({
     from,
     to,
-    url: `https://img.example.test/modules/dev/mtg/catalog-mtg-v${from}-v${to}.sql.gz`,
+    url: `https://img.example.test/modules/dev/mtg/catalog-mtg-v${from}-v${to}-s1.sql.gz`,
     size: 1,
     sha256: 'c'.repeat(64),
   });
