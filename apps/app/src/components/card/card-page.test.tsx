@@ -96,10 +96,9 @@ describe('card page', () => {
     // The price routes answer 404 here: the panel says so, no number anywhere.
     expect(screen.getByText('Für diesen Druck gibt es noch keine Preise.')).toBeTruthy();
     expect(screen.queryByText(/€|\$/)).toBeNull();
-    // VB-31 is not merged: the buttons are disabled and say why.
-    expect(
-      screen.getByRole('button', { name: /^In Sammlung\./ }).getAttribute('aria-disabled'),
-    ).toBe('true');
+    // Signed out, the collection buttons lead to sign-in and say so.
+    expect(screen.getByRole('button', { name: '+ In Sammlung' })).toBeTruthy();
+    expect(screen.getByText('Melde dich an, um Karten zu sammeln.')).toBeTruthy();
     // Rights: Wizards' notice, artist with the copyright line, Scryfall.
     expect(screen.getByText(/Fan Content Policy/)).toBeTruthy();
     expect(

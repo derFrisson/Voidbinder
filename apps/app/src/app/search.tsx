@@ -1,5 +1,6 @@
 import type { Game } from '@voidbinder/shared';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useSession } from '../api/queries/me';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import {
@@ -13,6 +14,7 @@ import {
 import { label } from '../components/card/attributes';
 import { Chip } from '../components/card/Chip';
 import { PrintTile, TileSkeleton } from '../components/card/PrintTile';
+import { QuickAdd } from '../components/collection/CollectButtons';
 import { SetPicker } from '../components/card/SetPicker';
 import { Icon } from '../components/Icon';
 import { Heading, Page, useWide } from '../components/Shell';
@@ -152,6 +154,10 @@ function Results({
 }) {
   const t = useT();
   const search = useSearch(state);
+  // VB-31: signed in, every result can go straight into the collection (into the binder the
+  // search was opened from, `?binder=`).
+  const { data: me } = useSession();
+  const binder = useLocalSearchParams<{ binder?: string }>().binder;
   const columns = useColumns();
   const filtered = !!(state.game || state.set || state.rarity || state.finish);
 
@@ -206,9 +212,22 @@ function Results({
         </View>
       ) : (
         <Grid>
-          {prints.map((hit) => (
-            <PrintTile key={hit.id} hit={hit} />
-          ))}
+          {prints.map((hit) =>
+            me ? (
+              <View key={hit.id} className="gap-2">
+                <PrintTile hit={hit} />
+                <QuickAdd
+                  printId={hit.id}
+                  cardId={hit.cardId}
+                  name={hit.name}
+                  finish={hit.finishes[0] ?? 'normal'}
+                  binderId={binder}
+                />
+              </View>
+            ) : (
+              <PrintTile key={hit.id} hit={hit} />
+            ),
+          )}
         </Grid>
       )}
       {pages > 1 && (

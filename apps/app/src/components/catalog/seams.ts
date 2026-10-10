@@ -1,10 +1,12 @@
+import type { Game } from '@voidbinder/shared';
 import type { DisplayPrice, PrintSummary } from '@voidbinder/shared/api';
 import { useMemo } from 'react';
 import { SOURCE_NAME } from '../../api/queries/cards';
+import { useOwnedInSet } from '../../api/queries/collection';
+import { useSession } from '../../api/queries/me';
 import type { Owned } from './model';
 
-// What the set page shows of the collection (VB-31, not there yet: the hook answers "nothing" and
-// the screens leave the signed-in parts out) and of the prices (VB-64).
+// What the set page shows of the collection (VB-31) and of the prices (VB-64).
 
 /** A print's price: integer minor units, the source and, once the API sends it, the day it was taken. */
 export interface PriceTag {
@@ -24,8 +26,21 @@ export function priceTag(price: DisplayPrice | null | undefined): PriceTag | und
 }
 
 /** The signed-in user's copies per print id in a set; undefined while signed out or unavailable. */
-export function useOwnedPrints(): Owned | undefined {
-  return undefined;
+export function useOwnedPrints(game: Game, code: string): Owned | undefined {
+  const { data: me } = useSession();
+  const { data } = useOwnedInSet(game, code, !!me);
+  return useMemo(
+    () =>
+      me && data
+        ? new Map(
+            Object.entries(data.owned).map(([id, count]) => [
+              id,
+              { count, byFinish: data.byFinish[id] ?? {} },
+            ]),
+          )
+        : undefined,
+    [me, data],
+  );
 }
 
 /**

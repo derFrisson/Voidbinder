@@ -47,10 +47,12 @@ export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery
   });
 }
 
+export const cardOptions = (id: string) => ({
+  queryKey: ['catalog', 'card', id],
+  queryFn: () => read(api.catalog.cards[':id'].$get({ param: { id } })),
+  staleTime,
+});
+
 export function useCard(id: string) {
-  return useQuery({
-    queryKey: ['catalog', 'card', id],
-    queryFn: () => read(api.catalog.cards[':id'].$get({ param: { id } })),
-    staleTime,
-  });
+  return useQuery(cardOptions(id));
 }
