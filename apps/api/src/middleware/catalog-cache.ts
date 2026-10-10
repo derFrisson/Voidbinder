@@ -14,16 +14,19 @@ export const CATALOG_CACHE_CONTROL = 'public, max-age=60, s-maxage=600, stale-wh
  */
 export const EDGE_CACHE_CONTROL = 'public, max-age=600, stale-while-revalidate=600';
 
+/** The responses that embed a price: the set page, the card page, the search and the price routes. */
+const PRICED = /^\/catalog\/(sets\/[^/]+\/[^/]+|cards\/[^/]+|search|prints\/[^/]+\/prices(\/.*)?)$/;
+
 /**
  * `Cache-Tag` of a cached response, purged by the importers at the end of a run: `modules` for the
- * module manifests, `prices` for the price routes, `catalog` for everything else.
+ * module manifests, `catalog` for every other catalog response, plus `prices` where it embeds a
+ * price, so a price import alone (TCGCSV) refreshes every page that shows one.
  */
 // ponytail: no per-game tags; every catalog import purges all of `catalog`. Add `game:<id>` when
 // one game's import should leave the others' cached pages alone.
 export function cacheTags(path: string): string {
   if (path.startsWith('/catalog/modules')) return 'modules';
-  if (/^\/catalog\/prints\/[^/]+\/prices(\/|$)/.test(path)) return 'prices';
-  return 'catalog';
+  return PRICED.test(path) ? 'catalog,prices' : 'catalog';
 }
 
 function hex(buffer: ArrayBuffer): string {

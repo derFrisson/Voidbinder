@@ -72,13 +72,14 @@ Three layers, each explicit about what may be stale (ADR 0004 and its addendum):
    (ten minutes fresh, ten more served stale while the Worker refreshes; `s-maxage` in
    `Cache-Control` would switch stale-while-revalidate off) and a `Cache-Tag`:
 
-   | Tag       | Responses                               | Purged by                                                          |
-   | --------- | --------------------------------------- | ------------------------------------------------------------------ |
-   | `catalog` | `/catalog/**` except prices and modules | every catalog import (Scryfall, YGOPRODeck, TCGdex)                |
-   | `prices`  | `/catalog/prints/:id/prices[/history]`  | the TCGCSV import (when it found a new build), the Scryfall import |
-   | `modules` | `/catalog/modules`                      | nothing yet: the module build runs on the VPS (TTL only)           |
+   | Tag       | Responses                                                                                                       | Purged by                                                          |
+   | --------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+   | `catalog` | `/catalog/**` except modules                                                                                    | every catalog import (Scryfall, YGOPRODeck, TCGdex)                |
+   | `prices`  | the responses that embed a price: `/catalog/sets/:game/:code`, `/cards/:id`, `/search`, `/prints/:id/prices/**` | the TCGCSV import (when it found a new build), the Scryfall import |
+   | `modules` | `/catalog/modules`                                                                                              | nothing yet: the module build runs on the VPS (TTL only)           |
 
-   There are no per-game tags: every catalog import purges all of `catalog`.
+   A price-bearing response carries both, `catalog,prices`. There are no per-game tags: every
+   catalog import purges all of `catalog`.
 
    The cache key is the path and query string as sent (`lang`, `currency` and the filters are
    query parameters) plus `Vary: Origin` from CORS; the Worker version is part of it too, so a

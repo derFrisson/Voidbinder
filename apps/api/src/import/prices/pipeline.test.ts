@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { appMeta, priceMappings, pricesCurrent, pricesDaily, prints, sets } from '../../db/schema';
+import { cacheTags } from '../../middleware/catalog-cache';
 import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { runScryfallImport, type ImportDeps } from '../scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../scryfall/test-fixtures';
@@ -134,6 +135,9 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'purge cache',
     ]);
     expect(purged).toEqual([['prices']]);
+    // The purge reaches every page that shows a price, not only the price routes.
+    for (const path of ['/catalog/sets/pokemon/sv1', '/catalog/cards/0a1b', '/catalog/search'])
+      expect(cacheTags(path).split(',')).toEqual(expect.arrayContaining(purged[0] ?? ['none']));
     // last-updated first, then groups, products and prices of the matched groups only.
     expect(requests).toEqual([
       'https://tcgcsv.com/last-updated.txt',

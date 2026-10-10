@@ -291,7 +291,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       expect(res.headers.get('Cache-Control')).toBe(
         'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
       );
-      expect(res.headers.get('Cache-Tag')).toBe('catalog');
+      expect(res.headers.get('Cache-Tag')).toBe('catalog,prices');
       expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
     });
 
@@ -364,7 +364,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(first.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
       'public, max-age=600, stale-while-revalidate=600',
     );
-    expect(first.headers.get('Cache-Tag')).toBe('catalog');
+    expect(first.headers.get('Cache-Tag')).toBe('catalog,prices');
     const etag = first.headers.get('ETag') ?? '';
     expect(etag).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
 
