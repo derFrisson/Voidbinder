@@ -450,7 +450,7 @@ ENV="--env-file $HOME/.config/voidbinder/r2.env --env-file $HOME/.config/voidbin
 pnpm --filter api mirror-images $ENV --db prod --game mtg --limit 200 --verify --sm --dry-run
 pnpm --filter api mirror-images $ENV --db prod --game mtg --verify --sm --concurrency 16 2>&1 | tee ~/mirror-prod-$(date +%F).log
 pnpm --filter api mirror-images $ENV --db prod --game yugioh --verify --sm --concurrency 16 2>&1 | tee -a ~/mirror-prod-$(date +%F).log
-# after the Pokémon copy (or TCGdex) is in:
+# after the TCGdex incremental instance is complete (it follows the copy):
 pnpm --filter api mirror-images $ENV --db prod --game pokemon --verify --sm --concurrency 16 2>&1 | tee -a ~/mirror-prod-$(date +%F).log
 ```
 
