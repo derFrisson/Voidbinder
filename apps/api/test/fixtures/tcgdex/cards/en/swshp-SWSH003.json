@@ -1,0 +1,73 @@
+{
+  "category": "Pokemon",
+  "id": "swshp-SWSH003",
+  "illustrator": "Mizue",
+  "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH003",
+  "localId": "SWSH003",
+  "name": "Sobble",
+  "rarity": "Promo",
+  "set": {
+    "cardCount": {
+      "official": 307,
+      "total": 307
+    },
+    "id": "swshp",
+    "logo": "https://assets.tcgdex.net/en/swsh/swshp/logo",
+    "name": "SWSH Black Star Promos",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "holo",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 427091,
+        "tcgplayer": 200302
+      },
+      "variantId": "jr7oetx1mqug9"
+    },
+    {
+      "type": "holo",
+      "size": "jumbo",
+      "stamp": ["25th-celebration"],
+      "thirdParty": {
+        "cardmarket": 547476,
+        "tcgplayer": 231468
+      },
+      "variantId": "29252prgmnb5rnr8wrd7ziqyxtx"
+    }
+  ],
+  "dexId": [816],
+  "hp": 60,
+  "types": ["Water"],
+  "description": "When scared, this Pokémon cries. Its tears pack the chemical punch of 100 onions, and attackers won't be able to resist weeping.",
+  "stage": "Basic",
+  "attacks": [
+    {
+      "cost": ["Water", "Colorless"],
+      "name": "Bind",
+      "effect": "Flip a coin. If heads, your opponent's Active Pokémon is now Paralyzed.",
+      "damage": 20
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Lightning",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-09-03T15:19:07Z"
+}

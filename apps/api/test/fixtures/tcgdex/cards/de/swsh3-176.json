@@ -1,0 +1,53 @@
+{
+  "category": "Energie",
+  "id": "swsh3-176",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/176",
+  "localId": "176",
+  "name": "Kraft-Colorless-Energie",
+  "rarity": "Ungewöhnlich",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": false,
+    "normal": true,
+    "reverse": true,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Normal",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 483759,
+        "tcgplayer": 219294
+      },
+      "variantId": "endfynwn4n10gzq"
+    },
+    {
+      "type": "Reverse",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 483759,
+        "tcgplayer": 219294
+      },
+      "variantId": "cm4kqul3x1bwlz1f"
+    }
+  ],
+  "effect": "Solange diese Karte an ein Pokémon angelegt ist, liefert sie Colorless-Energie.\n\nDie Attacken des Colorless-Pokémon, an das diese Karte angelegt ist, fügen dem Aktiven Pokémon deines Gegners 20 Schadenspunkte mehr zu\n(bevor Schwäche und Resistenz verrechnet werden).",
+  "energyType": "Spezial",
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

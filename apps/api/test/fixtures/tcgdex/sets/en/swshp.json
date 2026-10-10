@@ -1,0 +1,71 @@
+{
+  "cardCount": {
+    "firstEd": 0,
+    "holo": 436,
+    "normal": 19,
+    "official": 307,
+    "reverse": 0,
+    "total": 307
+  },
+  "cards": [
+    {
+      "id": "swshp-SWSH001",
+      "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH001",
+      "localId": "SWSH001",
+      "name": "Grookey"
+    },
+    {
+      "id": "swshp-SWSH002",
+      "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH002",
+      "localId": "SWSH002",
+      "name": "Scorbunny"
+    },
+    {
+      "id": "swshp-SWSH003",
+      "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH003",
+      "localId": "SWSH003",
+      "name": "Sobble"
+    },
+    {
+      "id": "swshp-SWSH004",
+      "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH004",
+      "localId": "SWSH004",
+      "name": "Meowth V"
+    },
+    {
+      "id": "swshp-SWSH005",
+      "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH005",
+      "localId": "SWSH005",
+      "name": "Meowth VMAX"
+    },
+    {
+      "id": "swshp-SWSH006",
+      "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH006",
+      "localId": "SWSH006",
+      "name": "Rillaboom"
+    },
+    {
+      "id": "swshp-SWSH074",
+      "localId": "SWSH074",
+      "name": "Special Delivery Pikachu"
+    },
+    {
+      "id": "swshp-SWSH075",
+      "localId": "SWSH075",
+      "name": "Special Delivery Charizard"
+    }
+  ],
+  "id": "swshp",
+  "legal": {
+    "expanded": true,
+    "standard": false
+  },
+  "logo": "https://assets.tcgdex.net/en/swsh/swshp/logo",
+  "name": "SWSH Black Star Promos",
+  "releaseDate": "2019-11-15",
+  "serie": {
+    "id": "swsh",
+    "name": "Sword & Shield"
+  },
+  "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+}

@@ -1,0 +1,69 @@
+{
+  "category": "Energie",
+  "id": "base1-96",
+  "illustrator": "Keiji Kinebuchi",
+  "localId": "96",
+  "name": "Doppelte farblose Energie",
+  "rarity": "Ungewöhnlich",
+  "set": {
+    "cardCount": {
+      "official": 102,
+      "total": 102
+    },
+    "id": "base1",
+    "name": "Grundset"
+  },
+  "variants": {
+    "firstEdition": true,
+    "holo": false,
+    "normal": true,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Normal",
+      "subtype": "unbegrenzt",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 273791,
+        "tcgplayer": 42440
+      },
+      "variantId": "3a83wf50tz7q114spsx7dw6v5"
+    },
+    {
+      "type": "Normal",
+      "subtype": "schattenlos",
+      "size": "Standard",
+      "stamp": ["1. Auflage"],
+      "thirdParty": {
+        "tcgplayer": 107099,
+        "cardmarket": 660106
+      },
+      "variantId": "gx8bq2hefwadd3utcibq3oc56sjf4jqdz709e"
+    },
+    {
+      "type": "Normal",
+      "subtype": "schattenlos",
+      "size": "Standard",
+      "thirdParty": {
+        "tcgplayer": 107099,
+        "cardmarket": 660106
+      },
+      "variantId": "2tszcx1bpt4e79y5us0p570b9n"
+    },
+    {
+      "type": "Normal",
+      "subtype": "Copyright 1999-2000",
+      "size": "Standard",
+      "variantId": "qi4g3e7tzbkcyhfflvx7zmvunxwjcq3pvp"
+    }
+  ],
+  "effect": "Liefert {C}{C} Energie. Zählt nicht als Basis-Energiekarte.",
+  "energyType": "Spezial",
+  "legal": {
+    "standard": false,
+    "expanded": false
+  },
+  "updated": "2026-09-04T23:45:25+01:00"
+}

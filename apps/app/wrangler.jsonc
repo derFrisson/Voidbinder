@@ -1,0 +1,34 @@
+// Cloudflare config of the web app (docs/environments.md): the `expo export` output as static
+// assets, and src/worker.ts for `/api/*`, which it forwards to the API Worker through the `API`
+// service binding. The top level is what `wrangler dev` uses locally (the API from
+// `pnpm --filter api dev`, if it runs); `--env dev|prod` selects a deployed environment.
+// Bindings are not inherited by environments, so they are repeated in each one.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "account_id": "152a1fcd0eebb96d1bc30d14b5a6af58",
+  "name": "voidbinder-app",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-06",
+  "observability": { "enabled": true },
+  "workers_dev": false,
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"],
+  },
+  "services": [{ "binding": "API", "service": "voidbinder-api" }],
+  "env": {
+    "dev": {
+      "name": "voidbinder-app-dev",
+      "workers_dev": true,
+      "services": [{ "binding": "API", "service": "voidbinder-api-dev" }],
+    },
+    "prod": {
+      "name": "voidbinder-app",
+      "workers_dev": false,
+      "routes": [{ "pattern": "app.voidbinder.de", "custom_domain": true }],
+      "services": [{ "binding": "API", "service": "voidbinder-api" }],
+    },
+  },
+}

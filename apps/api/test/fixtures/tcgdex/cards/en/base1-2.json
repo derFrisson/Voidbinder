@@ -1,0 +1,97 @@
+{
+  "category": "Pokemon",
+  "id": "base1-2",
+  "illustrator": "Ken Sugimori",
+  "image": "https://assets.tcgdex.net/en/base/base1/2",
+  "localId": "2",
+  "name": "Blastoise",
+  "rarity": "Rare",
+  "set": {
+    "cardCount": {
+      "official": 102,
+      "total": 102
+    },
+    "id": "base1",
+    "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+    "name": "Base Set"
+  },
+  "variants": {
+    "firstEdition": true,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "holo",
+      "subtype": "unlimited",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 273697,
+        "tcgplayer": 42360
+      },
+      "variantId": "4ffrmhcfiaejakhepqdkx7o"
+    },
+    {
+      "type": "holo",
+      "subtype": "shadowless",
+      "size": "standard",
+      "stamp": ["1st-edition"],
+      "thirdParty": {
+        "tcgplayer": 106997,
+        "cardmarket": 660226
+      },
+      "variantId": "mtltux8qtgdu4exu903oasum21juxbvx6lx"
+    },
+    {
+      "type": "holo",
+      "subtype": "shadowless",
+      "size": "standard",
+      "thirdParty": {
+        "tcgplayer": 106997,
+        "cardmarket": 660226
+      },
+      "variantId": "3takscxpcqoqcfnxk1ivs2y6"
+    },
+    {
+      "type": "holo",
+      "subtype": "1999-2000-copyright",
+      "size": "standard",
+      "variantId": "zqq5g2u9n0st0gren5bssktmac2ywqaw"
+    }
+  ],
+  "dexId": [9],
+  "hp": 100,
+  "types": ["Water"],
+  "evolveFrom": "Wartortle",
+  "description": "A brutal Pokémon with pressurized water jets on its shell. They are used for high-speed tackles.",
+  "stage": "Stage2",
+  "abilities": [
+    {
+      "type": "Pokemon Power",
+      "name": "Rain Dance",
+      "effect": "As often as you like during your turn (before your attack), you may attach 1 Water Energy Card to 1 of your Water Pokémon. (This doesn't use up your 1 Energy card attachment for the turn.) This power can't be used if Blastoise is Asleep, Confused, or Paralyzed."
+    }
+  ],
+  "attacks": [
+    {
+      "cost": ["Water", "Water", "Water"],
+      "name": "Hydro Pump",
+      "effect": "Does 40 damage plus 10 more damage for each attached Water Energy attached to Blastoise but not used to pay for this attack's Energy cost. Extra Water Energy after the 2nd doesn't count.",
+      "damage": "40+"
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Lightning",
+      "value": "×2"
+    }
+  ],
+  "retreat": 3,
+  "legal": {
+    "standard": false,
+    "expanded": false
+  },
+  "updated": "2026-09-04T23:45:25+01:00"
+}

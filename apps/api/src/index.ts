@@ -4,16 +4,20 @@ import {
   appDeps,
   startScryfallImport,
   startTcgcsvImport,
+  startTcgdexCron,
   startYgoprodeckImport,
 } from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 export { TcgcsvImportWorkflow } from './workflows/tcgcsv-import';
+export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
 export { YgoprodeckImportWorkflow } from './workflows/ygoprodeck-import';
 
 const START = {
   scryfall: startScryfallImport,
   ygoprodeck: startYgoprodeckImport,
+  // Skips the start while a TCGdex run is still going (a full run outlasts a day).
+  tcgdex: startTcgdexCron,
   tcgcsv: startTcgcsvImport,
 };
 

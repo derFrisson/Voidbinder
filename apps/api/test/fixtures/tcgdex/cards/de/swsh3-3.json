@@ -1,0 +1,70 @@
+{
+  "category": "Pokémon",
+  "id": "swsh3-3",
+  "illustrator": "Atsuko Nishida",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/3",
+  "localId": "3",
+  "name": "Paras",
+  "rarity": "Häufig",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": false,
+    "normal": true,
+    "reverse": true,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Normal",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 482889,
+        "tcgplayer": 219061
+      },
+      "variantId": "endfynwn4n10gzq"
+    },
+    {
+      "type": "Reverse",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 482889,
+        "tcgplayer": 219061
+      },
+      "variantId": "cm4kqul3x1bwlz1f"
+    }
+  ],
+  "dexId": [46],
+  "hp": 60,
+  "types": ["Pflanze"],
+  "stage": "Basis",
+  "attacks": [
+    {
+      "cost": ["Pflanze"],
+      "name": "Kratzer",
+      "damage": 20
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Feuer",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

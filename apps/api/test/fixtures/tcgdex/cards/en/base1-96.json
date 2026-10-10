@@ -1,0 +1,71 @@
+{
+  "category": "Energy",
+  "id": "base1-96",
+  "illustrator": "Keiji Kinebuchi",
+  "image": "https://assets.tcgdex.net/en/base/base1/96",
+  "localId": "96",
+  "name": "Double Colorless Energy",
+  "rarity": "Uncommon",
+  "set": {
+    "cardCount": {
+      "official": 102,
+      "total": 102
+    },
+    "id": "base1",
+    "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+    "name": "Base Set"
+  },
+  "variants": {
+    "firstEdition": true,
+    "holo": false,
+    "normal": true,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "normal",
+      "subtype": "unlimited",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 273791,
+        "tcgplayer": 42440
+      },
+      "variantId": "3a83wf50tz7q114spsx7dw6v5"
+    },
+    {
+      "type": "normal",
+      "subtype": "shadowless",
+      "size": "standard",
+      "stamp": ["1st-edition"],
+      "thirdParty": {
+        "tcgplayer": 107099,
+        "cardmarket": 660106
+      },
+      "variantId": "gx8bq2hefwadd3utcibq3oc56sjf4jqdz709e"
+    },
+    {
+      "type": "normal",
+      "subtype": "shadowless",
+      "size": "standard",
+      "thirdParty": {
+        "tcgplayer": 107099,
+        "cardmarket": 660106
+      },
+      "variantId": "2tszcx1bpt4e79y5us0p570b9n"
+    },
+    {
+      "type": "normal",
+      "subtype": "1999-2000-copyright",
+      "size": "standard",
+      "variantId": "qi4g3e7tzbkcyhfflvx7zmvunxwjcq3pvp"
+    }
+  ],
+  "effect": "Provides {C}{C} energy.\nDoesn't count as a basic Energy card.",
+  "energyType": "Special",
+  "legal": {
+    "standard": false,
+    "expanded": false
+  },
+  "updated": "2026-09-04T23:45:25+01:00"
+}

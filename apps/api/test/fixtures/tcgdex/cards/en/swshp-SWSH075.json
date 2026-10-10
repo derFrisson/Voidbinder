@@ -1,0 +1,69 @@
+{
+  "category": "Pokemon",
+  "id": "swshp-SWSH075",
+  "illustrator": "Illus. & Direc. The Pokémon Company Art Team",
+  "localId": "SWSH075",
+  "name": "Special Delivery Charizard",
+  "rarity": "Promo",
+  "set": {
+    "cardCount": {
+      "official": 307,
+      "total": 307
+    },
+    "id": "swshp",
+    "logo": "https://assets.tcgdex.net/en/swsh/swshp/logo",
+    "name": "SWSH Black Star Promos",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "holo",
+      "size": "standard",
+      "foil": "cosmos",
+      "thirdParty": {
+        "cardmarket": 668172,
+        "tcgplayer": 282259
+      },
+      "variantId": "5zs5af49g93yryvw1ftj"
+    }
+  ],
+  "dexId": [6],
+  "hp": 160,
+  "types": ["Fire"],
+  "evolveFrom": "Charmeleon",
+  "description": "It spits fire that is hot enough to melt boulders. It may cause forest fires by blowing flames.",
+  "stage": "Stage2",
+  "attacks": [
+    {
+      "cost": ["Colorless"],
+      "name": "Happy Delivery",
+      "effect": "Search your deck for up to 2 Item cards, reveal them, and put them into your hand. Then, shuffle your deck."
+    },
+    {
+      "cost": ["Fire", "Fire", "Colorless"],
+      "name": "Flamethrower",
+      "effect": "Discard an Energy from this Pokémon.",
+      "damage": 160
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Water",
+      "value": "×2"
+    }
+  ],
+  "retreat": 3,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-09-03T15:19:07Z"
+}

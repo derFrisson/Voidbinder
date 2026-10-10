@@ -10,6 +10,9 @@
 | api  | local       | `pnpm --filter api dev` (`wrangler dev`) | default (top level of the config)            |
 | api  | `dev`       | `voidbinder-api-dev` on workers.dev      | `wrangler --env dev`                         |
 | api  | `prod`      | `api.voidbinder.de` (`voidbinder-api`)   | `wrangler --env prod`                        |
+| app  | local       | `pnpm --filter app dev` (Expo, :8081)    | `EXPO_PUBLIC_API_URL` → local API            |
+| app  | `dev`       | `voidbinder-app-dev` on workers.dev      | `wrangler --env dev`                         |
+| app  | `prod`      | `app.voidbinder.de` (`voidbinder-app`)   | `wrangler --env prod`                        |
 
 The site's Cloudflare config is `apps/site/wrangler.jsonc`. `@astrojs/cloudflare` 14 builds through
 `@cloudflare/vite-plugin`, so the environment is chosen at **build** time: `astro build` reads
@@ -30,6 +33,13 @@ plain `pnpm build` output. Deploys run from Max's workstation with his `wrangler
 The API's config is `apps/api/wrangler.jsonc`. It has no build step: `wrangler deploy --env dev|prod`
 bundles `src/index.ts` itself (`pnpm --filter api deploy:dev|prod`, which also sets `VERSION` to
 the short git sha). Details: [apps/api/README.md](../apps/api/README.md).
+
+The app's config is `apps/app/wrangler.jsonc`. `expo export --platform web` builds the same
+`dist/` for every environment (the API is always the same origin, `/api`); the environment only
+picks the Worker name and the API the `API` service binding points at (`voidbinder-api-dev` in
+`dev`, `voidbinder-api` in `prod`): `pnpm --filter app deploy:dev|prod`. Deploy the API first, so the
+binding has a Worker to point at. The app has no secrets.
+Details: [apps/app/README.md](../apps/app/README.md).
 
 ## Database
 

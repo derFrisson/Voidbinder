@@ -1,0 +1,67 @@
+{
+  "category": "Pokemon",
+  "id": "swsh3-1",
+  "illustrator": "Saki Hayashiro",
+  "image": "https://assets.tcgdex.net/en/swsh/swsh3/1",
+  "localId": "1",
+  "name": "Butterfree V",
+  "rarity": "Holo Rare V",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/en/swsh/swsh3/logo",
+    "name": "Darkness Ablaze",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "holo",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 482879,
+        "tcgplayer": 219054
+      },
+      "variantId": "jr7oetx1mqug9"
+    }
+  ],
+  "dexId": [12],
+  "hp": 190,
+  "types": ["Grass"],
+  "stage": "Basic",
+  "suffix": "V",
+  "attacks": [
+    {
+      "cost": ["Grass"],
+      "name": "Dizzying Poison",
+      "effect": "Your opponent's Active Pokémon is now Confused and Poisoned."
+    },
+    {
+      "cost": ["Grass", "Grass", "Colorless"],
+      "name": "Blasting Wind",
+      "damage": 130
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Fire",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}

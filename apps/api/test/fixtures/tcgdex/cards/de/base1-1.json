@@ -1,0 +1,95 @@
+{
+  "category": "Pokémon",
+  "id": "base1-1",
+  "illustrator": "Ken Sugimori",
+  "localId": "1",
+  "name": "Simsala",
+  "rarity": "Selten",
+  "set": {
+    "cardCount": {
+      "official": 102,
+      "total": 102
+    },
+    "id": "base1",
+    "name": "Grundset"
+  },
+  "variants": {
+    "firstEdition": true,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Holo",
+      "subtype": "unbegrenzt",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 273696,
+        "tcgplayer": 42346
+      },
+      "variantId": "4ffrmhcfiaejakhepqdkx7o"
+    },
+    {
+      "type": "Holo",
+      "subtype": "schattenlos",
+      "size": "Standard",
+      "stamp": ["1. Auflage"],
+      "thirdParty": {
+        "tcgplayer": 106996,
+        "cardmarket": 660227
+      },
+      "variantId": "mtltux8qtgdu4exu903oasum21juxbvx6lx"
+    },
+    {
+      "type": "Holo",
+      "subtype": "schattenlos",
+      "size": "Standard",
+      "thirdParty": {
+        "tcgplayer": 106996,
+        "cardmarket": 660227
+      },
+      "variantId": "3takscxpcqoqcfnxk1ivs2y6"
+    },
+    {
+      "type": "Holo",
+      "subtype": "Copyright 1999-2000",
+      "size": "Standard",
+      "variantId": "zqq5g2u9n0st0gren5bssktmac2ywqaw"
+    }
+  ],
+  "dexId": [65],
+  "hp": 80,
+  "types": ["Psycho"],
+  "evolveFrom": "Kadabra",
+  "description": "Sein Gehirn übertrifft einen Supercomputer. Sein Intelligenzquotient soll 5000 betragen.",
+  "stage": "Rang 2",
+  "abilities": [
+    {
+      "type": "Pokemon Power",
+      "name": "Schadenstausch",
+      "effect": "Bist Du am Zug, kannst Du (vor Deinem Angriff) beliebig oft eine Schadensmarke von einem Deiner Pokémon auf ein anderes verschieben, solange Du dieses Pokémon nicht kampfunfähig machst. Diese Fähigkeit kann nicht eingesetzt werden, falls Simsala schlafend, verwirrt oder gelähmt ist."
+    }
+  ],
+  "attacks": [
+    {
+      "cost": ["Psycho", "Psycho", "Psycho"],
+      "name": "Konfustrahl",
+      "effect": "Wirf eine Münze. Bei „Kopf“ ist das verteidigende Pokémon verwirrt.",
+      "damage": 30
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Psycho",
+      "value": "×2"
+    }
+  ],
+  "retreat": 3,
+  "legal": {
+    "standard": false,
+    "expanded": false
+  },
+  "updated": "2026-08-20T08:25:49+01:00"
+}

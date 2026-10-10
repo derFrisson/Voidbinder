@@ -8,7 +8,7 @@ import type { Db } from '../scryfall/write';
 import { importGroups, runTcgcsvImport } from './pipeline';
 import { runScryfallPrices } from './scryfall';
 import { fakeTcgcsv, type FakeTcgcsv } from './test-fixtures';
-import { setManualMapping } from './write';
+import { setManualMapping } from './override';
 
 describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
   let db: Db;

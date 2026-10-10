@@ -1,0 +1,76 @@
+{
+  "cardCount": {
+    "firstEd": 103,
+    "holo": 64,
+    "normal": 351,
+    "official": 102,
+    "reverse": 0,
+    "total": 102
+  },
+  "cards": [
+    {
+      "id": "base1-1",
+      "image": "https://assets.tcgdex.net/en/base/base1/1",
+      "localId": "1",
+      "name": "Alakazam"
+    },
+    {
+      "id": "base1-2",
+      "image": "https://assets.tcgdex.net/en/base/base1/2",
+      "localId": "2",
+      "name": "Blastoise"
+    },
+    {
+      "id": "base1-3",
+      "image": "https://assets.tcgdex.net/en/base/base1/3",
+      "localId": "3",
+      "name": "Chansey"
+    },
+    {
+      "id": "base1-4",
+      "image": "https://assets.tcgdex.net/en/base/base1/4",
+      "localId": "4",
+      "name": "Charizard"
+    },
+    {
+      "id": "base1-5",
+      "image": "https://assets.tcgdex.net/en/base/base1/5",
+      "localId": "5",
+      "name": "Clefairy"
+    },
+    {
+      "id": "base1-6",
+      "image": "https://assets.tcgdex.net/en/base/base1/6",
+      "localId": "6",
+      "name": "Gyarados"
+    },
+    {
+      "id": "base1-96",
+      "image": "https://assets.tcgdex.net/en/base/base1/96",
+      "localId": "96",
+      "name": "Double Colorless Energy"
+    },
+    {
+      "id": "base1-102",
+      "image": "https://assets.tcgdex.net/en/base/base1/102",
+      "localId": "102",
+      "name": "Water Energy"
+    }
+  ],
+  "id": "base1",
+  "legal": {
+    "expanded": false,
+    "standard": false
+  },
+  "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+  "name": "Base Set",
+  "releaseDate": "1999-01-09",
+  "serie": {
+    "id": "base",
+    "name": "Base"
+  },
+  "tcgOnline": "BS",
+  "abbreviation": {
+    "official": "BS"
+  }
+}

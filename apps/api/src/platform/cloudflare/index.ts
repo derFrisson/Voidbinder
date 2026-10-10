@@ -3,6 +3,8 @@ import { Pool } from 'pg';
 import type { AppDeps, Platform } from '../../app';
 import type { MirrorDeps } from '../../import/images';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
+import type { ImportDeps as TcgdexDeps } from '../../import/tcgdex/pipeline';
+import { TcgdexClient } from '../../import/tcgdex/source';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
 import { bindingMailSender } from './mail-sender';
@@ -54,6 +56,7 @@ export function createPlatform(env: Env): Platform {
     blobStore: catalogImages(env),
     jobQueue: new WorkflowJobQueue({
       'scryfall-import': env.SCRYFALL_IMPORT,
+      'tcgdex-import': env.TCGDEX_IMPORT,
       'ygoprodeck-import': env.YGOPRODECK_IMPORT,
       'tcgcsv-import': env.TCGCSV_IMPORT,
     }),
@@ -130,6 +133,41 @@ export async function startYgoprodeckImport(env: Env, id?: string): Promise<void
 export async function startScryfallImport(env: Env, id?: string): Promise<void> {
   const instance = await env.SCRYFALL_IMPORT.create(id ? { id } : {});
   log('info', { message: 'workflow started', job: 'scryfall-import', instanceId: instance.id });
+}
+
+/** What the TCGdex import Workflow works with: paced `fetch`, the `CATALOG` bucket, a pool per step. */
+export function tcgdexImportDeps(env: Env): TcgdexDeps {
+  return {
+    client: new TcgdexClient((input, init) => fetch(input, init)),
+    blobs: new R2BlobStore(env.RAW),
+    withDb: (fn) => withDatabase(env, fn),
+  };
+}
+
+/** Starts a TCGdex import instance; an `id` makes it unique (the cron's one per day). */
+export async function startTcgdexImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.TCGDEX_IMPORT.create({ ...(id && { id }), params: {} });
+  log('info', { message: 'workflow started', job: 'tcgdex-import', instanceId: instance.id });
+}
+
+/**
+ * The cron's TCGdex start: skipped (and logged) while a TCGdex run is still going, which a full
+ * run or a slow day can make last past the next cron. Same check as POST /admin/import/tcgdex.
+ */
+export async function startTcgdexCron(
+  env: Env,
+  id: string,
+  platform: Pick<Platform, 'cardStore' | 'close'> = createPlatform(env),
+): Promise<void> {
+  try {
+    if (await platform.cardStore.importRunning('tcgdex')) {
+      log('info', { message: 'import still running, cron start skipped', job: 'tcgdex-import' });
+      return;
+    }
+  } finally {
+    await platform.close();
+  }
+  await startTcgdexImport(env, id);
 }
 
 /** The image mirror's daily delta (VB-57): `orig` only, into `CATALOG`; the VPS adds `sm`. */

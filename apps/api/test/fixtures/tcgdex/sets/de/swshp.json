@@ -1,0 +1,61 @@
+{
+  "cardCount": {
+    "firstEd": 0,
+    "holo": 433,
+    "normal": 16,
+    "official": 307,
+    "reverse": 0,
+    "total": 307
+  },
+  "cards": [
+    {
+      "id": "swshp-SWSH001",
+      "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH001",
+      "localId": "SWSH001",
+      "name": "Chimpep"
+    },
+    {
+      "id": "swshp-SWSH002",
+      "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH002",
+      "localId": "SWSH002",
+      "name": "Hopplo"
+    },
+    {
+      "id": "swshp-SWSH003",
+      "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH003",
+      "localId": "SWSH003",
+      "name": "Memmeon"
+    },
+    {
+      "id": "swshp-SWSH004",
+      "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH004",
+      "localId": "SWSH004",
+      "name": "Mauzi V"
+    },
+    {
+      "id": "swshp-SWSH005",
+      "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH005",
+      "localId": "SWSH005",
+      "name": "Mauzi VMAX"
+    },
+    {
+      "id": "swshp-SWSH006",
+      "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH006",
+      "localId": "SWSH006",
+      "name": "Gortrom"
+    }
+  ],
+  "id": "swshp",
+  "legal": {
+    "expanded": true,
+    "standard": false
+  },
+  "logo": "https://assets.tcgdex.net/de/swsh/swshp/logo",
+  "name": "SCSC Promokarten",
+  "releaseDate": "2019-11-15",
+  "serie": {
+    "id": "swsh",
+    "name": "Schwert & Schild"
+  },
+  "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+}

@@ -6,13 +6,13 @@ import {
   type ImportStartedResponse,
   type PriceMappingResponse,
 } from '@voidbinder/shared/api';
-import { Hono, type Handler } from 'hono';
+import { Hono, type Context, type Handler } from 'hono';
 import { bearerAuth } from 'hono/bearer-auth';
 import { HTTPException } from 'hono/http-exception';
 import { timingSafeEqual } from 'hono/utils/buffer';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
-import { MappingConflict, setManualMapping } from '../import/prices/write';
+import { MappingConflict, setManualMapping } from '../import/prices/override';
 import { throwOnInvalid } from '../middleware/errors';
 
 /**
@@ -29,6 +29,16 @@ export function adminRoutes(adminToken: string | undefined) {
       .use(bearerAuth({ verifyToken: (token) => timingSafeEqual(token, adminToken ?? '') }))
       .post('/import/scryfall', importRoute('scryfall', 'Scryfall'))
       .post('/import/ygoprodeck', importRoute('ygoprodeck', 'YGOPRODeck'))
+      .post(
+        '/import/tcgdex',
+        // `?mode=full` refetches every set; the default only the new, incomplete and recent ones.
+        importRoute('tcgdex', 'TCGdex', (c) => {
+          const mode = c.req.query('mode') ?? 'incremental';
+          if (mode !== 'incremental' && mode !== 'full')
+            throw new HTTPException(400, { message: 'mode must be incremental or full' });
+          return { mode };
+        }),
+      )
       .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
       // A manual price mapping (VB-30): confidence 100, never overwritten by the importers.
       .put(
@@ -69,8 +79,13 @@ export function adminRoutes(adminToken: string | undefined) {
  * Starts the import of `source` (the `import_runs.source`, also the Workflow job `<source>-import`)
  * unless one is running.
  */
-function importRoute(source: string, label: string): Handler<AppEnv> {
+function importRoute(
+  source: string,
+  label: string,
+  payload: (c: Context<AppEnv>) => Record<string, unknown> = () => ({}),
+): Handler<AppEnv> {
   return async (c) => {
+    const params = payload(c);
     // ponytail: the check and the Workflow's own `import_runs` row are not atomic; two calls
     // within the seconds before its first step can both start (the cron's daily id is unique).
     if (await c.var.platform.cardStore.importRunning(source)) {
@@ -83,7 +98,7 @@ function importRoute(source: string, label: string): Handler<AppEnv> {
       };
       return c.json(error, 409);
     }
-    await c.var.platform.jobQueue.send({ type: `${source}-import`, payload: {} });
+    await c.var.platform.jobQueue.send({ type: `${source}-import`, payload: params });
     const body: ImportStartedResponse = { status: 'started' };
     return c.json(body, 202);
   };
