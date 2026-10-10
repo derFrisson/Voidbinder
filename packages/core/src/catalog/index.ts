@@ -16,9 +16,10 @@ const TYPED: Record<string, string> = Object.fromEntries(
 );
 
 /**
- * `number` as printed in `lang`: a Yu-Gi-Oh! print with a localization in `lang`
+ * `number` as printed in `lang` by rule: a Yu-Gi-Oh! print with a localization in `lang`
  * (`localizationLangs`) swaps its language token (`EN024` → `DE024`, `es` → `SP024`, `ja` →
- * `JP024`); everything else stays as stored.
+ * `JP024`); everything else stays as stored. A localization's stored code (VB-94, `printNumbers`)
+ * wins over the rule.
  */
 export function displayNumber(
   game: Game,
@@ -27,8 +28,6 @@ export function displayNumber(
   localizationLangs: readonly string[],
 ): string {
   const token = YUGIOH_LANGUAGE_TOKENS[lang];
-  // ponytail: VB-94 stores verified localized codes on print_localizations.external_ids; prefer
-  // them here once they exist.
   return game === 'yugioh' && token && localizationLangs.includes(lang)
     ? number.replace(ENGLISH, token)
     : number;
@@ -87,28 +86,49 @@ export function typedLanguage(
   return rest && digits(rest) === digits(number.slice(2)) ? token : null;
 }
 
+/** A Yu-Gi-Oh! localization's own code (`external_ids.set_code`, VB-94: `BLGG-DE024`), else null. */
+export function storedCode(
+  ids: Readonly<Record<string, unknown>> | null | undefined,
+): string | null {
+  const code = ids?.set_code;
+  return typeof code === 'string' && code ? code : null;
+}
+
 /**
  * `displayNumber` and `displayCode` of a print in `lang` (VB-97); `localized` says whether it has a
- * localization in `lang`. A Yu-Gi-Oh! language token in `code` (a search's query as `parseCodeQuery`
- * normalizes it, `typedToken`) wins; when `code` names the print by its full number the hit
- * carries it as `matchedCode`.
+ * localization in `lang`, `localizedCode` is that localization's stored code (`storedCode`, VB-94),
+ * which wins over the rule (`LON-065` in German is `LON-G065`). A Yu-Gi-Oh! language token in
+ * `code` (a search's query as `parseCodeQuery` normalizes it, `typedToken`) wins over `lang`; when
+ * `code` names the print by its full number, or is the stored code, the hit carries it as
+ * `matchedCode`.
  */
 export function printNumbers(
-  print: { game: Game; setCode: string; number: string; cardCount: number | null },
+  print: {
+    game: Game;
+    setCode: string;
+    number: string;
+    cardCount: number | null;
+    localizedCode?: string | null;
+  },
   lang: string,
   localized: boolean,
   code: string | null = null,
 ): { displayNumber: string; displayCode: string; matchedCode?: string } {
   const typed = typedLanguage(print.game, code, print.setCode, print.number);
   const token = typedToken(print.game, code, print.setCode);
-  const shown = token
-    ? displayNumber(print.game, print.number, token, [token])
-    : displayNumber(print.game, print.number, lang, localized ? [lang] : []);
-  const printed = displayCode(print.game, print.setCode, shown, print.cardCount);
+  // The stored code is `lang`'s: a token naming another language shows that one by rule.
+  const stored = print.game === 'yugioh' && (!token || token === lang) ? print.localizedCode : null;
+  const shown = stored
+    ? stored.slice(stored.indexOf('-') + 1)
+    : token
+      ? displayNumber(print.game, print.number, token, [token])
+      : displayNumber(print.game, print.number, lang, localized ? [lang] : []);
+  // As stored: a localized code may start with another set code (French LON is `LDC-F065`).
+  const printed = stored ?? displayCode(print.game, print.setCode, shown, print.cardCount);
   return {
     displayNumber: shown,
     displayCode: printed,
-    ...(typed ? { matchedCode: printed } : {}),
+    ...(typed || (stored && code === key(stored)) ? { matchedCode: printed } : {}),
   };
 }
 

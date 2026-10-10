@@ -4,6 +4,7 @@ import {
   displayNumber,
   matchLanguage,
   printNumbers,
+  storedCode,
   typedLanguage,
   typedToken,
 } from './index.js';
@@ -111,6 +112,56 @@ describe('typedToken (VB-102)', () => {
     expect(printNumbers(lc01, 'de', true, 'lc01en4')).toMatchObject({
       matchedCode: 'LC01-EN004',
     });
+  });
+});
+
+describe('printNumbers with a stored localized code (VB-94)', () => {
+  const lon = { game: 'yugioh' as const, setCode: 'lon', number: '065', cardCount: 105 };
+
+  it('prefers the stored code over the rule, also under another set code', () => {
+    expect(printNumbers({ ...lon, localizedCode: 'LON-G065' }, 'de', true)).toEqual({
+      displayNumber: 'G065',
+      displayCode: 'LON-G065',
+    });
+    expect(printNumbers({ ...lon, localizedCode: 'LDC-F065' }, 'fr', true)).toEqual({
+      displayNumber: 'F065',
+      displayCode: 'LDC-F065',
+    });
+    // Without one, the rule (a token-less number stays as it is).
+    expect(printNumbers({ ...lon, localizedCode: null }, 'de', true).displayCode).toBe('LON-065');
+    expect(
+      printNumbers({ ...lon, number: 'EN065', localizedCode: null }, 'de', true).displayCode,
+    ).toBe('LON-DE065');
+  });
+
+  it('marks a query naming the stored code as matched, and ignores it for another language', () => {
+    expect(printNumbers({ ...lon, localizedCode: 'LON-G065' }, 'de', true, 'long065')).toEqual({
+      displayNumber: 'G065',
+      displayCode: 'LON-G065',
+      matchedCode: 'LON-G065',
+    });
+    expect(
+      printNumbers({ ...lon, localizedCode: 'LON-G065' }, 'de', true, 'long06'),
+    ).not.toHaveProperty('matchedCode');
+    // A typed French token is not the German row's code.
+    const blgg = { game: 'yugioh' as const, setCode: 'blgg', number: 'EN024', cardCount: 100 };
+    expect(
+      printNumbers({ ...blgg, localizedCode: 'BLGG-DE024' }, 'de', true, 'blggfr024').displayCode,
+    ).toBe('BLGG-FR024');
+    // Other games have no such codes.
+    expect(
+      printNumbers(
+        { game: 'mtg', setCode: 'mid', number: '123', cardCount: 277, localizedCode: 'X-1' },
+        'de',
+        true,
+      ).displayCode,
+    ).toBe('MID 123');
+  });
+
+  it('reads the code from a localization’s external_ids', () => {
+    expect(storedCode({ set_code: 'LON-G065', set_code_source: 'yugipedia' })).toBe('LON-G065');
+    expect(storedCode({ set_code_source: 'yugipedia' })).toBeNull();
+    expect(storedCode(null)).toBeNull();
   });
 });
 
