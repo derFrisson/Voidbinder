@@ -701,7 +701,7 @@ while a names or a gallery run is `running`, one lock for one crawl rate; `impor
 written `external_ids.artworks` on some print, so on a fresh database run the YGOPRODeck import
 first; then it lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
 gallery and not read in the last 30 days (`app_meta` map `yugipedia_galleries_checked`, set code →
-day; a set with a print without rarity the next day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
+day; a set with a print without rarity changed since its last read the next day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
 languages its prints have (`revisions`, 50 titles a request), pick the prints and languages to
 resolve, and ask `imageinfo` for their candidate files (50 a request): a print is resolved when its
 card has several artworks (`external_ids.artworks`, which the YGOPRODeck import now writes) or a

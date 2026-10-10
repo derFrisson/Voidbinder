@@ -980,12 +980,16 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import of MAMO (Postgres, VB-11
     expect(await key()).toBeNull();
   });
 
-  it('looks at a set with a print without rarity again the next day', async () => {
+  it('looks at a set with a print without rarity again the next day, while it is new', async () => {
     const titles = [MAMO];
     expect(await planSets(db, titles, '2026-10-11')).toEqual([]);
-    await db.execute(
-      sql`update prints set rarity = null where variant = 'new' and number = 'EN003'`,
-    );
+    // Left null before the last read (2026-10-10): the gallery could not name it, cool-down.
+    await db.execute(sql`update prints set rarity = null, updated_at = '2026-10-09T12:00:00Z'
+      where variant = 'new' and number = 'EN003'`);
+    expect(await planSets(db, titles, '2026-10-11')).toEqual([]);
+    // Changed by YGOPRODeck's import since: read again the next day.
+    await db.execute(sql`update prints set updated_at = '2026-10-10T23:00:00Z'
+      where variant = 'new' and number = 'EN003'`);
     expect(await planSets(db, titles, '2026-10-11')).toEqual([{ code: 'mamo', titles }]);
   });
 });

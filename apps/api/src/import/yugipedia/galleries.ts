@@ -607,17 +607,20 @@ export async function planSets(
       code: sets.code,
       name: sets.name,
       // A placeholder rarity (VB-117) the gallery may name once YGOPRODeck's import has left it
-      // null: looked at again the next day, not after the cool-down.
-      // Spelled out: drizzle writes a select field's columns unqualified.
-      unresolved: sql<boolean>`exists (select from prints up where up.set_id = "sets"."id"
-        and up.rarity is null)`,
+      // null: looked at again the next day, not after the cool-down, but only while such a print
+      // is newer than the set's last read (a placeholder the gallery cannot name, `Reprint` or a
+      // number with no free row, waits for the cool-down like the rest). The UTC day of the
+      // newest one; spelled out, as drizzle writes a select field's columns unqualified.
+      unresolved: sql<string | null>`(select to_char(max(up.updated_at) at time zone 'UTC',
+        'YYYY-MM-DD') from prints up where up.set_id = "sets"."id" and up.rarity is null)`,
     })
     .from(sets)
     .where(eq(sets.gameId, 'yugioh'))
     .orderBy(sets.code);
   return ours.flatMap((s) => {
     const pages = byName.get(setNameKey(GALLERY_NAMES[s.code] ?? s.name));
-    const due = (checked[s.code] ?? '') <= (s.unresolved ? date.slice(0, 10) : since);
+    const last = checked[s.code] ?? '';
+    const due = last <= (s.unresolved && s.unresolved >= last ? date.slice(0, 10) : since);
     return pages && due ? [{ code: s.code, titles: pages }] : [];
   });
 }
