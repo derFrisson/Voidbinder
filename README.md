@@ -76,7 +76,10 @@ apply to you too:
   [Yugipedia](https://yugipedia.com) under CC BY-SA 4.0: keep the attribution (source and licence
   linked) and wait one second between requests.
 - **Pokémon:** card data comes from [TCGdex](https://tcgdex.dev) (MIT licence). Voidbinder is not
-  endorsed by TCGdex. The image mirror re-hosts the card images instead of hotlinking them. Pokémon
+  endorsed by TCGdex. The pictures TCGdex lacks (McDonald's collections, galleries, trainer kits)
+  come from the [Pokémon TCG API](https://pokemontcg.io): credit it as "Card images: Pokémon TCG
+  API (pokemontcg.io)", keep under its limit (1,000 requests a day without a key, 30 a minute) and
+  re-host the files. The image mirror re-hosts the card images instead of hotlinking them. Pokémon
   offers no fan-content licence; show its notice: "Pokémon and Pokémon character names are
   trademarks of Nintendo. Card images and text are © The Pokémon Company, Nintendo, Game Freak
   and/or Creatures. Voidbinder is not produced by, endorsed by, supported by, or affiliated with
