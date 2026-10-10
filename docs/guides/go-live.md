@@ -335,6 +335,15 @@ and downloads nothing it finds, so prod only gets its `image_key` columns filled
 mirror holds the lock, and the second one stops with "another image mirror is running"). Pokémon
 goes last, after TCGdex.
 
+Check first that the mirror step of both Workflows is done (the instance status is `complete`; the
+`import_runs` `ok` row only says the catalog is written):
+
+```sh
+for w in scryfall ygoprodeck; do
+  (cd apps/api && pnpm exec wrangler workflows instances describe voidbinder-$w-import latest --env prod)
+done
+```
+
 ```sh
 ssh voidbinder-db
 tmux new -s mirror-prod
