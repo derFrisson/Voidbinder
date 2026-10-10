@@ -309,6 +309,12 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ['blgg en024', '&lang=de', 'en BLGG-EN024 Ghostrick Angel of Mischief'],
     ['blgg de024', '&lang=en', 'de BLGG-DE024 Ghostrick Angel of Mischief'],
     ['LDS3-EN121', '&lang=de', 'en LDS3-EN121 Satellite Warrior'],
+    // The token without a number, or with part of one, still names the language.
+    ['LC01-EN', '&lang=de', 'en LC01-EN004 Blue-Eyes White Dragon'],
+    ['LC01-DE', '&lang=en', 'de LC01-DE004 Blauäugiger w. Drache'],
+    ['lc01 de0', '&lang=en', 'de LC01-DE004 Blauäugiger w. Drache'],
+    ['LC01-JP', '&lang=en', 'ja LC01-JP004 Blue-Eyes White Dragon'],
+    ['LC01-004', '&lang=de', 'de LC01-DE004 Blauäugiger w. Drache'],
     // A code without a language, a set code alone: the user's language.
     ['sv1 001', '&lang=de', 'de 001/198 Tannza'],
     ['sv1 001', '&lang=en', 'en 001/198 Pineco'],
@@ -346,6 +352,15 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       name: 'Satellitenkrieger',
       displayCode: 'LDS3-DE121',
     });
+    // Without a language token the set's prints follow ?lang= too.
+    expect(
+      (await suggest('LC01', '&lang=de')).map((s) => `${s.lang} ${s.displayCode} ${s.name}`),
+    ).toEqual([
+      'de undefined Legendary Collection',
+      'de LC01-DE004 Blauäugiger w. Drache',
+      'de LC01-DE005 Dunkler Magier',
+      'de LC01-DE006 Rotäugiger schwarzer Drache',
+    ]);
     const prints = (await search('lds3', '&lang=fr')).prints;
     expect(new Set(prints.map((p) => p.lang))).toEqual(new Set(['fr']));
   });

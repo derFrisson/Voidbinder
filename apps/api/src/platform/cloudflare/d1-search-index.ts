@@ -115,8 +115,8 @@ function codeCte(params: Params, q: string, game: Game | undefined): string | nu
       rows.push([
         codeKey(code.slice(0, i)),
         rest,
-        // A Yu-Gi-Oh! language code finds the English print (DE024 → EN024).
-        rest.replace(/^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9])/, 'en'),
+        // A Yu-Gi-Oh! language code finds the English print (DE024 → EN024, DE → EN).
+        rest.replace(/^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9]|$)/, 'en'),
         numberKey(rest),
         splits.includes(i) ? 10 + i / 100 : 0,
       ]);
@@ -134,7 +134,9 @@ function codeCte(params: Params, q: string, game: Game | undefined): string | nu
       ) r
       join sets s on s.code_key = r.part ${inGame}
       join prints p on p.set_id = s.id
-      where r.rest = '' or p.number_alnum like r.rest || '%' or p.number_key like r.rest_key || '%'`);
+      where r.rest = '' or p.number_alnum like r.rest || '%'
+        or (s.game = 'yugioh' and p.number_alnum like r.rest_en || '%')
+        or p.number_key like r.rest_key || '%'`);
   }
   if (number) {
     const sized = number.total == null ? '' : `and s.card_count = ${params.p(number.total)}`;

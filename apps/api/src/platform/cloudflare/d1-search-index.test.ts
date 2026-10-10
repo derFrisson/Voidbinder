@@ -112,7 +112,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
 
   it('copies every set on the first refresh, nothing on the next', async () => {
     const first = await refresh();
-    expect(first).toMatchObject({ status: 'ok', sets: 9, setsWritten: 9, setsRemoved: 0 });
+    expect(first).toMatchObject({ status: 'ok', sets: 10, setsWritten: 10, setsRemoved: 0 });
     expect(first.rowsWritten).toBeGreaterThan(0);
     const counts = await d1
       .prepare(
@@ -120,7 +120,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
           (select count(*) from names) as names`,
       )
       .first();
-    expect(counts).toEqual({ sets: 9, prints: 32, names: 37 });
+    expect(counts).toEqual({ sets: 10, prints: 35, names: 43 });
     expect(await refresh()).toMatchObject({ status: 'ok', setsWritten: 0, setsRemoved: 0 });
   });
 
@@ -179,6 +179,12 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     ['lev-schatten'],
     ['blgg en024', '&lang=de'],
     ['blgg de024', '&lang=en'],
+    ['LC01-EN', '&lang=de'],
+    ['LC01-DE', '&lang=en'],
+    ['lc01 de0', '&lang=en'],
+    ['LC01-JP', '&lang=en'],
+    ['LC01', '&lang=de'],
+    ['LC01-004', '&lang=de'],
     ['sv1 001', '&lang=de'],
     ['lds3', '&lang=de'],
     ['legendary du', '&lang=de'],
@@ -254,7 +260,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
       0,
     );
     // A full rebuild rewrites every set and leaves the same index.
-    expect(await refresh(true)).toMatchObject({ setsWritten: 8, setsRemoved: 0 });
+    expect(await refresh(true)).toMatchObject({ setsWritten: 9, setsRemoved: 0 });
   });
 
   it('deletes a removed set on a full rebuild too', async () => {
@@ -262,7 +268,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     await db.delete(prints).where(inArray(prints.setId, swsh12));
     await db.delete(sets).where(eq(sets.code, 'swsh12'));
 
-    expect(await refresh(true)).toMatchObject({ setsWritten: 7, setsRemoved: 1 });
+    expect(await refresh(true)).toMatchObject({ setsWritten: 8, setsRemoved: 1 });
     expect(
       await d1.prepare(`select count(*) as n from sets where code = 'swsh12'`).first('n'),
     ).toBe(0);

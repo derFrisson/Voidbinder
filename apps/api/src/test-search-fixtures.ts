@@ -53,6 +53,11 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
   await print(blgg, 'yugioh', 'Ghostrick Angel of Mischief', 'EN024');
   // VB-102: a name search shows the language that matched.
   await print(blgg, 'yugioh', 'Lev Shaddoll', 'EN025', 'Lev-Schattenpuppen');
+  // VB-102: a typed language token without a number names the language of a set's prints.
+  const lc01 = await set('yugioh', 'lc01', 'Legendary Collection', '2010-10-12', 6);
+  await print(lc01, 'yugioh', 'Blue-Eyes White Dragon', 'EN004', 'Blauäugiger w. Drache');
+  await print(lc01, 'yugioh', 'Dark Magician', 'EN005', 'Dunkler Magier');
+  await print(lc01, 'yugioh', 'Red-Eyes Black Dragon', 'EN006', 'Rotäugiger schwarzer Drache');
   const sv01 = await set('pokemon', 'sv01', 'Scarlet & Violet', '2023-03-31', 198);
   await print(sv01, 'pokemon', 'Pineco', '001', 'Tannza');
   await print(sv01, 'pokemon', 'Forretress ex', '005');
