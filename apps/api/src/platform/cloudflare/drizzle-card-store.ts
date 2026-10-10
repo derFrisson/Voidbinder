@@ -218,8 +218,10 @@ export class DrizzleCardStore implements CardStore {
       number: [NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
       name: [asc(name), NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
       rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
-      // The price the page prints (`market`, joined laterally); unpriced prints last.
+      // The price the page prints (`market`, joined laterally): prints priced in the requested
+      // currency first (a fallback source in the other currency would mix cents), unpriced last.
       price: [
+        sql`(${market.currency} = ${query.currency}) desc nulls last`,
         sql`${market.cents} desc nulls last`,
         NUMBER_ORDER,
         asc(prints.number),

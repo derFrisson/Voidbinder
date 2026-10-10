@@ -6,7 +6,7 @@ import {
 } from '@voidbinder/shared/api';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { conditionMultipliers, pricesDaily, prints, sets } from '../db/schema';
+import { conditionMultipliers, pricesCurrent, pricesDaily, prints, sets } from '../db/schema';
 import { runScryfallImport, type ImportDeps } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -169,6 +169,22 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     // Nothing priced follows an unpriced print.
     expect(cents.slice(priced.length).every((c) => c === null)).toBe(true);
     expect(cents[0]).toBe(Math.max(...priced));
+
+    // A print with only a USD price sorts after every print priced in EUR, whatever its cents.
+    const adeline = await printId('mid', '1');
+    const eurRows = await db
+      .delete(pricesCurrent)
+      .where(and(eq(pricesCurrent.printId, adeline), eq(pricesCurrent.currency, 'EUR')))
+      .returning();
+    const again = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/mtg/mid?sort=price')).json(),
+    );
+    const currencies = again.prints.map((p) => p.marketPrice?.currency ?? null);
+    const lastEur = currencies.lastIndexOf('EUR');
+    const firstUsd = currencies.indexOf('USD');
+    expect(firstUsd).toBeGreaterThan(lastEur);
+    expect(again.prints[firstUsd]?.id).toBe(adeline);
+    await db.insert(pricesCurrent).values(eurRows);
   });
 
   it('adds the same market price to the search hits', async () => {
