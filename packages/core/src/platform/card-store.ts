@@ -7,6 +7,7 @@ import type {
   CardQuery,
   CardResponse,
   GameSummary,
+  NewSetsResponse,
   PriceHistoryQuery,
   PriceHistoryResponse,
   PricesQuery,
@@ -33,6 +34,12 @@ export interface CardStore {
   catalogVersion(): Promise<string>;
   listGames(): Promise<GameSummary[]>;
   listSets(game: Game, lang: string): Promise<SetSummary[]>;
+  /**
+   * Sets new in the catalog, every game's (VB-83): released from `since` to `today` (UTC dates the
+   * caller passes, so the query stays cacheable), or undated and first imported since `since`
+   * (not with the game's first import).
+   */
+  listNewSets(lang: string, since: string, today: string): Promise<NewSetsResponse['sets']>;
   /** null when the set does not exist. */
   getSetPage(
     game: Game,

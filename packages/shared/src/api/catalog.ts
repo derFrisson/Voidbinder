@@ -43,6 +43,21 @@ export type SetsResponse = z.infer<typeof SetsResponseSchema>;
 
 export const SetsQuerySchema = z.object({ lang: LangSchema.default('en') });
 
+/**
+ * `GET /catalog/sets/new?days=30&lang=`: sets released in the last `days` days (not the upcoming
+ * ones), or without a release date and first imported in that time, after the game's first
+ * import (VB-83).
+ */
+export const NewSetsQuerySchema = SetsQuerySchema.extend({
+  days: z.coerce.number().int().min(1).max(90).default(30),
+});
+
+/** Every game's new sets, in the games' order, newest first within a game. */
+export const NewSetsResponseSchema = z.object({
+  sets: z.array(SetSummarySchema.extend({ game: GameSchema })),
+});
+export type NewSetsResponse = z.infer<typeof NewSetsResponseSchema>;
+
 export const SetPageQuerySchema = z.object({
   lang: LangSchema.default('en'),
   rarity: z.string().max(32).optional(),
@@ -277,3 +292,48 @@ export type SearchResponse = z.infer<typeof SearchResponseSchema>;
 /** `POST /admin/import/scryfall`: 202 once the import Workflow is queued. */
 export const ImportStartedResponseSchema = z.object({ status: z.literal('started') });
 export type ImportStartedResponse = z.infer<typeof ImportStartedResponseSchema>;
+
+/** One `import_runs` row in `GET /admin/imports` (VB-83). */
+export const ImportRunSchema = z.object({
+  id: z.string(),
+  kind: z.string(),
+  /** `running` | `ok` | `failed` */
+  status: z.string(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable(),
+  durationSeconds: z.number().nullable(),
+  /** The importer's counts. */
+  stats: z.record(z.string(), z.unknown()),
+  error: z.string().nullable(),
+});
+export type ImportRun = z.infer<typeof ImportRunSchema>;
+
+/** `GET /admin/imports/health`: the scheduled imports against their cadence (VB-83). */
+export const ImportHealthSchema = z.object({
+  /** No source missing or failed. */
+  ok: z.boolean(),
+  /** One line: `OK`, or the missing and the failed sources (the Uptime Kuma push message). */
+  message: z.string(),
+  sources: z.array(
+    z.object({
+      source: z.string(),
+      cadence: z.enum(['daily', 'weekly']),
+      /** `finished_at` of the newest `ok` run, null when none. */
+      lastSuccessAt: z.string().nullable(),
+      /** Status of the newest finished run, null when none. */
+      lastStatus: z.string().nullable(),
+      /** No `ok` run within the cadence plus 2 hours. */
+      missing: z.boolean(),
+      /** The newest finished run failed. */
+      failed: z.boolean(),
+    }),
+  ),
+});
+export type ImportHealth = z.infer<typeof ImportHealthSchema>;
+
+/** `GET /admin/imports`: the last 30 runs per source, newest first, and the health block. */
+export const ImportsResponseSchema = z.object({
+  runs: z.record(z.string(), z.array(ImportRunSchema)),
+  health: ImportHealthSchema,
+});
+export type ImportsResponse = z.infer<typeof ImportsResponseSchema>;

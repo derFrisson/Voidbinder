@@ -49,6 +49,7 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `GET /catalog/games`                                                   | Games with their set counts                                                            |
 | `GET /catalog/games/:game/sets?lang=`                                  | Sets, newest first, with the name in `lang`                                            |
+| `GET /catalog/sets/new?days=30&lang=`                                  | Every game's sets released in the last `days` (≤ 90); undated ones by import date      |
 | `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`      | Set header and 60 prints per page (`sort`: number, name, rarity, price)                |
 | `GET /catalog/cards/:id?currency=&lang=`                               | Card, legalities and every print with localizations and `marketPrice`                  |
 | `GET /catalog/prints/:id`                                              | One print with its card                                                                |
@@ -461,6 +462,21 @@ unset PGPW
 Migrate before deploying code that needs the new schema.
 
 ## Importers
+
+### Import monitoring
+
+Every run is an `import_runs` row (`running`, then `ok` or `failed` with `stats` and `error`).
+`GET /admin/imports` (bearer `ADMIN_TOKEN`) lists the last 30 per source, newest first, with the
+duration and the counts, plus `health`; `GET /admin/imports/health` answers the `health` block
+alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …`) and per scheduled source its
+cadence, last success and the flags `missing` (no `ok` run within the cadence plus 2 hours) and
+`failed` (the newest finished run failed). The cadences are `IMPORT_CADENCE` in
+`src/import/health.ts`: wrangler.jsonc's crons (schedule.test.ts checks they agree) and the VPS
+image mirror, listed as `image-mirror` (its `images` rows carry `stats.query.sm`; the Workflows'
+own image steps stay `images`). `IMPORT_ENV=dev` leaves TCGCSV out (no dev cron). Both answer
+200 whatever the health; `scripts/vps/import-health.sh` pushes the result to Uptime Kuma every
+morning (docs/guides/database-vps.md, section 8). Re-running a failed import:
+docs/guides/go-live.md, step 14.
 
 ### Scryfall (Magic)
 

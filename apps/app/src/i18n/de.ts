@@ -48,6 +48,7 @@ export const de = {
     recent: 'Zuletzt angesehen',
     recentSet: 'Set',
     recentCard: 'Karte',
+    fresh: 'Neu im Katalog',
   },
   game: {
     count: '{count} Sets',

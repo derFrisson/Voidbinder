@@ -1,0 +1,12 @@
+# Starts import-health.service daily at 07:30 UTC: after every daily import (last: TCGdex 04:00,
+# prod), the image mirror (05:30) and the catalog modules (06:30), so a run that failed or never
+# started overnight is reported the same morning.
+[Unit]
+Description=Daily Voidbinder import health check
+
+[Timer]
+OnCalendar=*-*-* 07:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

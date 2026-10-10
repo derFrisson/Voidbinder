@@ -5,6 +5,7 @@ import {
   BanlistGameSchema,
   BanlistQuerySchema,
   CardQuerySchema,
+  NewSetsQuerySchema,
   SEARCH_PAGE_SIZE,
   SearchQuerySchema,
   SearchSuggestQuerySchema,
@@ -15,6 +16,7 @@ import {
   type BanlistResponse,
   type CardResponse,
   type GamesResponse,
+  type NewSetsResponse,
   type PrintResponse,
   type SearchResponse,
   type SearchSuggestResponse,
@@ -59,9 +61,12 @@ async function fromIndex(
   return fallback ? null : indexed;
 }
 
-/** The UTC day BANLIST_CHANGE_DAYS days ago: day-sized, so the ban list reads stay cacheable. */
-export const banlistSince = (now = Date.now()) =>
-  new Date(now - BANLIST_CHANGE_DAYS * 86_400_000).toISOString().slice(0, 10);
+/** The UTC day `days` days ago: day-sized, so the reads that take it stay cacheable. */
+const daysAgo = (days: number, now = Date.now()) =>
+  new Date(now - days * 86_400_000).toISOString().slice(0, 10);
+
+/** The UTC day BANLIST_CHANGE_DAYS days ago. */
+export const banlistSince = (now = Date.now()) => daysAgo(BANLIST_CHANGE_DAYS, now);
 
 function found<T>(value: T | null, what: string): T {
   if (!value) throw new HTTPException(404, { message: `${what} not found` });
@@ -90,6 +95,13 @@ export function catalogRoutes() {
         return c.json(body, 200);
       },
     )
+    .get('/sets/new', zValidator('query', NewSetsQuerySchema, throwOnInvalid), async (c) => {
+      // The home page's "new in the catalog" (VB-83).
+      const { lang, days } = c.req.valid('query');
+      const sets = await c.var.platform.cardStore.listNewSets(lang, daysAgo(days), daysAgo(0));
+      const body: NewSetsResponse = { sets };
+      return c.json(body, 200);
+    })
     .get(
       '/sets/:game/:code',
       zValidator('param', z.object({ game: GameSchema, code: z.string().max(32) }), throwOnInvalid),

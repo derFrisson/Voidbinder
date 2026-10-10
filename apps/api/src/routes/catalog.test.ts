@@ -1,6 +1,7 @@
 import {
   CardResponseSchema,
   GamesResponseSchema,
+  NewSetsResponseSchema,
   PrintResponseSchema,
   SearchResponseSchema,
   SetPageResponseSchema,
@@ -8,7 +9,7 @@ import {
 } from '@voidbinder/shared/api';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appMeta, cards, printLocalizations, prints, sets } from '../db/schema';
+import { appMeta, cards, printLocalizations, prints, setLocalizations, sets } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -505,5 +506,69 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     const res = await app.request(`/catalog/cards/${await cardId('Plains')}?game=x%0Ay`);
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Tag')).toBe('catalog,prices');
+  });
+});
+
+describe.skipIf(!databaseUrl)('GET /catalog/sets/new (Postgres)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  beforeAll(async () => ({ db, drop } = await freshDatabase()));
+  afterAll(() => drop());
+
+  it('lists the sets released or first imported lately, per game, newest first (VB-83)', async () => {
+    const day = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10);
+    const inserted = await db
+      .insert(sets)
+      .values([
+        { gameId: 'yugioh', code: 'old', name: 'Old', releasedOn: day(-31) },
+        { gameId: 'yugioh', code: 'rec', name: 'Recent', releasedOn: day(-30) },
+        { gameId: 'yugioh', code: 'soon', name: 'Upcoming', releasedOn: day(14) },
+        // Undated, but part of Yu-Gi-Oh!'s first import (the oldest set's day): not news.
+        { gameId: 'yugioh', code: 'und-first', name: 'Undated, first import' },
+        { gameId: 'pokemon', code: 'und', name: 'Undated, new' },
+        {
+          gameId: 'pokemon',
+          code: 'und-old',
+          name: 'Undated, imported long ago',
+          createdAt: sql`now() - interval '31 days'`,
+        },
+        // A fresh import of an old set is not news: only an undated set counts by import date.
+        { gameId: 'mtg', code: 'lea', name: 'Alpha', releasedOn: '1993-08-05' },
+      ])
+      .returning({ id: sets.id, code: sets.code });
+    const rec = inserted.find((s) => s.code === 'rec')?.id ?? '';
+    await db.insert(setLocalizations).values({ setId: rec, lang: 'de', name: 'Neulich' });
+    const app = testApp({ cardStore: new DrizzleCardStore(db) });
+
+    const res = await app.request('/catalog/sets/new?lang=de');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Tag')).toBe('catalog');
+    const body = NewSetsResponseSchema.parse(await res.json());
+    expect(body.sets.map((s) => [s.game, s.code, s.localizedName])).toEqual([
+      ['pokemon', 'und', null],
+      ['yugioh', 'rec', 'Neulich'],
+    ]);
+    const week = NewSetsResponseSchema.parse(
+      await (await app.request('/catalog/sets/new?days=7')).json(),
+    );
+    expect(week.sets.map((s) => s.code)).toEqual(['und']);
+    expect((await app.request('/catalog/sets/new?days=91')).status).toBe(400);
+  });
+
+  it('caps each game at the 8 newest sets (VB-83)', async () => {
+    const day = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10);
+    await db.insert(sets).values(
+      Array.from({ length: 9 }, (_, i) => ({
+        gameId: 'mtg',
+        code: `m${i + 1}`,
+        name: `Set ${i + 1}`,
+        releasedOn: day(-(i + 1)),
+      })),
+    );
+    const app = testApp({ cardStore: new DrizzleCardStore(db) });
+    const body = NewSetsResponseSchema.parse(await (await app.request('/catalog/sets/new')).json());
+    expect(body.sets.filter((s) => s.game === 'mtg').map((s) => s.code)).toEqual(
+      Array.from({ length: 8 }, (_, i) => `m${i + 1}`),
+    );
   });
 });

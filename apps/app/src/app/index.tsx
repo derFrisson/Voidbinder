@@ -2,7 +2,8 @@ import type { Game } from '@voidbinder/shared';
 import { Link, router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { useGames } from '../api/queries/catalog';
+import { useGames, useNewSets } from '../api/queries/catalog';
+import { formatDate } from '../components/catalog/model';
 import { Icon } from '../components/Icon';
 import { usePalette } from '../components/palette';
 import { Page, Heading, useWide } from '../components/Shell';
@@ -133,6 +134,43 @@ function Recent() {
   );
 }
 
+/** Sets released (or first imported, when undated) in the last 30 days, every game's (VB-83). */
+function NewSets() {
+  const t = useT();
+  const locale = useLocale();
+  const sets = useNewSets(locale).data?.sets;
+  if (!sets?.length) return null;
+  return (
+    <View role="region" aria-label={t.home.fresh} className="gap-3">
+      <Text role="heading" aria-level={2} className="font-display text-xl font-bold text-ink">
+        {t.home.fresh}
+      </Text>
+      <View role="list" className="flex-row flex-wrap gap-3">
+        {sets.map((s) => (
+          <View key={`${s.game}:${s.code}`} role="listitem">
+            <Link href={`/${s.game}/sets/${s.code}`} asChild>
+              <Pressable className="min-h-[56px] max-w-[280px] justify-center gap-0.5 rounded-xl border border-line bg-surface px-4 py-2.5">
+                <View className="flex-row items-center gap-2">
+                  <View className={`h-2 w-2 rounded-full ${field[s.game].dot}`} />
+                  <Text className="font-body text-xs text-ink-3">
+                    {[t.games[s.game], s.releasedOn && formatDate(s.releasedOn, locale)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </Text>
+                </View>
+                <Text numberOfLines={1} className="font-display text-[15px] font-semibold text-ink">
+                  <Text className="font-mono text-[13px] text-ink-2">{s.code.toUpperCase()} </Text>
+                  {s.localizedName ?? s.name}
+                </Text>
+              </Pressable>
+            </Link>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 export default function Home() {
   const t = useT();
   const games = useGames();
@@ -148,6 +186,7 @@ export default function Home() {
       </View>
       {games.isError && <ErrorState onRetry={() => void games.refetch()} />}
       <Recent />
+      <NewSets />
     </Page>
   );
 }

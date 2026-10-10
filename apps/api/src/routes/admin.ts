@@ -2,6 +2,8 @@ import { zValidator } from '@hono/zod-validator';
 import {
   PriceMappingRequestSchema,
   type ErrorResponse,
+  type ImportHealth,
+  type ImportsResponse,
   type ImportStartedResponse,
   type PriceMappingResponse,
 } from '@voidbinder/shared/api';
@@ -11,6 +13,7 @@ import { HTTPException } from 'hono/http-exception';
 import { timingSafeEqual } from 'hono/utils/buffer';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
+import { importOverview } from '../import/health';
 import { MappingConflict, setManualMapping } from '../import/prices/override';
 import { throwOnInvalid } from '../middleware/errors';
 
@@ -18,7 +21,7 @@ import { throwOnInvalid } from '../middleware/errors';
  * `/admin/**`, behind `Authorization: Bearer <ADMIN_TOKEN>`. Without the secret the routes do not
  * exist (404), so a missing secret can never open them.
  */
-export function adminRoutes(adminToken: string | undefined) {
+export function adminRoutes(adminToken: string | undefined, importEnv = 'local') {
   return (
     new Hono<AppEnv>()
       .use((_c, next) => {
@@ -26,6 +29,16 @@ export function adminRoutes(adminToken: string | undefined) {
         return next();
       })
       .use(bearerAuth({ verifyToken: (token) => timingSafeEqual(token, adminToken ?? '') }))
+      // VB-83: the last runs per source and whether each scheduled import succeeded in time; the
+      // health alone is what scripts/vps/import-health.sh pushes to Uptime Kuma.
+      .get('/imports', async (c) => {
+        const body: ImportsResponse = await importOverview(c.var.platform.db, importEnv);
+        return c.json(body, 200);
+      })
+      .get('/imports/health', async (c) => {
+        const body: ImportHealth = (await importOverview(c.var.platform.db, importEnv)).health;
+        return c.json(body, 200);
+      })
       .post('/import/scryfall', importRoute('scryfall', 'Scryfall'))
       .post('/import/ygoprodeck', importRoute('ygoprodeck', 'YGOPRODeck'))
       .post(
