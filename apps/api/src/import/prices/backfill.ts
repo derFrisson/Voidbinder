@@ -50,9 +50,13 @@ export function mapPrices(prices: readonly TcgPrice[], mappings: ReadonlyMap<str
   let unmapped = 0;
   let noMarket = 0;
   for (const p of prices) {
-    let finish = finishOf(p.subTypeName);
-    let printId = mappings.get(`${p.productId}|${finish}`);
-    if (!printId && (printId = mappings.get(`${p.productId}|etched`))) finish = 'etched';
+    // `etched` first: the daily import uses the matched finish before the printing's own.
+    let finish = 'etched';
+    let printId = mappings.get(`${p.productId}|etched`);
+    if (!printId) {
+      finish = finishOf(p.subTypeName);
+      printId = mappings.get(`${p.productId}|${finish}`);
+    }
     if (!printId) {
       unmapped++;
       continue;
@@ -72,7 +76,9 @@ export function mapPrices(prices: readonly TcgPrice[], mappings: ReadonlyMap<str
       high: cents(p.highPrice),
     });
   }
-  return { rows, unmapped, noMarket };
+  // The last of a print and finish wins, as in the daily import's writePrices.
+  const unique = [...new Map(rows.map((r) => [`${r.printId}|${r.finish}`, r])).values()];
+  return { rows: unique, unmapped, noMarket };
 }
 
 /** The mapped rows of one extracted day (`<dir>/<day>/<category>/<group>/prices`) per game. */

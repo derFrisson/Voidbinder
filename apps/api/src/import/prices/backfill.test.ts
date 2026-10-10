@@ -75,6 +75,38 @@ describe('mapPrices', () => {
   });
 });
 
+describe('mapPrices precedence', () => {
+  const price = (productId: number, subTypeName: string, marketPrice: number) => ({
+    productId,
+    subTypeName,
+    lowPrice: null,
+    midPrice: null,
+    highPrice: null,
+    marketPrice,
+  });
+
+  it('keeps the last of two subtypes that map to one print and finish', () => {
+    const r = mapPrices(
+      [price(1, 'Normal', 1), price(1, 'Unlimited', 2)],
+      new Map([['1|normal', 'print-a']]),
+    );
+    expect(r.rows.map((x) => [x.printId, x.finish, x.market])).toEqual([
+      ['print-a', 'normal', 200],
+    ]);
+  });
+
+  it('takes the etched mapping before the printing own finish', () => {
+    const r = mapPrices(
+      [price(2, 'Foil', 3)],
+      new Map([
+        ['2|foil', 'print-foil'],
+        ['2|etched', 'print-etched'],
+      ]),
+    );
+    expect(r.rows.map((x) => [x.printId, x.finish])).toEqual([['print-etched', 'etched']]);
+  });
+});
+
 describe.skipIf(!databaseUrl)('price backfill (Postgres)', () => {
   let db: Db;
   let drop: () => Promise<void>;
