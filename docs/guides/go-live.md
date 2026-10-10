@@ -26,7 +26,7 @@ Audit date: 2026-10-10, against `main` at `50a9343`; the runbook is rebased onto
 | Prod Workflows                      | None yet; `wrangler deploy --env prod` creates the four `voidbinder-*-import` Workflows                                                                                                                                              |
 | DNS `api.` / `app.voidbinder.de`    | No record of any type, so the custom domains can be created by `wrangler deploy` without a conflict                                                                                                                                  |
 | DNS `img.voidbinder.de`             | Live (R2 custom domain, WAF block and cache rule from VB-73)                                                                                                                                                                         |
-| DNS `plausible.voidbinder.de`       | No record (VB-74 needs it)                                                                                                                                                                                                           |
+| Plausible (VB-74)                   | No instance on the VPS and no DNS record; the live instance is `web-analytics.voidcom.app` (N1)                                                                                                                                      |
 | Email Sending `voidbinder.de`       | Enabled, DKIM `cf-bounce._domainkey`, return path `cf-bounce.voidbinder.de` (SPF + MX present), DMARC `p=reject`. The `send_email` sender `hello@voidbinder.de` is allowed                                                           |
 | Email Routing `voidbinder.de`       | **Disabled, no MX on the apex**: mail to `hello@voidbinder.de` bounces (see gap B2)                                                                                                                                                  |
 | VPS timers                          | `image-mirror` and `catalog-modules` run `DBS=dev` only. Disks: `/` 15 %, `/var/lib/postgresql` 18 % (39 GB free)                                                                                                                    |
@@ -78,12 +78,11 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 
 ### Nice to have (go live without them, track as follow-ups)
 
-- **N1. Plausible (VB-74).** PRs #64 (site) and #65 (app) render the tracker only when
-  `PLAUSIBLE_HOST` / `EXPO_PUBLIC_PLAUSIBLE_*` are set at build. The VPS part has no PR yet, and
-  `plausible.voidbinder.de` has no DNS record (the zone token on the VPS is invalid, VB-73, so Max
-  creates the record or a new token). If the site and the app ship before Plausible runs, the
-  script request fails quietly and nothing is counted. In Plausible CE, add the two sites
-  `voidbinder.de` and `app.voidbinder.de`.
+- **N1. Plausible (VB-74).** The live instance is Max's existing `https://web-analytics.voidcom.app`
+  (no instance on the VPS, no DNS record needed). PRs #64 (site, variable `PLAUSIBLE_HOST` from
+  `env.prod.vars`) and #65 (app, `EXPO_PUBLIC_PLAUSIBLE_HOST` with that default in `deploy:prod`)
+  point at it. Max registers `voidbinder.de` and `app.voidbinder.de` as sites in that instance.
+  Until he does, the tracker is still built in and its request fails without any effect.
 - **N2. Uptime monitoring.** Workers Logs are on (`observability.enabled`), but nothing alerts
   when prod is down. Minimal setup: three Uptime Kuma HTTP monitors (Kuma already runs for the
   database push monitor, runbook section 8) on `https://api.voidbinder.de/health` (expects 200 and
@@ -120,7 +119,8 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
   link, Plausible, removes the Cloudflare beacon) and #65 (app: Plausible, sign-out under the
   avatar). #61 (VB-32 sync, migration `0008_sync.sql`) is already on `main` (750d6ac), so step 3
   always applies `0008`.
-- Max has done B2 (mail to `hello@`) and, if Plausible is to count from day one, N1's DNS record.
+- Max has done B2 (mail to `hello@`) and, if Plausible is to count from day one, N1 (the two sites
+  registered in `web-analytics.voidcom.app`).
 - Run at a time that does not overlap the dev crons (04:30 to 05:30 UTC) or the VPS timers (05:30,
   06:30 UTC). During the day is fine.
 - Run everything from a clean checkout of `main` on the workstation, logged in with
@@ -255,15 +255,15 @@ shows no cron. The next `pnpm --filter api deploy:prod` restores them.
 ### 6. Deploy the web app (5 min)
 
 ```sh
-EXPO_PUBLIC_PLAUSIBLE_HOST=https://plausible.voidbinder.de EXPO_PUBLIC_PLAUSIBLE_DOMAIN=app.voidbinder.de \
-  pnpm --filter app deploy:prod
+pnpm --filter app deploy:prod
 curl -s https://app.voidbinder.de/api/health
 curl -sI https://app.voidbinder.de/ | grep -i -E '^HTTP|content-security-policy'
 ```
 
-Check the variable names against `apps/app/README.md` once #65 is merged. If its `deploy:prod`
-already sets them, run the plain `pnpm --filter app deploy:prod`. Leave them out while Plausible
-is not running (N1).
+With #65 merged, `deploy:prod` defaults `EXPO_PUBLIC_PLAUSIBLE_HOST` and the domain to the
+Plausible instance, so the tracker is always built in; leaving the variables out or empty does not
+turn it off. Until N1 is done its request fails without any effect. The site gets `PLAUSIBLE_HOST`
+from `env.prod.vars` (#64), so the same applies there.
 
 **Expect:** `/api/health` gives the same JSON as step 5 (the proxy works), `/` answers 200 with the
 CSP. In a browser: the home page lists the games, the sign-up page shows the Turnstile widget.
