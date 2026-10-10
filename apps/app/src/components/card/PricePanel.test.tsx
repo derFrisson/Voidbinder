@@ -1,6 +1,7 @@
 import { fireEvent, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { fakeApi, json, renderApp, type Call } from '../../../test/fake-api';
+import type { PrintPricesResponse } from '@voidbinder/shared/api';
 import { history, noPrices, PRINT, printPrices } from '../../../test/prices';
 import { PricePanel, PriceStrip } from './PricePanel';
 
@@ -94,17 +95,146 @@ describe('PricePanel', () => {
   });
 });
 
+// Yu-Gi-Oh! (MP25 EN301): TCGplayer files its prices under the edition, so the rows are
+// `first_edition` while the catalog print says `normal`; Cardmarket has none.
+const firstEdition: PrintPricesResponse = {
+  printId: PRINT,
+  prices: [
+    {
+      source: 'tcgplayer',
+      sourceLabel: 'TCGplayer (via TCGCSV)',
+      finish: 'first_edition',
+      currency: 'USD',
+      market: 23,
+      low: 10,
+      mid: null,
+      high: null,
+      observedAt: '2026-10-09T20:05:19.000Z',
+    },
+  ],
+  display: {
+    source: 'tcgplayer',
+    finish: 'first_edition',
+    currency: 'USD',
+    cents: 23,
+    observedAt: '2026-10-09T20:05:19.000Z',
+  },
+  conditions: [
+    { condition: 'NM', factor: 1, cents: 23 },
+    { condition: 'EX', factor: 0.85, cents: 20 },
+    { condition: 'GD', factor: 0.7, cents: 16 },
+    { condition: 'LP', factor: 0.6, cents: 14 },
+    { condition: 'PL', factor: 0.45, cents: 10 },
+    { condition: 'PO', factor: 0.3, cents: 7 },
+  ],
+  conditionsAreEstimates: true,
+};
+
+describe('PricePanel, prices filed under a finish the print does not list', () => {
+  it('starts at the finish of the display price and shows its rows, not "kein Preis"', async () => {
+    const calls = api(firstEdition);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    expect(
+      await screen.findByText(
+        /^TCGplayer \(via TCGCSV\) · 1\. Auflage · Near Mint · Stand 09\.10\.2026/,
+      ),
+    ).toBeTruthy();
+    // The tile and the condition row's NM.
+    expect(screen.getAllByText(/0,23/)).toHaveLength(2);
+    // The first read asks without a finish: the API's display price decides.
+    expect(calls.map((c) => c.path)).toContain(`/catalog/prints/${PRINT}/prices?currency=EUR`);
+    // The selector offers the print's finish and the one the prices are filed under.
+    expect(screen.getByRole('radio', { name: '1. Auflage' }).getAttribute('aria-checked')).toBe(
+      'true',
+    );
+    expect(screen.getByRole('radio', { name: 'Normal' }).getAttribute('aria-checked')).toBe(
+      'false',
+    );
+    // The condition row is the display price's: NM 0,23.
+    const row = screen.getByRole('group', { name: 'Zustand' });
+    expect(within(row).getByText(/0,23/)).toBeTruthy();
+    expect(screen.getByText(/^Basis: TCGplayer, 1\. Auflage/)).toBeTruthy();
+  });
+
+  it('hides the source without a row for any finish, and says so only when none has one', async () => {
+    api(firstEdition);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    await screen.findByText(/^TCGplayer \(via TCGCSV\)/);
+    expect(screen.queryByText('Cardmarket')).toBeNull();
+    expect(screen.queryByText('kein Preis')).toBeNull();
+  });
+
+  it('keeps a source that has rows for another finish, saying it has no price for this one', async () => {
+    api();
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/);
+    // Cardmarket and TCGplayer both have rows: both tiles stay.
+    expect(screen.getByText('Cardmarket')).toBeTruthy();
+    expect(screen.getByText('TCGplayer')).toBeTruthy();
+  });
+
+  it('shows the strip price of the display finish', async () => {
+    api(firstEdition);
+    renderApp(<PriceStrip printId={PRINT} />);
+    expect(await screen.findByText(/0,23/)).toBeTruthy();
+    expect(screen.queryByText('Cardmarket')).toBeNull();
+    expect(screen.queryByText('–')).toBeNull();
+  });
+});
+
+describe('PricePanel, failed read', () => {
+  it('shows an error state with a retry instead of "no prices yet"', async () => {
+    let fail = true;
+    fakeApi(
+      (c) =>
+        c.path.startsWith(`/catalog/prints/${PRINT}/prices?`)
+          ? fail
+            ? json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500)
+            : json(printPrices)
+          : undefined,
+      (c) =>
+        c.path.startsWith(`/catalog/prints/${PRINT}/prices/history`) ? json(history) : undefined,
+    );
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    expect(await screen.findByText(/^Das hat nicht geklappt/)).toBeTruthy();
+    expect(screen.queryByText('Für diesen Druck gibt es noch keine Preise.')).toBeNull();
+    fail = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Erneut versuchen' }));
+    expect(await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/)).toBeTruthy();
+    expect(screen.queryByText(/^Das hat nicht geklappt/)).toBeNull();
+  });
+});
+
+describe('PricePanel, more conditions', () => {
+  it('shows LP, PL and PO as estimates behind a toggle', async () => {
+    api(firstEdition);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    const row = await screen.findByRole('group', { name: 'Zustand' });
+    expect(within(row).queryByText('LP')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Mehr Zustände' }));
+    expect(
+      within(row)
+        .getAllByText(/^(NM|EX|GD|LP|PL|PO)$/)
+        .map((e) => e.textContent),
+    ).toEqual(['NM', 'EX', 'GD', 'LP', 'PL', 'PO']);
+    expect(within(row).getByText(/0,07/).textContent).toMatch(/^≈/);
+    expect(screen.getByText(/EX, GD, LP, PL und PO sind Schätzungen/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Weniger Zustände' }));
+    expect(within(row).queryByText('LP')).toBeNull();
+  });
+});
+
 describe('PriceStrip', () => {
   it('shows the two market prices, a dash for a source without one', async () => {
     api();
-    renderApp(<PriceStrip printId={PRINT} finish="normal" />);
+    renderApp(<PriceStrip printId={PRINT} />);
     expect(await screen.findByText(/3,34/)).toBeTruthy();
     expect(screen.getByText(/4,02/)).toBeTruthy();
   });
 
   it('shows dashes while there is no price', () => {
     fakeApi();
-    renderApp(<PriceStrip printId={PRINT} finish="normal" />);
+    renderApp(<PriceStrip printId={PRINT} />);
     expect(screen.getAllByText('–')).toHaveLength(2);
   });
 });

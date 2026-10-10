@@ -47,7 +47,7 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | `GET /catalog/games`                                              | Games with their set counts                                             |
 | `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                             |
 | `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price) |
-| `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations                     |
+| `GET /catalog/cards/:id?currency=`                                | Card, legalities and every print with localizations and `marketPrice`   |
 | `GET /catalog/prints/:id`                                         | One print with its card                                                 |
 | `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)         |
 | `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                  |
@@ -421,8 +421,12 @@ source's currency) and the condition estimates of the display price.
 `GET /catalog/prints/:id/prices/history?days=90` (1 to 3650) answers the market price per source
 and finish, one point per day for the last 180 days and the last day of each ISO week before
 that. The day comes from the Worker, never `now()` in SQL, so Hyperdrive can cache the query.
-`GET /catalog/sets/:game/:code?currency=` carries each print's `marketPrice`: the `normal` finish
-(the first finish when there is none), preferred source first. The display price, condition
+`GET /catalog/sets/:game/:code?currency=`, `GET /catalog/search?currency=` and
+`GET /catalog/cards/:id?currency=` (every print of the card) carry each print's `marketPrice` with
+its `observedAt`: the `normal` finish (the first finish when there is none, then the print's other
+finishes), then a finish the print does not list but has a price row for (Yu-Gi-Oh!: TCGplayer
+prices per edition, `first_edition`, while the print says `normal`), preferred source first; null
+only without any price row. The display price, condition
 estimates, collection value and the history thinning are in `packages/core/src/prices`.
 
 **History backfill: none (decided 2026-10-10).** TCGCSV's daily price archive

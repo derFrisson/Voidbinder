@@ -148,6 +148,9 @@ export const de = {
       holo: 'Holo',
       reverse: 'Reverse Holo',
       first_edition: '1. Auflage',
+      first_edition_holo: '1. Auflage Holo',
+      unlimited: 'Unlimitiert',
+      limited: 'Limitiert',
     } as Record<string, string>,
     legal: {
       legal: 'legal',
@@ -177,7 +180,9 @@ export const de = {
     asOf: 'Stand {date}',
     condition: 'Zustand',
     estimates:
-      'Basis: {basis}. EX und GD sind Schätzungen aus dem NM-Preis mit üblichen Abschlägen, keine echten Angebote.',
+      'Basis: {basis}. {grades} sind Schätzungen aus dem NM-Preis mit üblichen Abschlägen, keine echten Angebote.',
+    moreConditions: 'Mehr Zustände',
+    lessConditions: 'Weniger Zustände',
     history: 'Verlauf',
     noHistory: 'Für diesen Zeitraum gibt es noch keinen Verlauf.',
     range: 'Zeitraum',

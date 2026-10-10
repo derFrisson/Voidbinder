@@ -125,7 +125,13 @@ describe('set page', () => {
   });
 
   it("shows each print's market price with its source from the set page, EUR when signed out", async () => {
-    const market = { source: 'cardmarket', finish: 'normal', currency: 'EUR', cents: 334 };
+    const market = {
+      source: 'cardmarket',
+      finish: 'normal',
+      currency: 'EUR',
+      cents: 334,
+      observedAt: '2026-10-10T03:44:08.135Z',
+    };
     fakeApi((c) =>
       c.path.startsWith('/catalog/sets/')
         ? json(setPage({ prints: [print(1, { marketPrice: market }), print(2)] }))
@@ -135,8 +141,8 @@ describe('set page', () => {
       <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
     );
     expect(await screen.findByText(/3,34/)).toBeTruthy();
-    // The source, no date: `marketPrice` carries none. The print without a price shows nothing.
-    expect(screen.getByText('Cardmarket')).toBeTruthy();
+    // The source and the day the price was observed. The print without a price shows nothing.
+    expect(screen.getByText('Cardmarket, Stand 10.10.2026')).toBeTruthy();
     expect(screen.getAllByText(/€/)).toHaveLength(1);
   });
 

@@ -14,14 +14,19 @@ export interface PriceTag {
   currency: 'EUR' | 'USD';
   /** Display name of the source (`SOURCE_NAME`). */
   source: string;
-  /** ISO date of the quote. `marketPrice` carries none yet, so the set page shows the source only. */
+  /** ISO date (UTC day) the source observed the price: `marketPrice.observedAt`. */
   asOf?: string | undefined;
 }
 
 /** A set page or search `marketPrice` as a tag; undefined for a print without a price. */
 export function priceTag(price: DisplayPrice | null | undefined): PriceTag | undefined {
   return price
-    ? { cents: price.cents, currency: price.currency, source: SOURCE_NAME[price.source] }
+    ? {
+        cents: price.cents,
+        currency: price.currency,
+        source: SOURCE_NAME[price.source],
+        asOf: price.observedAt.slice(0, 10),
+      }
     : undefined;
 }
 

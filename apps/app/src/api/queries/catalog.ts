@@ -1,5 +1,5 @@
 import type { Game, Locale } from '@voidbinder/shared';
-import type { SetPageQuery } from '@voidbinder/shared/api';
+import type { Currency, SetPageQuery } from '@voidbinder/shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../client';
 import { useCurrency } from './cards';
@@ -47,12 +47,25 @@ export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery
   });
 }
 
-export const cardOptions = (id: string) => ({
-  queryKey: ['catalog', 'card', id],
-  queryFn: () => read(api.catalog.cards[':id'].$get({ param: { id } })),
+/**
+ * A card with its prints; `currency` picks the source of each print's `marketPrice`. EUR is the
+ * API's default and is not sent, so a caller that only needs the prints (the collection buttons)
+ * and a signed-out visitor share one URL and one cache entry.
+ */
+export const cardOptions = (id: string, currency?: Currency) => ({
+  queryKey: ['catalog', 'card', id, currency ?? 'EUR'],
+  queryFn: () =>
+    read(
+      api.catalog.cards[':id'].$get({
+        param: { id },
+        query: currency && currency !== 'EUR' ? { currency } : {},
+      }),
+    ),
   staleTime,
 });
 
 export function useCard(id: string) {
-  return useQuery(cardOptions(id));
+  // The prints table is priced in the profile's currency; wait for the session to know it.
+  const { currency, ready } = useCurrency();
+  return useQuery({ ...cardOptions(id, currency), enabled: ready });
 }

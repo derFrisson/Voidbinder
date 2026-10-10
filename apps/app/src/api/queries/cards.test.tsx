@@ -7,7 +7,7 @@ import { history, noPrices, PRINT, printPrices } from '../../../test/prices';
 import { usePriceHistory, usePrintPrices } from './cards';
 
 function wrapper({ children }: { children: ReactNode }) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
@@ -21,7 +21,7 @@ describe('usePrintPrices', () => {
   it('reads the prices in EUR when signed out, with the finish of the estimates', async () => {
     const calls = fakeApi(prices);
     const { result } = renderHook(() => usePrintPrices(PRINT, 'foil'), { wrapper });
-    await waitFor(() => expect(result.current).toEqual(printPrices));
+    await waitFor(() => expect(result.current.prices).toEqual(printPrices));
     expect(calls.map((c) => c.path)).toContain(
       `/catalog/prints/${PRINT}/prices?currency=EUR&finish=foil`,
     );
@@ -30,7 +30,7 @@ describe('usePrintPrices', () => {
   it("asks in the profile's currency, once the session is known", async () => {
     const calls = fakeApi(usd, prices);
     const { result } = renderHook(() => usePrintPrices(PRINT), { wrapper });
-    await waitFor(() => expect(result.current).not.toBeNull());
+    await waitFor(() => expect(result.current.prices).not.toBeNull());
     const reads = calls.filter((c) => c.path.startsWith('/catalog/'));
     expect(reads.map((c) => c.path)).toEqual([`/catalog/prints/${PRINT}/prices?currency=USD`]);
   });
@@ -39,15 +39,35 @@ describe('usePrintPrices', () => {
     fakeApi((c) => (c.path.startsWith('/catalog/prints/') ? json(noPrices) : undefined));
     const empty = renderHook(() => usePrintPrices(PRINT), { wrapper });
     const none = renderHook(() => usePrintPrices(undefined), { wrapper });
-    await waitFor(() => expect(empty.result.current).toBeNull());
-    expect(none.result.current).toBeNull();
+    await waitFor(() => expect(empty.result.current.prices).toBeNull());
+    expect(none.result.current.prices).toBeNull();
 
     const calls = fakeApi();
     const unknown = renderHook(() => usePrintPrices(PRINT), { wrapper });
     await waitFor(() =>
       expect(calls.some((c) => c.path.startsWith('/catalog/prints/'))).toBe(true),
     );
-    expect(unknown.result.current).toBeNull();
+    await waitFor(() => expect(unknown.result.current.prices).toBeNull());
+    // An unknown print (404) is "no prices", not a failure to retry.
+    expect(unknown.result.current.failed).toBe(false);
+  });
+
+  it('tells a failed read (500) from a print without prices, and asks again on retry', async () => {
+    let fail = true;
+    fakeApi((c) =>
+      c.path.startsWith(`/catalog/prints/${PRINT}/prices?`)
+        ? fail
+          ? json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500)
+          : json(printPrices)
+        : undefined,
+    );
+    const { result } = renderHook(() => usePrintPrices(PRINT), { wrapper });
+    await waitFor(() => expect(result.current.failed).toBe(true));
+    expect(result.current.prices).toBeNull();
+    fail = false;
+    result.current.retry();
+    await waitFor(() => expect(result.current.prices).toEqual(printPrices));
+    expect(result.current.failed).toBe(false);
   });
 });
 
