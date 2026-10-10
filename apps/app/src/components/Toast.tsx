@@ -16,12 +16,16 @@ const subscribe = (l: () => void) => {
 };
 const read = () => current;
 
+/** Shows the toast and returns its key, so its owner can take exactly this one down again. */
 export function showToast(toast: Toast) {
   current = { ...toast, key: ++count };
   emit();
+  return current.key;
 }
 
-export function hideToast() {
+/** With a `key`, hides only that toast: a later one, from somewhere else, stays. */
+export function hideToast(key?: number) {
+  if (key !== undefined && current?.key !== key) return;
   current = null;
   emit();
 }

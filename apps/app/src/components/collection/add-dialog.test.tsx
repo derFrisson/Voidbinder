@@ -1,6 +1,8 @@
 import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import type { Game } from '@voidbinder/shared';
 import { useLocalSearchParams } from 'expo-router';
+import { useState } from 'react';
+import { Pressable } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, renderApp, signedIn, type Call } from '../../../test/fake-api';
 import CardPage from '../../app/cards/[id]';
@@ -261,6 +263,27 @@ describe('quick add from a tile', () => {
       expect.objectContaining({ language: 'ja', finish: 'normal', condition: 'NM', quantity: 1 }),
     );
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+  });
+
+  it('takes its toast down with it when the tile goes', async () => {
+    vi.mocked(useLocalSearchParams).mockReturnValue({});
+    api(cardOf('yugioh', ['en', 'de']));
+    function Host() {
+      const [shown, setShown] = useState(true);
+      return (
+        <>
+          {shown && <QuickAdd printId={PRINT} cardId={CARD} name="Dark Magician" finish="normal" />}
+          <Pressable role="button" aria-label="weg" onPress={() => setShown(false)} />
+          <Toaster />
+        </>
+      );
+    }
+    renderApp(<Host />);
+    fireEvent.click(screen.getByRole('button', { name: 'In Sammlung: Dark Magician' }));
+    await screen.findByText('Als DE · Normal · NM hinzugefügt');
+    fireEvent.click(screen.getByRole('button', { name: 'weg' }));
+    await waitFor(() => expect(screen.queryByText('Als DE · Normal · NM hinzugefügt')).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Ändern' })).toBeNull();
   });
 
   it('opens the dialog on a long press instead of adding', async () => {

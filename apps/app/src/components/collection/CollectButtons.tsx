@@ -1,6 +1,6 @@
 import { router, usePathname } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { cardOptions } from '../../api/queries/catalog';
 import { useAddEntries, useOwned } from '../../api/queries/collection';
@@ -8,7 +8,7 @@ import { useSession } from '../../api/queries/me';
 import { fmt, useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { useWide } from '../Shell';
-import { showToast } from '../Toast';
+import { hideToast, showToast } from '../Toast';
 import {
   AddDialog,
   defaultLanguage,
@@ -141,6 +141,10 @@ export function QuickAdd({
   const [dialog, setDialog] = useState<{ edit?: { id: string; values: EntryValues } } | null>(null);
   const c = t.collection;
   const busy = looking || add.isPending;
+  // The toast's "Ändern" opens the dialog of this tile: when the tile goes (next page, filter,
+  // navigation) the toast goes with it, instead of a button that does nothing.
+  const toastKey = useRef<number | undefined>(undefined);
+  useEffect(() => () => hideToast(toastKey.current), []);
   const onAdd = async () => {
     setLooking(true);
     // Without the card (offline, error) English is the safe language.
@@ -158,7 +162,7 @@ export function QuickAdd({
       onSuccess: () => {
         entryId.done();
         session.language = values.language;
-        showToast({
+        toastKey.current = showToast({
           text: fmt(c.dialog.addedAs, {
             details: `${values.language.toUpperCase()} · ${label(t.card.finishes, finish)} · ${values.condition}`,
           }),
