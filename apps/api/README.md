@@ -62,8 +62,10 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 Schemas: `packages/shared/src/api/catalog.ts`. Every print (set page, search, typeahead, card
 page per localization, collection, wish list and deck entries) carries `displayNumber` and
 `displayCode` in the language shown (VB-97, `printNumbers` in `@voidbinder/core`): a Yu-Gi-Oh!
-print with a localization in that language swaps its token (`EN024` → `DE024`, Spanish `SP`,
-Japanese `JP`), a collection entry uses its copy's language; Pokémon and Magic numbers stay.
+print shows its localization's stored code (VB-94, `external_ids.set_code`: `LON-G065`, French
+`LDC-F065` under its own set code; see Yugipedia set lists), and without one a print with a
+localization in that language swaps its token (`EN024` → `DE024`, Spanish `SP`, Japanese `JP`);
+a collection entry uses its copy's language; Pokémon and Magic numbers stay.
 `cardFormat` (`games.card_format`, migration `0012_card_format.sql`) is the card size for the
 image box (`CARD_FORMATS` in `@voidbinder/shared`). Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then; which key a print shows, with `imageLang`
@@ -175,8 +177,11 @@ reads a copy in D1 first (VB-98, next section).
   EN120…EN129). Yu-Gi-Oh! language codes (`DE`, `FR`, `IT`, `PT`, `SP`, `ES`, `JP`, `JA`) find
   the English print: other languages are localizations of it, not prints of their own
   (`BLGG-DE024` → BLGG-EN024), and the hit shows the number typed: `displayNumber` `DE024`,
-  `matchedCode` `BLGG-DE024`, whatever `lang` is. A set code alone (`lds3`, `mid`, `sv1`) lists
-  the set.
+  `matchedCode` `BLGG-DE024`, whatever `lang` is. A localization's stored code (VB-94) finds its
+  print whole whatever set code it starts with (`LDC-F065` → LON 065, index
+  `print_localizations_set_code_idx` over its letters and digits, migration
+  `0015_localized_set_codes.sql`) and by its start after the print's set code (`long06`), in the
+  localization's language. A set code alone (`lds3`, `mid`, `sv1`) lists the set.
 - **Numbers:** `121` matches that number in every set, `001/128` in the sets of 128 cards
   (`prints_number_key_idx`), newest first, at most 50.
 - **Typos:** when neither finds anything, names with a trigram similarity of 0.3 or more
@@ -216,7 +221,9 @@ Postgres stays the source of truth:
   `src/import/search-index.ts`) is started by the last step of every catalog import (after the
   image mirror) and by `POST /admin/search-index/rebuild` (bearer `ADMIN_TOKEN`, 202, rewrites
   every set). It reads Postgres through `HYPERDRIVE` (not the cached pool): an md5 per set over
-  the set, its prints and names; sets whose hash differs from D1's `sets.hash` are rewritten,
+  the set, its prints and names (with a Yu-Gi-Oh! localization's stored code, which `names.code`
+  and `names.code_alnum` hold, `d1/0002_localized_codes.sql`); sets whose hash differs from D1's
+  `sets.hash` are rewritten,
   about 1000 prints per step and D1 batch (one transaction: delete the set's rows, insert them
   again), sets gone from Postgres are deleted, names no print has any more too. The localizations
   have no `updated_at`, and the hash also sees deletions and renamed cards. Then `meta` gets
@@ -580,7 +587,11 @@ a code in another rarity is another physical card: `prints.variant` is the rarit
 (`secret-rare`), `prints.rarity` the display name, finishes always `['normal']`, and the same
 code and rarity listed twice stays one print. A language variant (`LOB-DE001`) folds into the
 English print of the same number and rarity (`external_ids.variants`), one without it is a print
-of its own (`external_ids.language`); every print gets an `en` and a `de` localization. The German
+of its own (`external_ids.language`); every print gets an `en` and a `de` localization. A
+localization in another language carries the print's code in it by rule (VB-94, `ruleCode`:
+`BLGG-EN024` → `BLGG-DE024`, `LON-065` → `LON-DE065`, Spanish `SP`) in `external_ids.set_code`,
+`set_code_source: 'rule'` (the Yugipedia names import seeds its rows alike); a code the Yugipedia
+set lists verified (`set_code_source: 'yugipedia'`) is kept by both (`keepYugipedia`). The German
 list keys a card by its passcode, the English one sometimes by an alternate artwork's (Dark
 Magician is `46986414` in German, `46986420` in English): a German entry whose id is no card is
 matched through its `card_images` ids, only to the card whose English name is the entry's
@@ -686,13 +697,40 @@ its localization; the row keeps its `image_key` until the mirror (Card images) h
 `artwork.url` under `images/yugioh/<file name>/<lang>/…` (one request a second): a Yu-Gi-Oh! key
 that does not name the scan's file is pending, and a key of another source id replaces it whatever
 its rank (`writeKeys`). The Workflow purges the `catalog` cache once, after its mirror step. The YGOPRODeck and
-Yugipedia name upserts keep `artwork` (`keepArtwork`). `extendedArt: true` on the set page's prints
+Yugipedia name upserts keep `artwork` (`keepArtwork` on prints, `keepYugipedia` on localizations). `extendedArt: true` on the set page's prints
 and on `PrintDetail` marks a print whose row says `EA`; the app labels it "Extended Art". Raw
 answers: `raw/<env>/yugipedia/galleries/<date>/titles.json` and `sets-<n>.json`. A full run is
 about 15 + 96 page requests plus a few hundred `imageinfo` requests (some minutes), then the
 mirror's downloads at one a second (the Workflow's `mirror images` step after it, at most 500,
 `orig` only; the VPS script's nightly `--sm` run the rest). Not covered: one print per number and
 rarity (four Blue-Eyes artworks under LCKC-EN001 UR get the first), OCG and Speed Duel sets.
+
+### Yugipedia set lists (Yu-Gi-Oh! codes per language)
+
+A Yu-Gi-Oh! copy in another language is a localization of the English print, and its code as
+printed differs: German `BLGG-DE024`, but `LON-G065` for `LON-065` and French `LDC-F065` under a
+set code of its own. The rule's code (see YGOPRODeck) is right for about 84 % (Portuguese 62 %,
+measured on 120 cards, `docs/research/2026-10-10-image-coverage-gaps.md`).
+`src/import/yugipedia/set-lists.ts` (VB-94) verifies it against Yugipedia's set lists: namespace
+3006 `Set Card Lists` holds one page per set and region, `<set> (TCG-DE)` (checked 2026-10-10:
+7,624 pages, TCG EN 1,129, DE 749, FR 745, IT 742, SP 702, PT 469, plus NA/EU/AU/FC), whose
+`{{Set list|…}}` rows are `code; name; rarity`; the card pages' `de_sets` lists show the same
+rows, one request per card instead of 50 pages per request, and the set galleries carry them for
+about 250 sets only. The Yugipedia Workflow runs it after the galleries (not for `{ galleries:
+'only' }`; `import_runs` source `yugipedia-set-lists`, the third of the shared lock): `set lists:
+plan` lists the titles without redirects (16 requests) and keeps our sets matched by name, as the
+galleries, not read in the last 30 days (`app_meta` map `yugipedia_set_lists_checked`), in chunks
+of 50; `set lists 00000` … read each set's lists in English and the languages its prints have
+(`revisions`, 50 titles a request). A print whose number is in a list (`numberKey`: `065`, `E065`,
+`G065` are one) gets the first row's code in each of its localizations' languages, from the rows
+under our set code or, where the language has none, all of its rows (early French and Italian
+sets); a language without the number, or without a list, was never printed so, and the code goes
+(`set_code_source` stays, so the rule does not seed it again); a number no list names (our code is
+not the wiki's: `YS15-ENF27`) keeps the rule's, as do prints of one language only. Rows changed
+bump `catalog_version`, purge the `catalog` cache and refresh the D1 index. Raw answers:
+`raw/<env>/yugipedia/set-lists/<date>/titles.json` and `sets-<n>.json`. A full run is 16 + about
+100 page requests (two minutes at one a second), and so is every run 30 days later. Not covered:
+an anniversary edition merged into its set (`LOB` 25th) takes the original's codes.
 
 ## Prices
 
