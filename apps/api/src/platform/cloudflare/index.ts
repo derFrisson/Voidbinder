@@ -154,20 +154,37 @@ export async function startTcgdexImport(env: Env, id?: string): Promise<void> {
  * The cron's TCGdex start: skipped (and logged) while a TCGdex run is still going, which a full
  * run or a slow day can make last past the next cron. Same check as POST /admin/import/tcgdex.
  */
-export async function startTcgdexCron(
+export function startTcgdexCron(
   env: Env,
   id: string,
   platform: Pick<Platform, 'cardStore' | 'close'> = createPlatform(env),
 ): Promise<void> {
+  return startUnlessRunning('tcgdex', () => startTcgdexImport(env, id), platform);
+}
+
+/** The cron's TCGCSV start: skipped (and logged) while a TCGCSV run is still going. */
+export function startTcgcsvCron(
+  env: Env,
+  id: string,
+  platform: Pick<Platform, 'cardStore' | 'close'> = createPlatform(env),
+): Promise<void> {
+  return startUnlessRunning('tcgcsv', () => startTcgcsvImport(env, id), platform);
+}
+
+async function startUnlessRunning(
+  source: string,
+  start: () => Promise<void>,
+  platform: Pick<Platform, 'cardStore' | 'close'>,
+): Promise<void> {
   try {
-    if (await platform.cardStore.importRunning('tcgdex')) {
-      log('info', { message: 'import still running, cron start skipped', job: 'tcgdex-import' });
+    if (await platform.cardStore.importRunning(source)) {
+      log('info', { message: 'import still running, cron start skipped', job: `${source}-import` });
       return;
     }
   } finally {
     await platform.close();
   }
-  await startTcgdexImport(env, id);
+  await start();
 }
 
 /** The image mirror's daily delta (VB-57): `orig` only, into `CATALOG`; the VPS adds `sm`. */

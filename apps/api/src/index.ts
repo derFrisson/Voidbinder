@@ -1,9 +1,9 @@
 import { createApp, type App } from './app';
-import { CRON_SOURCES } from './import/schedule';
+import { CRON_SOURCES, cronInstanceId } from './import/schedule';
 import {
   appDeps,
   startScryfallImport,
-  startTcgcsvImport,
+  startTcgcsvCron,
   startTcgdexCron,
   startYgoprodeckImport,
 } from './platform/cloudflare';
@@ -18,7 +18,8 @@ const START = {
   ygoprodeck: startYgoprodeckImport,
   // Skips the start while a TCGdex run is still going (a full run outlasts a day).
   tcgdex: startTcgdexCron,
-  tcgcsv: startTcgcsvImport,
+  // The same check for TCGCSV, whose 22:30 run could meet a slow 20:30 one.
+  tcgcsv: startTcgcsvCron,
 };
 
 let app: App | undefined;
@@ -30,12 +31,11 @@ export default {
     return app.fetch(request, env, ctx);
   },
 
-  /** Each cron starts the import CRON_SOURCES names; one Workflow instance per source and day. */
+  /** Each cron starts the import CRON_SOURCES names; one Workflow instance per cron and day. */
   async scheduled(controller, env) {
     const source = CRON_SOURCES[controller.cron];
     if (!source) throw new Error(`no import for cron ${controller.cron}`);
-    const day = new Date(controller.scheduledTime).toISOString().slice(0, 10);
-    await START[source](env, `${source}-${day}`);
+    await START[source](env, cronInstanceId(controller.cron, source, controller.scheduledTime));
   },
 } satisfies ExportedHandler<Env>;
 
