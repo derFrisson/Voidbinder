@@ -296,7 +296,7 @@ done
 unset TOKEN
 ```
 
-**Expect:** three `202` answers with the instance id. `409 import_running` means one is already
+**Expect:** `202 {"status":"started"}` three times. `409 import_running` means one is already
 running; `404` means `ADMIN_TOKEN` is not set (step 2).
 
 Durations measured on dev (`import_runs`, 2026-10-09/10), each plus the 7-minute wait before
