@@ -29,9 +29,15 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
   afterAll(() => drop());
 
   const steps: string[] = [];
+  const purged: string[][] = [];
   const run = (fake: FakeYgoprodeck = {}, blobs = new MemoryBlobStore()) =>
     runYgoprodeckImport(
-      { fetch: fakeYgoprodeck(fake), raw: blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
+      {
+        fetch: fakeYgoprodeck(fake),
+        raw: blobs,
+        withDb: (fn) => fn(db),
+        purgeCache: async (tags) => void purged.push(tags),
+      } satisfies ImportDeps,
       (name, fn) => (steps.push(name), fn()),
       { env: 'dev', date: '2026-10-10', languages: ['en', 'de'] },
     );
@@ -110,6 +116,8 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(steps).toEqual(
       expect.arrayContaining(['cards 00000', 'localizations de 00000', 'finish run']),
     );
+    expect(steps[steps.indexOf('finish run') + 1]).toBe('purge cache');
+    expect(purged).toEqual([['catalog', 'game:yugioh']]);
     expect(CHUNK_LINES).toBeGreaterThan(27);
   });
 

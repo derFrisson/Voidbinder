@@ -1,6 +1,7 @@
 import type { BlobStore } from '@voidbinder/core';
 import { log } from '../../middleware/log';
 import { runScryfallPrices } from '../prices/scryfall';
+import { purgeEdgeCache, type EdgeCacheDeps } from '../util';
 import {
   bulkFiles,
   chunkKey,
@@ -32,7 +33,7 @@ import {
 /** Objects per chunk and per Workflow step (~10 MB of JSON, four transactions of 500). */
 export const CHUNK_LINES = 2000;
 
-export interface ImportDeps {
+export interface ImportDeps extends EdgeCacheDeps {
   fetch: Fetch;
   /** The private `RAW` bucket: the raw dumps (`raw/…`) and a run's chunks (`work/…`). */
   raw: BlobStore;
@@ -153,6 +154,7 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
       otherLanguages: localizations,
     };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
+    await purgeEdgeCache(deps, step, ['catalog', 'game:mtg']);
     result = { runId, stats, chunks: cardSplit.chunks };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

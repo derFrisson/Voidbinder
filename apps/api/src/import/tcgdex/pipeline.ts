@@ -1,5 +1,5 @@
 import type { BlobStore } from '@voidbinder/core';
-import { batches, sourceHash } from '../util';
+import { batches, purgeEdgeCache, sourceHash, type EdgeCacheDeps } from '../util';
 import { isDigitalSet, mapSet } from './map';
 import { mapLimit, putJson, readText, type TcgdexClient } from './source';
 import type { TcgdexCard, TcgdexSet } from './types';
@@ -36,7 +36,7 @@ export const RECENT_DAYS = 90;
 export const ROTATION_DAYS = 30;
 const CARD_CONCURRENCY = 4;
 
-export interface ImportDeps {
+export interface ImportDeps extends EdgeCacheDeps {
   client: TcgdexClient;
   blobs: BlobStore;
   /** Opens a connection for one step and closes it afterwards. */
@@ -188,6 +188,7 @@ export async function runTcgdexImport(deps: ImportDeps, step: StepRunner, opts: 
       ...cards,
     };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
+    await purgeEdgeCache(deps, step, ['catalog', 'game:pokemon']);
     return { runId, stats };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

@@ -13,10 +13,12 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
   let db: Db;
   let drop: () => Promise<void>;
   const blobs = new MemoryBlobStore();
+  const purged: string[][] = [];
   const deps = (fetch = fakeTcgcsv()): ImportDeps => ({
     fetch,
     raw: blobs,
     withDb: (fn) => fn(db),
+    purgeCache: async (tags) => void purged.push(tags),
   });
   const run = (fake: FakeTcgcsv = {}, steps: string[] = []) =>
     runTcgcsvImport(deps(fakeTcgcsv(fake)), (name, fn) => (steps.push(name), fn()), {
@@ -83,6 +85,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     const before = await version();
     const requests: string[] = [];
     const steps: string[] = [];
+    purged.length = 0;
     const { stats } = await run({ requests }, steps);
 
     expect(stats).toEqual({
@@ -128,7 +131,9 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'groups yugioh',
       'groups pokemon',
       'finish run',
+      'purge cache',
     ]);
+    expect(purged).toEqual([['prices']]);
     // last-updated first, then groups, products and prices of the matched groups only.
     expect(requests).toEqual([
       'https://tcgcsv.com/last-updated.txt',
@@ -177,11 +182,13 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
   it('pulls nothing more when TCGCSV has not been updated since the last run', async () => {
     const before = await version();
     const requests: string[] = [];
+    purged.length = 0;
     const { stats } = await run({ requests });
     expect(stats).toMatchObject({ skipped: expect.any(String) });
     expect(requests).toEqual(['https://tcgcsv.com/last-updated.txt']);
-    // Nothing new: the cached catalog reads stay valid.
+    // Nothing new: the cached catalog reads stay valid, at the edge too.
     expect(await version()).toBe(before);
+    expect(purged).toEqual([]);
   });
 
   it('keeps one prices_daily row per print, finish, source and day', async () => {
@@ -260,9 +267,10 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
   it('writes Scryfall’s Cardmarket EUR and TCGplayer USD prices per chunk of the dump', async () => {
     const before = await version();
     const steps: string[] = [];
+    purged.length = 0;
     const scryfall = () =>
       runScryfallImport(
-        { fetch: fakeScryfall(), raw: blobs, withDb: (fn) => fn(db) },
+        { ...deps(fakeScryfall()), raw: blobs },
         (name, fn) => (steps.push(name), fn()),
         {
           env: 'dev',
@@ -278,11 +286,14 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     const cards = steps.filter((s) => s.startsWith('cards '));
     expect(steps.slice(steps.indexOf('finish run'))).toEqual([
       'finish run',
+      'purge cache',
       'prices: start run',
       ...cards.map((s) => s.replace('cards', 'prices')),
       'prices: finish run',
+      'prices: purge cache',
       'clean up chunks',
     ]);
+    expect(purged).toEqual([['catalog', 'game:mtg'], ['prices']]);
     // The catalog run and the price run each bump once.
     expect(await version()).toBe(before + 2);
     const adeline = await printId('mid', '1');

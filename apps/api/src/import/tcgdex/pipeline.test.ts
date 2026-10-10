@@ -119,6 +119,7 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
   afterAll(() => drop());
 
   const steps: string[] = [];
+  const purged: string[][] = [];
   const run = (
     fake: FakeTcgdex = {},
     over: Partial<ImportOptions> = {},
@@ -126,7 +127,12 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
     runner: StepRunner = (name, fn) => (steps.push(name), fn()),
   ) =>
     runTcgdexImport(
-      { client: testClient(fakeTcgdex(fake), 1), blobs, withDb: (fn) => fn(db) },
+      {
+        client: testClient(fakeTcgdex(fake), 1),
+        blobs,
+        withDb: (fn) => fn(db),
+        purgeCache: async (tags) => void purged.push(tags),
+      },
       runner,
       { env: 'dev', date: '2026-10-10', languages: ['en', 'de'], mode: 'incremental', ...over },
     );
@@ -205,6 +211,8 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
         'finish run',
       ]),
     );
+    expect(steps[steps.indexOf('finish run') + 1]).toBe('purge cache');
+    expect(purged).toEqual([['catalog', 'game:pokemon']]);
   });
 
   it('writes the set, its names and release date', async () => {

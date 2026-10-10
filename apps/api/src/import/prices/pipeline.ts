@@ -1,5 +1,6 @@
 import { failRun, finishRun } from '../scryfall/write';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
+import { purgeEdgeCache } from '../util';
 import { isCard, matchGroups, matchProducts } from './match';
 import {
   CATEGORIES,
@@ -210,6 +211,7 @@ export async function runTcgcsvImport(
 
     const stats = { lastUpdated: observedAt, games };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
+    await purgeEdgeCache(deps, step, ['prices']);
     return { runId, stats };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

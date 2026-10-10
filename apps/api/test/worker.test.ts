@@ -1,6 +1,7 @@
 import { HealthResponseSchema } from '@voidbinder/shared/api';
 import { env, exports } from 'cloudflare:workers';
-import { describe, expect, inject, it } from 'vitest';
+import { describe, expect, inject, it, vi } from 'vitest';
+import { purgeCache } from '../src/platform/cloudflare/cache';
 import { R2BlobStore } from '../src/platform/cloudflare/r2-blob-store';
 
 declare module 'vitest' {
@@ -24,6 +25,14 @@ describe('Worker', () => {
       });
     },
   );
+
+  // Purges are scoped to the calling entrypoint, so the Workflows purge through the default one.
+  it('purges the edge cache through the default entrypoint, a no-op where nothing is cached', async () => {
+    const warn = vi.spyOn(console, 'warn');
+    await purgeCache(['catalog', 'game:mtg']);
+    expect(warn).not.toHaveBeenCalled();
+    await expect(exports.default.purgeCache(['prices'])).resolves.toBeUndefined();
+  });
 
   it('round-trips a blob through R2', async () => {
     const store = new R2BlobStore(env.CATALOG);

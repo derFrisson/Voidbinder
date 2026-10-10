@@ -1,5 +1,28 @@
 // Helpers every catalog importer uses (Scryfall now; Yu-Gi-Oh! and Pokémon copy the pattern).
 
+/** What an importer needs to purge the API's edge cache (README "Caching"); absent in tests. */
+export interface EdgeCacheDeps {
+  /** Purges the edge-cached responses with these `Cache-Tag`s; never throws. */
+  purgeCache?(tags: string[]): Promise<void>;
+  /** Waits durably (Workflows `step.sleep`). */
+  sleep?(name: string, seconds: number): Promise<void>;
+}
+
+/**
+ * The last step of a run that changed the catalog or the prices: purges the API's edge cache by
+ * tag. It first waits out the Hyperdrive-cached reads (300 s + 60 s stale, ADR 0004), which would
+ * otherwise refill the edge with the rows from before the import for another ten minutes.
+ */
+export async function purgeEdgeCache(
+  deps: EdgeCacheDeps,
+  step: <T>(name: string, fn: () => Promise<T>) => Promise<T>,
+  tags: string[],
+  prefix = '',
+): Promise<void> {
+  await deps.sleep?.(`${prefix}wait for the Hyperdrive cache`, 360);
+  await step(`${prefix}purge cache`, async () => deps.purgeCache?.(tags));
+}
+
 /** Splits `items` into consecutive slices of at most `size`. */
 export function batches<T>(items: readonly T[], size: number): T[][] {
   const out: T[][] = [];

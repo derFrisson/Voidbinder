@@ -29,9 +29,15 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
   afterAll(() => drop());
 
   const steps: string[] = [];
+  const purged: string[][] = [];
   const run = (fake: FakeScryfall = {}, blobs = new MemoryBlobStore()) =>
     runScryfallImport(
-      { fetch: fakeScryfall(fake), raw: blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
+      {
+        fetch: fakeScryfall(fake),
+        raw: blobs,
+        withDb: (fn) => fn(db),
+        purgeCache: async (tags) => void purged.push(tags),
+      } satisfies ImportDeps,
       (name, fn) => (steps.push(name), fn()),
       { env: 'dev', date: '2026-10-09', languages: ['en', 'de'] },
     );
@@ -70,6 +76,9 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
     ]);
     const [runRow] = await db.select().from(importRuns);
     expect(runRow).toMatchObject({ source: 'scryfall', kind: 'full', status: 'ok' });
+    // The edge-cached catalog reads go right after the finish (VB-71).
+    expect(steps[steps.indexOf('finish run') + 1]).toBe('purge cache');
+    expect(purged).toEqual([['catalog', 'game:mtg']]);
 
     // Raw dumps stay, the run's chunks are deleted.
     expect([...blobs.objects.keys()].sort()).toEqual([
