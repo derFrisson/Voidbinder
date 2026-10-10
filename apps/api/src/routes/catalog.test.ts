@@ -288,7 +288,12 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     it('is cached like the catalog', async () => {
       const res = await app.request('/catalog/search?q=adeline');
-      expect(res.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+      expect(res.headers.get('Cache-Control')).toBe(
+        'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
+      );
+      expect(res.headers.get('Cache-Tag')).toBe('catalog');
+      const mtg = await app.request('/catalog/search?q=adeline&game=mtg');
+      expect(mtg.headers.get('Cache-Tag')).toBe('catalog,game:mtg');
       expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
     });
 
@@ -354,7 +359,14 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
   it('answers with cache headers, an ETag per catalog_version and 304 on a match', async () => {
     const first = await app.request('/catalog/sets/mtg/mid');
-    expect(first.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+    expect(first.headers.get('Cache-Control')).toBe(
+      'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
+    );
+    // Workers Caching reads its own header (s-maxage would switch off stale-while-revalidate).
+    expect(first.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
+      'public, max-age=600, stale-while-revalidate=600',
+    );
+    expect(first.headers.get('Cache-Tag')).toBe('catalog,game:mtg');
     const etag = first.headers.get('ETag') ?? '';
     expect(etag).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
 
@@ -377,5 +389,6 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     const missing = await app.request('/catalog/sets/mtg/xyz');
     expect(missing.headers.get('Cache-Control')).toBe('no-store');
+    expect(missing.headers.get('Cache-Tag')).toBeNull();
   });
 });
