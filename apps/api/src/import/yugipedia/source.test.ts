@@ -61,6 +61,10 @@ describe('Yugipedia source', () => {
     expect(pickPages(pages, [lev], 'passcode').get(lev.key)?.title).toBe('Lev Shaddoll Fusion');
     // Another card's passcode on the right title is not this card.
     expect(pickPages(pages, [{ ...lev, key: '1' }], 'title').size).toBe(0);
+    // Unless it is the card's real passcode, the key being another artwork's.
+    expect(
+      pickPages(pages, [{ ...lev, key: '1', aliases: ['34950192'] }], 'title').get('1')?.title,
+    ).toBe('Lev Shaddoll Fusion');
     const skill = { key: '300104004', name: 'Cocoon of Ultra Evolution (Skill Card)' };
     const byTitle = pickPages(parseAnswer(fixture('ask_titles.json')), [skill], 'title');
     expect(byTitle.get(skill.key)?.localizations[0]).toMatchObject({

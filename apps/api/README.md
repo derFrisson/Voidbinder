@@ -541,7 +541,8 @@ of its own (`external_ids.language`); every print gets an `en` and a `de` locali
 list keys a card by its passcode, the English one sometimes by an alternate artwork's (Dark
 Magician is `46986414` in German, `46986420` in English): a German entry whose id is no card is
 matched through its `card_images` ids, only to the card whose English name is the entry's
-`name_en` (a Skill Card shares an artwork id, not the name). Every run upserts the German row of
+`name_en` (a Skill Card shares an artwork id, not the name), and the row keeps the entry's id in
+`external_ids.ygoprodeck` (the real passcode, which the Yugipedia import accepts). Every run upserts the German row of
 every print of every matched card, so a print added later gets it the next day (VB-93). Images are
 never fetched here: the source URLs sit in `external_ids` for the mirror (VB-57) and the API does
 not serve them. Skipped and counted in `stats.skipped`: cards in no set and prints whose code and
@@ -562,8 +563,9 @@ looked up in the last 30 days, written to R2 in chunks of 100), `cards 00000` â€
 purged only when a row was written). A chunk asks `action=ask` for the pages in
 `Category:Duel Monsters cards` whose `Password` is one of ten passcodes (the wiki refuses a query
 with 15), and for the cards still missing that have no passcode on the wiki (Skill Cards, tokens:
-YGOPRODeck gives them placeholder ids) for the page titled with the English name, accepted only
-when the page names no other passcode. Each language the page has becomes a `print_localizations`
+YGOPRODeck gives them placeholder ids) and the cards keyed by an alternate artwork for the page
+titled with the English name, accepted only when the page names no passcode other than the card's
+or the one its YGOPRODeck row keeps in `external_ids.ygoprodeck`. Each language the page has becomes a `print_localizations`
 row for every print of the card, with `external_ids.yugipedia` = the page title; a row another
 importer wrote is never overwritten (YGOPRODeck's daily German pass takes the card over once it
 has it), a Yugipedia row is rewritten only when the page changed. Wikitext becomes plain text

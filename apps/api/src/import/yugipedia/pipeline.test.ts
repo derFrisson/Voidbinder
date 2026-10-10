@@ -168,6 +168,29 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
     expect(await version()).toBe(before);
   });
 
+  it("plans a card keyed by another artwork with YGOPRODeck's passcode for it", async () => {
+    const [set] = await db.select({ id: sets.id }).from(sets);
+    const [c] = await db
+      .insert(cards)
+      .values({ gameId: 'yugioh', oracleKey: '46986420', name: 'Dark Magician' })
+      .returning({ id: cards.id });
+    const [p] = await db
+      .insert(prints)
+      .values({ setId: set?.id ?? '', cardId: c?.id ?? '', number: 'EN001', variant: 'rare' })
+      .returning({ id: prints.id });
+    await db.insert(printLocalizations).values({
+      printId: p?.id ?? '',
+      lang: 'de',
+      name: 'Dunkler Magier',
+      externalIds: { ygoprodeck: 46986414 },
+    });
+    expect((await planCards(db, '2026-10-10')).find((x) => x.key === '46986420')).toEqual({
+      key: '46986420',
+      name: 'Dark Magician',
+      aliases: ['46986414'],
+    });
+  });
+
   it('rewrites a Yugipedia row only when the page changed', async () => {
     const { writeLocalizations } = await import('./pipeline');
     const pages = pickPages(

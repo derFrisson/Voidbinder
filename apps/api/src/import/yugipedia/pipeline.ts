@@ -42,6 +42,8 @@ export interface ImportOptions {
 interface PlannedCard {
   key: string;
   name: string;
+  /** The card's real passcode when YGOPRODeck keys it by another artwork (see pickPages). */
+  aliases: string[] | null;
 }
 
 /** Days a looked-up card waits before it is asked again (no page, or a language still missing). */
@@ -62,7 +64,15 @@ export async function planCards(db: Db, date: string): Promise<PlannedCard[]> {
   const checked = JSON.parse(meta?.value ?? '{}') as Record<string, string>;
   const since = new Date(Date.parse(date) - COOL_DOWN_DAYS * 86_400_000).toISOString().slice(0, 10);
   const candidates = await db
-    .select({ key: cards.oracleKey, name: cards.name })
+    .select({
+      key: cards.oracleKey,
+      name: cards.name,
+      aliases: sql<string[] | null>`(
+        select array_agg(distinct l.external_ids->>'ygoprodeck') from ${prints} p
+        join ${printLocalizations} l on l.print_id = p.id
+        where p.card_id = "cards"."id" and l.external_ids ? 'ygoprodeck')`,
+      // ↑ spelled out: drizzle writes a select field's column unqualified, which p.id would shadow
+    })
     .from(cards)
     .where(
       and(

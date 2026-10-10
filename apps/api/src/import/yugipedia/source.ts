@@ -141,21 +141,25 @@ export function parseAnswer(body: unknown): YugipediaPage[] {
 /**
  * The page of each card among `pages`. By passcode: the page titled with the card's English name,
  * else the first with a German name (a passcode can sit on two pages, a card and its anime
- * version). By title: a page with the card's name as its title and no other passcode.
+ * version). By title: a page with the card's name as its title and no passcode other than the
+ * card's key or `aliases` (a card YGOPRODeck keys by an alternate artwork, Dark Magician's
+ * 46986420, has the wiki's 46986414 there).
  */
 export function pickPages(
   pages: YugipediaPage[],
-  cards: { key: string; name: string }[],
+  cards: { key: string; name: string; aliases?: string[] | null }[],
   by: 'passcode' | 'title',
 ): Map<string, YugipediaPage> {
   const picked = new Map<string, YugipediaPage>();
   for (const card of cards) {
+    const ids = [card.key, ...(card.aliases ?? [])];
     const candidates = pages.filter(
       (p) =>
         p.localizations.length &&
         (by === 'passcode'
           ? p.passwords.includes(card.key)
-          : p.title === card.name && (!p.passwords.length || p.passwords.includes(card.key))),
+          : p.title === card.name &&
+            (!p.passwords.length || p.passwords.some((pw) => ids.includes(pw)))),
     );
     const page =
       candidates.find((p) => p.title === card.name) ??

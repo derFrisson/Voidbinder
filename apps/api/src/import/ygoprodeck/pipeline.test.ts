@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   appMeta,
@@ -222,6 +222,14 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
         { lang: 'de', name: 'Dunkler Magier' },
         { lang: 'en', name: 'Dark Magician' },
       ]);
+    // The German entry's own id is kept, the passcode the Yugipedia import matches by title.
+    const [de] = await db
+      .select({ ids: printLocalizations.externalIds })
+      .from(printLocalizations)
+      .where(
+        and(eq(printLocalizations.printId, own[0]?.id ?? ''), eq(printLocalizations.lang, 'de')),
+      );
+    expect(de?.ids).toEqual({ ygoprodeck: 46986414 });
   });
 
   it('never gives a card the translation of an entry with another English name', async () => {

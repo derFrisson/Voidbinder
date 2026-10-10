@@ -384,10 +384,16 @@ export async function importLocalizationLines(
             .from(prints)
             .where(inArray(prints.cardId, [...matched.keys()]))
         : [];
+      const keyOf = new Map(found.map((c) => [c.id, c.key]));
       const rows = owned.map((p) => {
         const card = matched.get(p.cardId);
         if (!card) throw new Error(`card of print ${p.id} missing`);
-        return { ...mapLocalization(card, lang), printId: p.id };
+        const row = { ...mapLocalization(card, lang), printId: p.id };
+        // Matched by artwork: the entry's id is the card's real passcode (Dark Magician's
+        // 46986414), which the Yugipedia import accepts on a page found by title.
+        return String(card.id) === keyOf.get(p.cardId)
+          ? row
+          : { ...row, externalIds: { ygoprodeck: card.id } };
       });
       stats.written += await upsertLocalizations(tx, rows);
     });
