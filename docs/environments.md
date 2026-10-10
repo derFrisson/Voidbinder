@@ -126,7 +126,8 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   - **Native bypass:** the vars `TURNSTILE_NATIVE_BYPASS` of `apps/api` (`"false"`, never
     `"true"` in prod) lets a request with an `Authorization: Bearer` header skip the check. It is
     the Sprint 3 stopgap until the React Native client has a widget; off, native sign-ups are
-    refused with 400 `turnstile_failed`.
+    refused with 400 `turnstile_failed`. The header is never validated, so `"true"` switches the
+    check off for any client that sends one, not only native apps: it means no bot protection.
 - **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
   site token, read by `astro build` and baked into the static pages (it is public in the HTML).
   Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create

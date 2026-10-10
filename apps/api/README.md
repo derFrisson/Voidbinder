@@ -214,7 +214,8 @@ check is skipped when `TURNSTILE_SECRET` is Cloudflare's test secret **and** `IM
 `local` (`skipsTurnstile`), so a developer needs no widget; any deployed environment verifies for
 real. `TURNSTILE_NATIVE_BYPASS=true` additionally lets a request with `Authorization: Bearer …`
 through: a stopgap for native clients until Sprint 3 brings a widget to React Native; the default
-is off, and native requests without a token are refused. A token works once and lives 5 minutes,
+is off, and native requests without a token are refused. The header is never validated, so `true`
+turns the check off for any client that sends one, not just native ones. A token works once and lives 5 minutes,
 so a client asks the widget for a new one after every failed attempt. The sitekey var
 `TURNSTILE_SITE_KEY` is not read by the API (the clients render the widget); it sits next to the
 secret so the pair is documented in one place (docs/environments.md, Secrets).
