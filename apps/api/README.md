@@ -17,6 +17,7 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`, catalog cache headers                      |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                                        |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                                           |
+| `d1/`                        | Migrations of the D1 search index (VB-98), applied by `deploy:dev` / `deploy:prod`                                        |
 | `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices                                       |
 | `src/workflows/`             | Cloudflare Workflows that run the importers                                                                               |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                                |
@@ -33,7 +34,9 @@ The Cloudflare implementations live in `src/platform/cloudflare`: `DrizzleCardSt
 (`drizzle-card-store.ts`, PostgreSQL via Hyperdrive), `R2BlobStore` (`r2-blob-store.ts`: the
 public `CATALOG` bucket for `images/`, the private `RAW` bucket for the import's dumps) and
 `WorkflowJobQueue` (`workflow-job-queue.ts`, a job type per Workflow binding). `VectorIndex`
-(VB-37) is an interface only so far.
+(VB-37) is an interface only so far. `SearchIndex` (VB-98) is the typeahead's copy in D1,
+`D1SearchIndex` (`d1-search-index.ts`); without the `SEARCH` binding the platform has none and the
+typeahead reads Postgres.
 
 `createPlatform(env)` opens two per-request pools: one on `HYPERDRIVE` (caching disabled, for
 everything) and one on `HYPERDRIVE_CACHED` (reads cached up to 300 s, for the catalog and price
@@ -142,9 +145,10 @@ for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL?nocache=$
 
 ## Search
 
-`GET /catalog/search` and its typeahead `GET /catalog/search/suggest` (VB-35, VB-79) stay in
-PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010_search.sql`.
-`src/platform/cloudflare/drizzle-card-store.ts` (`search`, `suggest`, `codeHits`).
+`GET /catalog/search` and its typeahead `GET /catalog/search/suggest` (VB-35, VB-79) are ranked
+in PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010_search.sql`.
+`src/platform/cloudflare/drizzle-card-store.ts` (`search`, `suggest`, `codeHits`). The typeahead
+reads a copy in D1 first (VB-98, next section).
 
 - **Names and texts:** `websearch_to_tsquery('simple')` over `cards.search` and
   `print_localizations.search`, the last word as a prefix; a match in the name ranks first.
@@ -179,6 +183,45 @@ the first 3 prints of a set named by its code, cards whose name starts with `q` 
 languages of `names`, shortest first), similar names. A name match shows the card's newest print.
 Both are cached like every catalog route; the typeahead embeds no price, so it is tagged `catalog`
 only.
+
+### Search index (D1)
+
+The typeahead answers from D1 next to the user ([ADR 0006](../../docs/adr/0006-search-index-d1.md)),
+Postgres stays the source of truth:
+
+- **Two paths.** `GET /catalog/search/suggest` asks `D1SearchIndex.suggest`
+  (`src/platform/cloudflare/d1-search-index.ts`) first: the same tiers, ranks, names and images as
+  `DrizzleCardStore.suggest`, read through the Sessions API (`withSession('first-unconstrained')`,
+  the nearest replica) in two or three round trips (meta, codes, sets and name prefixes in one
+  batch; similar names; the names and images of the answer). The code tiers use `parseCodeQuery`
+  and JS twins of `catalog_code_key` / `catalog_number_key`; similar names take their candidates
+  from an FTS5 trigram table over every distinct lower-case name (each word padded as pg_trgm
+  pads it), and pg_trgm's `similarity`, ported to JS, decides with the same 0.3. The response's
+  ETag carries the index's `catalog_version`, so the typeahead makes no Postgres round trip.
+  `GET /catalog/search` stays on Postgres: it matches card texts, which the index does not hold.
+- **Fallback to Postgres** when D1 throws, when the index was never synced or its last refresh
+  (`meta.synced_at`) is older than 36 h (`MAX_INDEX_AGE_MS`), or when it has no suggestion (the
+  first deploy, a query only Postgres would answer). Each response says which answered in
+  `x-search-source: d1|postgres`; every typeahead request logs `search source` with `source` and
+  `fallback` (`no index`, `unavailable`, `error`, `none`), a failing D1 also `search index failed`.
+- **Refresh.** The Workflow `SearchIndexRefresh` (binding `SEARCH_INDEX_REFRESH`,
+  `src/import/search-index.ts`) is started by the last step of every catalog import (after the
+  image mirror) and by `POST /admin/search-index/rebuild` (bearer `ADMIN_TOKEN`, 202, rewrites
+  every set). It reads Postgres through `HYPERDRIVE` (not the cached pool): an md5 per set over
+  the set, its prints and names; sets whose hash differs from D1's `sets.hash` are rewritten,
+  about 1000 prints per step and D1 batch (one transaction: delete the set's rows, insert them
+  again), sets gone from Postgres are deleted, names no print has any more too. The localizations
+  have no `updated_at`, and the hash also sees deletions and renamed cards. Then `meta` gets
+  `catalog_version` and `synced_at`, and the edge cache's `catalog` tag is purged when a set
+  changed. One refresh at a time (a `lock` row, 2 h TTL): a second waits up to 12 × 5 min. The
+  `search index refreshed` log line carries `sets`, `setsWritten`, `setsRemoved`, `rowsWritten`
+  and `durationMs`. A full rebuild of the local catalog (1440 sets, 148,000 prints, 249,000 names)
+  took 28 s in 172 steps and wrote 1.8 million D1 rows; a refresh without changes hashes for 2 s
+  and writes nothing.
+- **Parity.** `src/platform/cloudflare/d1-search-index.test.ts` refreshes a local D1 (miniflare
+  through wrangler's `getPlatformProxy`) from the test catalog and expects every fixture query to
+  answer exactly as Postgres does, images included. A change to the Postgres typeahead needs the
+  same change in `d1-search-index.ts`.
 
 ## Local development
 
@@ -875,5 +918,14 @@ pnpm --filter api deploy:dev    # voidbinder-api-dev on workers.dev
 pnpm --filter api deploy:prod   # voidbinder-api on api.voidbinder.de
 ```
 
-Both pass the short git sha as `VERSION` (`--var`), which `GET /health` reports. `pnpm build`
+Both pass the short git sha as `VERSION` (`--var`), which `GET /health` reports. Both apply the
+D1 migrations of `d1/` to the environment's search index first
+(`wrangler d1 migrations apply SEARCH --remote --env dev|prod`).
+
+The search index needs, once per environment: the database
+(`pnpm exec wrangler d1 create voidbinder-search-<env> --location weur`, its id into
+`wrangler.jsonc`), read replication switched on (dashboard: D1 → the database → Settings →
+Enable Read Replication; it is not a wrangler command), and after the first deploy one full
+refresh: `curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" <API_URL>/admin/search-index/rebuild`.
+Until it finished, the typeahead reads Postgres (`x-search-source: postgres`). `pnpm build`
 runs `wrangler deploy --dry-run --outdir dist` (top-level config) as a bundling check only.
