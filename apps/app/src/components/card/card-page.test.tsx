@@ -313,6 +313,18 @@ describe('card page', () => {
     );
   });
 
+  it('labels an Extended Art print in the prints table (VB-106)', async () => {
+    const ea = {
+      ...card,
+      prints: [{ ...card.prints[0], rarity: 'Starlight Rare', extendedArt: true }, card.prints[1]],
+    };
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(ea) : undefined));
+    renderApp(<CardPage />);
+    const rows = await screen.findAllByRole('row');
+    expect(rows[1]?.textContent).toContain('Starlight Rare · Extended Art');
+    expect(rows[2]?.textContent).not.toContain('Extended Art');
+  });
+
   it('says under the image when it is in another language or of another print', async () => {
     const withImage = (imageLang: string, imageFrom: 'print' | 'sibling') => ({
       ...card,

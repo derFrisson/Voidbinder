@@ -86,6 +86,8 @@ export const de = {
     prev: 'Vorherige Seite',
     next: 'Nächste Seite',
     missing: 'fehlt',
+    // The trade name, as Konami and Cardmarket write it.
+    extendedArt: 'Extended Art',
     completion: 'Vollständigkeit',
     valueOwned: 'Deine {count} Karten',
     valueMissing: 'Fehlende {count}',

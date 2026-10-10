@@ -110,7 +110,9 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
           <View className="flex-row items-baseline justify-between gap-2">
             <Text className="font-mono text-[11.5px] text-ink-2">{print.displayNumber}</Text>
             <Text numberOfLines={1} className="shrink font-body text-[11.5px] text-ink-3">
-              {rarity(print.rarity)}
+              {[rarity(print.rarity), print.extendedArt && t.set.extendedArt]
+                .filter(Boolean)
+                .join(' · ')}
             </Text>
           </View>
           <Text numberOfLines={2} className="font-display text-[13px] font-semibold text-ink">
@@ -164,7 +166,9 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
               {ban && <BanBadge status={ban} />}
             </View>
             <Text numberOfLines={1} className="font-body text-[13px] text-ink-3">
-              {[rarity(print.rarity), finishes].filter(Boolean).join(' · ')}
+              {[rarity(print.rarity), print.extendedArt && t.set.extendedArt, finishes]
+                .filter(Boolean)
+                .join(' · ')}
             </Text>
           </View>
           {signedIn && (

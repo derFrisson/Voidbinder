@@ -66,7 +66,12 @@ export function PrintsTable({
           const { displayNumber } = inLanguage(p, browsing);
           const langs = p.localizations.map((l) => l.lang.toUpperCase()).join(' · ');
           const finishes = p.finishes.map((f) => label(t.card.finishes, f)).join(', ');
-          const rarity = p.rarity ? label(t.card.rarities, p.rarity) : '';
+          const rarity = [
+            p.rarity ? label(t.card.rarities, p.rarity) : '',
+            p.extendedArt ? t.set.extendedArt : '',
+          ]
+            .filter(Boolean)
+            .join(' · ');
           return (
             <View
               key={p.id}

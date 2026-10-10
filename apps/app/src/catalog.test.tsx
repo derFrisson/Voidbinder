@@ -503,6 +503,28 @@ describe('collection and prices', () => {
     expect(screen.getAllByText('fehlt')).toHaveLength(1);
   });
 
+  it('labels an Extended Art print in the grid and the list (VB-106)', () => {
+    const ea = [
+      print(141, { rarity: 'Ultra Rare', extendedArt: true }),
+      print(2, { rarity: 'Ultra Rare' }),
+    ];
+    for (const view of ['grid', 'list'] as const) {
+      const { unmount } = renderApp(
+        <CardCollection
+          prints={ea}
+          view={view}
+          game="yugioh"
+          setCode="RA05"
+          owned={new Map()}
+          prices={undefined}
+        />,
+      );
+      expect(screen.getAllByText(/Extended Art/)).toHaveLength(1);
+      expect(screen.getByText(/^Ultra Rare · Extended Art/)).toBeTruthy();
+      unmount();
+    }
+  });
+
   it('shows the list with copies per finish', () => {
     renderApp(
       <CardCollection
