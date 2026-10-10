@@ -1,0 +1,25 @@
+# Nightly offline catalog modules (VB-29), a systemd user unit for `ubuntu` on the database VPS;
+# started by catalog-modules.timer. Installation and the DBS switch: docs/guides/database-vps.md,
+# section 12. Builds every game of every database in DBS and uploads it to R2; a game whose
+# published manifest already has the current catalog_version is skipped, so a rerun is cheap.
+# %h/catalog-modules/<db>/<game>/ keeps the last module, the source of the next delta.
+[Unit]
+Description=Voidbinder offline catalog modules
+After=network-online.target image-mirror.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The databases, in order: "dev" until Max's go for prod, then "prod dev".
+Environment=DBS=dev
+Environment=GAMES=yugioh pokemon mtg
+Environment=PATH=%h/.local/share/fnm/aliases/default/bin:/usr/local/bin:/usr/bin:/bin
+WorkingDirectory=%h/voidbinder
+ExecStartPre=/usr/bin/git pull --ff-only -q
+ExecStartPre=/bin/sh -c 'pnpm install --frozen-lockfile --filter api... >/dev/null'
+# The builder imports @voidbinder/core and @voidbinder/shared, which run from their dist/.
+ExecStartPre=/bin/sh -c 'pnpm --silent --filter "api^..." build >/dev/null'
+ExecStart=/bin/sh -c 'rc=0; for db in $$DBS; do for game in $$GAMES; do \
+  pnpm --silent --filter api build-catalog-module \
+  --env-file %h/.config/voidbinder/r2.env --env-file %h/.config/voidbinder/pg.env \
+  --db "$$db" --game "$$game" --out %h/catalog-modules/$$db --upload || rc=1; done; done; exit $$rc'

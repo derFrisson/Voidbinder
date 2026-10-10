@@ -27,3 +27,4 @@ export * from './me.js';
 export * from './prices.js';
 export * from './decks.js';
 export * from './sync.js';
+export * from './modules.js';

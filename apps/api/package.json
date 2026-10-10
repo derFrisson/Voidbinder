@@ -24,7 +24,8 @@
     "deploy:prod": "wrangler deploy --env prod --var VERSION:$(git rev-parse --short HEAD)",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "mirror-images": "tsx scripts/mirror-images.ts"
+    "mirror-images": "tsx scripts/mirror-images.ts",
+    "build-catalog-module": "tsx scripts/build-catalog-module.ts"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.1148.0",

@@ -42,15 +42,16 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 ## Catalog API
 
-| Route                                                             | Answer                                                                  |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /catalog/games`                                              | Games with their set counts                                             |
-| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                             |
-| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price) |
-| `GET /catalog/cards/:id?currency=`                                | Card, legalities and every print with localizations and `marketPrice`   |
-| `GET /catalog/prints/:id`                                         | One print with its card                                                 |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)         |
-| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                  |
+| Route                                                             | Answer                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET /catalog/games`                                              | Games with their set counts                                                          |
+| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                                          |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price)              |
+| `GET /catalog/cards/:id?currency=`                                | Card, legalities and every print with localizations and `marketPrice`                |
+| `GET /catalog/prints/:id`                                         | One print with its card                                                              |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)                      |
+| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                               |
+| `GET /catalog/modules`                                            | Manifests of the offline catalog modules, one per game (see Offline catalog modules) |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries
@@ -287,7 +288,7 @@ face. Old School legality is per print at Scryfall and is not kept on the card.
 R2 layout (the private bucket `voidbinder-raw`, binding `RAW`, shared by all environments;
 `<env>` is the `IMPORT_ENV` var: `local` for `wrangler dev`, `dev`, `prod`). The raw dumps never
 go to the public `voidbinder-catalog` (`CATALOG`): republishing them breaks Scryfall's terms, and
-its `R2BlobStore` refuses every key outside `images/`.
+its `R2BlobStore` refuses every key outside `images/` and `modules/`.
 
 | Key                                                        | What                                        |
 | ---------------------------------------------------------- | ------------------------------------------- |
@@ -633,6 +634,20 @@ The catalog responses build `imageUrl` from `IMAGE_BASE_URL` + `image_key` and f
 source URL until the image is mirrored. `GET /catalog/cards/:id` and `GET /catalog/prints/:id`
 also carry `copyright`, the game's line from `@voidbinder/shared/notices` (which also exports the
 per-game notices and the Scryfall attribution); the card page shows it with the print's `artist`.
+
+## Offline catalog modules
+
+`scripts/build-catalog-module.ts` (VB-29) builds one SQLite file per game (sets, cards, prints,
+`en`/`de` localizations, image keys, the display price per print, finish and currency, an FTS5
+name index) from the catalog with the read-only mirror role, gzips it and diffs it against the
+previous module into a delta of row upserts and deletes; with `--upload` it publishes both and
+`manifest.json` to `CATALOG` under `modules/<db>/<game>/`, skipping a game whose manifest already
+has the current `catalog_version` and schema, and deleting files the new manifest no longer names
+(the previous module stays one run). A VPS timer runs it nightly at 06:30 UTC
+([runbook section 12](../../docs/guides/database-vps.md#12-offline-catalog-modules)).
+`GET /catalog/modules` (`src/routes/modules.ts`) answers the manifests of `modules/<IMPORT_ENV>/`,
+cached like the catalog. Schema, manifest and the app's contract:
+[docs/architecture/catalog-module.md](../../docs/architecture/catalog-module.md).
 
 ## Deploy
 
