@@ -1,9 +1,10 @@
-import { eq } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/node-postgres';
+import { eq, sql } from 'drizzle-orm';
+import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appMeta } from '../../db/schema';
+import { appMeta, importRuns } from '../../db/schema';
+import { freshDatabase } from '../../test-helpers';
 import { DrizzleCardStore } from './drizzle-card-store';
 
 // Integration test against a real Postgres: `docker compose up -d` at the repo root, then
@@ -41,5 +42,28 @@ describe.skipIf(!url)('DrizzleCardStore (Postgres)', () => {
     const closed = new Pool({ connectionString: 'postgres://nobody:x@127.0.0.1:1/none' });
     await expect(new DrizzleCardStore(drizzle(closed)).ping()).rejects.toThrow();
     await closed.end();
+  });
+});
+
+describe.skipIf(!url)('DrizzleCardStore.importRunning (Postgres, VB-116)', () => {
+  let db: NodePgDatabase;
+  let drop: () => Promise<void>;
+  beforeAll(async () => ({ db, drop } = await freshDatabase()));
+  afterAll(() => drop());
+
+  it('takes a TCGCSV run older than an hour as dead, the others after 6 h', async () => {
+    const store = new DrizzleCardStore(db);
+    const started = (h: number) => sql`now() - make_interval(secs => ${h * 3600})`;
+    // The 20:30 TCGCSV run died: at 22:30 it no longer blocks the late run.
+    await db.insert(importRuns).values([
+      { source: 'tcgcsv', kind: 'prices', startedAt: started(2) },
+      { source: 'scryfall', kind: 'full', startedAt: started(2) },
+    ]);
+    expect(await store.importRunning('tcgcsv')).toBe(false);
+    expect(await store.importRunning('scryfall')).toBe(true);
+    await db
+      .insert(importRuns)
+      .values({ source: 'tcgcsv', kind: 'prices', startedAt: started(0.5) });
+    expect(await store.importRunning('tcgcsv')).toBe(true);
   });
 });
