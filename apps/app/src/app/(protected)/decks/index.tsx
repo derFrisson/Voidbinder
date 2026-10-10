@@ -127,7 +127,7 @@ export default function Decks() {
     </View>
   );
   return (
-    <Page title={t.decks.title}>
+    <Page title={t.decks.title} catalog>
       <Heading lede={t.decks.lede}>{t.decks.title}</Heading>
       {wide ? (
         <View className="flex-row items-start gap-6">

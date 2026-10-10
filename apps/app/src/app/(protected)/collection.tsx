@@ -378,6 +378,7 @@ export default function Collection() {
   return (
     <Page
       title={t.collection.title}
+      catalog
       crumbs={[
         { label: t.collection.title, href: '/collection' },
         {

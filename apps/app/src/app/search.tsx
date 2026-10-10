@@ -2,7 +2,7 @@ import type { Game } from '@voidbinder/shared';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSession } from '../api/queries/me';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ScrollView, Text, TextInput, View } from 'react-native';
 import {
   fromParams,
   searchable,
@@ -14,6 +14,7 @@ import {
 import { label } from '../components/card/attributes';
 import { Chip } from '../components/card/Chip';
 import { PrintTile, TileSkeleton } from '../components/card/PrintTile';
+import { useColumns } from '../components/catalog/Cards';
 import { QuickAdd } from '../components/collection/CollectButtons';
 import { SetPicker } from '../components/card/SetPicker';
 import { Heading, Page, useWide } from '../components/Shell';
@@ -39,12 +40,6 @@ const FINISHES: Record<Game, string[]> = {
 };
 // Proper names that exist in the catalog, as a start.
 const EXAMPLES = ['Adeline', 'Dark Magician', 'Pikachu'];
-
-/** Dense grid as on the set page: 7 columns at 1240 px, 3 on a phone. */
-function useColumns() {
-  const width = useWindowDimensions().width;
-  return width >= 1240 ? 7 : width >= 1024 ? 5 : width >= 768 ? 4 : 3;
-}
 
 function Grid({ children }: { children: ReactNode[] }) {
   const columns = useColumns();
@@ -305,10 +300,10 @@ export default function Search() {
   const typeahead = useTypeahead({ text, onChangeText: setText, enabled: !wide });
 
   return (
-    <Page title={t.search.title}>
+    <Page title={t.search.title} catalog>
       <Heading>{t.search.title}</Heading>
       {/* The input is the whole box, so the focus ring is the box. */}
-      <View className="relative z-10 justify-center">
+      <View className="relative z-10 max-w-content justify-center">
         <TextInput
           value={text}
           {...typeahead.inputProps}

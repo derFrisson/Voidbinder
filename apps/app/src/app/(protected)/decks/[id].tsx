@@ -138,6 +138,7 @@ export default function DeckPage() {
     <Page
       title={name}
       back
+      catalog
       crumbs={[
         { label: t.decks.title, href: '/decks' },
         ...(deck.data ? [{ label: t.collection.gameShort[deck.data.game] }] : []),

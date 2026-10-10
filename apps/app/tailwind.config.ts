@@ -29,7 +29,9 @@ export default {
       mono: family(tokens.font.mono.stack),
     },
     extend: {
-      maxWidth: { content: tokens.layout.maxw },
+      // Two content widths (docs/app/design.md): `content` (the site's 1240 px) for reading pages,
+      // `catalog` for the pages made of grids and tables, which use a wide window (VB-100).
+      maxWidth: { content: tokens.layout.maxw, catalog: '1760px' },
     },
   },
   plugins: [

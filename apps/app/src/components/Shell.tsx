@@ -325,7 +325,7 @@ function PhoneHeader({ title, back }: { title: string; back: boolean }) {
  * Rights notices of every game (@voidbinder/shared/notices, VB-57), then Powered by Voidcom,
  * Impressum, Datenschutz and the source code.
  */
-export function Footer() {
+export function Footer({ maxw = 'max-w-content' }: { maxw?: string }) {
   const t = useT();
   const locale = useLocale();
   const link = 'font-body text-sm font-semibold text-ink-2 underline';
@@ -333,7 +333,7 @@ export function Footer() {
     <View
       role="contentinfo"
       aria-label={t.footer.label}
-      className="mt-12 w-full max-w-content gap-4 border-t border-line pt-6"
+      className={`mt-12 w-full ${maxw} gap-4 border-t border-line pt-6`}
     >
       <Text
         role="heading"
@@ -378,11 +378,6 @@ export function Footer() {
   );
 }
 
-/**
- * One screen: the top bar (crumbs, search, scan pile) on wide screens or the phone header, then
- * the content up to 1240 px wide. The footer shows on wide screens; on phones only where
- * `phoneFooter` is set (profile, sign-in), as the design asks.
- */
 /** The scroller of the current page, so a screen can scroll back to the top (pagination). */
 export const PageScroll = createContext<RefObject<ScrollView | null> | null>(null);
 
@@ -391,20 +386,29 @@ export function useScrollToTop() {
   return () => scroller?.current?.scrollTo({ y: 0 });
 }
 
+/**
+ * One screen: the top bar (crumbs, search, scan pile) on wide screens or the phone header, then
+ * the content up to 1240 px wide, or 1760 px with `catalog` (grids and tables, VB-100). The footer
+ * shows on wide screens; on phones only where `phoneFooter` is set (profile, sign-in), as the
+ * design asks.
+ */
 export function Page({
   title,
   crumbs,
   back = false,
   phoneFooter = false,
+  catalog = false,
   children,
 }: {
   title: string;
   crumbs?: Crumb[];
   back?: boolean;
   phoneFooter?: boolean;
+  catalog?: boolean;
   children: ReactNode;
 }) {
   const wide = useWide();
+  const maxw = catalog ? 'max-w-catalog' : 'max-w-content';
   const scroller = useRef<ScrollView>(null);
   return (
     <View className="flex-1">
@@ -419,11 +423,11 @@ export function Page({
         contentContainerClassName={wide ? 'px-8 pb-16 pt-7' : 'px-4 pb-8 pt-4'}
       >
         <PageScroll.Provider value={scroller}>
-          <View role="main" className="w-full max-w-content gap-6">
+          <View role="main" className={`w-full ${maxw} gap-6`}>
             {children}
           </View>
         </PageScroll.Provider>
-        {(wide || phoneFooter) && <Footer />}
+        {(wide || phoneFooter) && <Footer maxw={maxw} />}
       </ScrollView>
     </View>
   );
