@@ -224,6 +224,88 @@ const collectionApi: Record<string, unknown> = {
   wishlist: { entries: [], page: 1, pageSize: 50, total: 0 },
 };
 
+// A Yu-Gi-Oh! deck (VB-34): one owned and one missing card, one problem, prices.
+const DECK = 'd0000000-0000-4000-8000-000000000001';
+const eur = (cents: number) => ({
+  source: 'cardmarket',
+  finish: 'normal',
+  currency: 'EUR',
+  marketCents: cents,
+  factor: 1,
+  unitCents: cents,
+  observedAt: at,
+});
+const deckLine = (n: number, name: string, extra: object) => ({
+  cardId: `c0000000-0000-4000-8000-00000000000${n}`,
+  printId: null,
+  zone: 'main',
+  quantity: 3,
+  name,
+  typeLine: 'Effect Monster',
+  group: 'monster',
+  stat: { kind: 'level', value: 4 },
+  print: {
+    id: `p0000000-0000-4000-8000-00000000000${n}`,
+    setCode: 'lob',
+    number: `EN00${n}`,
+    imageUrl: null,
+  },
+  owned: 3,
+  price: eur(120),
+  ...extra,
+});
+const deck = {
+  id: DECK,
+  game: 'yugioh',
+  name: 'Nebelwacht',
+  format: 'advanced',
+  description: null,
+  createdAt: at,
+  updatedAt: at,
+  entries: [
+    deckLine(1, 'Nebelwächter', {}),
+    deckLine(2, 'Schleierorakel', { owned: 2, price: eur(890) }),
+    deckLine(3, 'Ruf der Leere', { typeLine: 'Spell Card', group: 'spell', stat: null }),
+  ],
+  analysis: {
+    valid: false,
+    problems: [{ code: 'too_few', params: { zone: 'main', count: 9, min: 40 } }],
+    rules: {
+      zones: { main: { min: 40, max: 60 }, extra: { max: 15 }, side: { max: 15 } },
+      copies: 3,
+    },
+    counts: { main: 9 },
+    curve: {
+      kind: 'level',
+      buckets: ['1', '2', '3', '4', '5', '6', '7', '8+'].map((label) => ({
+        label,
+        count: label === '4' ? 6 : 0,
+      })),
+    },
+    missing: [
+      {
+        cardId: 'c0000000-0000-4000-8000-000000000002',
+        name: 'Schleierorakel',
+        printId: 'p0000000-0000-4000-8000-000000000002',
+        setCode: 'lob',
+        number: 'EN002',
+        needed: 3,
+        owned: 2,
+        unitPriceCents: 890,
+        currency: 'EUR',
+        source: 'cardmarket',
+        observedAt: at,
+      },
+    ],
+    missingValue: { cards: 1, entries: 1, unpriced: 0, totals: [{ ...total, cents: 890 }] },
+    value: { cards: 9, entries: 3, unpriced: 0, totals: [{ ...total, cents: 3750 }] },
+    collectionCards: 612,
+  },
+};
+const decksList = {
+  decks: [{ ...deck, valid: false, problems: 1, cards: 9, missing: 1, value: deck.analysis.value }],
+};
+
 let worker: ChildProcess | undefined;
 let browser: Browser | undefined;
 let origin = '';
@@ -292,6 +374,8 @@ async function open({
     if (path === '/api/catalog/games') return route.fulfill({ json: games });
     const collection = collectionApi[path.replace('/api/collection/', '')];
     if (collection) return route.fulfill({ json: collection });
+    if (path === '/api/decks') return route.fulfill({ json: decksList });
+    if (path === `/api/decks/${DECK}`) return route.fulfill({ json: deck });
     if (path === '/api/catalog/games/mtg/sets') return route.fulfill({ json: mtgSets });
     if (path === '/api/catalog/sets/mtg/mid') {
       const url = new URL(req.url());
@@ -497,6 +581,32 @@ describe('web build', () => {
     try {
       await page.goto(`${origin}/collection`);
       await page.getByText('Adeline, strahlende Katharerin').first().waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          [1440, 900],
+          [390, 844],
+        ] as const
+      ).flatMap(([width, height]) =>
+        (['/decks', `/decks/${DECK}`] as const).map(
+          (path) => [scheme, path, width, height] as const,
+        ),
+      ),
+    ),
+  )('axe: %s %s at %i px has no violations', async (scheme, path, width, height) => {
+    const { context, page, csp } = await open({ width, height, scheme, session: true });
+    try {
+      await page.goto(origin + path);
+      await page.getByText('Nebelwacht').first().waitFor();
       await page.waitForLoadState('networkidle');
       expect(await axe(page)).toEqual([]);
       expect(csp).toEqual([]);

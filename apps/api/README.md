@@ -8,19 +8,19 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 
 ## Layout
 
-| Path                         | What                                                                                             |
-| ---------------------------- | ------------------------------------------------------------------------------------------------ |
-| `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                                 |
-| `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)               |
-| `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `POST /admin/import/<source>` |
-| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client                     |
-| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                    |
-| `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations               |
-| `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                  |
-| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices              |
-| `src/workflows/`             | Cloudflare Workflows that run the importers                                                      |
-| `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                       |
-| `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`              |
+| Path                         | What                                                                                                          |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                                              |
+| `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                            |
+| `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `POST /admin/import/<source>` |
+| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client                                  |
+| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                                 |
+| `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                            |
+| `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                               |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices                           |
+| `src/workflows/`             | Cloudflare Workflows that run the importers                                                                   |
+| `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                    |
+| `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`                           |
 
 Request and response schemas (Zod) live in `packages/shared/src/api` and are imported from
 `@voidbinder/shared/api`. Errors always have the shape `{ error: { code, message, requestId } }`
@@ -457,6 +457,27 @@ per print, language and finish) count live rows only. The value math is pure in
 `packages/core/src/collection/value.ts`; `condition_multipliers` has no MT row, so MT's factor
 (1.05, an estimate) lives there. `DrizzleCollectionStore` reads on the cache-disabled pool, since a
 user reads their own writes.
+
+## Decks
+
+`/decks/**` (VB-34, `src/routes/decks.ts`, schemas in `packages/shared/src/api/decks.ts`) needs a
+user and only ever touches that user's decks; another user's id answers 404. `GET /decks` (newest
+change first, each with its verdict, problem count, main deck size, missing copies and value),
+`POST /decks` (`{ id?, game, name, format?, description? }`; the client's id makes it idempotent,
+the format must be one of the game's, `DECK_FORMATS`), `GET`, `PATCH` and `DELETE /decks/:id`, and
+`PUT /decks/:id/entries` with the whole list (`{ cardId, printId?, zone, quantity }`, each card once
+per zone; a zone the game has not got is a 400, a card of another game or a print of another card a
+404, and a refused list leaves the stored one alone). Every answer with a deck carries its entries
+(name in the user's language, the preferred print or else the cheapest, owned copies, price) and
+`analysis`: the rules of `packages/core/src/decks` (one file per game: sizes, copies, ban lists and
+format legality from `cards.legalities`, commander and colour identity, zones), copies per zone, the
+curve, and the comparison with the whole collection: copies per card name in the deck's game (any
+print, every binder) against what the deck needs, priced at the cheapest print in the user's
+currency's preferred source, summed per source and currency like the collection value (never
+converted). The tables (`src/db/schema/decks.ts`, `drizzle/0006_decks.sql`) follow the collection's
+sync shape: `decks` has the client's id, `updated_at` and a `deleted_at` tombstone; `deck_entries`
+are replaced as a whole and bump the deck's `updated_at`. `DrizzleDeckStore` reads on the
+cache-disabled pool.
 
 ## Card images
 

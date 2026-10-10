@@ -25,3 +25,4 @@ export * from './catalog.js';
 export * from './collection.js';
 export * from './me.js';
 export * from './prices.js';
+export * from './decks.js';

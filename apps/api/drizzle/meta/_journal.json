@@ -43,6 +43,13 @@
       "when": 1791604197058,
       "tag": "0005_collection",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791608200530,
+      "tag": "0006_decks",
+      "breakpoints": true
     }
   ]
 }

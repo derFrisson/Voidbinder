@@ -518,6 +518,7 @@ export class DrizzleCardStore implements CardStore {
       price_source: DisplayPrice['source'] | null;
       price_finish: string | null;
       price_observed_at: Date | string | null;
+      type_line: string | null;
       game: Game;
       set_code: string;
       set_name: string;
@@ -531,7 +532,8 @@ export class DrizzleCardStore implements CardStore {
       this.catalog.execute<Row>(sql`
         with page as (
           select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
-            ${cards.name} as card_name, ${prints.rarity}, ${prints.finishes},
+            ${cards.name} as card_name, ${cards.typeLine} as type_line, ${prints.rarity},
+            ${prints.finishes},
             ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
             ${sets.id} as set_id, ${sets.gameId} as game, ${sets.code} as set_code,
             ${sets.name} as set_name, ${sets.releasedOn} as released_on, hits.rank,
@@ -548,7 +550,7 @@ export class DrizzleCardStore implements CardStore {
           localized.image_key as localized_image_key, localized.external_ids as localized_ids,
           market.cents as price_cents, market.currency as price_currency,
           market.source as price_source, market.finish as price_finish,
-          market.observed_at as price_observed_at, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
+          market.observed_at as price_observed_at, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
         from page
         left join ${printLocalizations} localized
           on localized.print_id = page.id and localized.lang = ${query.lang}
@@ -590,6 +592,7 @@ export class DrizzleCardStore implements CardStore {
           finish: r.price_finish,
           observedAt: r.price_observed_at,
         }),
+        typeLine: r.type_line,
         game: r.game,
         setCode: r.set_code,
         setName: r.set_name,

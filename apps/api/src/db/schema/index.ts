@@ -11,3 +11,4 @@ export * from './auth';
 export * from './catalog';
 export * from './prices';
 export * from './collection';
+export * from './decks';
