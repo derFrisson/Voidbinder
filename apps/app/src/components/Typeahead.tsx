@@ -146,10 +146,10 @@ export function useTypeahead({
   // New suggestions start without a highlight.
   useEffect(() => setActive(-1), [suggest.data]);
 
-  // An empty answer counts only once it is the answer to this query, not the previous one's.
+  // Like the rows, an empty answer stays until the next answer replaces it (no flicker).
   const answered = web && open && searchable(text) && !!suggest.data && !suggest.isError;
   const expanded = answered && items.length > 0;
-  const none = answered && items.length === 0 && !suggest.isPlaceholderData;
+  const none = answered && items.length === 0;
 
   const close = () => {
     setOpen(false);

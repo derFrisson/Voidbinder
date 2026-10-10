@@ -172,6 +172,38 @@ describe('search typeahead (VB-79)', () => {
     expect(screen.getByRole('status').textContent).toBe('Keine Treffer');
   });
 
+  it('keeps "Keine Treffer" steady while the next keystroke is still being answered', async () => {
+    // The API takes 100 ms to answer, so the debounce and the load both show on the clock.
+    const calls = fakeApi((c) =>
+      c.path.startsWith('/catalog/search/suggest')
+        ? new Response(
+            new ReadableStream({
+              start(controller) {
+                setTimeout(() => {
+                  controller.enqueue(new TextEncoder().encode('{"suggestions":[]}'));
+                  controller.close();
+                }, 100);
+              },
+            }),
+            { headers: { 'content-type': 'application/json' } },
+          )
+        : undefined,
+    );
+    const box = shell();
+    type(box, 'zzzz');
+    await screen.findByText('Keine Treffer', { selector: 'div:not([role=status])' });
+    type(box, 'zzzzz');
+    // Through the debounce, the request and the answer, the panel and the status never blank.
+    for (let i = 0; i < 40; i++) {
+      expect(
+        screen.queryByText('Keine Treffer', { selector: 'div:not([role=status])' }),
+      ).not.toBeNull();
+      expect(screen.getByRole('status').textContent).toBe('Keine Treffer');
+      await new Promise((r) => setTimeout(r, 10));
+    }
+    expect(suggestCalls(calls)).toHaveLength(2);
+  });
+
   it('stays closed when the request fails', async () => {
     const calls = answer({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500);
     const box = shell();
