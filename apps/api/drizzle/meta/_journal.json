@@ -106,6 +106,13 @@
       "when": 1791654049870,
       "tag": "0014_price_mapping_shared_products",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1791655502393,
+      "tag": "0015_image_sources_gone",
+      "breakpoints": true
     }
   ]
 }

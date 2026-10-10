@@ -542,7 +542,9 @@ one print, so a card id (`swsh3-136`) is both `cards.oracle_key` and the print (
 English creates it, German adds the `print_localizations` row and the set name, a card TCGdex lacks in
 German only has its English row. Prices, TCGdex's `updated` and the Pokémon TCG Pocket series
 (`tcgp`, digital) are never imported; the image URLs (`/high.webp`, `/low.webp`) go to
-`external_ids.tcgdex_images` for VB-57 and nothing is downloaded; Cardmarket and TCGplayer ids go
+`external_ids.tcgdex_images` for VB-57 and nothing is downloaded (a card without `image`, e.g. the
+`mep` and `svp` promos, gets the conventional `assets.tcgdex.net/<lang>/<serie>/<set>/<localId>`
+when one paced `HEAD` of its `high.webp` answers, VB-85); Cardmarket and TCGplayer ids go
 to `external_ids.tcgdex_marketplace` with `mapping_confidence: 'low'` (not under `tcgplayer`, which
 `prints_tcgplayer_idx` reads), for VB-30 to verify. The Workflow `src/workflows/tcgdex-import.ts`
 (binding `TCGDEX_IMPORT`, params `{ mode }`) runs `start run`, `set list`, `sets 00000` … (25 sets
@@ -1002,7 +1004,9 @@ and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are r
 source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, Yugipedia 1/s with its own
 `User-Agent`); a 429 stops the run once the
 images in flight are stored, a failed image is logged and keeps its key (or none), so the next
-run retries it. Every run is an `import_runs` row with source and kind `images`, and only one
+run retries it. A `404` or `410` from the source counts as `gone` instead (VB-89): the URL goes to
+`image_sources_gone` and the query skips every row with that source URL until the URL changes; the
+runs on Sundays (UTC) retry them all and delete the URLs that answer again. Every run is an `import_runs` row with source and kind `images`, and only one
 runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image
 mirror is running").
 

@@ -57,22 +57,20 @@ export class TcgdexClient {
     if (at > Date.now()) await sleep(at - Date.now());
   }
 
-  /** GET `path` below /v2; null on 404, an error once the attempts are used up. */
-  async get<T>(path: string): Promise<Reply<T> | null> {
-    const url = `${API}${path}`;
+  /** One paced request with retries: `read`'s result, null on 404, an error once the attempts are used up. */
+  private async request<T>(
+    url: string,
+    init: RequestInit,
+    read: (res: Response) => Promise<T>,
+  ): Promise<T | null> {
     let failure = '';
     for (let attempt = 1; attempt <= this.pace.attempts; attempt++) {
       await this.slot();
       let retryAfter = 0;
       try {
-        const res = await this.fetchFn(url, {
-          headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-        });
+        const res = await this.fetchFn(url, init);
         if (res.status === 404) return null;
-        if (res.ok) {
-          const text = await res.text();
-          return { text, data: JSON.parse(text) as T };
-        }
+        if (res.ok) return await read(res);
         failure = `answered ${res.status}`;
         if (res.status !== 429 && res.status < 500) break;
         retryAfter = retryAfterMs(res.headers.get('Retry-After'));
@@ -82,7 +80,29 @@ export class TcgdexClient {
       if (attempt < this.pace.attempts)
         await sleep(Math.max(this.pace.retryDelayMs * attempt, Math.min(retryAfter, 30_000)));
     }
-    throw new Error(`GET ${url} ${failure}`);
+    throw new Error(`${init.method ?? 'GET'} ${url} ${failure}`);
+  }
+
+  /** GET `path` below /v2; null on 404, an error once the attempts are used up. */
+  get<T>(path: string): Promise<Reply<T> | null> {
+    return this.request(
+      `${API}${path}`,
+      { headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' } },
+      async (res) => {
+        const text = await res.text();
+        return { text, data: JSON.parse(text) as T };
+      },
+    );
+  }
+
+  /** HEAD on any URL (an asset) through the same pacing: true on 2xx, false on 404. */
+  async exists(url: string): Promise<boolean> {
+    const ok = await this.request(
+      url,
+      { method: 'HEAD', headers: { 'User-Agent': USER_AGENT } },
+      async () => true,
+    );
+    return ok ?? false;
   }
 
   /** Every set of a language (names only), raw copy included. */
