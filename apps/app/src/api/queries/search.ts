@@ -1,6 +1,7 @@
 import { GameSchema, LocaleSchema, type Game, type Locale } from '@voidbinder/shared';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '../client';
+import { useCurrency } from './cards';
 import { read } from './http';
 
 // The card search (`GET /catalog/search`, VB-35). The state lives in the URL, so a search can be
@@ -71,18 +72,21 @@ export function updateSearch(state: SearchState, patch: Partial<SearchState>): S
 export const searchable = (q: string) => q.trim().length >= 2;
 
 export function useSearch(state: SearchState) {
+  // The hits' prices come in the profile's currency (EUR signed out).
+  const { currency, ready } = useCurrency();
   const query = {
     ...(Object.fromEntries(Object.entries(state).filter(([, v]) => v !== undefined)) as Record<
       string,
       string
     >),
     q: state.q,
+    currency,
     page: String(state.page),
   };
   return useQuery({
     queryKey: ['catalog', 'search', query],
     queryFn: () => read(api.catalog.search.$get({ query })),
-    enabled: searchable(state.q),
+    enabled: searchable(state.q) && ready,
     // The previous page stays on screen while the next one loads.
     placeholderData: keepPreviousData,
     staleTime: 5 * 60_000,

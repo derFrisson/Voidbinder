@@ -158,6 +158,19 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(champion?.marketPrice).toMatchObject({ finish: 'foil', cents: 76 });
   });
 
+  it('sorts a set page by market price, unpriced prints last', async () => {
+    const page = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/mtg/mid?sort=price')).json(),
+    );
+    const cents = page.prints.map((p) => p.marketPrice?.cents ?? null);
+    const priced = cents.filter((c): c is number => c !== null);
+    expect(priced.length).toBeGreaterThan(1);
+    expect(priced).toEqual([...priced].sort((a, b) => b - a));
+    // Nothing priced follows an unpriced print.
+    expect(cents.slice(priced.length).every((c) => c === null)).toBe(true);
+    expect(cents[0]).toBe(Math.max(...priced));
+  });
+
   it('adds the same market price to the search hits', async () => {
     const hits = async (query: string) =>
       SearchResponseSchema.parse(await (await app.request(`/catalog/search?${query}`)).json())

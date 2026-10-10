@@ -113,7 +113,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(second?.prints.map((p) => p.number)).toEqual(['6', '7', '8', '9', '10']);
 
     expect((await get('/sets/mtg/xyz')).res.status).toBe(404);
-    expect((await get('/sets/mtg/mid?sort=price')).res.status).toBe(400);
+    expect((await get('/sets/mtg/mid?sort=popularity')).res.status).toBe(400);
   });
 
   it('breaks rarity ties by name, so the chips keep their order', async () => {

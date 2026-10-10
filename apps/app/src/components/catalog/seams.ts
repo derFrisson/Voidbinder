@@ -1,17 +1,26 @@
+import type { DisplayPrice, PrintSummary } from '@voidbinder/shared/api';
+import { useMemo } from 'react';
+import { SOURCE_NAME } from '../../api/queries/cards';
 import type { Owned } from './model';
 
-// What the set page shows once the collection (VB-31) and the prices (VB-30) exist. Their API
-// routes are not there yet, so both hooks answer "nothing" and the screens leave the signed-in
-// and price parts out. Filling in a hook (it will take the game and set code) is the only change
-// those tickets need here.
+// What the set page shows of the collection (VB-31, not there yet: the hook answers "nothing" and
+// the screens leave the signed-in parts out) and of the prices (VB-64).
 
-/** A print's price: integer minor units, the source and the day it was taken (no fake numbers). */
+/** A print's price: integer minor units, the source and, once the API sends it, the day it was taken. */
 export interface PriceTag {
   cents: number;
   currency: 'EUR' | 'USD';
+  /** Display name of the source (`SOURCE_NAME`). */
   source: string;
-  /** ISO date of the quote. */
-  asOf: string;
+  /** ISO date of the quote. `marketPrice` carries none yet, so the set page shows the source only. */
+  asOf?: string | undefined;
+}
+
+/** A set page or search `marketPrice` as a tag; undefined for a print without a price. */
+export function priceTag(price: DisplayPrice | null | undefined): PriceTag | undefined {
+  return price
+    ? { cents: price.cents, currency: price.currency, source: SOURCE_NAME[price.source] }
+    : undefined;
 }
 
 /** The signed-in user's copies per print id in a set; undefined while signed out or unavailable. */
@@ -19,9 +28,21 @@ export function useOwnedPrints(): Owned | undefined {
   return undefined;
 }
 
-/** The latest price per print id of a set; undefined while the price routes are absent. */
-export function useSetPrices(): ReadonlyMap<string, PriceTag> | undefined {
-  return undefined;
+/**
+ * The market price per print id of the set page's prints (`marketPrice` of the response, in the
+ * profile's currency, EUR when signed out). It covers the page on screen, not the whole set:
+ * a set value needs every print's price, which no route sends yet.
+ */
+export function useSetPrices(
+  prints: readonly Pick<PrintSummary, 'id' | 'marketPrice'>[] | undefined,
+): ReadonlyMap<string, PriceTag> | undefined {
+  return useMemo(() => {
+    const entries = (prints ?? []).flatMap((p) => {
+      const tag = priceTag(p.marketPrice);
+      return tag ? [[p.id, tag] as const] : [];
+    });
+    return entries.length ? new Map(entries) : undefined;
+  }, [prints]);
 }
 
 export function formatPrice(price: PriceTag, locale: string): string {

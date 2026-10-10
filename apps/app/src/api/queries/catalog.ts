@@ -2,6 +2,7 @@ import type { Game, Locale } from '@voidbinder/shared';
 import type { SetPageQuery } from '@voidbinder/shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../client';
+import { useCurrency } from './cards';
 import { read } from './http';
 
 // Catalog reads (`/catalog/**`, apps/api/README.md). Public, cached by the API for minutes, so a
@@ -25,8 +26,10 @@ export function useSets(game: Game, lang: Locale) {
 }
 
 export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery>) {
+  // The prices come in the profile's currency (EUR signed out); wait for the session to know it.
+  const { currency, ready } = useCurrency();
   const q = Object.fromEntries(
-    Object.entries(query)
+    Object.entries({ ...query, currency })
       .filter(([, v]) => v !== undefined)
       .map(([k, v]) => [k, String(v)]),
   );
@@ -35,6 +38,7 @@ export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery
     queryFn: () =>
       read(api.catalog.sets[':game'][':code'].$get({ param: { game, code }, query: q })),
     staleTime,
+    enabled: ready,
     // Paging and filtering of one set keep its grid on screen until the next page arrives.
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === game && previousQuery.queryKey[3] === code

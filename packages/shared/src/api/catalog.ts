@@ -46,7 +46,8 @@ export const SetPageQuerySchema = z.object({
   lang: LangSchema.default('en'),
   rarity: z.string().max(32).optional(),
   finish: z.string().max(32).optional(),
-  sort: z.enum(['number', 'name', 'rarity']).default('number'),
+  /** `price`: the printed `marketPrice` from high to low, prints without one last. */
+  sort: z.enum(['number', 'name', 'rarity', 'price']).default('number'),
   /** Picks the source of each print's `marketPrice` (EUR → Cardmarket first, USD → TCGplayer). */
   currency: CurrencySchema.default('EUR'),
   page: z.coerce.number().int().min(1).max(10_000).default(1),

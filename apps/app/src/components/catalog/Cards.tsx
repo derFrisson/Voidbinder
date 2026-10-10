@@ -36,7 +36,8 @@ interface Item {
   price: PriceTag | undefined;
 }
 
-function Price({ price }: { price: PriceTag | undefined }) {
+/** The price with its source and, when known, the day of the quote; nothing without a price. */
+export function Price({ price }: { price: PriceTag | undefined }) {
   const t = useT();
   const locale = useLocale();
   if (!price) return null;
@@ -46,7 +47,9 @@ function Price({ price }: { price: PriceTag | undefined }) {
         {formatPrice(price, locale)}
       </Text>
       <Text className="font-body text-[11px] text-ink-3">
-        {fmt(t.set.valueAsOf, { source: price.source, date: formatDate(price.asOf, locale) })}
+        {price.asOf
+          ? fmt(t.set.valueAsOf, { source: price.source, date: formatDate(price.asOf, locale) })
+          : price.source}
       </Text>
     </View>
   );
