@@ -10,10 +10,13 @@ import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
 import { formatPrice, type PriceTag } from './seams';
 
-/** Columns of the dense grid: 7 from 1240 px, 5 from 1024, 4 from 768, 3 on phones. */
+/**
+ * Columns of the dense grid: 8 from 1760 px (the catalog width, VB-100), 7 from 1240, 5 from 1024,
+ * 4 from 768, 3 on phones. A tile is never narrower than at 7 columns in a 1240 px window.
+ */
 export function useColumns() {
   const { width } = useWindowDimensions();
-  return width >= 1240 ? 7 : width >= 1024 ? 5 : width >= 768 ? 4 : 3;
+  return width >= 1760 ? 8 : width >= 1240 ? 7 : width >= 1024 ? 5 : width >= 768 ? 4 : 3;
 }
 
 export function useRarityLabel() {
