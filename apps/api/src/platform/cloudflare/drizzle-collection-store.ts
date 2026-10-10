@@ -352,7 +352,8 @@ export class DrizzleCollectionStore implements CollectionStore {
           position: sql`array_position(${sql.param(all)}::uuid[], ${binders.id}) - 1`,
           updatedAt: sql`now()`,
         })
-        .where(and(eq(binders.userId, userId), live(binders)));
+        // Only the binders this request read: one created meanwhile keeps its default position.
+        .where(and(eq(binders.userId, userId), live(binders), inArray(binders.id, all)));
     });
     return this.listBinders(userId);
   }

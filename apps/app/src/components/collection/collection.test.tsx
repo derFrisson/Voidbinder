@@ -7,7 +7,7 @@ import type {
   EntriesResponse,
 } from '@voidbinder/shared/api';
 import { useLocalSearchParams } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, renderApp, signedIn, type Call } from '../../../test/fake-api';
 import { setFetch } from '../../../test/fetch';
@@ -473,5 +473,43 @@ describe('adding from the search', () => {
     expect(ids[0]).toBeTruthy();
     expect(ids[1]).toBe(ids[0]);
     expect(ids[2]).not.toBe(ids[0]);
+  });
+
+  it('starts a fresh client id when the print changes after a failed add', async () => {
+    const calls = fakeApi(signedIn, (c) => {
+      if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(['en']));
+      if (c.method === 'POST' && c.path === '/collection/entries')
+        return json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500);
+      return undefined;
+    });
+    // The same QuickAdd instance switches to another print, as the card page does on pick.
+    function Switcher() {
+      const [printId, setPrintId] = useState(PRINT);
+      return (
+        <>
+          <QuickAdd printId={printId} cardId={CARD} name="Adeline" finish="normal" />
+          <button type="button" onClick={() => setPrintId(`${PRINT.slice(0, -1)}9`)}>
+            switch
+          </button>
+        </>
+      );
+    }
+    renderApp(<Switcher />);
+    const press = async (n: number) => {
+      fireEvent.click(await screen.findByRole('button', { name: /Adeline/ }));
+      await waitFor(() => expect(calls.filter((c) => c.method === 'POST')).toHaveLength(n));
+      await waitFor(() =>
+        expect(screen.getByRole('button', { name: /Adeline/ }).getAttribute('aria-busy')).toBe(
+          'false',
+        ),
+      );
+    };
+    await press(1);
+    fireEvent.click(screen.getByRole('button', { name: 'switch' }));
+    await press(2);
+    const ids = calls
+      .filter((c) => c.method === 'POST')
+      .map((c) => (c.body as { id: string }[])[0]?.id);
+    expect(ids[1]).not.toBe(ids[0]);
   });
 });

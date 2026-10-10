@@ -20,10 +20,14 @@ export const entryLanguage = (print: Collectable, locale: Locale) =>
  * A client id for the next add that survives a failed try: pressing the button again after an
  * error sends the same id (the API adds nothing twice), a press after a success gets a new one.
  */
-function useRetryId() {
-  const ref = useRef<string | undefined>(undefined);
+function useRetryId(forId: string) {
+  // The pending id belongs to one print: picking another print on the same page starts fresh.
+  const ref = useRef<{ forId: string; id: string } | undefined>(undefined);
   return {
-    take: () => (ref.current ??= crypto.randomUUID()),
+    take: () => {
+      if (ref.current?.forId !== forId) ref.current = { forId, id: crypto.randomUUID() };
+      return ref.current.id;
+    },
     done: () => {
       ref.current = undefined;
     },
@@ -42,8 +46,8 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
   const owned = useOwned([print.id], !!me);
   const add = useAddEntries();
   const wish = useAddWishes();
-  const entryId = useRetryId();
-  const wishId = useRetryId();
+  const entryId = useRetryId(print.id);
+  const wishId = useRetryId(print.id);
   const c = t.collection;
   const copies = owned.data?.owned[print.id] ?? 0;
   const wishes = owned.data?.wished[print.id] ?? 0;
@@ -137,7 +141,7 @@ export function QuickAdd({
   const locale = useLocale();
   const client = useQueryClient();
   const add = useAddEntries();
-  const entryId = useRetryId();
+  const entryId = useRetryId(printId);
   const [looking, setLooking] = useState(false);
   const c = t.collection;
   const busy = looking || add.isPending;
