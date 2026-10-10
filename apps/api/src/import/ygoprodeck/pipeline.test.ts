@@ -23,7 +23,7 @@ import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
 import { banlistDatesUrl } from './banlist-dates';
 import { CHUNK_LINES, planSteps, runYgoprodeckImport, type ImportDeps } from './pipeline';
 import { fakeYgoprodeck, fixture, MemoryBlobStore, type FakeYgoprodeck } from './test-fixtures';
-import type { Db } from './write';
+import { importLocalizationLines, type Db } from './write';
 
 describe('planSteps', () => {
   it('gives every chunk its own step, the English cards before the other languages', () => {
@@ -109,7 +109,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(await meta('banlist_ocg_effective')).toBe('2026-10-01');
     // New cards have no history.
     expect(await db.select().from(legalityChanges)).toEqual([]);
-    expect(stats.lines).toEqual({ en: 27, de: 21 });
+    expect(stats.lines).toEqual({ en: 27, de: 22 });
     // 46 entries, 39 codes (anniversary editions share one); 3 more come from the cards.
     expect(stats.sets).toEqual({ inserted: 39, updated: 0, unchanged: 0, entries: 46 });
     expect(stats.setsCreated).toBe(3);
@@ -126,8 +126,8 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     // One print per code and rarity: BP02-EN129, MAMO-EN038, CRBR-EN013, RA01-EN008 in several.
     expect(stats.prints).toEqual({ inserted: 62, updated: 0, unchanged: 0 });
     expect(stats.localizations).toBe(62);
-    // The German list has 21 cards; 20 are in the catalog, one only exists in German.
-    expect(stats.otherLanguages).toEqual({ de: { written: 51, noCard: 1 } });
+    // The German list has 22 cards; 21 are in the catalog, one only exists in German.
+    expect(stats.otherLanguages).toEqual({ de: { written: 54, noCard: 1 } });
     expect(await version()).toBe(before + 1);
 
     const [{ n: setCount } = { n: 0 }] = await db
@@ -205,6 +205,37 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(detail.print).toMatchObject({ variant: 'rare', externalIds: { ygoprodeck: 55144522 } });
     expect(detail.print.externalIds).not.toHaveProperty('image_url');
     expect(detail.print.externalIds).not.toHaveProperty('image_url_small');
+  });
+
+  // VB-93: the English list keys Dark Magician by an alternate artwork (46986420), the German
+  // list by its passcode (46986414); the German entry names the artwork in `card_images`.
+  it('localizes a card the English list keys by another artwork', async () => {
+    const [card] = await db.select().from(cards).where(eq(cards.name, 'Dark Magician'));
+    expect(card?.oracleKey).toBe('46986420');
+    const own = await db
+      .select({ id: prints.id })
+      .from(prints)
+      .where(eq(prints.cardId, card?.id ?? ''));
+    expect(own.length).toBeGreaterThan(0);
+    for (const p of own)
+      expect(await localizations(p.id)).toEqual([
+        { lang: 'de', name: 'Dunkler Magier' },
+        { lang: 'en', name: 'Dark Magician' },
+      ]);
+  });
+
+  it('never gives a card the translation of an entry with another English name', async () => {
+    // A Skill Card shares the regular card's artwork id but not its name.
+    const skill = JSON.stringify({
+      id: 300000001,
+      name: 'Falscher Magier',
+      name_en: 'Dark Magician (Skill Card)',
+      type: 'Skill Card',
+      frameType: 'skill',
+      desc: 'x',
+      card_images: [{ id: 46986420 }],
+    });
+    expect(await importLocalizationLines(db, [skill], 'fr')).toEqual({ written: 0, noCard: 1 });
   });
 
   it('keeps a German-only code as a print of its own, with both localizations', async () => {
