@@ -42,17 +42,19 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 ## Catalog API
 
-| Route                                                             | Answer                                                                                 |
-| ----------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `GET /catalog/games`                                              | Games with their set counts                                                            |
-| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                                            |
-| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price)                |
-| `GET /catalog/cards/:id?currency=`                                | Card, legalities and every print with localizations and `marketPrice`                  |
-| `GET /catalog/prints/:id`                                         | One print with its card                                                                |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)                        |
-| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                                 |
-| `GET /catalog/modules`                                            | Manifests of the offline catalog modules, one per game (see Offline catalog modules)   |
-| `GET /catalog/banlist/yugioh?format=&lang=`                       | Yu-Gi-Oh! ban list (`format` `tcg`, `ocg`): groups, 90 days of changes (see Ban lists) |
+| Route                                                                  | Answer                                                                                 |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /catalog/games`                                                   | Games with their set counts                                                            |
+| `GET /catalog/games/:game/sets?lang=`                                  | Sets, newest first, with the name in `lang`                                            |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`      | Set header and 60 prints per page (`sort`: number, name, rarity, price)                |
+| `GET /catalog/cards/:id?currency=`                                     | Card, legalities and every print with localizations and `marketPrice`                  |
+| `GET /catalog/prints/:id`                                              | One print with its card                                                                |
+| `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` | 30 prints per page by name, text, set code and number (see Search)                     |
+| `GET /catalog/search/suggest?q=&game=&lang=&names=`                    | Up to 8 prints and sets for the search box's typeahead (see Search)                    |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                     | Current prices, display price, condition estimates (see Prices)                        |
+| `GET /catalog/prints/:id/prices/history?days=`                         | Daily market prices per source and finish (see Prices)                                 |
+| `GET /catalog/modules`                                                 | Manifests of the offline catalog modules, one per game (see Offline catalog modules)   |
+| `GET /catalog/banlist/yugioh?format=&lang=`                            | Yu-Gi-Oh! ban list (`format` `tcg`, `ocg`): groups, 90 days of changes (see Ban lists) |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries
@@ -136,6 +138,46 @@ curl -sI "$URL" | grep -i cf-cache-status   # MISS, then HIT
 for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL"; done | sort -n | sed -n 20p
 for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL?nocache=$RANDOM$i"; done | sort -n | sed -n 20p
 ```
+
+## Search
+
+`GET /catalog/search` and its typeahead `GET /catalog/search/suggest` (VB-35, VB-79) stay in
+PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010_search.sql`.
+`src/platform/cloudflare/drizzle-card-store.ts` (`search`, `suggest`, `codeHits`).
+
+- **Names and texts:** `websearch_to_tsquery('simple')` over `cards.search` and
+  `print_localizations.search`, the last word as a prefix; a match in the name ranks first.
+- **Name languages (`names`):** `all` (the default) matches the English card and every
+  localization whatever `lang` is, so a German name finds its print while the names show in
+  English. A language code (`names=de`) matches only the localizations in it (name and text):
+  prints without one drop out, and the typeahead shows the newest print that has one (before
+  VB-79 the typeahead matched names in `lang` only). `lang`
+  stays the language the names are shown in. Set codes and numbers match either way. The
+  language is compared as `lang || ''`, so the planner keeps the GIN indexes on the name and
+  does not skip-scan the primary key `(print_id, lang)` for every name in that language.
+- **Set code and number:** the query loses spaces, `-`, `/`, `_` and `.` and goes lower case
+  (`LDS3-EN121` → `lds3en121`). Every prefix of it is tried as a set code through
+  `catalog_code_key` (lower case, letters and digits, no leading zeros in a digit run: `SV01` →
+  `sv1`, index `sets_code_key_idx`), the rest as a number in that set: the number as stored
+  first (`lds3 en121`, `mid 123`), then without its language prefix and leading zeros
+  (`catalog_number_key`: `LDS3-121`, `sv1 1`), then numbers starting with it (`lds3en12` →
+  EN120…EN129). Yu-Gi-Oh! language codes (`DE`, `FR`, `IT`, `PT`, `SP`, `ES`, `JP`, `JA`) find
+  the English print: other languages are localizations of it, not prints of their own
+  (`BLGG-DE024` → BLGG-EN024). A set code alone (`lds3`, `mid`, `sv1`) lists the set.
+- **Numbers:** `121` matches that number in every set, `001/128` in the sets of 128 cards
+  (`prints_number_key_idx`), newest first, at most 50.
+- **Typos:** when neither finds anything, names with a trigram similarity of 0.3 or more
+  (`name % q`, GIN indexes `cards_name_trgm_idx`, `print_localizations_name_trgm_idx`), for
+  queries of 4 characters and more without websearch syntax: `Satelite` finds Satellite Warrior.
+
+`/search` ranks code matches above name matches, a set named alone below them. The typeahead
+answers `{ suggestions: [{ kind: 'print' | 'set', id, name, game, set: { code, name }, number?,
+variant?, rarity?, imageUrl?, cardId? }] }` (`packages/shared/src/api/search.ts`), at most 8, in
+this order: the exact code, other number forms and partial numbers, sets by code or name prefix,
+the first 3 prints of a set named by its code, cards whose name starts with `q` (in the
+languages of `names`, shortest first), similar names. A name match shows the card's newest print.
+Both are cached like every catalog route; the typeahead embeds no price, so it is tagged `catalog`
+only.
 
 ## Local development
 
@@ -619,11 +661,13 @@ list (the same under `/wishlist`), `GET /summary?currency=` (value per source an
 oldest observation in it, per game and per binder, the wish list's cost and how many wishes are in
 budget), `GET /owned?printIds=` or `?game=&set=` (copies per print and finish) and
 `GET /export.csv` (Name, Set Code, Number, Language, Condition, Finish, Quantity). The tables
-(`src/db/schema/collection.ts`, `drizzle/0005_collection.sql`) are shaped for the Sprint 3 sync
-engine: the client may send the row's `id` (a POST with a known id writes nothing and answers the
-stored row), the server sets `updated_at` on every write, and a delete sets `deleted_at` instead of
-removing the row; reads skip those tombstones and the partial unique indexes (binder name, one wish
-per print, language and finish) count live rows only. The value math is pure in
+(`src/db/schema/collection.ts`, `drizzle/0005_collection.sql`) are shaped for the sync engine:
+the client may send the row's `id` (a POST with a known id writes nothing and answers the stored
+row) and the server sets `updated_at` on every write. A delete removes the row at once and, in
+the same transaction, logs its id in `sync_deletions` for the other devices (VB-75, see Sync); a
+deleted binder's entries stay, in no binder. The unique rules (binder name, one wish per print,
+language and finish) hold for every row, so a deleted binder's name is free right away. The
+`deleted_at` columns are unused (always null) and go in a later release. The value math is pure in
 `packages/core/src/collection/value.ts`; `condition_multipliers` has no MT row, so MT's factor
 (1.05, an estimate) lives there. `DrizzleCollectionStore` reads on the cache-disabled pool, since a
 user reads their own writes.
@@ -645,8 +689,9 @@ curve, and the comparison with the whole collection: copies per card name in the
 print, every binder) against what the deck needs, priced at the cheapest print in the user's
 currency's preferred source, summed per source and currency like the collection value (never
 converted). The tables (`src/db/schema/decks.ts`, `drizzle/0006_decks.sql`) follow the collection's
-sync shape: `decks` has the client's id, `updated_at` and a `deleted_at` tombstone; `deck_entries`
-are replaced as a whole and bump the deck's `updated_at`. `DrizzleDeckStore` reads on the
+sync shape: `decks` has the client's id and `updated_at`, and a delete removes the deck with its
+entries and logs only the deck in `sync_deletions`; `deck_entries` are replaced as a whole and
+bump the deck's `updated_at`. `DrizzleDeckStore` reads on the
 cache-disabled pool.
 
 ## Sync
@@ -663,31 +708,55 @@ rows and pull what changed elsewhere. Signed in, the user's own rows only.
 included. It first takes a shared per-user advisory lock; a pull takes it exclusively, so it waits
 for the user's writes in flight and no row commits later below the cursor it hands out.
 
+**Deletes.** A delete removes the row at once (VB-75). The same transaction writes
+`(user_id, table, id)` to `sync_deletions` (`drizzle/0009_sync_deletions.sql`): no content, the
+delete's time `deleted_at` (a pushed delete's device clock, else now) and the server's
+`logged_at`. Its `sync_seq` comes from `sync_stamp()` like a row's, under the same per-user lock.
+Deleting again refreshes the entry. A deck's entries go with the deck (only the deck is logged).
+A create under a deleted id (a retried `POST`, or a sync edit that wins) writes the row again and
+removes its log entry in the same transaction.
+The daily Scryfall cron of every environment also sweeps the log (`sweepSyncDeletions`): rows
+with `logged_at` older than `SYNC_DELETION_RETENTION_DAYS` (30, `packages/shared/src/api/sync.ts`)
+less two days, so that no entry outlives 30 days even when one daily run fails, go in batches of 1000, logged as `sync deletions swept` with the count, and the highest `sync_seq`
+removed becomes the horizon in `app_meta` (`sync_deletions_horizon`).
+
 **Pull.** `GET /sync/pull?since=<cursor>&limit=` (`since` 0 = everything, `limit` 1 to 500, default
-500): the user's rows with `sync_seq > since`, tombstones included, the lowest first across the
-tables, grouped per table in table order; every deck comes with its whole list under
-`deck_entries` (not counted in `limit`, but a page ends early once its rows and lists pass 5000;
-one row always fits). `cursor` is the next `since`; `more: true` means pull again.
+500): the user's rows and deletions with `sync_seq` above the cursor, the lowest first across the
+tables and the log; rows grouped per table in table order, deletions as `deletions: [{ table, id }]`
+(each counts in `limit`). Apply a page's `deletions` before its rows: a row on the server is
+newer than any deletion of its id. Every deck comes with its whole list under `deck_entries` (not
+counted in `limit`, but a page ends early once its rows and lists pass 5000; one row always
+fits). `cursor` is the next `since`; `more: true` means pull again. The cursor is opaque: the last
+page hands out the sequence's current value, and the pages of a full pull (from 0) hand it out
+below 0. A cursor below the horizon (the device last synced more than 30 days ago) answers 409
+with `error.code` `resync_required`: drop the local copy and pull from 0.
 
 **Push.** `POST /sync/push` with `{ changes: [{ table, rows }] }`: full rows (the fields of the REST
-routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` for a delete and
+routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` to delete the row and
 `baseUpdatedAt` = the `updatedAt` last pulled, null for a row the device created). At most 500 rows
 (deck entries aside: at most 500 per deck and 5000 in all), one transaction, applied binders,
 entries, wishes, decks; a user's pushes run one at a time, so a retry that overlaps its original
 answers like it. A deck's entries are its whole list and need the deck row in the same push (400
-otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown
-print, card or binder answers 404 and nothing is written; a taken binder name or wish 409 with a
-message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>: …`), for the
-device to rename or merge before it pushes again. An entry filed into a deleted binder lands in
-no binder, and a pushed binder delete moves its entries out, as the REST delete does (after the
-push's own entries, so an entry the same push moved to another binder keeps that move); such an
-entry is listed in `applied`, but the device only learns its `binderId` is null from its next
+otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user (a row or a
+binder), an unknown print or card answers 404 and nothing is written; a taken binder name or wish
+409 with a message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>:
+…`), for the device to rename or merge before it pushes again. An entry filed into a binder that
+is gone (deleted, its log entry swept, or never synced) lands in no binder, and a pushed binder
+delete moves its entries out, as the REST delete does (after the push's own entries, so an entry the same push moved to another binder keeps that move; the
+binder itself goes where it comes in the push, so a row after it may take its name, and the
+entries' foreign key to it is checked at commit: `DEFERRABLE`, deferred in the push only); such
+an entry is listed in `applied`, but the device only learns its `binderId` is null from its next
 pull.
 
 **Conflicts** (`resolvePush`): the stored row changed after `baseUpdatedAt` → the server keeps it and
 returns it in `conflicts` (a deck with its list), and the device replaces its copy. Except: a delete
-newer than the stored edit wins, and an edit newer than a stored delete brings the row back. A row
-equal to the stored one writes nothing (a retried push changes nothing). `applied` lists the
+newer than the stored edit wins, and an edit newer than a logged delete brings the row back (it is
+inserted again and its log entry goes). For a row that is gone, its log entry stands in: an older
+edit is answered in `deletions` whatever its base (`[{ table, id }]`: drop the local copy), a delete is applied
+without writing anything. An edit with a `baseUpdatedAt` for an id with neither row nor log entry
+(swept after 30 days) is answered in `deletions` too; only a row the device created is inserted. A
+row equal to the stored one writes nothing (a retried push changes
+nothing). `applied` lists the
 `updatedAt` the server holds for every other pushed row: the device's next `baseUpdatedAt`. An
 `updated_at` never goes back: `sync_stamp()` stores at least the old value plus 1 ms on every
 update (REST, sync, the binder-delete fan-out), to the millisecond, so a REST edit behind a device
@@ -708,11 +777,13 @@ POST /sync/push
 
 200 { "applied": [{ "table": "binders", "id": "6f1c…", "updatedAt": "2026-10-10T09:12:00.000Z" }],
       "conflicts": [{ "table": "collection_entries", "rows": [{ "id": "a03e…", "quantity": 1, …,
-        "updatedAt": "2026-10-10T08:40:00.000Z", "deletedAt": null }] }] }
+        "updatedAt": "2026-10-10T08:40:00.000Z", "deletedAt": null }] }],
+      "deletions": [] }
 
 GET /sync/pull?since=1840
 200 { "changes": [{ "table": "binders", "rows": [ … ] }, { "table": "decks", "rows": [ … ] },
-      { "table": "deck_entries", "rows": [ … ] }], "cursor": 1912, "more": false }
+      { "table": "deck_entries", "rows": [ … ] }],
+      "deletions": [{ "table": "wishlist_entries", "id": "91d2…" }], "cursor": 1912, "more": false }
 ```
 
 The entry was changed on another device at 08:40, after the base this device had (18:00 the day

@@ -1,6 +1,6 @@
 {
-  "id": "3e54a1ed-abed-4a1f-9959-e4e2acc8c866",
-  "prevId": "6e4cb137-9459-47bc-be4f-7cc60d046830",
+  "id": "6e4cb137-9459-47bc-be4f-7cc60d046830",
+  "prevId": "a635029f-05b5-4735-b409-972bca82c584",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -805,89 +805,6 @@
       },
       "indexes": {},
       "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.legality_changes": {
-      "name": "legality_changes",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "card_id": {
-          "name": "card_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "format": {
-          "name": "format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from_status": {
-          "name": "from_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "to_status": {
-          "name": "to_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "seen_at": {
-          "name": "seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "legality_changes_format_seen_at_idx": {
-          "name": "legality_changes_format_seen_at_idx",
-          "columns": [
-            {
-              "expression": "format",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "seen_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "legality_changes_card_id_cards_id_fk": {
-          "name": "legality_changes_card_id_cards_id_fk",
-          "tableFrom": "legality_changes",
-          "tableTo": "cards",
-          "columnsFrom": ["card_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},

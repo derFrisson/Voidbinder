@@ -31,6 +31,8 @@ import {
   type PrintResponse,
   type SearchQuery,
   type SearchResponse,
+  type SearchSuggestQuery,
+  type SearchSuggestResponse,
   type SetPageQuery,
   type SetPageResponse,
   type SetSummary,
@@ -140,6 +142,118 @@ function searchTsQuery(q: string): SQL {
   }
   const prefix = sql`to_tsquery('simple', ${`${last}:*`})`;
   return head.trim() ? sql`(websearch_to_tsquery('simple', ${head}) && ${prefix})` : prefix;
+}
+
+/** What the code lookup reads from a search query (VB-79). */
+export interface CodeQuery {
+  /**
+   * Lower case without spaces, `-`, `/`, `_`, `.` and non-ASCII characters other than letters and
+   * digits (`97★` → `97`, as the SQL side strips them); null unless 2 to 16 ASCII letters and
+   * digits, so other ASCII punctuation (websearch syntax, `Black Lotus!`) and non-ASCII letters
+   * (`Pokémon`, `ポケモンGX`) are no code.
+   */
+  code: string | null;
+  /** Where `code` had a separator between letters or digits (`sv1 01` → [3]); empty without code. */
+  splits: number[];
+  /** A bare number (`121`) or a printed `number/set size` (`001/128`); null otherwise. */
+  number: { number: string; total: number | null } | null;
+}
+
+/** Reads a set code with a number (`LDS3-EN121`, `sv1 001`), a set code or a number from `q`. */
+export function parseCodeQuery(q: string): CodeQuery {
+  const parts = q
+    .toLowerCase()
+    .split(/[\s\-/_.]+|[^\p{L}\p{N}\p{ASCII}]+/u)
+    .filter(Boolean);
+  const code = parts.join('');
+  const valid = /^[a-z0-9]{2,16}$/.test(code);
+  let at = 0;
+  const n = /^(\d{1,4})(?:\s*\/\s*(\d{1,4}))?$/.exec(q.trim());
+  return {
+    code: valid ? code : null,
+    splits: valid ? parts.slice(0, -1).map((p) => (at += p.length)) : [],
+    number: n?.[1] ? { number: n[1], total: n[2] ? Number(n[2]) : null } : null,
+  };
+}
+
+/** A collector number in lower case, letters and digits only (`EN-121` → `en121`). */
+const alnum = (number: SQLWrapper) => sql`regexp_replace(lower(${number}), '[^a-z0-9]+', '', 'g')`;
+
+/** Prints a pure-number query lists at most (`121` matches that number in every set). */
+const NUMBER_HITS = 50;
+
+/**
+ * `(print_id, rank)` of the prints `q` names by code (VB-79), null when `q` cannot be one. Every
+ * prefix of the normalized query is tried as a set code (catalog_code_key, sets_code_key_idx),
+ * the rest as a number in that set: 300 the number as stored (a Yu-Gi-Oh! language code such as
+ * `DE024` also finds `EN024`: German copies are localizations of the English print), 200 the same
+ * number without prefix and leading zeros (`lds3 121`, `sv1 1`), 150 a number starting with the
+ * rest (`lds3en12` → EN120…EN129), 0 every print of a set named alone (`lds3`, below the name
+ * matches of /search). A split where the user typed a separator ranks 10 higher, a longer set code
+ * among those slightly higher still (`swsh1 25` is swsh1 #25, not swsh12 #5; `sv03.5 12` splits
+ * after `sv035`). A pure number matches within every set or, as `001/128`, within the sets
+ * of that size (300, else 200), newest first, at most NUMBER_HITS.
+ */
+function codeHits(q: string, game: Game | undefined): SQL | null {
+  const { code, splits, number } = parseCodeQuery(q);
+  const branches: SQL[] = [];
+  const inGame = game ? sql`and ${sets.gameId} = ${game}` : sql``;
+  if (code) {
+    const stored = alnum(prints.number);
+    branches.push(sql`select ${prints.id} as print_id, (case
+        when r.rest = '' then 0
+        when ${stored} = r.rest
+          or (${sets.gameId} = 'yugioh'
+            and ${stored} = regexp_replace(r.rest, '^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9])', 'en'))
+          then 300 + r.typed
+        when catalog_number_key(${prints.number}) = catalog_number_key(r.rest) then 200 + r.typed
+        else 150 + r.typed end)::real as rank
+      from (
+        select left(${code}, i) as part, substr(${code}, i + 1) as rest,
+          case when i = any(${`{${splits.join(',')}}`}::int[]) then 10 + i / 100.0 else 0 end as typed
+        from generate_series(1, length(${code})) i
+      ) r
+      join ${sets} on catalog_code_key(${sets.code}) = catalog_code_key(r.part) ${inGame}
+      join ${prints} on ${prints.setId} = ${sets.id}
+      where r.rest = '' or ${stored} like r.rest || '%'
+        or catalog_number_key(${prints.number}) like catalog_number_key(r.rest) || '%'`);
+  }
+  if (number) {
+    const sized = number.total == null ? sql`` : sql`and ${sets.cardCount} = ${number.total}`;
+    branches.push(sql`(select ${prints.id} as print_id,
+        ${number.total == null ? 200 : 300}::real as rank
+      from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
+      where catalog_number_key(${prints.number}) = catalog_number_key(${number.number})
+        ${sized} ${inGame}
+      order by ${sets.releasedOn} desc nulls last, ${prints.id}
+      limit ${NUMBER_HITS})`);
+  }
+  return branches.length ? sql.join(branches, sql` union all `) : null;
+}
+
+/**
+ * Whether names similar to `q` are worth looking for: below 4 characters nearly every name shares
+ * a trigram with it, and a typo in so few letters is no typo.
+ */
+const fuzzyQuery = (q: string) => q.length >= 4;
+
+/** `q` as an ILIKE prefix pattern, its wildcards escaped. */
+const prefixPattern = (q: string) => `${q.replace(/[\\%_]/g, '\\$&')}%`;
+
+/**
+ * The name filter of `?names=` (VB-79): `all` matches the English card name and every
+ * localization; a language its localizations alone (`localization` adds the language condition).
+ */
+function nameScope(names: SearchQuery['names']) {
+  const all = names === 'all';
+  return {
+    /** `branch union all` when the card name counts, else nothing. */
+    card: (branch: SQL) => (all ? sql`${branch} union all` : sql``),
+    // ponytail: `lang || ''` keeps the language off the primary key (print_id, lang); Postgres 18
+    // would skip-scan it and filter every name in that language instead of using the name's GIN
+    // index, then filter its few matches by language.
+    localization: all ? sql`` : sql`and ${printLocalizations.lang} || '' = ${names}`,
+  };
 }
 
 /**
@@ -506,30 +620,50 @@ export class DrizzleCardStore implements CardStore {
 
   async search(query: SearchQuery, pageSize: number): Promise<SearchResponse> {
     const tsq = searchTsQuery(query.q);
-    // Each branch uses its own GIN index (cards_search_idx, print_localizations_search_idx); an
-    // OR across both tables would scan cards. The search columns carry no weights, so a match in
-    // the name adds 1 to ts_rank, otherwise a card whose text repeats the word outranks the card
-    // named so. A print's best rank wins.
-    const hits = sql`(
-      select print_id, max(rank) as rank from (
-        select ${prints.id} as print_id,
+    const code = codeHits(query.q, query.game);
+    // websearch syntax (a phrase, a negated word) asks for exact words: no similar names then.
+    const fuzzy = fuzzyQuery(query.q) && !/"|(^|\s)-\S/.test(query.q);
+    // Each text branch uses its own GIN index (cards_search_idx, print_localizations_search_idx);
+    // an OR across both tables would scan cards. The search columns carry no weights, so a match
+    // in the name adds 1 to ts_rank, otherwise a card whose text repeats the word outranks the
+    // card named so. Code matches (codeHits) rank above them; names similar to `q` (pg_trgm `%`,
+    // similarity 0.3 and up, so `Satelite` finds Satellite Warrior) answer only when neither finds
+    // anything. A print's best rank wins.
+    const names = nameScope(query.names);
+    const hits = sql`ts as (
+        ${names.card(sql`select ${prints.id} as print_id,
           ts_rank(${cards.search}, ${tsq}) + (to_tsvector('simple', ${cards.name}) @@ ${tsq})::int as rank
         from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
-        where ${cards.search} @@ ${tsq}
-        union all
-        select ${printLocalizations.printId},
+        where ${cards.search} @@ ${tsq}`)}
+        select ${printLocalizations.printId} as print_id,
           ts_rank(${printLocalizations.search}, ${tsq}) +
-            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int
+            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int as rank
         from ${printLocalizations}
-        where ${printLocalizations.search} @@ ${tsq}
-      ) h group by print_id
-    ) hits`;
+        where ${printLocalizations.search} @@ ${tsq} ${names.localization}
+      ),
+      code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
+      fuzzy as (
+        ${names.card(sql`select ${prints.id} as print_id, similarity(${cards.name}, ${query.q}) as rank
+        from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
+        where ${fuzzy} and ${cards.name} % ${query.q}
+          and not exists (select 1 from ts) and not exists (select 1 from code)`)}
+        select ${printLocalizations.printId} as print_id,
+          similarity(${printLocalizations.name}, ${query.q}) as rank
+        from ${printLocalizations}
+        where ${fuzzy} and ${printLocalizations.name} % ${query.q} ${names.localization}
+          and not exists (select 1 from ts) and not exists (select 1 from code)
+      ),
+      hits as (
+        select print_id, max(rank) as rank from (
+          select * from ts union all select * from code union all select * from fuzzy
+        ) h group by print_id
+      )`;
     const filters: SQL[] = [sql`true`];
     if (query.game) filters.push(sql`${sets.gameId} = ${query.game}`);
     if (query.set) filters.push(sql`${sets.code} = ${query.set}`);
     if (query.rarity) filters.push(sql`${prints.rarity} = ${query.rarity}`);
     if (query.finish) filters.push(sql`${query.finish} = any(${prints.finishes})`);
-    const joins = sql`from ${hits}
+    const joins = sql`from hits
       join ${prints} on ${prints.id} = hits.print_id
       join ${cards} on ${cards.id} = ${prints.cardId}
       join ${sets} on ${sets.id} = ${prints.setId}`;
@@ -558,12 +692,12 @@ export class DrizzleCardStore implements CardStore {
     };
     const [count, rows] = await Promise.all([
       this.catalog.execute<{ total: number }>(
-        sql`select count(*)::int as total ${joins} where ${where}`,
+        sql`with ${hits} select count(*)::int as total ${joins} where ${where}`,
       ),
       // Page first, localize after: the CTE orders and cuts the hits, and only its rows are
       // joined to the localizations (a broad query matches thousands of prints).
       this.catalog.execute<Row>(sql`
-        with page as (
+        with ${hits}, page as (
           select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
             ${cards.name} as card_name, ${cards.typeLine} as type_line, ${prints.rarity},
             ${prints.finishes},
@@ -633,6 +767,156 @@ export class DrizzleCardStore implements CardStore {
       page: query.page,
       pageSize,
       total: count.rows[0]?.total ?? 0,
+    };
+  }
+
+  /**
+   * The typeahead (VB-79) in one query: candidates per tier, each cut to `limit`, then the best
+   * tier per print or set. Tiers: 0 the exact code, 1 the number without prefix or leading zeros
+   * (and a pure number), 2 a partial number, 3 sets by code or name prefix, 4 the first prints of
+   * a set named by its code, 5 cards whose name starts with `q`, 6 cards with a name similar to
+   * `q` (only while tier 5 leaves room). A name match shows the card's newest print.
+   */
+  async suggest(query: SearchSuggestQuery, limit: number): Promise<SearchSuggestResponse> {
+    const code = codeHits(query.q, query.game);
+    const { code: key } = parseCodeQuery(query.q);
+    const pattern = prefixPattern(query.q);
+    const cardGame = query.game ? sql`and ${cards.gameId} = ${query.game}` : sql``;
+    const setGame = query.game ? sql`and ${sets.gameId} = ${query.game}` : sql``;
+    const names = nameScope(query.names);
+    /** Card ids with the name each matched by, in the languages of `?names=`. */
+    const named = (match: (name: SQLWrapper) => SQL) => sql`
+      ${names.card(sql`select ${cards.id} as card_id, ${cards.name} as name from ${cards}
+      where ${match(cards.name)} ${cardGame}`)}
+      select ${prints.cardId} as card_id, ${printLocalizations.name} as name
+      from ${printLocalizations}
+      join ${prints} on ${prints.id} = ${printLocalizations.printId}
+      join ${cards} on ${cards.id} = ${prints.cardId}
+      where ${match(printLocalizations.name)} ${names.localization} ${cardGame}`;
+    /** A print has a name in the one language of `?names=`. */
+    const hasName =
+      query.names === 'all'
+        ? sql``
+        : sql`and exists (select 1 from ${printLocalizations} where ${printLocalizations.printId} = ${prints.id} ${names.localization})`;
+    /** The newest print of each card in `cte` (card_id, ord), as candidates of `tier`. */
+    const newest = (cte: string, tier: number) => sql`
+      select 'print' as kind, np.id, ${sql.raw(String(tier))} as tier, ${sql.raw(cte)}.ord
+      from ${sql.raw(cte)} cross join lateral (
+        select ${prints.id} as id from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
+        where ${prints.cardId} = ${sql.raw(cte)}.card_id ${hasName}
+        order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+        limit 1
+      ) np`;
+    type Row = {
+      kind: 'print' | 'set';
+      id: string;
+      card_id: string | null;
+      number: string | null;
+      variant: string | null;
+      name: string;
+      rarity: string | null;
+      image_key: string | null;
+      external_ids: Ids | null;
+      localized_image_key: string | null;
+      localized_ids: Ids | null;
+      game: Game;
+      set_code: string;
+      set_name: string;
+    };
+    const rows = await this.catalog.execute<Row>(sql`
+      with code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
+      code_ranked as (
+        select code.print_id, max(code.rank) as rank, min(${sets.releasedOn}) as released_on,
+          min(${NUMBER_VALUE}) as number_value, min(${prints.number}) as number
+        from code join ${prints} on ${prints.id} = code.print_id
+        join ${sets} on ${sets.id} = ${prints.setId}
+        group by code.print_id
+      ),
+      code_cands as (
+        select 'print' as kind, print_id as id,
+          case when rank >= 300 then 0 when rank >= 200 then 1 when rank > 0 then 2 else 4 end as tier,
+          row_number() over (
+            partition by rank > 0
+            order by rank desc, released_on desc nulls last, number_value nulls last, number
+          ) as ord
+        from code_ranked
+      ),
+      set_cands as (
+        select 'set' as kind, ${sets.id} as id, 3 as tier,
+          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}) as ord
+        from ${sets}
+        where (${key ? sql`catalog_code_key(${sets.code}) = catalog_code_key(${key}) or` : sql``}
+          ${sets.name} ilike ${pattern}
+          or exists (
+            select 1 from ${setLocalizations}
+            where ${setLocalizations.setId} = ${sets.id} and ${setLocalizations.lang} = ${query.lang}
+              and ${setLocalizations.name} ilike ${pattern}
+          )) ${setGame}
+        order by ord limit ${limit}
+      ),
+      prefix as (
+        select card_id, row_number() over (order by min(length(name)), min(name)) as ord
+        from (${named((name) => sql`${name} ilike ${pattern}`)}) n
+        group by card_id order by ord limit ${limit}
+      ),
+      fuzzy as (
+        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name)) as ord
+        from (${named((name) => sql`${name} % ${query.q}`)}) n
+        where ${fuzzyQuery(query.q)} and (select count(*) from prefix) < ${limit}
+        group by card_id order by ord limit ${limit}
+      ),
+      cands as (
+        -- ponytail: a set named alone shows its first 3 prints, so name matches still fit.
+        select * from code_cands where tier < 4 and ord <= ${limit} or tier = 4 and ord <= 3
+        union all select * from set_cands
+        union all ${newest('prefix', 5)}
+        union all ${newest('fuzzy', 6)}
+      ),
+      top as (
+        select kind, id, tier, ord from (
+          select distinct on (kind, id) kind, id, tier, ord from cands order by kind, id, tier, ord
+        ) best
+        order by tier, ord limit ${limit}
+      )
+      select top.kind, top.id, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
+        case when top.kind = 'set' then coalesce(set_l.name, ${sets.name})
+          else coalesce(localized.name, english.name, ${cards.name}) end as name,
+        ${prints.rarity}, ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
+        localized.image_key as localized_image_key, localized.external_ids as localized_ids,
+        ${sets.gameId} as game, ${sets.code} as set_code,
+        coalesce(set_l.name, ${sets.name}) as set_name
+      from top
+      left join ${prints} on top.kind = 'print' and ${prints.id} = top.id
+      left join ${cards} on ${cards.id} = ${prints.cardId}
+      join ${sets} on ${sets.id} = coalesce(${prints.setId}, top.id)
+      left join ${printLocalizations} localized
+        on localized.print_id = ${prints.id} and localized.lang = ${query.lang}
+      left join ${printLocalizations} english
+        on english.print_id = ${prints.id} and english.lang = 'en'
+      left join ${setLocalizations} set_l
+        on set_l.set_id = ${sets.id} and set_l.lang = ${query.lang}
+      order by top.tier, top.ord`);
+    return {
+      suggestions: rows.rows.map((r) => {
+        const set = { code: r.set_code, name: r.set_name };
+        if (r.kind === 'set') return { kind: 'set', id: r.id, name: r.name, game: r.game, set };
+        return {
+          kind: 'print',
+          id: r.id,
+          name: r.name,
+          game: r.game,
+          set,
+          number: r.number ?? '',
+          variant: r.variant ?? '',
+          rarity: r.rarity,
+          imageUrl: this.imageUrl(
+            query.lang,
+            { imageKey: r.localized_image_key, externalIds: r.localized_ids },
+            { imageKey: r.image_key, externalIds: r.external_ids },
+          ),
+          cardId: r.card_id ?? '',
+        };
+      }),
     };
   }
 

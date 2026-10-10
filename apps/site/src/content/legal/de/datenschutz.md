@@ -138,7 +138,7 @@ Wir schicken Ihnen Mails, die zum Konto gehören: den Link zur Bestätigung Ihre
 
 Was Sie in der Web-App anlegen, speichern wir zu Ihrem Konto: Ihre Mappen (Name, Spiel, Reihenfolge, Farbe), die Einträge Ihrer Sammlung (Karte und Druck, Anzahl, Sprache, Zustand, Ausführung, Kaufpreis und Währung, Notiz), Ihre Wunschliste (Karte, Anzahl, gewünschte Sprache, Ausführung und Mindestzustand, Höchstpreis, Notiz) und Ihre Decks (Name, Spiel, Format, Beschreibung, Karten). Dazu kommen jeweils die Zeitpunkte des Anlegens und der letzten Änderung. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO. Diese Daten sieht nur Ihr Konto, wir geben sie an niemanden weiter.
 
-Löschen Sie einen Eintrag, eine Mappe oder ein Deck, markieren wir ihn als gelöscht, statt ihn sofort zu entfernen, und zeigen ihn nicht mehr an. Gelöschte Einträge bleiben höchstens 30 Tage als Löschmarkierung gespeichert, damit Ihre anderen Geräte die Löschung übernehmen, und werden dann endgültig entfernt.
+Löschen Sie einen Eintrag, eine Mappe oder ein Deck, entfernen wir seinen Inhalt sofort. Wir behalten nur eine Löschmarkierung ohne Inhalt (welche Liste, welche Kennung und wann gelöscht), höchstens 30 Tage lang, damit Ihre anderen Geräte die Löschung übernehmen. Danach wird auch sie entfernt.
 
 ### Abgleich zwischen Geräten
 
@@ -172,7 +172,7 @@ Alle drei Anbieter handeln als Auftragsverarbeiter nach unseren Weisungen auf Gr
 | -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Konto und Profil (E-Mail-Adresse, Name, Anzeigename, Sprache, Währung, Einstellung zu Trainingsdaten, Passwort-Hash) | bis zur Löschung Ihres Kontos                                                                         |
 | Sammlung, Mappen, Wunschliste, Decks                                                                                 | bis zur Löschung Ihres Kontos                                                                         |
-| Als gelöscht markierte Einträge                                                                                      | höchstens 30 Tage                                                                                     |
+| Löschmarkierungen (ohne Inhalt)                                                                                      | höchstens 30 Tage                                                                                     |
 | Sitzung mit IP-Adresse und User-Agent                                                                                | bis zur Abmeldung, sonst 7 Tage nach der letzten Nutzung                                              |
 | Gemerktes Gerät für die Zwei-Faktor-Anmeldung                                                                        | 30 Tage, oder bis Sie die Zwei-Faktor-Anmeldung ändern oder Ihr Passwort zurücksetzen                 |
 | Geheimnis und Backup-Codes der Zwei-Faktor-Anmeldung                                                                 | bis Sie die Zwei-Faktor-Anmeldung ausschalten oder Ihr Konto löschen                                  |

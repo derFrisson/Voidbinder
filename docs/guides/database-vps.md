@@ -1983,6 +1983,16 @@ with the same counts.
 those with only `orig`), so a run that stopped (Ctrl-C, 429, reboot) continues where it was.
 Failed downloads are logged (`image failed`) and stay as they were for the next run.
 
+**Low-res Magic scans.** A Magic print whose Scryfall image is only `lowres` (`highres_image`
+false; about 3,000 prints, mostly sets from 2022 on) is mirrored too, under names of its own:
+`images/mtg/<scryfall id>/<lang>/orig-lowres.jpg` and `sm-lowres.webp`, and `image_key` gets
+that key. The objects are cached as `immutable` for a year, so the high-res scan cannot reuse
+`orig.jpg`. Once a later Scryfall import sets `highres_image` to true, the print is pending again:
+the next run stores the scan as `orig.jpg` / `sm.webp` and replaces the key (a key is only ever
+replaced by a better one: `sm.webp`, `orig.<ext>`, `sm-lowres.webp`, `orig-lowres.jpg`). The
+low-res objects stay in the bucket as orphans. `placeholder` and `missing` images stay keyless,
+and localizations still wait for a high-res scan (the API shows the print's key for them).
+
 **Nightly timer.** `scripts/vps/image-mirror.service` and `.timer` (systemd user units) run the
 mirror at 05:30 UTC for all games with `--sm --verify`, one database after the other: the `sm`
 copies of the Workflows' daily `orig` images, and every failure of the day. Install once as

@@ -87,16 +87,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
         )}
       </View>
       {!wide && print && <PriceStrip printId={print.id} />}
-      {print && (
-        <CollectButtons
-          wide={wide}
-          print={{
-            id: print.id,
-            finishes: print.finishes,
-            langs: print.localizations.map((l) => l.lang),
-          }}
-        />
-      )}
+      {print && <CollectButtons wide={wide} printId={print.id} cardId={card.id} />}
     </View>
   );
 

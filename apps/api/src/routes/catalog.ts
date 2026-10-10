@@ -7,6 +7,8 @@ import {
   CardQuerySchema,
   SEARCH_PAGE_SIZE,
   SearchQuerySchema,
+  SearchSuggestQuerySchema,
+  SUGGEST_LIMIT,
   SET_PAGE_SIZE,
   SetPageQuerySchema,
   SetsQuerySchema,
@@ -15,6 +17,7 @@ import {
   type GamesResponse,
   type PrintResponse,
   type SearchResponse,
+  type SearchSuggestResponse,
   type SetPageResponse,
   type SetsResponse,
 } from '@voidbinder/shared/api';
@@ -38,8 +41,8 @@ function found<T>(value: T | null, what: string): T {
 }
 
 /**
- * `GET /catalog/**`: games, sets, set pages, cards, prints and prices (VB-26, VB-30) and the
- * search (VB-35) and the Yu-Gi-Oh! ban list (VB-81), cached per ADR 0004.
+ * `GET /catalog/**`: games, sets, set pages, cards, prints and prices (VB-26, VB-30), the search
+ * (VB-35) with its typeahead (VB-79) and the Yu-Gi-Oh! ban list (VB-81), cached per ADR 0004.
  */
 export function catalogRoutes() {
   return new Hono<AppEnv>()
@@ -82,6 +85,17 @@ export function catalogRoutes() {
       );
       return c.json(body, 200);
     })
+    .get(
+      '/search/suggest',
+      zValidator('query', SearchSuggestQuerySchema, throwOnInvalid),
+      async (c) => {
+        const body: SearchSuggestResponse = await c.var.platform.cardStore.suggest(
+          c.req.valid('query'),
+          SUGGEST_LIMIT,
+        );
+        return c.json(body, 200);
+      },
+    )
     .get(
       '/cards/:id',
       zValidator('param', IdParam, throwOnInvalid),

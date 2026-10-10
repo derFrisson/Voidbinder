@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
 import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
+import { QuickAdd } from '../collection/CollectButtons';
 import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
 import { formatPrice, type PriceTag } from './seams';
@@ -204,8 +205,22 @@ export function CardCollection({
     // Negative margin and padding make the gutters without a gap property on a wrapping row.
     <View role="list" className="-mx-1.5 flex-row flex-wrap">
       {prints.map((p) => (
-        <View key={p.id} role="listitem" style={{ width: `${100 / columns}%` }} className="p-1.5">
+        <View
+          key={p.id}
+          role="listitem"
+          style={{ width: `${100 / columns}%` }}
+          className="gap-2 p-1.5"
+        >
           <CardTile {...item(p)} />
+          {/* VB-80: signed in, a tile adds straight to the collection, as in the search. */}
+          {owned && (
+            <QuickAdd
+              printId={p.id}
+              cardId={p.cardId}
+              name={`${p.name}, ${setCode} ${p.number}`}
+              finish={p.finishes[0] ?? 'normal'}
+            />
+          )}
         </View>
       ))}
     </View>

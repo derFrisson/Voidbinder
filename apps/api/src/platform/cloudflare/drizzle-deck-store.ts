@@ -28,7 +28,7 @@ import {
   type PriceSource,
   type UpdateDeckRequest,
 } from '@voidbinder/shared/api';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { HTTPException } from 'hono/http-exception';
 import {
@@ -41,6 +41,7 @@ import {
   prints,
   sets,
 } from '../../db/schema';
+import { clearDeletions, logDeletions } from './drizzle-collection-store';
 
 type DeckRow = typeof decks.$inferSelect;
 type Ids = Record<string, unknown>;
@@ -48,7 +49,6 @@ type Ids = Record<string, unknown>;
 const notFound = (what: string) => new HTTPException(404, { message: `${what} not found` });
 const badRequest = (message: string) => new HTTPException(400, { message });
 
-const live = isNull(decks.deletedAt);
 const formatsOf = (game: DeckGame) => DECK_FORMATS[game] as readonly string[];
 
 /** A print of a deck card with what the list shows and its current prices. */
@@ -122,7 +122,7 @@ export class DrizzleDeckStore implements DeckStore {
     const [row] = await this.db
       .select()
       .from(decks)
-      .where(and(eq(decks.id, id), eq(decks.userId, userId), live));
+      .where(and(eq(decks.id, id), eq(decks.userId, userId)));
     if (!row) throw notFound('Deck');
     return row;
   }
@@ -220,7 +220,6 @@ export class DrizzleDeckStore implements DeckStore {
             .where(
               and(
                 eq(collectionEntries.userId, userId),
-                isNull(collectionEntries.deletedAt),
                 inArray(cards.gameId, games),
                 inArray(cards.name, names),
               ),
@@ -230,7 +229,7 @@ export class DrizzleDeckStore implements DeckStore {
       this.db
         .select({ n: sql<number>`coalesce(sum(${collectionEntries.quantity}), 0)::int` })
         .from(collectionEntries)
-        .where(and(eq(collectionEntries.userId, userId), isNull(collectionEntries.deletedAt))),
+        .where(eq(collectionEntries.userId, userId)),
       // Pokémon reprints are cards of their own: the legality of every card of the name (and
       // the same text: a Pokémon that only shares the name is a different card).
       pokemonNames.length
@@ -405,7 +404,7 @@ export class DrizzleDeckStore implements DeckStore {
     const rows = await this.db
       .select()
       .from(decks)
-      .where(and(eq(decks.userId, userId), live))
+      .where(eq(decks.userId, userId))
       .orderBy(desc(decks.updatedAt), desc(decks.id));
     return (await this.analyze(userId, rows, opts)).map(({ entries, analysis, ...deck }) => ({
       ...deck,
@@ -424,22 +423,32 @@ export class DrizzleDeckStore implements DeckStore {
   async create(userId: string, req: CreateDeckData, opts: DeckReadOptions): Promise<DeckDetail> {
     const id = req.id ?? crypto.randomUUID();
     // Idempotent on the client's id: a retried POST writes nothing and answers the stored deck.
-    await this.db
-      .insert(decks)
-      .values({
-        id,
+    await this.db.transaction(async (tx) => {
+      const added = await tx
+        .insert(decks)
+        .values({
+          id,
+          userId,
+          gameId: req.game,
+          name: req.name,
+          format: req.format,
+          description: req.description ?? null,
+        })
+        .onConflictDoNothing({ target: decks.id })
+        .returning({ id: decks.id });
+      // Written again under a deleted deck's id: that delete no longer stands.
+      await clearDeletions(
+        tx,
         userId,
-        gameId: req.game,
-        name: req.name,
-        format: req.format,
-        description: req.description ?? null,
-      })
-      .onConflictDoNothing({ target: decks.id });
+        'decks',
+        added.map((r) => r.id),
+      );
+    });
     const [row] = await this.db
       .select()
       .from(decks)
-      .where(and(eq(decks.id, id), eq(decks.userId, userId), live));
-    // The id is another user's (or a deleted deck's): nothing was written.
+      .where(and(eq(decks.id, id), eq(decks.userId, userId)));
+    // The id is another user's: nothing was written.
     if (!row) throw new HTTPException(409, { message: 'Deck id taken' });
     return this.detail(userId, row, opts);
   }
@@ -456,19 +465,22 @@ export class DrizzleDeckStore implements DeckStore {
     const [row] = await this.db
       .update(decks)
       .set({ ...patch, updatedAt: sql`now()` })
-      .where(and(eq(decks.id, id), eq(decks.userId, userId), live))
+      .where(and(eq(decks.id, id), eq(decks.userId, userId)))
       .returning();
     if (!row) throw notFound('Deck');
     return this.detail(userId, row, opts);
   }
 
+  /** Removes the deck with its entries (cascade) and logs the deck only. */
   async delete(userId: string, id: string): Promise<void> {
-    const [row] = await this.db
-      .update(decks)
-      .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })
-      .where(and(eq(decks.id, id), eq(decks.userId, userId), live))
-      .returning({ id: decks.id });
-    if (!row) throw notFound('Deck');
+    await this.db.transaction(async (tx) => {
+      const rows = await tx
+        .delete(decks)
+        .where(and(eq(decks.id, id), eq(decks.userId, userId)))
+        .returning({ id: decks.id });
+      if (!rows.length) throw notFound('Deck');
+      await logDeletions(tx, userId, 'decks', rows);
+    });
   }
 
   async putEntries(
@@ -482,7 +494,7 @@ export class DrizzleDeckStore implements DeckStore {
       const [deck] = await tx
         .select()
         .from(decks)
-        .where(and(eq(decks.id, id), eq(decks.userId, userId), live))
+        .where(and(eq(decks.id, id), eq(decks.userId, userId)))
         .for('update');
       if (!deck) throw notFound('Deck');
       await checkDeckEntries(tx, deck.gameId as DeckGame, entries);

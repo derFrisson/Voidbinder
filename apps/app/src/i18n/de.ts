@@ -355,6 +355,16 @@ export const de = {
     wished: '{count}× auf deiner Wunschliste',
     signInHint: 'Melde dich an, um Karten zu sammeln.',
     ownedBadge: '{count}× in Sammlung',
+    dialog: {
+      title: 'In die Sammlung legen',
+      wishTitle: 'Auf die Wunschliste setzen',
+      editTitle: 'Hinzugefügte Karte ändern',
+      add: 'Hinzufügen',
+      wish: 'Vormerken',
+      options: '{name}: Sprache, Zustand und mehr wählen',
+      addedAs: 'Als {details} hinzugefügt',
+      change: 'Ändern',
+    },
   },
   decks: {
     title: 'Decks',
