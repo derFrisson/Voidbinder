@@ -541,6 +541,11 @@ export const de = {
     done: 'Dein Passwort ist geändert und alle Sitzungen sind beendet. Melde dich neu an.',
     toSignIn: 'Zur Anmeldung',
   },
+  turnstile: {
+    label: 'Sicherheitsprüfung',
+    unavailable:
+      'Die Sicherheitsprüfung konnte nicht geladen werden. Prüfe deine Verbindung, erlaube challenges.cloudflare.com in deinem Blocker und lade die Seite neu.',
+  },
   errors: {
     invalid: 'E-Mail-Adresse oder Passwort stimmt nicht.',
     unverified: 'Bitte bestätige zuerst deine E-Mail-Adresse. Der Link ist in deinem Postfach.',
@@ -556,6 +561,8 @@ export const de = {
     wrongPassword: 'Das Passwort stimmt nicht.',
     codeInvalid:
       'Der Code stimmt nicht oder die Anmeldung ist abgelaufen. Versuch es noch einmal oder melde dich neu an.',
+    turnstileRequired: 'Schließe zuerst die Sicherheitsprüfung ab.',
+    turnstile: 'Die Sicherheitsprüfung ist fehlgeschlagen oder abgelaufen. Versuch es noch einmal.',
   },
   twoFactor: {
     title: 'Bestätigungscode',

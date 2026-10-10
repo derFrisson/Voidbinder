@@ -3,12 +3,14 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 import { rememberOptIn, useSignUp } from '../api/queries/auth';
 import { AuthPage, FormError } from '../components/AuthForm';
+import { useTurnstile } from '../components/auth/Turnstile';
 import { Button, Checkbox, Field, Note, TextLink } from '../components/ui';
 import { fmt, useT } from '../i18n';
 
 export default function SignUp() {
   const t = useT();
   const signUp = useSignUp();
+  const check = useTurnstile();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,11 +40,16 @@ export default function SignUp() {
     };
     setInvalid(errors);
     if (Object.keys(errors).length > 0 || !parsed.success) return;
+    const { token, ok } = check.take();
+    if (!ok) return;
     const address = parsed.data;
     // Only an account that was created waits for the opt-in; a failed sign-up leaves nothing behind.
     signUp.mutate(
-      { name: name.trim(), email: address, password },
-      { onSuccess: () => optIn && rememberOptIn(address) },
+      { name: name.trim(), email: address, password, turnstileToken: token },
+      {
+        onSuccess: () => optIn && rememberOptIn(address),
+        onError: check.renew,
+      },
     );
   };
 
@@ -90,6 +97,7 @@ export default function SignUp() {
       <Checkbox checked={optIn} onChange={setOptIn} label={t.signUp.optIn}>
         {t.signUp.optIn}
       </Checkbox>
+      {check.widget}
       <FormError error={signUp.error} />
       <Button label={t.signUp.submit} onPress={submit} busy={signUp.isPending} wide />
       <Text className="font-body text-ink-2">

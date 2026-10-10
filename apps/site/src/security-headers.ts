@@ -6,10 +6,12 @@
 // No hashes or nonces: the built pages contain no inline <script> or <style> and no style=""
 // attributes (build.inlineStylesheets is 'never'; apps/site/test/build.test.ts guards it). JSON-LD
 // is a data block, which CSP does not govern. The Web Analytics beacon is an external script from
-// static.cloudflareinsights.com that reports to cloudflareinsights.com.
+// static.cloudflareinsights.com that reports to cloudflareinsights.com. The waitlist's Turnstile
+// widget (VB-72) loads its script from and draws its iframe from challenges.cloudflare.com.
 export const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self' https://static.cloudflareinsights.com",
+  "script-src 'self' https://static.cloudflareinsights.com https://challenges.cloudflare.com",
+  'frame-src https://challenges.cloudflare.com',
   "style-src 'self'",
   "img-src 'self' data:",
   "connect-src 'self' https://cloudflareinsights.com",

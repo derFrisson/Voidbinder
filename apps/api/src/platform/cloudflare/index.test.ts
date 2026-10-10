@@ -20,6 +20,21 @@ describe('appDeps', () => {
     expect(appDeps(env({ CORS_EXTRA_ORIGINS: ' a ,, b, ' })).extraOrigins).toEqual(['a', 'b']);
     expect(appDeps(env({})).extraOrigins).toEqual([]);
   });
+
+  it('skips Turnstile only for the test secret on the local environment', () => {
+    const test = '1x0000000000000000000000000000000AA';
+    expect(appDeps(env({ TURNSTILE_SECRET: test, IMPORT_ENV: 'local' })).turnstile.skip).toBe(true);
+    expect(appDeps(env({ TURNSTILE_SECRET: test, IMPORT_ENV: 'dev' })).turnstile.skip).toBe(false);
+    expect(appDeps(env({ TURNSTILE_SECRET: 'real', IMPORT_ENV: 'local' })).turnstile.skip).toBe(
+      false,
+    );
+  });
+
+  it('keeps the native bypass off unless TURNSTILE_NATIVE_BYPASS is "true"', () => {
+    expect(appDeps(env({})).turnstile.nativeBypass).toBe(false);
+    expect(appDeps(env({ TURNSTILE_NATIVE_BYPASS: 'false' })).turnstile.nativeBypass).toBe(false);
+    expect(appDeps(env({ TURNSTILE_NATIVE_BYPASS: 'true' })).turnstile.nativeBypass).toBe(true);
+  });
 });
 
 describe('startTcgdexCron', () => {

@@ -24,6 +24,15 @@ describe('built site', () => {
     }
   });
 
+  // Turnstile (VB-72): the container carries the sitekey of the build's environment (the wrangler
+  // var), the script itself is loaded on demand.
+  it.each(['de', 'en'])('has the Turnstile container in the %s waitlist form', (locale) => {
+    const html = readFileSync(new URL(`${locale}/index.html`, client), 'utf8');
+    expect(html).toMatch(/class="turnstile"[^>]*\sdata-sitekey="(?:0x4|1x)[\w-]{20,}"/);
+    expect(html).toContain(`data-language="${locale}"`);
+    expect(html).not.toContain('challenges.cloudflare.com/turnstile/v0/api.js');
+  });
+
   // The strict CSP (VB-19) forbids inline style attributes; <style> elements are hashed instead.
   it('has no inline style attributes', () => {
     expect(pages.length).toBeGreaterThan(0);
