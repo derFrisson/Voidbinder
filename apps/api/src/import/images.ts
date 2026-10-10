@@ -27,7 +27,8 @@ export const IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 /**
  * Requests per second per source: Scryfall's file hosts have no limit (be polite), YGOPRODeck
  * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API;
- * TCGplayer's product images (VB-119, a scan's stand-in) two.
+ * TCGplayer's product images (VB-119, a scan's stand-in) two; pokemontcg.io's pictures (VB-118,
+ * the Pokémon backup) a few a second.
  */
 export const SOURCE_RATES: Record<string, number> = {
   mtg: 20,
@@ -35,19 +36,18 @@ export const SOURCE_RATES: Record<string, number> = {
   pokemon: 8,
   yugipedia: 1,
   tcgplayer: 2,
+  pokemontcg: 4,
 };
 
 /**
  * The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan,
- * TCGplayer's for a product image.
+ * TCGplayer's for a product image, pokemontcg.io's for its pictures.
  */
 const sourceOf = (game: string, url: string) => {
   const host = new URL(url).hostname;
-  return host.endsWith('yugipedia.com')
-    ? 'yugipedia'
-    : host.endsWith('tcgplayer.com')
-      ? 'tcgplayer'
-      : game;
+  if (host.endsWith('yugipedia.com')) return 'yugipedia';
+  if (host.endsWith('tcgplayer.com')) return 'tcgplayer';
+  return host === 'images.pokemontcg.io' ? 'pokemontcg' : game;
 };
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -83,6 +83,7 @@ export const IMAGE_ID_FIELDS = [
   'image_url',
   'tcgdex',
   'tcgdex_images',
+  'pokemontcg_images',
   'artwork',
 ] as const;
 
@@ -111,7 +112,10 @@ export const showsScan = (artwork: unknown): boolean => {
  * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
  * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
  * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106; TCGplayer's
- * product image until the gallery has one, VB-119) when it shows it (`showsScan`), else YGOPRODeck's `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * product image until the gallery has one, VB-119) when it shows it (`showsScan`), else
+ * YGOPRODeck's `image_url` (the card's first artwork); TCGdex `tcgdex_images.high`
+ * (`<image>/high.webp`), else pokemontcg.io's `pokemontcg_images.large` (VB-118, a print TCGdex
+ * has no picture for).
  */
 export function sourceUrl(
   game: string,
@@ -131,7 +135,10 @@ export function sourceUrl(
         https(ids.image_url)
       );
     case 'pokemon':
-      return https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high);
+      return (
+        https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high) ??
+        https((ids.pokemontcg_images as Record<string, unknown> | undefined)?.large)
+      );
     default:
       return null;
   }
@@ -144,11 +151,13 @@ const SAFE_ID = /^[A-Za-z0-9._-]+$/;
  * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it); for
  * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106), for a TCGplayer
  * product image its file name too (`719866_in_1000x1000`, VB-119);
- * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`).
+ * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`), with
+ * `-pokemontcg` for a pokemontcg.io picture, so `needsWork` and `writeKeys` let a later TCGdex
+ * picture replace it (VB-118).
  */
 export function sourceId(game: string, ids: Record<string, unknown>, url: string): string | null {
   const path = new URL(url).pathname.split('/');
-  const id =
+  const base =
     game === 'mtg'
       ? ids.scryfall
       : game === 'yugioh'
@@ -156,6 +165,8 @@ export function sourceId(game: string, ids: Record<string, unknown>, url: string
         : game === 'pokemon'
           ? (ids.tcgdex ?? (path.length >= 4 ? `${path.at(-3)}-${path.at(-2)}` : null))
           : null;
+  const id =
+    typeof base === 'string' && sourceOf(game, url) === 'pokemontcg' ? `${base}-pokemontcg` : base;
   return typeof id === 'string' && SAFE_ID.test(id) ? id : null;
 }
 
@@ -492,18 +503,23 @@ const needsWork = (
     ${ids} ->> 'image_url')`;
   const mirrorable = sql`((${sets.gameId} = 'mtg' and (${highres}${lowres}))
     or (${sets.gameId} = 'yugioh' and ${ygoUrl} is not null)
-    or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
+    or (${sets.gameId} = 'pokemon' and (${ids} -> 'tcgdex_images' ->> 'high' is not null
+      or ${ids} -> 'pokemontcg_images' ->> 'large' is not null)))`;
   // An image the key does not name: a shown Yugipedia scan (VB-106) not mirrored yet, or a scan
   // no longer shown (VB-117) whose render comes back. The row keeps its old key until then. The id
-  // is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case).
+  // is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case). Likewise a
+  // TCGdex picture published after the pokemontcg.io one was mirrored (VB-118).
   const ygoId = sql`regexp_replace(${ygoUrl}, '^.*/|[.][^./]*$', '', 'g')`;
   const todo = sql`(${key} is null
     ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}
     or (${key} like '%-lowres.%' and ${highres})
-    or (${sets.gameId} = 'yugioh' and position('/' || ${ygoId} || '/' in ${key}) = 0))`;
+    or (${sets.gameId} = 'yugioh' and position('/' || ${ygoId} || '/' in ${key}) = 0)
+    or (${sets.gameId} = 'pokemon' and ${key} like '%-pokemontcg/%'
+      and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
   // The URL `sourceUrl` picks, to look up in `image_sources_gone`.
   const url = sql`case ${sets.gameId}
-    when 'pokemon' then ${ids} -> 'tcgdex_images' ->> 'high'
+    when 'pokemon' then coalesce(${ids} -> 'tcgdex_images' ->> 'high',
+      ${ids} -> 'pokemontcg_images' ->> 'large')
     when 'yugioh' then ${ygoUrl}
     else coalesce(${ids} -> 'scryfall_images' ->> 'large', ${ids} -> 'scryfall_images' ->> 'normal',
       ${ids} -> 'scryfall_images' ->> 'png') end`;

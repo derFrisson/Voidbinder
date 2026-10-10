@@ -9,7 +9,13 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { ApiError } from '../api/queries/http';
-import { CC_BY_SA_URL, YUGIPEDIA_ATTRIBUTION, YUGIPEDIA_URL } from '@voidbinder/shared/notices';
+import {
+  CC_BY_SA_URL,
+  POKEMONTCG_ATTRIBUTION,
+  POKEMONTCG_URL,
+  YUGIPEDIA_ATTRIBUTION,
+  YUGIPEDIA_URL,
+} from '@voidbinder/shared/notices';
 import { useLocale, useT } from '../i18n';
 import { Icon } from './Icon';
 import { usePalette } from './palette';
@@ -89,6 +95,21 @@ export function YugipediaCredit({ className }: { className: string }) {
       (
       <Link href={CC_BY_SA_URL} className={link}>
         CC BY-SA 4.0
+      </Link>
+      )
+    </Text>
+  );
+}
+
+/** pokemontcg.io's attribution with the site linked (VB-118), in the footer and on a Pokémon card page. */
+export function PokemontcgCredit({ className }: { className: string }) {
+  const locale = useLocale();
+  const [lead] = POKEMONTCG_ATTRIBUTION[locale].split('pokemontcg.io');
+  return (
+    <Text className={className}>
+      {lead}
+      <Link href={POKEMONTCG_URL} className="underline">
+        pokemontcg.io
       </Link>
       )
     </Text>

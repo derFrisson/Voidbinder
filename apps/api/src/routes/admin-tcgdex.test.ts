@@ -34,6 +34,16 @@ describe('POST /admin/import/tcgdex', () => {
     expect(sent).toEqual([{ type: 'tcgdex-import', payload: { mode: 'full' } }]);
   });
 
+  it('passes ?pokemontcg=true or ?pokemontcg=1 on: the pokemontcg.io pictures on any day (VB-118)', async () => {
+    const { sent, post } = setup();
+    expect((await post('?pokemontcg=true')).status).toBe(202);
+    expect((await post('?mode=full&pokemontcg=1')).status).toBe(202);
+    expect(sent).toEqual([
+      { type: 'tcgdex-import', payload: { mode: 'incremental', pokemontcg: true } },
+      { type: 'tcgdex-import', payload: { mode: 'full', pokemontcg: true } },
+    ]);
+  });
+
   it('answers 409 while a TCGdex import runs, and 400 for an unknown mode', async () => {
     const running = setup(true);
     const res = await running.post();

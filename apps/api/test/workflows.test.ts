@@ -56,6 +56,46 @@ it('ends the TCGdex import with the image mirror and the search index steps', as
   ]);
 });
 
+it('adds the pokemontcg.io pictures between the TCGdex import and the mirror on Mondays (VB-118)', async () => {
+  const run = async (day: string, payload: Record<string, unknown> = {}) => {
+    const names: string[] = [];
+    const canned: Record<string, unknown> = {
+      'start run': 'run-1',
+      'set list': [],
+      plan: [],
+      'pokemontcg: start run': 'run-2',
+      'pokemontcg: plan': {
+        sets: [{ code: '2021swsh', ptcg: 'mcd21' }],
+        unmatched: [],
+        coolingDown: 0,
+      },
+      'pokemontcg: cards 2021swsh': { prints: 1, matched: 1, written: 1 },
+    };
+    const step = {
+      do: (name: string) => (names.push(name), Promise.resolve(canned[name] ?? {})),
+      sleep: (name: string) => (names.push(name), Promise.resolve()),
+    } as unknown as WorkflowStep;
+    const event = { timestamp: new Date(day), payload } as WorkflowEvent<unknown>;
+    await TcgdexImportWorkflow.prototype.run.call({ env }, event, step);
+    return names;
+  };
+
+  const monday = await run('2026-10-12');
+  const purge = monday.indexOf('purge cache');
+  expect(monday.slice(purge)).toEqual([
+    'purge cache',
+    'pokemontcg: start run',
+    'pokemontcg: plan',
+    'pokemontcg: cards 2021swsh',
+    'pokemontcg: finish run',
+    'mirror images',
+    'refresh search index',
+  ]);
+  // Other days only on request (POST /admin/import/tcgdex?pokemontcg=true).
+  expect((await run('2026-10-10')).filter((n) => n.startsWith('pokemontcg'))).toEqual([]);
+  expect(await run('2026-10-10', { pokemontcg: true })).toContain('pokemontcg: finish run');
+});
+
 it('runs the Yugipedia import without a purge when it planned nothing (VB-93)', async () => {
   const names: string[] = [];
   const canned: Record<string, unknown> = {

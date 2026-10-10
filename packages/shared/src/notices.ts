@@ -47,5 +47,14 @@ export const YUGIPEDIA_ATTRIBUTION: Record<Locale, string> = {
   en: 'Yu-Gi-Oh! card names and texts in other languages: Yugipedia (CC BY-SA 4.0)',
   de: 'Yu-Gi-Oh!-Kartennamen und -texte in weiteren Sprachen: Yugipedia (CC BY-SA 4.0)',
 };
+/**
+ * pokemontcg.io's attribution (VB-118): the pictures of the Pokémon prints TCGdex has none for
+ * (McDonald's collections, galleries, trainer kits) come from the Pokémon TCG API.
+ */
+export const POKEMONTCG_ATTRIBUTION: Record<Locale, string> = {
+  en: 'Card images: Pokémon TCG API (pokemontcg.io)',
+  de: 'Kartenbilder: Pokémon TCG API (pokemontcg.io)',
+};
+export const POKEMONTCG_URL = 'https://pokemontcg.io';
 export const YUGIPEDIA_URL = 'https://yugipedia.com';
 export const CC_BY_SA_URL = 'https://creativecommons.org/licenses/by-sa/4.0/';
