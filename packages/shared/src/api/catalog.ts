@@ -170,7 +170,11 @@ export const SEARCH_PAGE_SIZE = 30;
 
 /** `GET /catalog/search?q=&game=&set=&rarity=&lang=&finish=&page=` (VB-35). Filters are exact. */
 export const SearchQuerySchema = z.object({
-  /** websearch syntax (`"exact phrase"`, `-not`, `or`); the last word matches as a prefix. */
+  /**
+   * websearch syntax (`"exact phrase"`, `-not`, `or`); the last word matches as a prefix. A set
+   * code with a number (`LDS3-EN121`, `sv1 001`), a bare set code or a number (`121`, `001/128`)
+   * finds those prints first; names similar to `q` answer when no name matches (VB-79).
+   */
   q: z.string().trim().min(2).max(80),
   game: GameSchema.optional(),
   /** Set code, lowercase as in `/catalog/sets/:game/:code`. */
@@ -195,7 +199,7 @@ export const SearchHitSchema = PrintSummarySchema.extend({
 });
 export type SearchHit = z.infer<typeof SearchHitSchema>;
 
-/** Prints whose card or localization matches, ranked by `ts_rank`, then by name. */
+/** Code matches first, then prints whose card or localization matches by `ts_rank`, then by name. */
 export const SearchResponseSchema = z.object({
   prints: z.array(SearchHitSchema),
   page: z.number().int(),

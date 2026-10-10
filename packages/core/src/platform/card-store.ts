@@ -9,6 +9,8 @@ import type {
   PrintResponse,
   SearchQuery,
   SearchResponse,
+  SearchSuggestQuery,
+  SearchSuggestResponse,
   SetPageQuery,
   SetPageResponse,
   SetSummary,
@@ -37,6 +39,8 @@ export interface CardStore {
   getPrint(id: string): Promise<PrintResponse | null>;
   /** Full-text search over card and localized print names and texts (VB-35). */
   search(query: SearchQuery, pageSize: number): Promise<SearchResponse>;
+  /** Typeahead: set codes and numbers, sets, name prefixes, similar names (VB-79). */
+  suggest(query: SearchSuggestQuery, limit: number): Promise<SearchSuggestResponse>;
   /** Current prices of a print with the display price and condition estimates; null: no print. */
   getPrintPrices(id: string, query: PricesQuery): Promise<PrintPricesResponse | null>;
   /**

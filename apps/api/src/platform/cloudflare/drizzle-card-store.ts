@@ -24,6 +24,7 @@ import type {
   PrintResponse,
   SearchQuery,
   SearchResponse,
+  SearchSuggestResponse,
   SetPageQuery,
   SetPageResponse,
   SetSummary,
@@ -602,6 +603,11 @@ export class DrizzleCardStore implements CardStore {
       pageSize,
       total: count.rows[0]?.total ?? 0,
     };
+  }
+
+  /** Filled in by the next commit (VB-79). */
+  suggest(): Promise<SearchSuggestResponse> {
+    return Promise.resolve({ suggestions: [] });
   }
 
   async importRunning(source: string): Promise<boolean> {
