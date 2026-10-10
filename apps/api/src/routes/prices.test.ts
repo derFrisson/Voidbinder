@@ -504,7 +504,8 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       lang: 'en',
     });
 
-    // The lateral lookups: card page, search hits and set page take the language shown.
+    // The lateral lookups: card page, search hits and set page take the language shown; a hit is
+    // shown in the language that matched (VB-102), here the English name, whatever ?lang=.
     const cardPrice = async (query: string) =>
       CardResponseSchema.parse(
         await (await app.request(`/catalog/cards/${cardId}${query}`)).json(),
@@ -515,7 +516,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       SearchResponseSchema.parse(
         await (await app.request(`/catalog/search?q=adeline&lang=${lang}`)).json(),
       ).prints.find((p) => p.id === id)?.marketPrice;
-    expect(await hit('de')).toMatchObject({ lang: 'de', cents: 900 });
+    expect(await hit('de')).toMatchObject({ lang: 'en', cents: 334 });
     expect(await hit('en')).toMatchObject({ lang: 'en', cents: 334 });
     const setPrice = async (lang: string) =>
       SetPageResponseSchema.parse(
