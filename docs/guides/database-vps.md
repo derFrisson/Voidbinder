@@ -25,21 +25,22 @@ account ID (also in `apps/site/wrangler.jsonc`) and your Worker URL instead.
 
 ## Contents
 
-| Section                                                                                             | Time                      |
-| --------------------------------------------------------------------------------------------------- | ------------------------- |
-| [0. Before you start](#0-before-you-start)                                                          | 20 min                    |
-| [1. Order and prepare](#1-order-and-prepare)                                                        | 10 min, plus OVH delivery |
-| [2. Base system](#2-base-system)                                                                    | 20 min                    |
-| [3. Additional disk](#3-additional-disk)                                                            | 10 min                    |
-| [4. Docker and PostgreSQL](#4-docker-and-postgresql)                                                | 60 min                    |
-| [5. Roles and databases](#5-roles-and-databases)                                                    | 15 min                    |
-| [6. Cloudflare Tunnel, Workers VPC and Hyperdrive](#6-cloudflare-tunnel-workers-vpc-and-hyperdrive) | 30 min                    |
-| [7. Backups with pgBackRest to Backblaze B2](#7-backups-with-pgbackrest-to-backblaze-b2)            | 40 min                    |
-| [8. Operations](#8-operations)                                                                      | 10 min now, then monthly  |
-| [9. Security notes](#9-security-notes)                                                              | 5 min                     |
-| [10. Done](#10-done)                                                                                | 10 min                    |
-| [11. Image mirror](#11-image-mirror)                                                                | 15 min, then 2 to 4 h     |
-| [12. Offline catalog modules](#12-offline-catalog-modules)                                          | 10 min                    |
+| Section                                                                                             | Time                         |
+| --------------------------------------------------------------------------------------------------- | ---------------------------- |
+| [0. Before you start](#0-before-you-start)                                                          | 20 min                       |
+| [1. Order and prepare](#1-order-and-prepare)                                                        | 10 min, plus OVH delivery    |
+| [2. Base system](#2-base-system)                                                                    | 20 min                       |
+| [3. Additional disk](#3-additional-disk)                                                            | 10 min                       |
+| [4. Docker and PostgreSQL](#4-docker-and-postgresql)                                                | 60 min                       |
+| [5. Roles and databases](#5-roles-and-databases)                                                    | 15 min                       |
+| [6. Cloudflare Tunnel, Workers VPC and Hyperdrive](#6-cloudflare-tunnel-workers-vpc-and-hyperdrive) | 30 min                       |
+| [7. Backups with pgBackRest to Backblaze B2](#7-backups-with-pgbackrest-to-backblaze-b2)            | 40 min                       |
+| [8. Operations](#8-operations)                                                                      | 10 min now, then monthly     |
+| [9. Security notes](#9-security-notes)                                                              | 5 min                        |
+| [10. Done](#10-done)                                                                                | 10 min                       |
+| [11. Image mirror](#11-image-mirror)                                                                | 15 min, then 2 to 4 h        |
+| [12. Offline catalog modules](#12-offline-catalog-modules)                                          | 10 min                       |
+| [13. Price history backfill](#13-price-history-backfill)                                            | 10 min, then hours (archive) |
 
 Versions checked on 2026-10-09:
 
@@ -2039,3 +2040,96 @@ during a run, the new one next to it.
 **verify:** `curl -s https://img.voidbinder.de/modules/dev/yugioh/manifest.json` shows the
 version, size and SHA-256; `GET /catalog/modules` on the dev API answers the same manifests;
 `systemctl --user list-timers catalog-modules.timer` shows the next start at 06:30 UTC.
+
+## 13. Price history backfill
+
+`apps/api/scripts/backfill-prices.ts` fills `prices_daily` with TCGplayer's past prices from
+TCGCSV's daily archive (`https://tcgcsv.com/archive/tcgplayer/prices-<YYYY-MM-DD>.ppmd.7z`, from
+2024-02-08), one day at a time: download, unpack the three games, insert the mapped prices,
+delete the files. Details: `apps/api/README.md`, "History backfill". Needs Node 24 and the clone
+from section 11.
+
+**Archive status.** On 2026-10-10 every archive URL answered `403` "The price archive has been
+temporarily removed due to rising server costs" (from the workstation and from this VPS). The
+script stops on that answer. Check before a run:
+`curl -s -o /dev/null -w '%{http_code}\n' https://tcgcsv.com/archive/tcgplayer/prices-2024-02-08.ppmd.7z`
+must print `200`.
+
+**7-Zip.** The archive is 7z with PPMd, which needs the `7z` command (package `7zip`, installed
+on 2026-10-10):
+
+```sh
+sudo apt install -y 7zip && 7z | head -2
+```
+
+**Database role.** The script logs in as `voidbinder_mirror` (section 11; it already reads
+`prices_daily` and `price_mappings` from section 12's grants on `voidbinder_dev`). It also needs
+to insert into `prices_daily`, and nothing else: no `UPDATE`, no `prices_current`. In each
+database once it is migrated (granted on `voidbinder_dev` on 2026-10-10; on `voidbinder` after the
+prod catalog is imported). A grant on the hypertable reaches its chunks, so no per-chunk grant:
+
+```sh
+for db in voidbinder_dev voidbinder; do
+docker exec -i voidbinder-db psql -U postgres -d "$db" -v ON_ERROR_STOP=1 <<'EOF2'
+SET ROLE voidbinder_migrate;
+GRANT SELECT ON price_mappings, prices_daily TO voidbinder_mirror;
+GRANT INSERT ON prices_daily TO voidbinder_mirror;
+EOF2
+done
+```
+
+**Run.** `--db dev|prod` (or `DBS=dev|prod`) takes `PG_MIRROR_URL_DEV` / `PG_MIRROR_URL_PROD`
+from `pg.env`, never the migrate or superuser URL. `--from` / `--to` (default 2024-02-08 to
+yesterday, both included), `--delay-ms` (pause between days, default 2000), `--dry-run` (downloads and maps, writes nothing),
+`--refill` (ignores the progress file and the rows already there, see Rerun).
+**First run: check the archive by hand.** The URL scheme and the folder layout come from TCGCSV's
+FAQ and have not been checked against a real file, and neither has the assumption that
+`prices-<D>` holds day D's ~20:00 UTC build (the daily import's `observedAt` day). With the archive
+reachable, download one day, run `7z l prices-<D>.ppmd.7z | head` and confirm `<D>/<category>/<group>/prices`.
+Then compare with a day the daily import wrote, `--refill` so that day is not skipped:
+`pnpm --filter api backfill-prices $ENV --db dev --from <D> --to <D> --refill --dry-run` logs a
+`sample` of rows; the same print and finish must have the same prices in `prices_daily` for `<D>`.
+If they match the previous day instead, the archive is named for the day after its build. The
+script stops on its own when a day unpacks no group for a game or three days in a row have no
+archive.
+
+A short range first, then the full range in `tmux` or a transient user unit so it survives a
+dropped SSH session:
+
+```sh
+cd ~/voidbinder && git pull --ff-only && pnpm install --filter api
+ENV="--env-file $HOME/.config/voidbinder/pg.env"
+pnpm --filter api backfill-prices $ENV --db dev --from 2026-09-01 --to 2026-09-07 --dry-run
+pnpm --filter api backfill-prices $ENV --db dev --from 2026-09-01 --to 2026-09-07
+systemd-run --user --unit price-backfill-dev --working-directory="$HOME/voidbinder" \
+  -p Environment=PATH="$PATH" pnpm --filter api backfill-prices $ENV --db dev
+journalctl --user -u price-backfill-dev -f
+```
+
+Each day logs `price backfill day` with the rows per game (`groups`, `rows`, `unmapped`,
+`noMarket`) and `inserted`; the end logs `price backfill finished`. `--db prod` only after the
+prod catalog and its first daily TCGCSV import (the mappings come from that import).
+
+**Rerun.** Safe at any time. A day is written in one transaction, so a stopped run leaves it
+whole or absent. A day that has `tcgplayer` rows (the daily import's or an earlier run's) is
+skipped without a download, `ON CONFLICT DO NOTHING` never changes an existing row, and
+`~/.local/state/voidbinder/price-backfill-<db>.json` records every finished day (rows inserted, or
+`missing` for a day without an archive). A day with rows is never fetched again by a plain rerun,
+so to add what is missing (after a mapping fix, or once more sets are imported) run
+`--refill --from X --to Y`: it downloads every day of the range regardless, and
+`ON CONFLICT DO NOTHING` inserts only the missing rows.
+
+**Disk.** One day's archive and its three unpacked games under `~/.cache/voidbinder/price-backfill`,
+deleted after the day; the folder is cleared at every start, so a killed run leaves nothing for long.
+
+**verify:**
+
+```sh
+docker exec voidbinder-db psql -U postgres -d voidbinder_dev -tAc "
+  select observed_at::date, s.game_id, count(*) from prices_daily d
+  join prints p on p.id = d.print_id join sets s on s.id = p.set_id
+  where d.source = 'tcgplayer' and observed_at >= '2026-09-01' group by 1, 2 order by 1, 2"
+```
+
+lists rows per day and game, and `GET /catalog/prints/<id>/prices/history?days=60` on the dev
+API (cache-busted, or after the edge cache is purged) has points for the backfilled days.
