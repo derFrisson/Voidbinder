@@ -96,10 +96,11 @@ keys are declared.
 | `cards`               | `id`                                  | `name` (en), `type_line`, `text`, `attributes` (JSON), `legalities` (JSON)                                                   |
 | `prints`              | `id`                                  | `card_id`, `set_id`, `number`, `variant`, `rarity`, `finishes` (JSON array), `artist`, `image_key`, `released_on`            |
 | `print_localizations` | `id` (local), unique `print_id, lang` | `name`, `text`, `image_key`; `en` and `de` only                                                                              |
-| `prices`              | `print_id, finish, currency`          | `cents`, `source`, `observed_at`                                                                                             |
+| `prices`              | `print_id, finish, currency, lang`    | `cents`, `source`, `observed_at`                                                                                             |
 | `names_fts`           | FTS5 over `print_localizations.name`  | tokenizer `unicode61 remove_diacritics 2`                                                                                    |
 
-`prices` holds one display price per print, finish and currency: the source that currency prefers
+`prices` holds one display price per print, finish, currency and language (`lang`, the language of
+the copies the price is for; schema 2, VB-103): the source that currency prefers
 (`SOURCE_PREFERENCE` in `packages/core/src/prices`: EUR → Cardmarket, USD → TCGplayer, then
 TCGplayer via Scryfall), its market price in integer cents in that source's currency, never
 converted, with the time the source observed it. Indexes: `prints (card_id)`,

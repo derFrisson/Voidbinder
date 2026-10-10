@@ -294,7 +294,8 @@ describe.skipIf(!databaseUrl)('build-catalog-module (Postgres)', () => {
       { key: 'schema_version', value: String(SCHEMA_VERSION) },
       { key: 'version', value: String(version) },
     ]);
-    // One display price per print, finish and currency: Adeline has normal + foil in EUR + USD.
+    // One display price per print, finish, currency and language: Adeline has normal + foil in
+    // EUR + USD, English copies.
     const adeline = search(v1(), 'adeline')[0] as { print_id: string };
     expect(
       (tables.prices as { print_id: string }[]).filter((p) => p.print_id === adeline.print_id),
@@ -302,6 +303,7 @@ describe.skipIf(!databaseUrl)('build-catalog-module (Postgres)', () => {
       expect.objectContaining({
         finish: 'foil',
         currency: 'EUR',
+        lang: 'en',
         cents: 523,
         source: 'cardmarket',
       }),

@@ -42,9 +42,12 @@ import { Pool, type PoolClient } from 'pg';
 import { log } from '../src/middleware/log';
 
 /** Schema of the SQLite file; bump on any change to the tables below. */
-export const SCHEMA_VERSION = 1;
-/** The oldest app reader that can open this schema (raise it only for a breaking change). */
-export const MIN_APP_SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
+/**
+ * The oldest app reader that can open this schema (raise it only for a breaking change). 2: the
+ * prices' key took `lang` (VB-103), a reader of 1 would find several rows per key.
+ */
+export const MIN_APP_SCHEMA_VERSION = 2;
 /** Languages kept in the module. */
 export const LANGS = ['en', 'de'];
 /** Deltas kept in a manifest; an app further behind downloads the whole module. */
@@ -78,8 +81,8 @@ export const TABLES = {
     columns: ['print_id', 'lang', 'name', 'text', 'image_key'],
   },
   prices: {
-    key: ['print_id', 'finish', 'currency'],
-    columns: ['print_id', 'finish', 'currency', 'cents', 'source', 'observed_at'],
+    key: ['print_id', 'finish', 'currency', 'lang'],
+    columns: ['print_id', 'finish', 'currency', 'lang', 'cents', 'source', 'observed_at'],
   },
 } as const;
 type Table = keyof typeof TABLES;
@@ -107,8 +110,9 @@ CREATE TABLE print_localizations (
   text TEXT, image_key TEXT, UNIQUE (print_id, lang)
 );
 CREATE TABLE prices (
-  print_id TEXT NOT NULL, finish TEXT NOT NULL, currency TEXT NOT NULL, cents INTEGER NOT NULL,
-  source TEXT NOT NULL, observed_at TEXT NOT NULL, PRIMARY KEY (print_id, finish, currency)
+  print_id TEXT NOT NULL, finish TEXT NOT NULL, currency TEXT NOT NULL, lang TEXT NOT NULL,
+  cents INTEGER NOT NULL, source TEXT NOT NULL, observed_at TEXT NOT NULL,
+  PRIMARY KEY (print_id, finish, currency, lang)
 ) WITHOUT ROWID;
 CREATE VIRTUAL TABLE names_fts USING fts5 (
   name, content = 'print_localizations', content_rowid = 'id',
@@ -143,14 +147,15 @@ const QUERIES: Record<Exclude<Table, 'meta'>, string> = {
   print_localizations: `select l.print_id::text, l.lang, l.name, l.text, l.image_key
     from print_localizations l join prints p on p.id = l.print_id join sets s on s.id = p.set_id
     where s.game_id = $1 and l.lang = any($2::text[]) order by l.print_id, l.lang collate "C"`,
-  // The display price per print, finish and currency: the source that currency prefers
-  // (SOURCE_PREFERENCE, as in GET /catalog/prints/:id/prices), in its own currency.
-  prices: `select distinct on (pc.print_id, pc.finish, pc.currency)
-      pc.print_id::text, pc.finish, pc.currency, pc.cents_market, pc.source,
+  // The display price per print, finish, currency and language: the source that currency
+  // prefers (SOURCE_PREFERENCE, as in GET /catalog/prints/:id/prices), in its own currency. Every
+  // language a price exists in, so the app picks as the API does (the card's, `en`, any; VB-103).
+  prices: `select distinct on (pc.print_id, pc.finish, pc.currency, pc.lang collate "C")
+      pc.print_id::text, pc.finish, pc.currency, pc.lang, pc.cents_market, pc.source,
       to_char(pc.observed_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
     from prices_current pc join prints p on p.id = pc.print_id join sets s on s.id = p.set_id
     where s.game_id = $1
-    order by pc.print_id, pc.finish, pc.currency,
+    order by pc.print_id, pc.finish, pc.currency, pc.lang collate "C",
       array_position($2::text[], pc.currency || ':' || pc.source), pc.source collate "C"`,
 };
 

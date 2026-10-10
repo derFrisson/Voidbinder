@@ -8,6 +8,7 @@ import {
   cards,
   deckEntries,
   decks,
+  pricesCurrent,
   printLocalizations,
   prints,
   sets,
@@ -411,6 +412,39 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
     // Written again under its id (a retried POST): the log entry goes.
     await newDeck({ id: full.id, game: 'mtg', name: 'Back' });
     expect(await db.select().from(syncDeletions).where(eq(syncDeletions.id, full.id))).toEqual([]);
+  });
+
+  // VB-103: deck lines have no language; the price is the user's language's, else English.
+  it('prices deck lines in the user’s language, else English', async () => {
+    const adeline = await print('mid', '1');
+    await db.insert(pricesCurrent).values({
+      printId: adeline.printId,
+      finish: 'normal',
+      source: 'cardmarket',
+      lang: 'de',
+      currency: 'EUR',
+      centsMarket: 900,
+      observedAt: new Date('2026-10-09T03:00:00.000Z'),
+    });
+    const deck = await newDeck({ game: 'mtg', name: 'Sprachen', format: 'modern' });
+    await ash(`/decks/${deck.id}/entries`, {
+      method: 'PUT',
+      body: { entries: [{ cardId: adeline.cardId, zone: 'main', quantity: 2 }] },
+    });
+    const read = async () => {
+      const d = await detail(ash(`/decks/${deck.id}`));
+      return [d.entries[0]?.price?.lang, d.entries[0]?.price?.unitCents, d.analysis.value.totals];
+    };
+    // Ash reads in German (the profile default).
+    expect(await read()).toEqual(['de', 900, [expect.objectContaining({ cents: 1800 })]]);
+    await ash('/me', { method: 'PATCH', body: { language: 'en' } });
+    expect(await read()).toEqual(['en', 334, [expect.objectContaining({ cents: 668 })]]);
+
+    await ash('/me', { method: 'PATCH', body: { language: 'de' } });
+    await ash(`/decks/${deck.id}`, { method: 'DELETE' });
+    await db
+      .delete(pricesCurrent)
+      .where(and(eq(pricesCurrent.printId, adeline.printId), eq(pricesCurrent.lang, 'de')));
   });
 
   it('shows the prints’ numbers in the user’s language (VB-97)', async () => {

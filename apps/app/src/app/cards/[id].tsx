@@ -98,7 +98,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
           </View>
         )}
       </View>
-      {!wide && print && <PriceStrip printId={print.id} />}
+      {!wide && print && <PriceStrip printId={print.id} lang={browsing} />}
       {print && <CollectButtons wide={wide && !three} printId={print.id} cardId={card.id} />}
     </View>
   );
@@ -124,7 +124,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
   );
   const notice = <RightsNotice game={game} artist={print?.artist} copyright={data.copyright} />;
   const prices = print && (
-    <PricePanel key={print.id} printId={print.id} finishes={print.finishes} />
+    <PricePanel key={print.id} printId={print.id} finishes={print.finishes} lang={browsing} />
   );
   const details = (
     <>
@@ -187,7 +187,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
 export default function CardPage() {
   const t = useT();
   const { id, print } = useLocalSearchParams<{ id: string; print?: string }>();
-  const card = useCard(id);
+  const card = useCard(id, useBrowsingLanguage());
   const view = useView(card.data, print);
   const name = view?.name ?? '';
   const crumbs: Crumb[] =

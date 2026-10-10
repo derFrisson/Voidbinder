@@ -7,6 +7,9 @@ import { priceMappings, prints } from '../../db/schema';
 
 export class MappingConflict extends Error {}
 
+/** ponytail: only TCGplayer (the English market) takes manual mappings; a `lang` param with part 2. */
+const LANG = 'en';
+
 /**
  * An admin's mapping (`method` manual, confidence 100), which the importers never overwrite.
  * null when the print does not exist; MappingConflict when another print holds that external id
@@ -33,6 +36,7 @@ export async function setManualMapping(
           eq(priceMappings.source, m.source),
           eq(priceMappings.externalId, m.externalId),
           eq(priceMappings.finish, m.finish),
+          eq(priceMappings.lang, LANG),
           ne(priceMappings.printId, m.printId),
         ),
       );
@@ -48,10 +52,12 @@ export async function setManualMapping(
             eq(priceMappings.printId, other.printId),
             eq(priceMappings.source, m.source),
             eq(priceMappings.finish, m.finish),
+            eq(priceMappings.lang, LANG),
           ),
         );
     const values = {
       ...m,
+      lang: LANG,
       note: m.note ?? null,
       confidence: 100,
       method: 'manual',
@@ -61,7 +67,12 @@ export async function setManualMapping(
       .insert(priceMappings)
       .values(values)
       .onConflictDoUpdate({
-        target: [priceMappings.printId, priceMappings.source, priceMappings.finish],
+        target: [
+          priceMappings.printId,
+          priceMappings.source,
+          priceMappings.finish,
+          priceMappings.lang,
+        ],
         set: { ...values, updatedAt: sql`now()` },
       })
       .returning();

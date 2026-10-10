@@ -18,6 +18,7 @@ import {
   binders,
   cards,
   collectionEntries,
+  pricesCurrent,
   prints,
   sets,
   syncDeletions,
@@ -465,6 +466,47 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
     for (const w of wishes) await ash(`/wishlist/${w.id}`, { method: 'DELETE' });
     await ash(`/binders/${binder.id}`, { method: 'DELETE' });
+  });
+
+  // VB-103: a German and an English price of the same print and finish.
+  it('prices each copy in its language, else English, and sums them so', async () => {
+    const adeline = await printId('mid', '1');
+    await db.insert(pricesCurrent).values({
+      printId: adeline,
+      finish: 'normal',
+      source: 'cardmarket',
+      lang: 'de',
+      currency: 'EUR',
+      centsMarket: 900,
+      observedAt: new Date('2026-10-09T03:00:00.000Z'),
+    });
+    const { entries } = CreateEntriesResponseSchema.parse(
+      await json(
+        ash('/entries', {
+          body: [
+            { printId: adeline, language: 'de' },
+            { printId: adeline, language: 'en' },
+            { printId: adeline, language: 'fr' },
+          ],
+        }),
+      ),
+    );
+    expect(entries.map((e) => [e.language, e.price?.lang, e.price?.unitCents])).toEqual([
+      ['de', 'de', 900],
+      ['en', 'en', 334],
+      ['fr', 'en', 334],
+    ]);
+    const listed = EntriesResponseSchema.parse(await json(ash('/entries?lang=de'))).entries;
+    expect(listed.map((e) => e.price?.lang)).toEqual(['de']);
+    const summary = CollectionSummarySchema.parse(await json(ash('/summary')));
+    expect(summary.collection.totals).toEqual([
+      expect.objectContaining({ source: 'cardmarket', cents: 900 + 334 + 334 }),
+    ]);
+
+    for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
+    await db
+      .delete(pricesCurrent)
+      .where(and(eq(pricesCurrent.printId, adeline), eq(pricesCurrent.lang, 'de')));
   });
 
   it('exports more entries than one screen holds, one line each', async () => {

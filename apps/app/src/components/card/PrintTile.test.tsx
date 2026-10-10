@@ -30,6 +30,7 @@ describe('PrintTile', () => {
         hit={hit({
           source: 'tcgplayer',
           finish: 'normal',
+          lang: 'en',
           currency: 'USD',
           cents: 402,
           observedAt: '2026-10-09T20:05:19.000Z',
@@ -38,6 +39,23 @@ describe('PrintTile', () => {
     );
     expect(screen.getByText(/4,02/)).toBeTruthy();
     expect(screen.getByText('TCGplayer, Stand 09.10.2026')).toBeTruthy();
+  });
+
+  it('marks a price for copies in another language than the hit shows, only then (VB-103)', () => {
+    const price = {
+      source: 'cardmarket' as const,
+      finish: 'normal',
+      lang: 'en',
+      currency: 'EUR' as const,
+      cents: 334,
+      observedAt: '2026-10-10T03:00:00.000Z',
+    };
+    const { unmount } = renderApp(<PrintTile hit={hit(price)} />);
+    expect(screen.getByLabelText('Preis für EN-Karten').textContent).toBe('EN');
+    unmount();
+    renderApp(<PrintTile hit={hit({ ...price, lang: 'de' })} />);
+    expect(screen.queryByLabelText(/Preis für/)).toBeNull();
+    expect(screen.queryByText('DE')).toBeNull();
   });
 
   it('shows no number for a print without a price', () => {

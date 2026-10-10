@@ -153,6 +153,46 @@ describe('card page', () => {
     expect(screen.queryByText('Für diesen Druck gibt es noch keine Preise.')).toBeNull();
   });
 
+  it('prices the card in the language of ?lang=, marking a price of another (VB-103)', async () => {
+    const id = card.prints[0]?.id ?? '';
+    /** The API's answer when the print has prices in `langs`: the asked-for one, else the first. */
+    const answer = (langs: string[]) =>
+      fakeApi(
+        (c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined),
+        (c) => {
+          if (!c.path.startsWith(`/catalog/prints/${id}/prices?`)) return undefined;
+          const asked = new URLSearchParams(c.path.split('?')[1]).get('lang') ?? 'en';
+          const lang = langs.includes(asked) ? asked : langs[0];
+          return json({
+            ...printPrices,
+            printId: id,
+            prices: printPrices.prices.map((p) => ({ ...p, lang })),
+          });
+        },
+      );
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, lang: 'en' });
+
+    // An EN price exists: it shows, unmarked, though the profile is German.
+    const calls = answer(['de', 'en']);
+    const english = renderApp(<CardPage />);
+    expect(await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/)).toBeTruthy();
+    expect(screen.queryByLabelText(/Preis für/)).toBeNull();
+    // English is the API's default: not sent, where the profile's German would be.
+    expect(calls.map((c) => c.path)).toContain(`/catalog/cards/${CARD}`);
+    expect(
+      calls.some(
+        (c) => c.path.startsWith(`/catalog/prints/${id}/prices?`) && c.path.includes('lang=en'),
+      ),
+    ).toBe(true);
+    english.unmount();
+
+    // Only a German one: it shows with its chip.
+    answer(['de']);
+    renderApp(<CardPage />);
+    expect(await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/)).toBeTruthy();
+    expect(screen.getAllByLabelText('Preis für DE-Karten').length).toBeGreaterThan(0);
+  });
+
   it("fills the prints table's price column from each print's market price, with source and day", async () => {
     const priced = {
       ...card,
@@ -186,7 +226,7 @@ describe('card page', () => {
     renderApp(<CardPage />);
     await screen.findByText('Wachsamkeit');
     expect(calls.filter((c) => c.path.startsWith('/catalog/cards/')).map((c) => c.path)).toEqual([
-      `/catalog/cards/${CARD}?currency=USD`,
+      `/catalog/cards/${CARD}?currency=USD&lang=de`,
     ]);
   });
 

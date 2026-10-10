@@ -50,12 +50,12 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | `GET /catalog/games`                                                   | Games with their set counts                                                            |
 | `GET /catalog/games/:game/sets?lang=`                                  | Sets, newest first, with the name in `lang`                                            |
 | `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`      | Set header and 60 prints per page (`sort`: number, name, rarity, price)                |
-| `GET /catalog/cards/:id?currency=`                                     | Card, legalities and every print with localizations and `marketPrice`                  |
+| `GET /catalog/cards/:id?currency=&lang=`                               | Card, legalities and every print with localizations and `marketPrice`                  |
 | `GET /catalog/prints/:id`                                              | One print with its card                                                                |
 | `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` | 30 prints per page by name, text, set code and number (see Search)                     |
 | `GET /catalog/search/suggest?q=&game=&lang=&names=`                    | Up to 8 prints and sets for the search box's typeahead (see Search)                    |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                     | Current prices, display price, condition estimates (see Prices)                        |
-| `GET /catalog/prints/:id/prices/history?days=`                         | Daily market prices per source and finish (see Prices)                                 |
+| `GET /catalog/prints/:id/prices?currency=&finish=&lang=`               | Current prices, display price, condition estimates (see Prices)                        |
+| `GET /catalog/prints/:id/prices/history?days=&lang=`                   | Daily market prices per source and finish (see Prices)                                 |
 | `GET /catalog/modules`                                                 | Manifests of the offline catalog modules, one per game (see Offline catalog modules)   |
 | `GET /catalog/banlist/yugioh?format=&lang=`                            | Yu-Gi-Oh! ban list (`format` `tcg`, `ocg`): groups, 90 days of changes (see Ban lists) |
 
@@ -646,9 +646,13 @@ access, and neither site is ever scraped; the prices come from two republishers.
 | `tcgplayer_scryfall`     | Scryfall `default_cards` (`prices.usd*`), Magic only  | USD      | with the Scryfall import |
 
 **Tables** (`src/db/schema/prices.ts`, `drizzle/0004_prices.sql`): `prices_current` holds the
-latest price per print, finish and source (market, low, mid, high; an older observation never
-replaces a newer one); `prices_daily` one row per print, finish, source and UTC day (market, low,
-high). Where the `timescaledb` extension is installed (the VPS), the migration turns `prices_daily`
+latest price per print, finish, source and language (market, low, mid, high; an older observation
+never replaces a newer one); `prices_daily` one row per print, finish, source, language and UTC
+day (market, low, high). `lang` (VB-103, `drizzle/0013_price_lang.sql`, also in the keys of
+`price_mappings`) is the language of the copies the price is for, since a German copy sells for
+something else than an English one: TCGCSV writes `en`, Scryfall the language of its
+`default_cards` object (a Japanese-only print: `ja`) and drops that print's rows of the same
+source and finish in another language. Where the `timescaledb` extension is installed (the VPS), the migration turns `prices_daily`
 into a hypertable with monthly chunks compressed after 30 days; plain PostgreSQL (CI, Docker)
 skips that and logs a notice. `condition_multipliers` holds the share of the near-mint price per
 condition and game (NM 1.0, EX 0.85, GD 0.7, LP 0.6, PL 0.45, PO 0.3): estimates, labelled as
@@ -712,19 +716,24 @@ It answers the mapping (200), 404 for an unknown print and 409 when another prin
 product and finish manually; an automatic holder gives it up.
 
 **Read API** (`src/routes/prices.ts`, cached pool and `ETag` like the catalog, ADR 0004).
-`GET /catalog/prints/:id/prices?currency=EUR|USD&finish=` answers every current price with its
-source label and `observedAt`, the `display` price (finish first: `finish`, `normal`, the print's
-finishes; then the source the currency prefers, EUR → Cardmarket, USD → TCGplayer; in that
-source's currency) and the condition estimates of the display price.
-`GET /catalog/prints/:id/prices/history?days=90` (1 to 3650) answers the market price per source
-and finish, one point per day for the last 180 days and the last day of each ISO week before
+`GET /catalog/prints/:id/prices?currency=EUR|USD&finish=&lang=` answers the current prices with
+their source label and `observedAt`, per source and finish the one in `lang` (the language of the
+card shown, default `en`), else `en`, else another, each with its `lang`; the `display` price
+(finish first: `finish`, `normal`, the print's finishes; then the language, `lang`, `en`, any;
+then the source the currency prefers, EUR → Cardmarket, USD → TCGplayer; in that source's
+currency) and the condition estimates of the display price.
+`GET /catalog/prints/:id/prices/history?days=90&lang=` (1 to 3650) answers the market price per
+source and finish, per day in `lang` (else `en`, else another; `lang` on each point), one point per
+day for the last 180 days and the last day of each ISO week before
 that. The day comes from the Worker, never `now()` in SQL, so Hyperdrive can cache the query.
 `GET /catalog/sets/:game/:code?currency=`, `GET /catalog/search?currency=` and
-`GET /catalog/cards/:id?currency=` (every print of the card) carry each print's `marketPrice` with
-its `observedAt`: the `normal` finish (the first finish when there is none, then the print's other
-finishes), then a finish the print does not list but has a price row for (Yu-Gi-Oh!: TCGplayer
-prices per edition, `first_edition`, while the print says `normal`), preferred source first; null
-only without any price row. The display price, condition
+`GET /catalog/cards/:id?currency=&lang=` (every print of the card) carry each print's
+`marketPrice` with its `observedAt` and `lang`: the `normal` finish (the first finish when there is
+none, then the print's other finishes), then a finish the print does not list but has a price row
+for (Yu-Gi-Oh!: TCGplayer prices per edition, `first_edition`, while the print says `normal`), the
+price in `?lang=`, then `en`, then any, preferred source first; null only without any price row.
+The collection prices each copy in its `language`, a deck line in the user's language; one rule
+everywhere (core's `pickDisplayPrice` and the SQL `langRank` in `drizzle-card-store.ts`). The display price, condition
 estimates, collection value and the history thinning are in `packages/core/src/prices`.
 
 **History backfill** (VB-63, `scripts/backfill-prices.ts`, logic in

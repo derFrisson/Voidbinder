@@ -4,14 +4,36 @@ import { conditionFactor, inBudget, MINT_FACTOR, priceEntry, valueBy, valueOf } 
 
 const at = '2026-10-09T03:00:00.000Z';
 const prices = [
-  { source: 'cardmarket', finish: 'normal', currency: 'EUR', market: 320, observedAt: at },
-  { source: 'cardmarket', finish: 'holo', currency: 'EUR', market: 900, observedAt: at },
-  { source: 'tcgplayer', finish: 'normal', currency: 'USD', market: 350, observedAt: at },
+  {
+    source: 'cardmarket',
+    finish: 'normal',
+    lang: 'en',
+    currency: 'EUR',
+    market: 320,
+    observedAt: at,
+  },
+  {
+    source: 'cardmarket',
+    finish: 'holo',
+    lang: 'en',
+    currency: 'EUR',
+    market: 900,
+    observedAt: at,
+  },
+  {
+    source: 'tcgplayer',
+    finish: 'normal',
+    lang: 'en',
+    currency: 'USD',
+    market: 350,
+    observedAt: at,
+  },
 ] as const;
 
 const price = (unitCents: number, extra: Partial<EntryPrice> = {}): EntryPrice => ({
   source: 'cardmarket',
   finish: 'normal',
+  lang: 'en',
   currency: 'EUR',
   marketCents: unitCents,
   factor: 1,
@@ -32,9 +54,12 @@ describe('conditionFactor', () => {
 
 describe('priceEntry', () => {
   it('prices the entry’s finish from the preferred source, times the condition factor', () => {
-    expect(priceEntry(prices, { currency: 'EUR', finish: 'holo', condition: 'EX' })).toEqual({
+    expect(
+      priceEntry(prices, { currency: 'EUR', lang: 'en', finish: 'holo', condition: 'EX' }),
+    ).toEqual({
       source: 'cardmarket',
       finish: 'holo',
+      lang: 'en',
       currency: 'EUR',
       marketCents: 900,
       factor: 0.85,
@@ -46,18 +71,42 @@ describe('priceEntry', () => {
   it('takes the observation date from the price it picked, matched by currency too', () => {
     const old = '2026-10-01T03:00:00.000Z';
     const rows = [
-      { source: 'tcgplayer', finish: 'normal', currency: 'EUR', market: 300, observedAt: old },
-      { source: 'tcgplayer', finish: 'normal', currency: 'USD', market: 350, observedAt: at },
+      {
+        source: 'tcgplayer',
+        finish: 'normal',
+        lang: 'en',
+        currency: 'EUR',
+        market: 300,
+        observedAt: old,
+      },
+      {
+        source: 'tcgplayer',
+        finish: 'normal',
+        lang: 'en',
+        currency: 'USD',
+        market: 350,
+        observedAt: at,
+      },
     ] as const;
-    const picked = priceEntry(rows, { currency: 'USD', condition: 'NM' });
+    const picked = priceEntry(rows, { currency: 'USD', lang: 'en', condition: 'NM' });
     expect(picked?.observedAt).toBe(rows.find((r) => r.currency === picked?.currency)?.observedAt);
+  });
+
+  it('prices a copy in its language, else English', () => {
+    const de = { ...prices[0], lang: 'de', market: 480 };
+    expect(
+      priceEntry([...prices, de], { currency: 'EUR', lang: 'de', condition: 'NM' }),
+    ).toMatchObject({ lang: 'de', marketCents: 480 });
+    expect(
+      priceEntry([...prices, de], { currency: 'EUR', lang: 'fr', condition: 'NM' }),
+    ).toMatchObject({ lang: 'en', marketCents: 320 });
   });
 
   it('falls back to normal for a finish without a price, and answers null without prices', () => {
     expect(
-      priceEntry(prices, { currency: 'USD', finish: 'reverse', condition: 'NM' }),
+      priceEntry(prices, { currency: 'USD', lang: 'en', finish: 'reverse', condition: 'NM' }),
     ).toMatchObject({ source: 'tcgplayer', finish: 'normal', unitCents: 350 });
-    expect(priceEntry([], { currency: 'EUR', condition: 'NM' })).toBeNull();
+    expect(priceEntry([], { currency: 'EUR', lang: 'en', condition: 'NM' })).toBeNull();
   });
 });
 

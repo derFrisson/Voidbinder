@@ -38,13 +38,15 @@ export function conditionFactor(
 /**
  * The price of one copy: the display price of the entry's finish (core's `pickDisplayPrice`:
  * the entry's finish, then the print's listed finish, its other finishes, then unlisted finishes
- * alphabetically; the currency's preferred source) times the
+ * alphabetically; the copy's language, then `en`, then any; the currency's preferred source) times the
  * condition factor. null when the print has no price.
  */
 export function priceEntry(
   prices: readonly (PriceLike & { observedAt: string })[],
   opts: {
     currency: Currency;
+    /** The language of the copy: its price first, then `en`, then any (VB-103). */
+    lang: string;
     finish?: string | null | undefined;
     finishes?: readonly string[];
     condition: CollectionCondition;
@@ -53,26 +55,21 @@ export function priceEntry(
 ): EntryPrice | null {
   const display = pickDisplayPrice(prices, {
     currency: opts.currency,
+    lang: opts.lang,
     finish: opts.finish ?? undefined,
     finishes: opts.finishes ?? [],
   });
   if (!display) return null;
-  const observedAt =
-    prices.find(
-      (p) =>
-        p.source === display.source &&
-        p.finish === display.finish &&
-        p.currency === display.currency,
-    )?.observedAt ?? '';
   const factor = conditionFactor(opts.condition, opts.factors);
   return {
     source: display.source,
     finish: display.finish,
+    lang: display.lang,
     currency: display.currency,
     marketCents: display.cents,
     factor,
     unitCents: conditionEstimate(display.cents, factor),
-    observedAt,
+    observedAt: display.observedAt,
   };
 }
 

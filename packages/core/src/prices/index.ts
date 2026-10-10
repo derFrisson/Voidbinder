@@ -1,10 +1,4 @@
-import type {
-  Condition,
-  Currency,
-  DisplayPrice,
-  PricePoint,
-  PriceSource,
-} from '@voidbinder/shared/api';
+import type { Condition, Currency, DisplayPrice, PriceSource } from '@voidbinder/shared/api';
 
 // Price domain logic (VB-30), free of any platform: which price to show, condition estimates,
 // the value of a collection and the history the chart draws. Formatting is the app's job.
@@ -18,20 +12,37 @@ export const SOURCE_PREFERENCE: Record<Currency, readonly PriceSource[]> = {
 export interface PriceLike {
   source: PriceSource;
   finish: string;
+  /** The language of the copies the price is for (VB-103). */
+  lang: string;
   currency: Currency;
   market: number;
   observedAt: string;
 }
 
 /**
- * The price to show: the finish first, then within it the source the currency prefers. Finish
- * order, the same as the API's SQL `finishRank`: `finish` if asked, the listed finish (`normal`
- * if the print lists it, else its first), the print's other finishes in order, then finishes it
- * does not list, alphabetically. No conversion: the result keeps its source's currency.
+ * How well a price's language serves a card shown in `wanted` (smallest first): that language,
+ * then English, then any other. The API's SQL `langRank` is the same.
+ */
+export const langRank = (lang: string, wanted: string): number =>
+  lang === wanted ? 0 : lang === 'en' ? 1 : 2;
+
+/**
+ * The price to show: the finish first, then within it the language (`langRank`: the language of
+ * the card shown, then `en`, then any), then the source the currency prefers, then the language
+ * code. Finish order, the same as the API's SQL `finishRank`: `finish` if asked, the listed
+ * finish (`normal` if the print lists it, else its first), the print's other finishes in order,
+ * then finishes it does not list, alphabetically. A German copy is worth something else than an
+ * English one, so the language outranks the currency's source. No conversion: the result keeps
+ * its source's currency, and `lang` says which copies it is for.
  */
 export function pickDisplayPrice(
   prices: readonly PriceLike[],
-  opts: { currency: Currency; finish?: string | undefined; finishes?: readonly string[] },
+  opts: {
+    currency: Currency;
+    lang: string;
+    finish?: string | undefined;
+    finishes?: readonly string[];
+  },
 ): DisplayPrice | null {
   // ponytail: a caller without the print's finishes (collection value) assumes it lists normal.
   const finishes = opts.finishes?.length ? opts.finishes : ['normal'];
@@ -43,11 +54,17 @@ export function pickDisplayPrice(
   const order = SOURCE_PREFERENCE[opts.currency];
   const best = prices
     .filter((p) => p.finish === finish)
-    .sort((a, b) => order.indexOf(a.source) - order.indexOf(b.source))[0];
+    .sort(
+      (a, b) =>
+        langRank(a.lang, opts.lang) - langRank(b.lang, opts.lang) ||
+        order.indexOf(a.source) - order.indexOf(b.source) ||
+        (a.lang < b.lang ? -1 : a.lang > b.lang ? 1 : 0),
+    )[0];
   return best
     ? {
         source: best.source,
         finish: best.finish,
+        lang: best.lang,
         currency: best.currency,
         cents: best.market,
         observedAt: best.observedAt,
@@ -92,13 +109,13 @@ const dayNumber = (date: string) => Date.parse(`${date}T00:00:00Z`) / DAY_MS;
  * Daily points (oldest first, at most one per day) for the chart: kept daily for the last
  * `dailyDays` days before `today`, older ones thinned to the last point of each ISO week.
  */
-export function downsampleHistory(
-  points: readonly PricePoint[],
+export function downsampleHistory<T extends { date: string }>(
+  points: readonly T[],
   today: string,
   dailyDays = 180,
-): PricePoint[] {
+): T[] {
   const cutoff = dayNumber(today) - dailyDays;
-  const out: PricePoint[] = [];
+  const out: T[] = [];
   let week: number | undefined;
   for (const p of points) {
     const day = dayNumber(p.date);

@@ -10,7 +10,7 @@ import type {
 } from '@voidbinder/shared/api';
 import { DECK_FORMATS } from '@voidbinder/shared/api';
 import { priceEntry, valueOf, type ValuedItem } from '../collection/value.js';
-import { SOURCE_PREFERENCE, type PriceLike } from '../prices/index.js';
+import { langRank, SOURCE_PREFERENCE, type PriceLike } from '../prices/index.js';
 import { zoneCounts, type Curve, type DeckCard, type DeckStat, type GameRules } from './common.js';
 import { magic } from './magic.js';
 import { pokemon } from './pokemon.js';
@@ -68,22 +68,23 @@ export interface PrintPrices {
 
 /**
  * The price a card is bought at: of all its prints, the near-mint display price (core's
- * `pickDisplayPrice`) from the source the currency prefers most that any print has, the
- * cheapest there. null when no print has a price.
+ * `pickDisplayPrice` in `lang`) in the best language any print has (`langRank`), then from the
+ * source the currency prefers most, the cheapest there. null when no print has a price.
  */
 export function cheapestPrice(
   prints: readonly PrintPrices[],
   currency: Currency,
+  lang: string,
 ): { printId: string; price: EntryPrice } | null {
   const order = SOURCE_PREFERENCE[currency];
+  const compare = (a: EntryPrice, b: EntryPrice) =>
+    langRank(a.lang, lang) - langRank(b.lang, lang) ||
+    order.indexOf(a.source) - order.indexOf(b.source) ||
+    a.unitCents - b.unitCents;
   let best: { printId: string; price: EntryPrice } | null = null;
   for (const p of prints) {
-    const price = priceEntry(p.prices, { currency, finishes: p.finishes, condition: 'NM' });
-    if (!price) continue;
-    const rank = order.indexOf(price.source);
-    const bestRank = best ? order.indexOf(best.price.source) : Infinity;
-    if (!best || rank < bestRank || (rank === bestRank && price.unitCents < best.price.unitCents))
-      best = { printId: p.printId, price };
+    const price = priceEntry(p.prices, { currency, lang, finishes: p.finishes, condition: 'NM' });
+    if (price && (!best || compare(price, best.price) < 0)) best = { printId: p.printId, price };
   }
   return best;
 }

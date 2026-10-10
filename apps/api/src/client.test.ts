@@ -29,11 +29,11 @@ describe('createApiClient', () => {
     const body = await res.json();
     expectTypeOf(body).toEqualTypeOf<GamesResponse>();
     expect(body.games).toEqual(games);
-    expectTypeOf(client.catalog.cards[':id'].$get)
-      .parameter(0)
-      .toEqualTypeOf<
-        { param: { id: string } } & { query: { currency?: 'EUR' | 'USD' | undefined } }
-      >();
+    expectTypeOf(client.catalog.cards[':id'].$get).parameter(0).toEqualTypeOf<
+      { param: { id: string } } & {
+        query: { currency?: 'EUR' | 'USD' | undefined; lang?: string | undefined };
+      }
+    >();
   });
 
   it('types the search suggestions', async () => {

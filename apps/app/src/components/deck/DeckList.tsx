@@ -6,6 +6,7 @@ import { BanBadge, statusFromLimit } from '../banlist/BanBadge';
 import { IconButton } from '../collection/Controls';
 import { Thumb } from '../collection/Entries';
 import { money } from '../collection/format';
+import { PriceLang } from '../card/PriceLang';
 import { Icon } from '../Icon';
 import { usePalette } from '../palette';
 import { useWide } from '../Shell';
@@ -102,10 +103,14 @@ function Row({
     game: deck.game,
     cardFormat: entry.print?.cardFormat ?? 'standard',
   } as const;
+  // Deck lines have no language: the price is the user's language's, else `en` (VB-103).
   const price = entry.price ? (
-    <Text className="w-[84px] text-right font-mono text-[13px] font-semibold text-ink">
-      {money(entry.price.unitCents * entry.quantity, entry.price.currency, locale)}
-    </Text>
+    <View className="w-[84px] flex-row items-center justify-end gap-1">
+      <PriceLang lang={entry.price.lang} shown={locale} />
+      <Text className="font-mono text-[13px] font-semibold text-ink">
+        {money(entry.price.unitCents * entry.quantity, entry.price.currency, locale)}
+      </Text>
+    </View>
   ) : (
     <Text className="w-[84px] text-right font-body text-[12px] text-ink-3">{t.decks.noPrice}</Text>
   );

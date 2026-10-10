@@ -10,11 +10,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   cards,
   conditionMultipliers,
+  priceMappings,
   pricesCurrent,
   pricesDaily,
   prints,
   sets,
 } from '../db/schema';
+import { writeScryfallPrices } from '../import/prices/scryfall';
+import { upsertMappings, writePrices } from '../import/prices/write';
 import { runScryfallImport, type ImportDeps } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -69,6 +72,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       source: 'cardmarket',
       sourceLabel: 'Cardmarket (via Scryfall)',
       finish: 'foil',
+      lang: 'en',
       currency: 'EUR',
       market: 523,
       low: null,
@@ -80,6 +84,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(body.display).toEqual({
       source: 'cardmarket',
       finish: 'normal',
+      lang: 'en',
       currency: 'EUR',
       cents: 334,
       observedAt: '2026-10-09T03:00:00.000Z',
@@ -102,6 +107,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(usd.display).toEqual({
       source: 'tcgplayer_scryfall',
       finish: 'foil',
+      lang: 'en',
       currency: 'USD',
       cents: 433,
       observedAt: '2026-10-09T03:00:00.000Z',
@@ -161,6 +167,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(eur.prints[0]?.marketPrice).toEqual({
       source: 'cardmarket',
       finish: 'normal',
+      lang: 'en',
       currency: 'EUR',
       cents: 334,
       observedAt: '2026-10-09T03:00:00.000Z',
@@ -209,6 +216,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(eur?.marketPrice).toEqual({
       source: 'cardmarket',
       finish: 'normal',
+      lang: 'en',
       currency: 'EUR',
       cents: 334,
       observedAt: '2026-10-09T03:00:00.000Z',
@@ -231,6 +239,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect((await read())[0]?.marketPrice).toEqual({
       source: 'cardmarket',
       finish: 'normal',
+      lang: 'en',
       currency: 'EUR',
       cents: 334,
       observedAt: '2026-10-09T03:00:00.000Z',
@@ -273,6 +282,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     const price = {
       source: 'tcgplayer',
       finish: 'first_edition',
+      lang: 'en',
       currency: 'USD',
       cents: 23,
       observedAt: '2026-10-09T20:05:19.000Z',
@@ -405,6 +415,174 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     } finally {
       await db.insert(conditionMultipliers).values(removed);
     }
+  });
+
+  // VB-103: a German copy's price next to the English one, same print and finish.
+  it('writes and reads prices per card language: the language shown, else en, else any', async () => {
+    const id = await printId('mid', '1');
+    const [row] = await db.select({ cardId: prints.cardId }).from(prints).where(eq(prints.id, id));
+    const cardId = row?.cardId ?? '';
+    const observedAt = '2026-10-09T03:00:00.000Z';
+    // A German copy's price (a source that prices several languages of one print).
+    const german = { printId: id, source: 'cardmarket', finish: 'normal', lang: 'de' };
+    await upsertMappings(db, [
+      { ...german, externalId: '999', method: 'scryfall_id', confidence: 100 },
+    ]);
+    await writePrices(db, [{ ...german, currency: 'EUR', market: 900 }], observedAt);
+    const byLang = async (table: typeof pricesCurrent | typeof pricesDaily) =>
+      (
+        await db
+          .select({ lang: table.lang, cents: table.centsMarket })
+          .from(table)
+          .where(
+            and(eq(table.printId, id), eq(table.source, 'cardmarket'), eq(table.finish, 'normal')),
+          )
+          .orderBy(table.lang)
+      ).map((r) => [r.lang, r.cents]);
+    expect(await byLang(pricesCurrent)).toEqual([
+      ['de', 900],
+      ['en', 334],
+    ]);
+    expect(await byLang(pricesDaily)).toEqual([
+      ['de', 900],
+      ['en', 334],
+    ]);
+    const mapping = await db
+      .select({ lang: priceMappings.lang, externalId: priceMappings.externalId })
+      .from(priceMappings)
+      .where(and(eq(priceMappings.printId, id), eq(priceMappings.lang, 'de')));
+    expect(mapping).toEqual([{ lang: 'de', externalId: '999' }]);
+
+    const prices = async (query: string) =>
+      PrintPricesResponseSchema.parse(
+        await (await app.request(`/catalog/prints/${id}/prices${query}`)).json(),
+      );
+    const de = await prices('?lang=de');
+    expect(de.display).toMatchObject({ source: 'cardmarket', lang: 'de', cents: 900 });
+    // One price per source and finish: German where there is one, English otherwise.
+    expect(de.prices.map((p) => [p.source, p.finish, p.lang, p.market])).toEqual([
+      ['cardmarket', 'foil', 'en', 523],
+      ['cardmarket', 'normal', 'de', 900],
+      ['tcgplayer_scryfall', 'foil', 'en', 433],
+      ['tcgplayer_scryfall', 'normal', 'en', 402],
+    ]);
+    expect(de.conditions[0]).toMatchObject({ condition: 'NM', cents: 900 });
+    expect((await prices('')).display).toMatchObject({ lang: 'en', cents: 334 });
+    expect((await prices('?lang=fr')).display).toMatchObject({ lang: 'en', cents: 334 });
+    // A German price outranks the USD user's source in English.
+    expect((await prices('?lang=de&currency=USD')).display).toMatchObject({ lang: 'de' });
+    expect((await app.request(`/catalog/prints/${id}/prices?lang=DE!`)).status).toBe(400);
+
+    // History: per day the German point where there is one, English before.
+    const today = new Date().toISOString().slice(0, 10);
+    const day = (n: number) => new Date(Date.parse(`${today}T00:00:00Z`) - n * 86_400_000);
+    const daily = (n: number, lang: string, centsMarket: number) => ({
+      observedAt: day(n),
+      printId: id,
+      finish: 'normal',
+      source: 'cardmarket',
+      lang,
+      currency: 'EUR',
+      centsMarket,
+    });
+    await db
+      .insert(pricesDaily)
+      .values([daily(20, 'en', 300), daily(19, 'en', 310), daily(19, 'de', 800)])
+      .onConflictDoNothing();
+    const history = async (lang: string) =>
+      PriceHistoryResponseSchema.parse(
+        await (await app.request(`/catalog/prints/${id}/prices/history?lang=${lang}`)).json(),
+      ).series.find((s) => s.source === 'cardmarket' && s.finish === 'normal')?.points ?? [];
+    const iso = (n: number) => day(n).toISOString().slice(0, 10);
+    expect((await history('de')).filter((p) => [iso(20), iso(19)].includes(p.date))).toEqual([
+      { date: iso(20), cents: 300, lang: 'en' },
+      { date: iso(19), cents: 800, lang: 'de' },
+    ]);
+    expect((await history('en')).find((p) => p.date === iso(19))).toEqual({
+      date: iso(19),
+      cents: 310,
+      lang: 'en',
+    });
+
+    // The lateral lookups: card page, search hits and set page take the language shown; a hit is
+    // shown in the language that matched (VB-102), here the English name, whatever ?lang=.
+    const cardPrice = async (query: string) =>
+      CardResponseSchema.parse(
+        await (await app.request(`/catalog/cards/${cardId}${query}`)).json(),
+      ).prints.find((p) => p.id === id)?.marketPrice;
+    expect(await cardPrice('?lang=de')).toMatchObject({ lang: 'de', cents: 900 });
+    expect(await cardPrice('')).toMatchObject({ lang: 'en', cents: 334 });
+    const hit = async (lang: string) =>
+      SearchResponseSchema.parse(
+        await (await app.request(`/catalog/search?q=adeline&lang=${lang}`)).json(),
+      ).prints.find((p) => p.id === id)?.marketPrice;
+    expect(await hit('de')).toMatchObject({ lang: 'en', cents: 334 });
+    expect(await hit('en')).toMatchObject({ lang: 'en', cents: 334 });
+    const setPrice = async (lang: string) =>
+      SetPageResponseSchema.parse(
+        await (await app.request(`/catalog/sets/mtg/mid?lang=${lang}`)).json(),
+      ).prints.find((p) => p.id === id)?.marketPrice;
+    expect(await setPrice('de')).toMatchObject({ lang: 'de', cents: 900 });
+    expect(await setPrice('en')).toMatchObject({ lang: 'en', cents: 334 });
+
+    // Neither the language nor English: any other (a Japanese-only price).
+    await db
+      .update(pricesCurrent)
+      .set({ lang: 'ja' })
+      .where(and(eq(pricesCurrent.printId, id), eq(pricesCurrent.lang, 'en')));
+    expect((await prices('?lang=fr')).display).toMatchObject({ lang: 'de' });
+    expect(await cardPrice('?lang=fr')).toMatchObject({ lang: 'de' });
+
+    await db
+      .update(pricesCurrent)
+      .set({ lang: 'en' })
+      .where(and(eq(pricesCurrent.printId, id), eq(pricesCurrent.lang, 'ja')));
+    for (const table of [pricesCurrent, pricesDaily, priceMappings])
+      await db.delete(table).where(and(eq(table.printId, id), eq(table.lang, 'de')));
+  });
+
+  // VB-103 review: a Japanese-only print kept its pre-migration `en` row; Scryfall prices a print
+  // in one language, so its next write drops the row in another.
+  it("a Scryfall write drops the print's rows in another language", async () => {
+    const id = await printId('neo', '293');
+    const [row] = await db.select({ cardId: prints.cardId }).from(prints).where(eq(prints.id, id));
+    const cm = and(
+      eq(pricesCurrent.printId, id),
+      eq(pricesCurrent.source, 'cardmarket'),
+      eq(pricesCurrent.finish, 'normal'),
+    );
+    // The state after migration 0013 guessed wrong: the cardmarket row and mapping as `en`.
+    await db.update(pricesCurrent).set({ lang: 'en', centsMarket: 111 }).where(cm);
+    await db
+      .update(priceMappings)
+      .set({ lang: 'en' })
+      .where(and(eq(priceMappings.printId, id), eq(priceMappings.finish, 'normal')));
+
+    const line = { set: 'neo', collector_number: '293', lang: 'ja', cardmarket_id: 605034 };
+    await writeScryfallPrices(
+      db,
+      [JSON.stringify({ ...line, prices: { eur: '3.50' } })],
+      '2026-10-10T03:00:00.000Z',
+    );
+    expect(
+      await db
+        .select({ lang: pricesCurrent.lang, cents: pricesCurrent.centsMarket })
+        .from(pricesCurrent)
+        .where(cm),
+    ).toEqual([{ lang: 'ja', cents: 350 }]);
+    expect(
+      await db
+        .select({ lang: priceMappings.lang })
+        .from(priceMappings)
+        .where(and(eq(priceMappings.printId, id), eq(priceMappings.finish, 'normal'))),
+    ).toEqual([{ lang: 'ja' }]);
+    const card = CardResponseSchema.parse(
+      await (await app.request(`/catalog/cards/${row?.cardId ?? ''}`)).json(),
+    );
+    expect(card.prints.find((p) => p.id === id)?.marketPrice).toMatchObject({
+      lang: 'ja',
+      cents: 350,
+    });
   });
 
   it('PUT /admin/price-mappings sets a manual mapping', async () => {

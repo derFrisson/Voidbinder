@@ -20,30 +20,32 @@ const past = (c: Call) =>
 describe('usePrintPrices', () => {
   it('reads the prices in EUR when signed out, with the finish of the estimates', async () => {
     const calls = fakeApi(prices);
-    const { result } = renderHook(() => usePrintPrices(PRINT, 'foil'), { wrapper });
+    const { result } = renderHook(() => usePrintPrices(PRINT, 'en', 'foil'), { wrapper });
     await waitFor(() => expect(result.current.prices).toEqual(printPrices));
     expect(calls.map((c) => c.path)).toContain(
-      `/catalog/prints/${PRINT}/prices?currency=EUR&finish=foil`,
+      `/catalog/prints/${PRINT}/prices?currency=EUR&lang=en&finish=foil`,
     );
   });
 
   it("asks in the profile's currency, once the session is known", async () => {
     const calls = fakeApi(usd, prices);
-    const { result } = renderHook(() => usePrintPrices(PRINT), { wrapper });
+    const { result } = renderHook(() => usePrintPrices(PRINT, 'en'), { wrapper });
     await waitFor(() => expect(result.current.prices).not.toBeNull());
     const reads = calls.filter((c) => c.path.startsWith('/catalog/'));
-    expect(reads.map((c) => c.path)).toEqual([`/catalog/prints/${PRINT}/prices?currency=USD`]);
+    expect(reads.map((c) => c.path)).toEqual([
+      `/catalog/prints/${PRINT}/prices?currency=USD&lang=en`,
+    ]);
   });
 
   it('is null for a print without a price row, for an unknown print and without an id', async () => {
     fakeApi((c) => (c.path.startsWith('/catalog/prints/') ? json(noPrices) : undefined));
-    const empty = renderHook(() => usePrintPrices(PRINT), { wrapper });
-    const none = renderHook(() => usePrintPrices(undefined), { wrapper });
+    const empty = renderHook(() => usePrintPrices(PRINT, 'en'), { wrapper });
+    const none = renderHook(() => usePrintPrices(undefined, 'en'), { wrapper });
     await waitFor(() => expect(empty.result.current.prices).toBeNull());
     expect(none.result.current.prices).toBeNull();
 
     const calls = fakeApi();
-    const unknown = renderHook(() => usePrintPrices(PRINT), { wrapper });
+    const unknown = renderHook(() => usePrintPrices(PRINT, 'en'), { wrapper });
     await waitFor(() =>
       expect(calls.some((c) => c.path.startsWith('/catalog/prints/'))).toBe(true),
     );
@@ -61,7 +63,7 @@ describe('usePrintPrices', () => {
           : json(printPrices)
         : undefined,
     );
-    const { result } = renderHook(() => usePrintPrices(PRINT), { wrapper });
+    const { result } = renderHook(() => usePrintPrices(PRINT, 'en'), { wrapper });
     await waitFor(() => expect(result.current.failed).toBe(true));
     expect(result.current.prices).toBeNull();
     fail = false;
@@ -74,31 +76,31 @@ describe('usePrintPrices', () => {
 describe('usePriceHistory', () => {
   it('maps the series of the finish from the source the currency prefers', async () => {
     const calls = fakeApi(past);
-    const { result } = renderHook(() => usePriceHistory(PRINT, 30, 'normal'), { wrapper });
+    const { result } = renderHook(() => usePriceHistory(PRINT, 30, 'normal', 'en'), { wrapper });
     await waitFor(() => expect(result.current).not.toBeNull());
     expect(result.current).toMatchObject({
       source: 'cardmarket',
       currency: 'EUR',
       finish: 'normal',
       points: [
-        { date: '2026-10-01', cents: 320 },
-        { date: '2026-10-02', cents: 330 },
-        { date: '2026-10-03', cents: 334 },
+        { date: '2026-10-01', cents: 320, lang: 'en' },
+        { date: '2026-10-02', cents: 330, lang: 'en' },
+        { date: '2026-10-03', cents: 334, lang: 'en' },
       ],
     });
-    expect(calls.at(-1)?.path).toBe(`/catalog/prints/${PRINT}/prices/history?days=30`);
+    expect(calls.at(-1)?.path).toBe(`/catalog/prints/${PRINT}/prices/history?days=30&lang=en`);
   });
 
   it('takes TCGCSV before the Scryfall copy for a USD profile', async () => {
     fakeApi(usd, past);
-    const { result } = renderHook(() => usePriceHistory(PRINT, 90, 'normal'), { wrapper });
+    const { result } = renderHook(() => usePriceHistory(PRINT, 90, 'normal', 'en'), { wrapper });
     await waitFor(() => expect(result.current?.source).toBe('tcgplayer'));
     expect(result.current?.currency).toBe('USD');
   });
 
   it('is null when the finish has no series', async () => {
     const calls = fakeApi(past);
-    const { result } = renderHook(() => usePriceHistory(PRINT, 90, 'etched'), { wrapper });
+    const { result } = renderHook(() => usePriceHistory(PRINT, 90, 'etched', 'en'), { wrapper });
     await waitFor(() => expect(calls.some((c) => c.path.includes('/history'))).toBe(true));
     expect(result.current).toBeNull();
   });

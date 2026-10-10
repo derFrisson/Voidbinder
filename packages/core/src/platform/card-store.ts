@@ -7,6 +7,7 @@ import type {
   CardQuery,
   CardResponse,
   GameSummary,
+  PriceHistoryQuery,
   PriceHistoryResponse,
   PricesQuery,
   PrintPricesResponse,
@@ -49,9 +50,14 @@ export interface CardStore {
   getPrintPrices(id: string, query: PricesQuery): Promise<PrintPricesResponse | null>;
   /**
    * Daily market prices of the `days` days before `today` (a UTC date the caller passes, so the
-   * query stays cacheable), thinned to weekly before the last 180 days; null when no such print.
+   * query stays cacheable), thinned to weekly before the last 180 days, per day in `lang` (else
+   * `en`, else another); null when no such print.
    */
-  getPriceHistory(id: string, days: number, today: string): Promise<PriceHistoryResponse | null>;
+  getPriceHistory(
+    id: string,
+    query: PriceHistoryQuery,
+    today: string,
+  ): Promise<PriceHistoryResponse | null>;
   /**
    * The Yu-Gi-Oh! ban list of a format with its changes since `since` (a UTC date the caller
    * passes, so the query stays cacheable) (VB-81).

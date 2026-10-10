@@ -12,7 +12,18 @@ const price = (
   market: number,
   low: number | null,
   observedAt: string,
-) => ({ source, sourceLabel, finish, currency, market, low, mid: null, high: null, observedAt });
+) => ({
+  source,
+  sourceLabel,
+  finish,
+  lang: 'en',
+  currency,
+  market,
+  low,
+  mid: null,
+  high: null,
+  observedAt,
+});
 
 export const printPrices: PrintPricesResponse = {
   printId: PRINT,
@@ -66,6 +77,7 @@ export const printPrices: PrintPricesResponse = {
   display: {
     source: 'cardmarket',
     finish: 'normal',
+    lang: 'en',
     currency: 'EUR',
     cents: 334,
     observedAt: '2026-10-10T03:44:08.135Z',
@@ -89,7 +101,7 @@ export const noPrices: PrintPricesResponse = {
 };
 
 const points = (...cents: number[]) =>
-  cents.map((c, i) => ({ date: `2026-10-0${i + 1}`, cents: c }));
+  cents.map((c, i) => ({ date: `2026-10-0${i + 1}`, cents: c, lang: 'en' }));
 
 export const history: PriceHistoryResponse = {
   printId: PRINT,

@@ -188,6 +188,7 @@ export const en: Dict = {
     noHistory: 'There is no history for this period yet.',
     range: 'Period',
     days: { '30': '30 d', '90': '90 d', '365': '1 y' },
+    langNote: 'Price of {lang} copies',
   },
   search: {
     title: 'Search',

@@ -5,6 +5,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { useDeleteWish, useUpdateWish } from '../../api/queries/collection';
 import { fmt, useLocale, useT } from '../../i18n';
 import { label } from '../card/attributes';
+import { PriceLang } from '../card/PriceLang';
 import { useWide } from '../Shell';
 import { Button, Field, Note, Segmented } from '../ui';
 import { FieldLabel, IconButton, Select, Stepper, Tag } from './Controls';
@@ -190,6 +191,9 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
     x.maxPriceCents === null ? '' : money(x.maxPriceCents, x.currency ?? 'EUR', locale);
   const current = (x: WishlistEntry) =>
     x.price ? money(x.price.unitCents, x.price.currency, locale) : h.noPrice;
+  // A wish for any language takes any price: no chip.
+  const lang = (x: WishlistEntry) =>
+    x.language ? <PriceLang lang={x.price?.lang} shown={x.language} /> : null;
 
   if (!wide) {
     return (
@@ -214,7 +218,10 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
                 <Status wish={x} />
               </View>
               <View className="items-end">
-                <Text className="font-mono text-sm font-semibold text-ink">{current(x)}</Text>
+                <View className="flex-row items-center gap-1">
+                  {lang(x)}
+                  <Text className="font-mono text-sm font-semibold text-ink">{current(x)}</Text>
+                </View>
                 {x.maxPriceCents !== null && (
                   <Text className="font-mono text-xs text-ink-3">{wishPrice(x)}</Text>
                 )}
@@ -287,12 +294,10 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
               <Text role="cell" className="w-[112px] text-right font-mono text-sm text-ink-2">
                 {wishPrice(x)}
               </Text>
-              <Text
-                role="cell"
-                className="w-[92px] text-right font-mono text-sm font-semibold text-ink"
-              >
-                {current(x)}
-              </Text>
+              <View role="cell" className="w-[92px] flex-row items-center justify-end gap-1">
+                {lang(x)}
+                <Text className="font-mono text-sm font-semibold text-ink">{current(x)}</Text>
+              </View>
               <View role="cell" className="w-[124px]">
                 <Status wish={x} />
               </View>

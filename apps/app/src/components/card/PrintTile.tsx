@@ -12,7 +12,7 @@ import { numberLabel } from './game';
 
 /**
  * A search result: image, name, set code and number in mono, set name, market price. Opens the
- * card page in the language the hit shows (VB-102).
+ * card page in the language the hit shows (VB-102); its price says when it is another's (VB-103).
  */
 export function PrintTile({ hit }: { hit: SearchHit }) {
   const t = useT();
@@ -49,7 +49,7 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
           <Text numberOfLines={1} className="font-body text-xs text-ink-3">
             {hit.setName}
           </Text>
-          <Price price={priceTag(hit.marketPrice)} />
+          <Price price={priceTag(hit.marketPrice, hit.lang)} />
         </View>
       </Pressable>
     </Link>

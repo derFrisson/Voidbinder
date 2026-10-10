@@ -200,6 +200,8 @@ export const de = {
     noHistory: 'Für diesen Zeitraum gibt es noch keinen Verlauf.',
     range: 'Zeitraum',
     days: { '30': '30 T', '90': '90 T', '365': '1 J' },
+    /** Next to a price for copies in another language than the card shown (VB-103). */
+    langNote: 'Preis für {lang}-Karten',
   },
   search: {
     title: 'Suche',

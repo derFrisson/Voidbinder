@@ -28,7 +28,7 @@ const api = (prices: unknown = printPrices) => {
 describe('PricePanel', () => {
   it('shows no controls and no number for a print without prices', async () => {
     api(noPrices);
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     expect(await screen.findByText('Für diesen Druck gibt es noch keine Preise.')).toBeTruthy();
     expect(screen.queryByRole('radiogroup')).toBeNull();
     expect(screen.queryByText(/€|\$/)).toBeNull();
@@ -36,7 +36,7 @@ describe('PricePanel', () => {
 
   it('shows both sources with source, finish, condition and date, no language', async () => {
     api();
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     // Cardmarket's trend in EUR, TCGplayer's market price in USD (the TCGCSV row, with its low).
     expect(
       await screen.findAllByText(
@@ -53,7 +53,7 @@ describe('PricePanel', () => {
 
   it('shows NM as is, EX and GD as estimates (≈), and says what they are based on', async () => {
     api();
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     const row = await screen.findByRole('group', { name: 'Zustand' });
     expect(
       within(row)
@@ -70,27 +70,29 @@ describe('PricePanel', () => {
 
   it('switches the finish and asks again for its estimates', async () => {
     const calls = api();
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/);
     fireEvent.click(screen.getByRole('radio', { name: 'Foil' }));
     expect(await screen.findByText(/^Cardmarket \(via Scryfall\) · Foil/)).toBeTruthy();
     // Foil has only the observed NM: nothing to call an estimate, so no estimates sentence.
     expect(screen.queryByText(/Schätzungen/)).toBeNull();
     expect(calls.map((c) => c.path)).toContain(
-      `/catalog/prints/${PRINT}/prices?currency=EUR&finish=foil`,
+      `/catalog/prints/${PRINT}/prices?currency=EUR&lang=en&finish=foil`,
     );
   });
 
   it('draws the daily points of the range and says when there are too few', async () => {
     const calls = api();
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     // The first and last point with their dates and the source.
     expect(await screen.findByText('01.10.2026 · 3,20 €')).toBeTruthy();
     expect(screen.getByText('03.10.2026 · 3,34 €')).toBeTruthy();
     expect(screen.getByRole('heading', { level: 3 }).textContent).toBe('Verlauf · Cardmarket');
     fireEvent.click(screen.getByRole('radio', { name: '30 T' }));
     await screen.findByText('01.10.2026 · 3,20 €');
-    expect(calls.map((c) => c.path)).toContain(`/catalog/prints/${PRINT}/prices/history?days=30`);
+    expect(calls.map((c) => c.path)).toContain(
+      `/catalog/prints/${PRINT}/prices/history?days=30&lang=en`,
+    );
     fireEvent.click(screen.getByRole('radio', { name: 'Foil' }));
     expect(await screen.findByText('01.10.2026 · 5,00 €')).toBeTruthy();
   });
@@ -105,6 +107,7 @@ const firstEdition: PrintPricesResponse = {
       source: 'tcgplayer',
       sourceLabel: 'TCGplayer (via TCGCSV)',
       finish: 'first_edition',
+      lang: 'en',
       currency: 'USD',
       market: 23,
       low: 10,
@@ -116,6 +119,7 @@ const firstEdition: PrintPricesResponse = {
   display: {
     source: 'tcgplayer',
     finish: 'first_edition',
+    lang: 'en',
     currency: 'USD',
     cents: 23,
     observedAt: '2026-10-09T20:05:19.000Z',
@@ -134,7 +138,7 @@ const firstEdition: PrintPricesResponse = {
 describe('PricePanel, prices filed under a finish the print does not list', () => {
   it('starts at the finish of the display price and shows its rows, not "kein Preis"', async () => {
     const calls = api(firstEdition);
-    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} lang="en" />);
     expect(
       await screen.findByText(
         /^TCGplayer \(via TCGCSV\) · 1\. Auflage · Near Mint · Stand 09\.10\.2026/,
@@ -143,7 +147,9 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
     // The tile and the condition row's NM.
     expect(screen.getAllByText(/0,23/)).toHaveLength(2);
     // The first read asks without a finish: the API's display price decides.
-    expect(calls.map((c) => c.path)).toContain(`/catalog/prints/${PRINT}/prices?currency=EUR`);
+    expect(calls.map((c) => c.path)).toContain(
+      `/catalog/prints/${PRINT}/prices?currency=EUR&lang=en`,
+    );
     // The selector offers the print's finish and the one the prices are filed under.
     expect(screen.getByRole('radio', { name: '1. Auflage' }).getAttribute('aria-checked')).toBe(
       'true',
@@ -159,7 +165,7 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
 
   it('hides the source without a row for any finish, and says so only when none has one', async () => {
     api(firstEdition);
-    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} lang="en" />);
     await screen.findByText(/^TCGplayer \(via TCGCSV\)/);
     expect(screen.queryByText('Cardmarket')).toBeNull();
     expect(screen.queryByText('kein Preis')).toBeNull();
@@ -167,7 +173,7 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
 
   it('keeps a source that has rows for another finish, saying it has no price for this one', async () => {
     api();
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/);
     // Cardmarket and TCGplayer both have rows: both tiles stay.
     expect(screen.getByText('Cardmarket')).toBeTruthy();
@@ -176,7 +182,7 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
 
   it('shows the strip price of the display finish', async () => {
     api(firstEdition);
-    renderApp(<PriceStrip printId={PRINT} />);
+    renderApp(<PriceStrip printId={PRINT} lang="en" />);
     expect(await screen.findByText(/0,23/)).toBeTruthy();
     expect(screen.queryByText('Cardmarket')).toBeNull();
     expect(screen.queryByText('–')).toBeNull();
@@ -186,7 +192,7 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
 describe('PricePanel, estimates sentence', () => {
   it('is left out when every visible grade is the observed price', async () => {
     api({ ...printPrices, conditions: [{ condition: 'NM', factor: 1, cents: 334 }] });
-    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} lang="en" />);
     await screen.findByRole('group', { name: 'Zustand' });
     expect(screen.queryByText(/^Basis:/)).toBeNull();
   });
@@ -205,7 +211,7 @@ describe('PricePanel, failed read', () => {
       (c) =>
         c.path.startsWith(`/catalog/prints/${PRINT}/prices/history`) ? json(history) : undefined,
     );
-    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     expect(await screen.findByText(/^Das hat nicht geklappt/)).toBeTruthy();
     expect(screen.queryByText('Für diesen Druck gibt es noch keine Preise.')).toBeNull();
     fail = false;
@@ -218,7 +224,7 @@ describe('PricePanel, failed read', () => {
 describe('PricePanel, more conditions', () => {
   it('shows LP, PL and PO as estimates behind a toggle', async () => {
     api(firstEdition);
-    renderApp(<PricePanel printId={PRINT} finishes={['normal']} />);
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} lang="en" />);
     const row = await screen.findByRole('group', { name: 'Zustand' });
     expect(within(row).queryByText('LP')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Mehr Zustände' }));
@@ -237,14 +243,14 @@ describe('PricePanel, more conditions', () => {
 describe('PriceStrip', () => {
   it('shows the two market prices, a dash for a source without one', async () => {
     api();
-    renderApp(<PriceStrip printId={PRINT} />);
+    renderApp(<PriceStrip printId={PRINT} lang="en" />);
     expect(await screen.findByText(/3,34/)).toBeTruthy();
     expect(screen.getByText(/4,02/)).toBeTruthy();
   });
 
   it('shows dashes while there is no price', () => {
     fakeApi();
-    renderApp(<PriceStrip printId={PRINT} />);
+    renderApp(<PriceStrip printId={PRINT} lang="en" />);
     expect(screen.getAllByText('–')).toHaveLength(2);
   });
 });

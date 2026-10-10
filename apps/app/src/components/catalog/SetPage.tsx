@@ -35,7 +35,7 @@ export function SetPage({
   const locale = useLocale();
   const page = useSetPage(game, code, toQuery(filters));
   const owned = useOwnedPrints(game, code);
-  const prices = useSetPrices(page.data?.prints);
+  const prices = useSetPrices(page.data?.prints, filters.lang);
   const set = page.data?.set;
   const toTop = useScrollToTop();
   useEffect(() => {

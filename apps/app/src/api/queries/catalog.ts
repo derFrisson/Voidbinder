@@ -48,26 +48,30 @@ export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery
 }
 
 /**
- * A card with its prints; `currency` picks the source of each print's `marketPrice`. EUR is the
- * API's default and is not sent, so a caller that only needs the prints (the collection buttons)
- * and a signed-out visitor share one URL and one cache entry.
+ * A card with its prints; `currency` picks the source of each print's `marketPrice`, `lang` (the
+ * language the page shows) its language (VB-103). EUR and `en` are the API's defaults and are not
+ * sent, so a caller that only needs the prints (the collection buttons) and a signed-out visitor
+ * share one URL and one cache entry.
  */
-export const cardOptions = (id: string, currency?: Currency) => ({
-  queryKey: ['catalog', 'card', id, currency ?? 'EUR'],
+export const cardOptions = (id: string, currency?: Currency, lang?: string) => ({
+  queryKey: ['catalog', 'card', id, currency ?? 'EUR', lang ?? 'en'],
   queryFn: () =>
     read(
       api.catalog.cards[':id'].$get({
         param: { id },
-        query: currency && currency !== 'EUR' ? { currency } : {},
+        query: {
+          ...(currency && currency !== 'EUR' ? { currency } : {}),
+          ...(lang && lang !== 'en' ? { lang } : {}),
+        },
       }),
     ),
   staleTime,
 });
 
-export function useCard(id: string) {
+export function useCard(id: string, lang: string) {
   // The prints table is priced in the profile's currency; wait for the session to know it.
   const { currency, ready } = useCurrency();
-  return useQuery({ ...cardOptions(id, currency), enabled: ready });
+  return useQuery({ ...cardOptions(id, currency, lang), enabled: ready });
 }
 
 /**

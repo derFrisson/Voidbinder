@@ -8,6 +8,7 @@ import { QuickAdd } from '../collection/CollectButtons';
 import { numberLabel } from '../card/game';
 import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
+import { PriceLang } from '../card/PriceLang';
 import { formatPrice, type PriceTag } from './seams';
 
 /**
@@ -42,16 +43,22 @@ interface Item {
   price: PriceTag | undefined;
 }
 
-/** The price with its source and, when known, the day of the quote; nothing without a price. */
+/**
+ * The price with its source and, when known, the day of the quote, and the language chip when it
+ * is for copies in another language; nothing without a price.
+ */
 export function Price({ price }: { price: PriceTag | undefined }) {
   const t = useT();
   const locale = useLocale();
   if (!price) return null;
   return (
     <View className="gap-0.5">
-      <Text className="font-mono text-[13px] font-medium text-ink">
-        {formatPrice(price, locale)}
-      </Text>
+      <View className="flex-row items-center gap-1.5">
+        <Text className="font-mono text-[13px] font-medium text-ink">
+          {formatPrice(price, locale)}
+        </Text>
+        {price.shown && <PriceLang lang={price.lang} shown={price.shown} />}
+      </View>
       <Text className="font-body text-[11px] text-ink-3">
         {price.asOf
           ? fmt(t.set.valueAsOf, { source: price.source, date: formatDate(price.asOf, locale) })

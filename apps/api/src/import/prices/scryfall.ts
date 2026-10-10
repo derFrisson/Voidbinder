@@ -1,8 +1,9 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { prints, sets } from '../../db/schema';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { priceMappings, pricesCurrent, prints, sets } from '../../db/schema';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import type { ScryfallCard } from '../scryfall/types';
-import { failRun, finishRun, type Db } from '../scryfall/write';
+import { batches } from '../util';
+import { BATCH_SIZE, failRun, finishRun, type Db } from '../scryfall/write';
 import { chunkKey, readChunk } from '../scryfall/source';
 import { startRun, upsertMappings, writePrices, type MappingRow, type PriceRow } from './write';
 
@@ -19,7 +20,7 @@ const PRICES = [
   ['usd_etched', 'tcgplayer_scryfall', 'USD', 'etched'],
 ] as const;
 
-type Priced = Pick<ScryfallCard, 'set' | 'collector_number'> & {
+type Priced = Pick<ScryfallCard, 'set' | 'collector_number' | 'lang'> & {
   prices?: Record<string, string | null>;
   cardmarket_id?: number;
 };
@@ -40,6 +41,27 @@ async function printIds(db: Db, cards: Priced[]) {
   return new Map(rows.map((r) => [`${r.code}|${r.number}`, r.id]));
 }
 
+/**
+ * Scryfall prices a print in one language: drops the print's rows of the same source and finish
+ * in another (a pre-VB-103 `en` row of a Japanese-only print).
+ */
+async function dropOtherLangs(
+  db: Db,
+  table: typeof pricesCurrent | typeof priceMappings,
+  keys: { printId: string; source: string; finish: string; lang: string }[],
+) {
+  for (const batch of batches(keys, BATCH_SIZE)) {
+    const values = sql.join(
+      batch.map((k) => sql`(${k.printId}::uuid, ${k.source}, ${k.finish}, ${k.lang})`),
+      sql`, `,
+    );
+    await db.execute(sql`delete from ${table} t
+      using (values ${values}) as v(print_id, source, finish, lang)
+      where t.print_id = v.print_id and t.source = v.source and t.finish = v.finish
+        and t.lang <> v.lang`);
+  }
+}
+
 /** Writes the prices of one batch of `default_cards` lines. */
 export async function writeScryfallPrices(db: Db, lines: string[], observedAt: string) {
   const cards = lines.map((l) => JSON.parse(l) as Priced);
@@ -53,23 +75,37 @@ export async function writeScryfallPrices(db: Db, lines: string[], observedAt: s
       noPrint++;
       continue;
     }
+    // The price is the print's as Scryfall has it: its `default_cards` object, in the print's
+    // own language (a Japanese-only print: `ja`).
+    const lang = card.lang || 'en';
     for (const [key, source, currency, finish] of PRICES) {
       const value = card.prices?.[key];
       if (!value) continue;
-      rows.push({ printId, finish, source, currency, market: Math.round(Number(value) * 100) });
+      rows.push({
+        printId,
+        finish,
+        source,
+        lang,
+        currency,
+        market: Math.round(Number(value) * 100),
+      });
       if (source === 'cardmarket' && card.cardmarket_id)
         mappings.push({
           printId,
           source,
           externalId: String(card.cardmarket_id),
           finish,
+          lang,
           method: 'scryfall_id',
           confidence: 100,
         });
     }
   }
   await upsertMappings(db, mappings);
-  return { prices: await writePrices(db, rows, observedAt), noPrint };
+  await dropOtherLangs(db, priceMappings, mappings);
+  const written = await writePrices(db, rows, observedAt);
+  await dropOtherLangs(db, pricesCurrent, rows);
+  return { prices: written, noPrint };
 }
 
 /**

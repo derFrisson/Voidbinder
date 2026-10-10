@@ -4,6 +4,9 @@ import { LocaleSchema } from '../index.js';
 export const CurrencySchema = z.enum(['EUR', 'USD']);
 export type Currency = z.infer<typeof CurrencySchema>;
 
+/** A source language code (`en`, `de`, `ja`, `zhs`, …). */
+export const LangSchema = z.string().regex(/^[a-z]{2,3}$/);
+
 export const DisplayNameSchema = z.string().trim().min(2).max(40);
 
 /** `GET /me` and `PATCH /me`: the signed-in user and their profile. */

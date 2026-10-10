@@ -40,6 +40,8 @@ export const priceMappings = pgTable(
       .references(() => priceSources.id),
     externalId: text('external_id').notNull(),
     finish: text('finish').notNull(),
+    /** The language of the copies the price is for (VB-103); 'en' for TCGplayer. */
+    lang: text('lang').notNull().default('en'),
     confidence: smallint('confidence').notNull(),
     method: text('method').notNull(),
     /** User id or 'admin' for a manual mapping. */
@@ -49,8 +51,13 @@ export const priceMappings = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    primaryKey({ columns: [t.printId, t.source, t.finish] }),
-    unique('price_mappings_source_external_id_finish_key').on(t.source, t.externalId, t.finish),
+    primaryKey({ columns: [t.printId, t.source, t.finish, t.lang] }),
+    unique('price_mappings_source_external_id_finish_lang_key').on(
+      t.source,
+      t.externalId,
+      t.finish,
+      t.lang,
+    ),
     check('price_mappings_confidence_check', sql`${t.confidence} between 0 and 100`),
     check(
       'price_mappings_method_check',
@@ -59,7 +66,7 @@ export const priceMappings = pgTable(
   ],
 );
 
-/** The latest price per print, finish and source. */
+/** The latest price per print, finish, source and language. */
 export const pricesCurrent = pgTable(
   'prices_current',
   {
@@ -70,6 +77,8 @@ export const pricesCurrent = pgTable(
     source: text('source')
       .notNull()
       .references(() => priceSources.id),
+    /** The language of the copies the price is for (VB-103); 'en' for TCGplayer. */
+    lang: text('lang').notNull().default('en'),
     currency: text('currency').notNull(),
     centsMarket: integer('cents_market').notNull(),
     centsLow: integer('cents_low'),
@@ -77,11 +86,11 @@ export const pricesCurrent = pgTable(
     centsHigh: integer('cents_high'),
     observedAt: timestamp('observed_at', { withTimezone: true }).notNull(),
   },
-  (t) => [primaryKey({ columns: [t.printId, t.finish, t.source] })],
+  (t) => [primaryKey({ columns: [t.printId, t.finish, t.source, t.lang] })],
 );
 
 /**
- * One row per print, finish, source and UTC day (`observed_at` is that day's midnight). No foreign
+ * One row per print, finish, source, language and UTC day (`observed_at` is that day's midnight). No foreign
  * keys: it is a hypertable with compressed chunks where TimescaleDB exists.
  */
 export const pricesDaily = pgTable(
@@ -91,12 +100,14 @@ export const pricesDaily = pgTable(
     printId: uuid('print_id').notNull(),
     finish: text('finish').notNull(),
     source: text('source').notNull(),
+    /** The language of the copies the price is for (VB-103); 'en' for TCGplayer. */
+    lang: text('lang').notNull().default('en'),
     currency: text('currency').notNull(),
     centsMarket: integer('cents_market').notNull(),
     centsLow: integer('cents_low'),
     centsHigh: integer('cents_high'),
   },
-  (t) => [primaryKey({ columns: [t.printId, t.finish, t.source, t.observedAt] })],
+  (t) => [primaryKey({ columns: [t.printId, t.finish, t.source, t.lang, t.observedAt] })],
 );
 
 /** Condition → share of the near-mint price. Estimates, never observed prices. */
