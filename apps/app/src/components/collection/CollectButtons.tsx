@@ -145,6 +145,15 @@ export function QuickAdd({
   // navigation) the toast goes with it, instead of a button that does nothing.
   const toastKey = useRef<number | undefined>(undefined);
   useEffect(() => () => hideToast(toastKey.current), []);
+  // The toast's button is gone once "Ändern" is pressed, so the dialog opened from it has nothing
+  // to return focus to: it goes to this tile's button. (After a tick, so the dialog's own focus
+  // trap has let go first.)
+  const button = useRef<View>(null);
+  const closeDialog = () => {
+    const fromToast = !!dialog?.edit;
+    setDialog(null);
+    if (fromToast) setTimeout(() => button.current?.focus(), 0);
+  };
   const onAdd = async () => {
     setLooking(true);
     // Without the card (offline, error) English is the safe language.
@@ -174,6 +183,7 @@ export function QuickAdd({
   return (
     <View className="flex-row gap-1">
       <Pressable
+        ref={button}
         role="button"
         aria-label={`${t.card.addToCollection}: ${name}`}
         aria-busy={busy}
@@ -204,7 +214,7 @@ export function QuickAdd({
           cardId={cardId}
           binderId={binderId}
           edit={dialog.edit}
-          onClose={() => setDialog(null)}
+          onClose={closeDialog}
         />
       )}
     </View>

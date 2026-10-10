@@ -263,6 +263,12 @@ describe('quick add from a tile', () => {
       expect.objectContaining({ language: 'ja', finish: 'normal', condition: 'NM', quantity: 1 }),
     );
     expect(calls.filter((c) => c.method === 'POST')).toHaveLength(1);
+    // The toast's button is gone: focus goes back to the tile's button, not to the page.
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('button', { name: 'In Sammlung: Dark Magician' }),
+      ),
+    );
   });
 
   it('takes its toast down with it when the tile goes', async () => {
