@@ -541,6 +541,14 @@ export async function planSets(db: Db, titles: string[], date: string): Promise<
   });
 }
 
+/** Whether the YGOPRODeck import has written `external_ids.artworks` on any print yet. */
+async function hasArtworkCounts(db: Db): Promise<boolean> {
+  const result = await db.execute<{ ok: boolean }>(sql`
+    select exists (select 1 from prints p join sets s on s.id = p.set_id
+      where s.game_id = 'yugioh' and p.external_ids ? 'artworks') as ok`);
+  return result.rows[0]?.ok ?? false;
+}
+
 /** The prints of these sets with what planArtworks needs. */
 async function printsOf(db: Db, codes: string[]) {
   const result = await db.execute<PrintArtworks & { set_code: string }>(sql`
@@ -670,6 +678,16 @@ export async function runGalleryImport(
   let result;
   try {
     const chunks = await step('galleries: plan', async () => {
+      // The prints of multi-artwork cards are found by `external_ids.artworks`, which only the
+      // YGOPRODeck import writes: before it has, a run would cool every set down without them.
+      if (!(await deps.withDb(hasArtworkCounts))) {
+        log('warn', {
+          message:
+            'no Yu-Gi-Oh! print has external_ids.artworks yet, run the YGOPRODeck import first',
+          runId,
+        });
+        return 0;
+      }
       const bodies: string[] = [];
       const titles = await listGalleries(deps.fetch, bodies, opts.delayMs);
       await deps.raw.put(`${raw}/titles.json`, `[${bodies.join(',')}]`, {

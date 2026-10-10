@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { appMeta, cards, importRuns, printLocalizations, prints, sets } from '../../db/schema';
 import { PrintResponseSchema, SetPageResponseSchema } from '@voidbinder/shared/api';
 import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
@@ -347,6 +347,22 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
       'Platinum Secret Rare',
       {},
       ['de'],
+    );
+  });
+
+  it('plans nothing before the YGOPRODeck import has written the artwork counts', async () => {
+    await db.execute(sql`update prints set external_ids = external_ids - 'artworks'`);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect((await run()).stats).toEqual({ sets: 0, pages: 0, planned: 0, found: 0, written: 0 });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('run the YGOPRODeck import first'));
+    warn.mockRestore();
+    expect(requests).toEqual([]);
+    // No set cooled down.
+    expect(
+      await db.select().from(appMeta).where(eq(appMeta.key, 'yugipedia_galleries_checked')),
+    ).toEqual([]);
+    await db.execute(
+      sql`update prints set external_ids = external_ids || '{"artworks":9}' where id = ${ids.dm}`,
     );
   });
 

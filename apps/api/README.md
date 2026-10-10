@@ -666,7 +666,9 @@ same basis as the YGOPRODeck images we mirror.
 
 **The run.** The Yugipedia Workflow runs it after the names (`POST /admin/import/yugipedia-galleries`
 starts the galleries alone, 409 while one is `running`; `import_runs` source `yugipedia-galleries`):
-`galleries: plan` lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
+`galleries: plan` plans nothing (a WARN, no set cooled down) until the YGOPRODeck import has
+written `external_ids.artworks` on some print, so on a fresh database run the YGOPRODeck import
+first; then it lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
 gallery and not read in the last 30 days (`app_meta` map `yugipedia_galleries_checked`, set code →
 day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
 languages its prints have (`revisions`, 50 titles a request), pick the prints and languages to
