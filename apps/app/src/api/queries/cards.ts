@@ -7,10 +7,13 @@
 // (`api.catalog.prints[':id'].prices.$get`). Until then no print has a price: the hooks answer
 // null and the card page says so, it never shows a made-up number.
 
+import type { Locale } from '@voidbinder/shared';
+
 export type PriceSource = 'cardmarket' | 'tcgplayer' | 'tcgplayer_scryfall';
 
 export type Price = {
   source: PriceSource;
+  lang: Locale;
   finish: string;
   currency: 'EUR' | 'USD';
   /** Cardmarket's trend, TCGplayer's market price. */
