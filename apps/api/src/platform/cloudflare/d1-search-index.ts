@@ -187,6 +187,8 @@ interface PrintRow {
   set_names: string;
   card_count: number | null;
   card_format: CardFormat;
+  /** 1 for an Extended Art print (VB-109), else null. */
+  extended_art: number | null;
 }
 
 interface SetRow {
@@ -426,6 +428,7 @@ export class D1SearchIndex implements SearchIndex {
             { lang, ids: { scryfall_images: { normal: own?.image_src } } },
             { lang: 'en', ids: { scryfall_images: { normal: r.image_src } } },
           ]),
+          ...(r.extended_art ? { extendedArt: true as const } : {}),
           cardId: r.card_id,
         },
       ];
@@ -548,7 +551,7 @@ export class D1SearchIndex implements SearchIndex {
             s.game, s.code as set_code, s.name as set_name,
             (select json_group_object(l.lang, l.name) from set_names l where l.set_id = s.id)
               as set_names,
-            s.card_count, s.card_format
+            s.card_count, s.card_format, p.extended_art
           from prints p join sets s on s.id = p.set_id
           where p.id in (select value from json_each(?1))`,
         )

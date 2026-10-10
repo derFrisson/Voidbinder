@@ -81,7 +81,13 @@ function Row({
   const detail =
     s.kind === 'set'
       ? `${t.search.set} · ${t.games[s.game]}`
-      : [s.rarity && label(t.card.rarities, s.rarity), s.set.name].filter(Boolean).join(' · ');
+      : [
+          s.rarity && label(t.card.rarities, s.rarity),
+          s.extendedArt && t.set.extendedArt,
+          s.set.name,
+        ]
+          .filter(Boolean)
+          .join(' · ');
   return (
     <Pressable
       nativeID={id}
