@@ -48,4 +48,17 @@ describe('analytics', () => {
     });
     expect(stripQuery({ n: 'pageview', d: 'x', u: 'https://x.test/', r: null }).r).toBeNull();
   });
+
+  it('reports private ids as patterns and leaves public catalog paths alone', async () => {
+    const { pathOnly } = await load();
+    expect(pathOnly('https://app.example.test/decks/abc123?x=1')).toBe(
+      'https://app.example.test/decks/:id',
+    );
+    expect(pathOnly('https://app.example.test/decks/abc123/')).toBe(
+      'https://app.example.test/decks/:id/',
+    );
+    expect(pathOnly('/decks/abc123#top')).toBe('/decks/:id');
+    for (const path of ['/decks', '/cards/abc123', '/mtg/sets/lea', '/search', '/collection'])
+      expect(pathOnly(`https://app.example.test${path}`)).toBe(`https://app.example.test${path}`);
+  });
 });
