@@ -65,3 +65,47 @@ needs a look at that number first.
   and are tested (cache key, TTL, invalidation after a bump).
 - Self-hosters without Hyperdrive get the same behaviour from the HTTP layer alone; the seam
   takes one pool when only one is configured.
+
+## Addendum, 2026-10-10: Workers cache layer (VB-71)
+
+Asked for by Max (2026-10-10, "Cloudflare cache optimisations"). Zone Cache Rules never apply to
+responses a Worker generates, so until now the `s-maxage=600` of decision 2 was cached by no one at
+Cloudflare. Workers Caching (Cloudflare docs "Workers / Cache", fetched 2026-10-10) puts a cache in
+front of the Worker itself, on workers.dev, the custom domain and service bindings alike.
+
+Decision:
+
+- `"cache": { "enabled": true }` in every environment of `apps/api/wrangler.jsonc`. It stores
+  GET/HEAD answers by their headers (RFC 9111), so the user-scoped routes stay uncached through the
+  `no-store` they already send; a test asserts that for `/me`, `/collection`, `/decks` and `/auth`.
+- The catalog, price and module answers keep `Cache-Control: public, max-age=60, s-maxage=600` for
+  browsers and other caches, now with `stale-while-revalidate=60`, and add
+  `Cloudflare-CDN-Cache-Control: public, max-age=600, stale-while-revalidate=600` for the edge.
+  The second header exists because `s-maxage` disables stale-while-revalidate at Cloudflare
+  (RFC 9111 4.2.4); Cloudflare strips it before the response leaves.
+- Each answer carries a `Cache-Tag`: `modules` for the module manifests, `catalog` for every other
+  catalog answer, plus `prices` where it embeds a price (the set page, the card page, the search
+  and the price routes), so a price-only import refreshes every page that shows the old price.
+  Every importer purges its tags after `finish run`: YGOPRODeck and TCGdex `catalog`, TCGCSV
+  `prices`, and Scryfall `catalog` and `prices` in one purge after its price step. No per-game
+  tags: every catalog import purges all of `catalog` anyway. The ETag on `catalog_version` stays
+  the browsers' signal.
+- The purge waits seven minutes after `finish run` (a Workflow `step.sleep`). An entry purged at
+  once would be refilled through the cached Hyperdrive configuration of decision 1, which can
+  still serve the pre-import rows for `max_age` + `stale_while_revalidate` (360 s), and the edge
+  would keep those for another ten minutes. The wait is those 360 s plus a minute of margin
+  (`PURGE_WAIT_SECONDS` = 420 s in `apps/api/src/import/util.ts`, built from the same two
+  values), so a refill that read in the last stale second has landed before the purge. After the
+  wait every refill reads the new rows.
+- A purge only reaches the cache of the entrypoint that calls it, and each Workflow is its own
+  entrypoint. The default export becomes a `WorkerEntrypoint` class with a `purgeCache(tags)` RPC
+  method, and the Workflows call it through `exports.default` (`src/platform/cloudflare/cache.ts`,
+  the only place besides the Workflow classes that imports `cloudflare:workers`).
+
+Ceilings, written down: an import's changes reach the edge about seven minutes after its finish;
+the edge serves an answer up to 20 minutes old when a purge fails (it is logged and never fails
+the import); the module manifests are purged by nothing yet, so a new module shows up within 10 to
+20 minutes; Workers Caching uses the Free plan's purge rate limits whatever the plan, which the
+handful of purges a day stays far below; each deploy starts with a cold cache, since the Worker
+version is part of the cache key; `wrangler dev` does not emulate it, so the hit
+(`cf-cache-status: HIT`) is checked on dev after a deploy.

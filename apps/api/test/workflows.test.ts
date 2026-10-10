@@ -12,6 +12,7 @@ it('ends the YGOPRODeck import with the image mirror step', async () => {
       names.push(name);
       return Promise.resolve(canned[name] ?? (name.startsWith('split') ? { chunks: 0 } : {}));
     },
+    sleep: (name: string) => (names.push(name), Promise.resolve()),
   } as unknown as WorkflowStep;
   const event = { timestamp: new Date('2026-10-10'), payload: {} } as WorkflowEvent<unknown>;
 
@@ -19,7 +20,13 @@ it('ends the YGOPRODeck import with the image mirror step', async () => {
   await YgoprodeckImportWorkflow.prototype.run.call({ env }, event, step);
 
   expect(names.at(-1)).toBe('mirror images');
-  expect(names).toContain('finish run');
+  // The edge cache is purged once the Hyperdrive-cached reads have expired (VB-71).
+  const finish = names.indexOf('finish run');
+  expect(names.slice(finish, finish + 3)).toEqual([
+    'finish run',
+    'wait for the Hyperdrive cache',
+    'purge cache',
+  ]);
 });
 
 it('ends the TCGdex import with the image mirror step', async () => {
@@ -30,11 +37,18 @@ it('ends the TCGdex import with the image mirror step', async () => {
       names.push(name);
       return Promise.resolve(canned[name] ?? {});
     },
+    sleep: (name: string) => (names.push(name), Promise.resolve()),
   } as unknown as WorkflowStep;
   const event = { timestamp: new Date('2026-10-10'), payload: {} } as WorkflowEvent<unknown>;
 
   await TcgdexImportWorkflow.prototype.run.call({ env }, event, step);
 
   expect(names.at(-1)).toBe('mirror images');
-  expect(names).toContain('finish run');
+  // The edge cache is purged once the Hyperdrive-cached reads have expired (VB-71).
+  const finish = names.indexOf('finish run');
+  expect(names.slice(finish, finish + 3)).toEqual([
+    'finish run',
+    'wait for the Hyperdrive cache',
+    'purge cache',
+  ]);
 });

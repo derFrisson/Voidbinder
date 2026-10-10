@@ -1,8 +1,33 @@
 import { createMiddleware } from 'hono/factory';
 import type { AppEnv } from '../app';
 
-/** Catalog and price responses (ADR 0004): one minute in browsers, ten at Cloudflare's edge. */
-export const CATALOG_CACHE_CONTROL = 'public, max-age=60, s-maxage=600';
+/**
+ * Catalog and price responses (ADR 0004): one minute in browsers, which may show it a minute
+ * longer while they revalidate, ten minutes in shared caches.
+ */
+export const CATALOG_CACHE_CONTROL = 'public, max-age=60, s-maxage=600, stale-while-revalidate=60';
+
+/**
+ * What Workers Caching (VB-71) reads instead of `Cache-Control`: ten minutes fresh, then ten more
+ * served stale while the Worker refreshes in the background. `s-maxage` would switch that off at
+ * the edge (RFC 9111 4.2.4), hence the edge's own header; Cloudflare strips it from the response.
+ */
+export const EDGE_CACHE_CONTROL = 'public, max-age=600, stale-while-revalidate=600';
+
+/** The responses that embed a price: the set page, the card page, the search and the price routes. */
+const PRICED = /^\/catalog\/(sets\/[^/]+\/[^/]+|cards\/[^/]+|search|prints\/[^/]+\/prices(\/.*)?)$/;
+
+/**
+ * `Cache-Tag` of a cached response, purged by the importers at the end of a run: `modules` for the
+ * module manifests, `catalog` for every other catalog response, plus `prices` where it embeds a
+ * price, so a price import alone (TCGCSV) refreshes every page that shows one.
+ */
+// ponytail: no per-game tags; every catalog import purges all of `catalog`. Add `game:<id>` when
+// one game's import should leave the others' cached pages alone.
+export function cacheTags(path: string): string {
+  if (path.startsWith('/catalog/modules')) return 'modules';
+  return PRICED.test(path) ? 'catalog,prices' : 'catalog';
+}
 
 function hex(buffer: ArrayBuffer): string {
   return Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -20,7 +45,8 @@ function matches(ifNoneMatch: string | undefined, etag: string): boolean {
 /**
  * Makes a 200 cacheable: `Cache-Control` plus an `ETag` of the catalog_version and a hash of the
  * body, so every import changes it and a stale cached read can never get a new version's tag.
- * A matching `If-None-Match` turns the response into a 304.
+ * A matching `If-None-Match` turns the response into a 304. The edge cache (Workers Caching,
+ * README "Caching") stores it by URL, tagged for the importers' purge.
  */
 export const catalogCache = createMiddleware<AppEnv>(async (c, next) => {
   await next();
@@ -36,4 +62,6 @@ export const catalogCache = createMiddleware<AppEnv>(async (c, next) => {
   }
   c.header('ETag', etag);
   c.header('Cache-Control', CATALOG_CACHE_CONTROL);
+  c.header('Cloudflare-CDN-Cache-Control', EDGE_CACHE_CONTROL);
+  c.header('Cache-Tag', cacheTags(c.req.path));
 });

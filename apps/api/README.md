@@ -10,11 +10,11 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 
 | Path                         | What                                                                                                                      |
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                                                          |
+| `src/index.ts`               | Worker entry (`fetch`, `scheduled`, the `purgeCache` RPC of Caching) and `export type AppType`                            |
 | `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                                        |
 | `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `/sync/**`, `POST /admin/import/<source>` |
 | `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client, 2FA encryption                              |
-| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                                             |
+| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`, catalog cache headers                      |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                                        |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                                           |
 | `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices                                       |
@@ -55,9 +55,67 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries
-`Cache-Control: public, max-age=60, s-maxage=600` and an `ETag` of `catalog_version` plus a hash of
-the body (`src/middleware/catalog-cache.ts`); `If-None-Match` answers 304. The queries use no
-`now()` or other non-immutable function, so Hyperdrive can cache them.
+`Cache-Control: public, max-age=60, s-maxage=600, stale-while-revalidate=60` and an `ETag` of
+`catalog_version` plus a hash of the body (`src/middleware/catalog-cache.ts`); `If-None-Match`
+answers 304. Cloudflare also caches them at the edge (see Caching). The queries use no `now()` or
+other non-immutable function, so Hyperdrive can cache them.
+
+## Caching
+
+Three layers, each explicit about what may be stale (ADR 0004 and its addendum):
+
+1. **Hyperdrive** caches the catalog and price queries (`HYPERDRIVE_CACHED`, 300 s + 60 s stale).
+2. **Workers Caching** (VB-71, `"cache": { "enabled": true }` in every env of `wrangler.jsonc`)
+   stores GET/HEAD responses in front of the Worker by their cache headers, on workers.dev and
+   the custom domain alike. Zone Cache Rules do not apply to it. The catalog, price and module
+   routes add `Cloudflare-CDN-Cache-Control: public, max-age=600, stale-while-revalidate=600`
+   (ten minutes fresh, ten more served stale while the Worker refreshes; `s-maxage` in
+   `Cache-Control` would switch stale-while-revalidate off) and a `Cache-Tag`:
+
+   | Tag       | Responses                                                                                                       | Purged by                                                          |
+   | --------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+   | `catalog` | `/catalog/**` except modules                                                                                    | every catalog import (Scryfall, YGOPRODeck, TCGdex)                |
+   | `prices`  | the responses that embed a price: `/catalog/sets/:game/:code`, `/cards/:id`, `/search`, `/prints/:id/prices/**` | the TCGCSV import (when it found a new build), the Scryfall import |
+   | `modules` | `/catalog/modules`                                                                                              | nothing yet: the module build runs on the VPS (TTL only)           |
+
+   A price-bearing response carries both, `catalog,prices`. There are no per-game tags: every
+   catalog import purges all of `catalog`.
+
+   The cache key is the path and query string as sent (`lang`, `currency` and the filters are
+   query parameters) plus `Vary: Origin` from CORS; the Worker version is part of it too, so a
+   deploy starts cold. Both Cloudflare headers are stripped before the response leaves.
+
+3. **Browsers** keep a response 60 s (`max-age`), revalidate with the `ETag` afterwards.
+
+Every other route answers `Cache-Control: no-store` (`src/middleware/headers.ts`), which Workers
+Caching never stores; `src/auth/auth.test.ts` asserts it for `/me`, `/collection`, `/decks` and
+`/auth`, signed in by cookie, by bearer and signed out. The public routes ignore the session, so a
+cached answer is the same for everyone, with or without a cookie or `Authorization` header.
+
+**Purge.** After `finish run` (which bumps `catalog_version`), each importer waits seven minutes
+(`step.sleep`, `wait for the Hyperdrive cache`) and then runs a `purge cache` step
+(`purgeEdgeCache`, `src/import/util.ts`); the Scryfall import waits and purges once, after its
+price step, for `catalog` and `prices` together. The wait matters: a purged entry is refilled
+through `HYPERDRIVE_CACHED`, which can serve the rows from before the import for 300 s + 60 s, and the edge
+would then keep them another ten minutes; the extra minute (420 s, `PURGE_WAIT_SECONDS`) lets a
+refill that read in the last stale second land before the purge. A purge only reaches the cache
+of the entrypoint that calls it, and a Workflow is an entrypoint of its own, so `purgeCache(tags)`
+(`src/platform/cloudflare/cache.ts`) calls the RPC method `purgeCache` on the default entrypoint
+(`src/index.ts`), which runs `ctx.cache.purge({ tags })`. It never throws (a failed purge is a
+`cache purge failed` warning, and the entries are at most 20 minutes old anyway) and is a no-op
+where `ctx.cache` is unset: `wrangler dev` does not emulate Workers Caching; the tests pass no
+`purgeCache` or record the calls.
+
+**Check it** on a deployed env: the second request answers `cf-cache-status: HIT`; the hit rate is
+on the Worker's Metrics page in the dashboard.
+
+```sh
+URL=https://voidbinder-api-dev.frisson.workers.dev/catalog/sets/mtg/plst
+curl -sI "$URL" | grep -i cf-cache-status   # MISS, then HIT
+# p50 of 40 hits (same URL) against 40 misses (a fresh query parameter each time)
+for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL"; done | sort -n | sed -n 20p
+for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL?nocache=$RANDOM$i"; done | sort -n | sed -n 20p
+```
 
 ## Local development
 
