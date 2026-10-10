@@ -203,8 +203,10 @@ docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
   "set role hyperdrive_prod; select count(*) from games"             # a number, no permission error
 ```
 
-**Rollback:** the migrations are additive and nothing reads them yet. To undo them, restore the
-backup point taken above (runbook section 7); otherwise leave them in place.
+**Rollback:** leave the additive migrations in place; nothing reads them and the prod database has
+no API data yet. The pgBackRest restore (runbook section 7) is cluster-wide: it rewinds
+`voidbinder_dev` as well and needs the live container stopped, so it means downtime for both
+databases. Use it only as a last resort for a corrupted cluster.
 
 ### 4. Mirror role grants on prod (B5, 2 min)
 
@@ -456,7 +458,7 @@ go, but before the URL is shared widely.
 | API Worker   | `wrangler rollback [version-id] --env prod` from `apps/api` (the last 100 versions; bindings must still exist); or remove the domain. Then delete the five cron triggers in the dashboard (they are not part of a version and keep firing) |
 | App Worker   | First deploy: remove `app.voidbinder.de` or `wrangler delete --env prod`; later `wrangler rollback --env prod`                                                                                                                             |
 | Site Worker  | `wrangler rollback --env prod` from `apps/site`                                                                                                                                                                                            |
-| Database     | Migrations are additive only; restore the pgBackRest backup point of step 3 for a full undo (runbook section 7)                                                                                                                            |
+| Database     | Migrations are additive only; leave them in place; a pgBackRest restore (runbook section 7) rewinds both databases and means downtime, last resort only                                                                                    |
 | Catalog data | Upserts, idempotent; re-run an import to repair, never delete                                                                                                                                                                              |
 | VPS timers   | `systemctl --user revert image-mirror.service catalog-modules.service`                                                                                                                                                                     |
 | Secrets      | A rollback keeps today's secrets; `ADMIN_TOKEN` can be rotated any time, never rotate `BETTER_AUTH_SECRET` or `TWO_FACTOR_ENCRYPTION_KEY`                                                                                                  |
