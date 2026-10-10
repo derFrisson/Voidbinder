@@ -44,7 +44,8 @@ function Split({ group, currency }: { group: Group; currency: string }) {
       ?.totals.filter((x) => x.currency === currency)
       .reduce((sum, x) => sum + x.cents, 0) ?? 0;
   const max = Math.max(1, ...GAMES.map(cents));
-  const shown = GAMES.filter((g) => g === 'onepiece' || group.games.some((x) => x.game === g));
+  // Only the games the collection holds (Max, 2026-10-10: no "coming later" row for One Piece).
+  const shown = GAMES.filter((g) => group.games.some((x) => x.game === g));
   return (
     <View
       role="list"
@@ -52,31 +53,23 @@ function Split({ group, currency }: { group: Group; currency: string }) {
       className={`gap-2.5 ${wide ? 'min-w-[300px] flex-1' : ''}`}
     >
       {shown.map((game) => {
-        const later = game === 'onepiece';
         const value = cents(game);
         return (
           <View key={game} role="listitem" className="flex-row items-center gap-3">
             <View className="w-[110px] flex-row items-center gap-2">
               <GameSquare game={game} />
-              <Text
-                numberOfLines={1}
-                className={`font-display text-sm font-semibold ${later ? 'text-ink-3' : 'text-ink'}`}
-              >
+              <Text numberOfLines={1} className="font-display text-sm font-semibold text-ink">
                 {t.collection.gameShort[game]}
               </Text>
             </View>
             <View className="h-1.5 flex-1 overflow-hidden rounded-full bg-surface-2">
-              {!later && (
-                <View
-                  style={{ width: `${Math.round((value / max) * 100)}%` }}
-                  className={`h-full rounded-full ${fieldClass[game].solid}`}
-                />
-              )}
+              <View
+                style={{ width: `${Math.round((value / max) * 100)}%` }}
+                className={`h-full rounded-full ${fieldClass[game].solid}`}
+              />
             </View>
-            <Text
-              className={`w-[96px] text-right ${later ? 'font-body text-[13px] text-ink-3' : 'font-mono text-sm font-semibold text-ink'}`}
-            >
-              {later ? t.collection.value.later : money(value, currency, locale)}
+            <Text className="w-[96px] text-right font-mono text-sm font-semibold text-ink">
+              {money(value, currency, locale)}
             </Text>
           </View>
         );
