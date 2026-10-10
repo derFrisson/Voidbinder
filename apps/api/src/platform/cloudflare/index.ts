@@ -55,6 +55,7 @@ export function createPlatform(env: Env): Platform {
     jobQueue: new WorkflowJobQueue({
       'scryfall-import': env.SCRYFALL_IMPORT,
       'ygoprodeck-import': env.YGOPRODECK_IMPORT,
+      'tcgcsv-import': env.TCGCSV_IMPORT,
     }),
     db,
     close: async () => {
@@ -109,6 +110,15 @@ export function scryfallImportDeps(env: Env): ImportDeps {
 
 /** What the YGOPRODeck import Workflow works with: the same as the Scryfall one. */
 export const ygoprodeckImportDeps = scryfallImportDeps;
+
+/** What the TCGCSV price Workflow works with: the same as the Scryfall one. */
+export const tcgcsvImportDeps = scryfallImportDeps;
+
+/** Starts a TCGCSV price import instance; an `id` makes it unique (the cron's one per day). */
+export async function startTcgcsvImport(env: Env, id?: string): Promise<void> {
+  const instance = await env.TCGCSV_IMPORT.create(id ? { id } : {});
+  log('info', { message: 'workflow started', job: 'tcgcsv-import', instanceId: instance.id });
+}
 
 /** Starts a YGOPRODeck import instance; an `id` makes it unique (the cron's one per day). */
 export async function startYgoprodeckImport(env: Env, id?: string): Promise<void> {

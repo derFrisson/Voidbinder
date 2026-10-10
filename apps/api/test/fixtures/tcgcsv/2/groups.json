@@ -1,0 +1,34 @@
+{
+  "totalItems": 3,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "groupId": 330,
+      "name": "The Legend of Blue Eyes White Dragon",
+      "abbreviation": "LOB",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 22881,
+      "name": "Legend of Blue Eyes White Dragon (Worldwide English)",
+      "abbreviation": "LOB-EN",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 24822,
+      "name": "Glorious Victors",
+      "abbreviation": "GLVI",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    }
+  ]
+}

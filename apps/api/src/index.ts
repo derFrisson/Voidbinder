@@ -1,11 +1,21 @@
 import { createApp, type App } from './app';
 import { CRON_SOURCES } from './import/schedule';
-import { appDeps, startScryfallImport, startYgoprodeckImport } from './platform/cloudflare';
+import {
+  appDeps,
+  startScryfallImport,
+  startTcgcsvImport,
+  startYgoprodeckImport,
+} from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
+export { TcgcsvImportWorkflow } from './workflows/tcgcsv-import';
 export { YgoprodeckImportWorkflow } from './workflows/ygoprodeck-import';
 
-const START = { scryfall: startScryfallImport, ygoprodeck: startYgoprodeckImport };
+const START = {
+  scryfall: startScryfallImport,
+  ygoprodeck: startYgoprodeckImport,
+  tcgcsv: startTcgcsvImport,
+};
 
 let app: App | undefined;
 

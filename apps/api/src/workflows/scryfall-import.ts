@@ -4,7 +4,9 @@ import {
   type WorkflowStep,
   type WorkflowStepConfig,
 } from 'cloudflare:workers';
-import { runScryfallImport } from '../import/scryfall/pipeline';
+import { runScryfallPrices } from '../import/prices/scryfall';
+import { runScryfallImport, type StepRunner } from '../import/scryfall/pipeline';
+import { log } from '../middleware/log';
 import { scryfallImportDeps } from '../platform/cloudflare';
 import { mirrorStepFor } from './mirror-images';
 
@@ -21,20 +23,29 @@ const STEP = {
  */
 export class ScryfallImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
-    const { runId, stats } = await runScryfallImport(
-      scryfallImportDeps(this.env),
-      // Every step result is plain JSON (counts, keys); Workflows persists it.
-      (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
-      {
-        env: this.env.IMPORT_ENV,
-        date: event.timestamp.toISOString().slice(0, 10),
-        languages: this.env.SCRYFALL_LANGUAGES.split(',')
-          .map((l) => l.trim())
-          .filter(Boolean),
-      },
-    );
+    const deps = scryfallImportDeps(this.env);
+    // Every step result is plain JSON (counts, keys); Workflows persists it.
+    const run: StepRunner = (name, fn) => step.do(name, STEP, fn as () => Promise<never>);
+    const date = event.timestamp.toISOString().slice(0, 10);
+    const { runId, stats } = await runScryfallImport(deps, run, {
+      env: this.env.IMPORT_ENV,
+      date,
+      languages: this.env.SCRYFALL_LANGUAGES.split(',')
+        .map((l) => l.trim())
+        .filter(Boolean),
+    });
+    // VB-30: the day's Cardmarket EUR and TCGplayer USD prices from the dump just stored. The
+    // catalog is imported either way, so a failure is logged and the image step still runs.
+    const prices = await runScryfallPrices(deps, run, {
+      env: this.env.IMPORT_ENV,
+      date,
+      observedAt: event.timestamp.toISOString(),
+    }).catch((err: unknown) => {
+      log('warn', { message: 'Scryfall prices failed', error: String(err) });
+      return undefined;
+    });
     // Last step (VB-57): the oldest pending Magic images, at most 2000.
     const images = await mirrorStepFor('mtg')(this.env, step);
-    return { runId, stats, images };
+    return { runId, stats, prices, images };
   }
 }

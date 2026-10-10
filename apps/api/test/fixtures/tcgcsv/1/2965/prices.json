@@ -1,0 +1,15 @@
+{
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 262136,
+      "lowPrice": 0.1,
+      "midPrice": 0.25,
+      "highPrice": 1.0,
+      "marketPrice": 0.23,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    }
+  ]
+}
