@@ -19,7 +19,7 @@ const PRICES = [
   ['usd_etched', 'tcgplayer_scryfall', 'USD', 'etched'],
 ] as const;
 
-type Priced = Pick<ScryfallCard, 'set' | 'collector_number'> & {
+type Priced = Pick<ScryfallCard, 'set' | 'collector_number' | 'lang'> & {
   prices?: Record<string, string | null>;
   cardmarket_id?: number;
 };
@@ -53,16 +53,27 @@ export async function writeScryfallPrices(db: Db, lines: string[], observedAt: s
       noPrint++;
       continue;
     }
+    // The price is the print's as Scryfall has it: its `default_cards` object, in the print's
+    // own language (a Japanese-only print: `ja`).
+    const lang = card.lang || 'en';
     for (const [key, source, currency, finish] of PRICES) {
       const value = card.prices?.[key];
       if (!value) continue;
-      rows.push({ printId, finish, source, currency, market: Math.round(Number(value) * 100) });
+      rows.push({
+        printId,
+        finish,
+        source,
+        lang,
+        currency,
+        market: Math.round(Number(value) * 100),
+      });
       if (source === 'cardmarket' && card.cardmarket_id)
         mappings.push({
           printId,
           source,
           externalId: String(card.cardmarket_id),
           finish,
+          lang,
           method: 'scryfall_id',
           confidence: 100,
         });

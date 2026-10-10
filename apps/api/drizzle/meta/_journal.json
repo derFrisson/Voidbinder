@@ -92,6 +92,13 @@
       "when": 1791633533705,
       "tag": "0012_card_format",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791641829607,
+      "tag": "0013_price_lang",
+      "breakpoints": true
     }
   ]
 }

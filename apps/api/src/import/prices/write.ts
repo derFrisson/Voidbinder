@@ -89,6 +89,8 @@ export interface MappingRow {
   source: string;
   externalId: string;
   finish: string;
+  /** The language of the copies the product is (VB-103); 'en' for TCGplayer. */
+  lang: string;
   method: MatchMethod;
   confidence: number;
 }
@@ -99,10 +101,13 @@ export interface MappingRow {
  * print (yesterday's guess) moves to today's.
  */
 export async function upsertMappings(db: Db, rows: MappingRow[]): Promise<number> {
-  // One row per primary key and per external id and finish, or the INSERT conflicts with itself.
-  const byPk = new Map(rows.map((r) => [`${r.printId}|${r.source}|${r.finish}`, r]));
+  // One row per primary key and per external id, finish and language, or the INSERT conflicts
+  // with itself.
+  const byPk = new Map(rows.map((r) => [`${r.printId}|${r.source}|${r.finish}|${r.lang}`, r]));
   const unique = [
-    ...new Map([...byPk.values()].map((r) => [`${r.externalId}|${r.finish}`, r])).values(),
+    ...new Map(
+      [...byPk.values()].map((r) => [`${r.externalId}|${r.finish}|${r.lang}`, r]),
+    ).values(),
   ];
   if (!unique.length) return 0;
   let written = 0;
@@ -122,10 +127,10 @@ export async function upsertMappings(db: Db, rows: MappingRow[]): Promise<number
             ),
           ),
         );
-      const holder = new Map(held.map((h) => [`${h.externalId}|${h.finish}`, h]));
+      const holder = new Map(held.map((h) => [`${h.externalId}|${h.finish}|${h.lang}`, h]));
       const values: MappingRow[] = [];
       for (const r of batch) {
-        const h = holder.get(`${r.externalId}|${r.finish}`);
+        const h = holder.get(`${r.externalId}|${r.finish}|${r.lang}`);
         if (h && h.printId !== r.printId) {
           if (h.method === 'manual') continue;
           await tx
@@ -135,6 +140,7 @@ export async function upsertMappings(db: Db, rows: MappingRow[]): Promise<number
                 eq(priceMappings.printId, h.printId),
                 eq(priceMappings.source, h.source),
                 eq(priceMappings.finish, h.finish),
+                eq(priceMappings.lang, h.lang),
               ),
             );
         }
@@ -145,7 +151,12 @@ export async function upsertMappings(db: Db, rows: MappingRow[]): Promise<number
         .insert(priceMappings)
         .values(values)
         .onConflictDoUpdate({
-          target: [priceMappings.printId, priceMappings.source, priceMappings.finish],
+          target: [
+            priceMappings.printId,
+            priceMappings.source,
+            priceMappings.finish,
+            priceMappings.lang,
+          ],
           set: {
             externalId: excluded('external_id'),
             confidence: excluded('confidence'),
@@ -188,6 +199,8 @@ export interface PriceRow {
   printId: string;
   finish: string;
   source: string;
+  /** The language of the copies the price is for (VB-103); 'en' for TCGplayer. */
+  lang: string;
   currency: string;
   market: number;
   low?: number | null;
@@ -204,7 +217,7 @@ export const dayOf = (observedAt: string) => `${observedAt.slice(0, 10)}T00:00:0
  */
 export async function writePrices(db: Db, rows: PriceRow[], observedAt: string): Promise<number> {
   const unique = [
-    ...new Map(rows.map((r) => [`${r.printId}|${r.finish}|${r.source}`, r])).values(),
+    ...new Map(rows.map((r) => [`${r.printId}|${r.finish}|${r.source}|${r.lang}`, r])).values(),
   ];
   const day = new Date(dayOf(observedAt));
   const at = new Date(observedAt);
@@ -217,6 +230,7 @@ export async function writePrices(db: Db, rows: PriceRow[], observedAt: string):
             printId: r.printId,
             finish: r.finish,
             source: r.source,
+            lang: r.lang,
             currency: r.currency,
             centsMarket: r.market,
             centsLow: r.low ?? null,
@@ -226,7 +240,12 @@ export async function writePrices(db: Db, rows: PriceRow[], observedAt: string):
           })),
         )
         .onConflictDoUpdate({
-          target: [pricesCurrent.printId, pricesCurrent.finish, pricesCurrent.source],
+          target: [
+            pricesCurrent.printId,
+            pricesCurrent.finish,
+            pricesCurrent.source,
+            pricesCurrent.lang,
+          ],
           set: {
             currency: excluded('currency'),
             centsMarket: excluded('cents_market'),
@@ -245,6 +264,7 @@ export async function writePrices(db: Db, rows: PriceRow[], observedAt: string):
             printId: r.printId,
             finish: r.finish,
             source: r.source,
+            lang: r.lang,
             currency: r.currency,
             centsMarket: r.market,
             centsLow: r.low ?? null,
@@ -256,6 +276,7 @@ export async function writePrices(db: Db, rows: PriceRow[], observedAt: string):
             pricesDaily.printId,
             pricesDaily.finish,
             pricesDaily.source,
+            pricesDaily.lang,
             pricesDaily.observedAt,
           ],
           set: {
