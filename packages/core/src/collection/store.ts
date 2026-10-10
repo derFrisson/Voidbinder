@@ -9,6 +9,7 @@ import type {
   EntriesResponse,
   NewEntryData,
   NewWishData,
+  OwnedQuery,
   OwnedResponse,
   UpdateBinderRequest,
   UpdateEntryRequest,
@@ -77,7 +78,7 @@ export interface CollectionStore {
   deleteWish(userId: string, id: string): Promise<void>;
 
   summary(userId: string, currency: Currency): Promise<CollectionSummary>;
-  owned(userId: string, printIds: readonly string[]): Promise<OwnedResponse>;
+  owned(userId: string, query: OwnedQuery): Promise<OwnedResponse>;
   /** Every live entry, in batches (by id). */
   exportRows(userId: string): AsyncIterable<ExportRow[]>;
 }

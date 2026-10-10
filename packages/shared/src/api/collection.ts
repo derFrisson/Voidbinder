@@ -323,17 +323,26 @@ export type CollectionSummary = z.infer<typeof CollectionSummarySchema>;
 
 export const SummaryQuerySchema = EntriesQuerySchema.pick({ currency: true });
 
-/** `GET /collection/owned?printIds=a,b,…` (up to 200): copies per print, for card and set pages. */
-export const OwnedQuerySchema = z.object({
-  printIds: z
-    .string()
-    .transform((s) => s.split(',').filter(Boolean))
-    .pipe(z.array(z.uuid()).min(1).max(200)),
-});
+/**
+ * `GET /collection/owned?printIds=a,b,…` (up to 200, the card page) or `?game=&set=` (every print
+ * of a set, the set page): copies per print.
+ */
+export const OwnedQuerySchema = z.union([
+  z.object({
+    printIds: z
+      .string()
+      .transform((s) => s.split(',').filter(Boolean))
+      .pipe(z.array(z.uuid()).min(1).max(200)),
+  }),
+  z.object({ game: GameSchema, set: z.string().trim().min(1).max(32) }),
+]);
+export type OwnedQuery = z.infer<typeof OwnedQuerySchema>;
 
 export const OwnedResponseSchema = z.object({
   /** Print id → copies owned; prints without a copy are absent. */
   owned: z.record(z.string(), z.number().int()),
+  /** Print id → finish → copies, for the prints in `owned`. */
+  byFinish: z.record(z.string(), z.record(z.string(), z.number().int())),
   /** Print id → wishes; prints without a wish are absent. */
   wished: z.record(z.string(), z.number().int()),
 });

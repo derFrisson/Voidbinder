@@ -301,6 +301,7 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     expect(BindersResponseSchema.parse(await json(misty('/binders'))).binders).toEqual([]);
     expect(OwnedResponseSchema.parse(await json(misty(`/owned?printIds=${adeline}`)))).toEqual({
       owned: {},
+      byFinish: {},
       wished: {},
     });
     const [still] = await db
@@ -406,9 +407,15 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     );
     expect(owned).toEqual({
       owned: { [adeline]: 3, [champion]: 1 },
+      byFinish: { [adeline]: { normal: 3 }, [champion]: { foil: 1 } },
       wished: { [adeline]: 1, [champion]: 1 },
     });
+    // The set page asks for a whole set.
+    const set = OwnedResponseSchema.parse(await json(ash('/owned?game=mtg&set=MID')));
+    expect(set.owned).toEqual({ [adeline]: 3, [champion]: 1 });
+    expect(OwnedResponseSchema.parse(await json(ash('/owned?game=mtg&set=neo'))).owned).toEqual({});
     expect((await ash('/owned?printIds=nope')).status).toBe(400);
+    expect((await ash('/owned')).status).toBe(400);
 
     for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
     for (const w of wishes) await ash(`/wishlist/${w.id}`, { method: 'DELETE' });

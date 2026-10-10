@@ -191,7 +191,7 @@ export function collectionRoutes() {
       .get('/owned', zValidator('query', OwnedQuerySchema, throwOnInvalid), async (c) => {
         const body = await c.var.platform.collectionStore.owned(
           c.var.user.id,
-          c.req.valid('query').printIds,
+          c.req.valid('query'),
         );
         return c.json(body, 200);
       })

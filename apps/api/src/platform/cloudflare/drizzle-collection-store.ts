@@ -22,6 +22,7 @@ import type {
   EntryPrint,
   NewEntryData,
   NewWishData,
+  OwnedQuery,
   OwnedResponse,
   PriceSource,
   UpdateBinderRequest,
@@ -782,19 +783,44 @@ export class DrizzleCollectionStore implements CollectionStore {
     };
   }
 
-  async owned(userId: string, printIds: readonly string[]): Promise<OwnedResponse> {
-    const ids = [...printIds];
-    const sum = (table: typeof collectionEntries | typeof wishlistEntries) =>
+  async owned(userId: string, query: OwnedQuery): Promise<OwnedResponse> {
+    // The prints asked for: a list of ids (card page) or every print of a set (set page).
+    const prints_ =
+      'printIds' in query
+        ? sql`${sql.param(query.printIds)}::uuid[]`
+        : sql`array(select ${prints.id} from ${prints} join ${sets} on ${sets.id} = ${prints.setId} where ${sets.gameId} = ${query.game} and lower(${sets.code}) = lower(${query.set}))`;
+    const where = (table: typeof collectionEntries | typeof wishlistEntries) =>
+      and(
+        eq(table.userId, userId),
+        isNull(table.deletedAt),
+        sql`${table.printId} = any(${prints_})`,
+      );
+    const n = (table: typeof collectionEntries | typeof wishlistEntries) =>
+      sql<number>`sum(${table.quantity})::int`;
+    const [owned, wished] = await Promise.all([
       this.db
-        .select({ printId: table.printId, n: sql<number>`sum(${table.quantity})::int` })
-        .from(table)
-        .where(and(eq(table.userId, userId), isNull(table.deletedAt), inArray(table.printId, ids)))
-        .groupBy(table.printId);
-    const [owned, wished] = await Promise.all([sum(collectionEntries), sum(wishlistEntries)]);
-    return {
-      owned: Object.fromEntries(owned.map((r) => [r.printId, r.n])),
-      wished: Object.fromEntries(wished.map((r) => [r.printId, r.n])),
+        .select({
+          printId: collectionEntries.printId,
+          finish: collectionEntries.finish,
+          n: n(collectionEntries),
+        })
+        .from(collectionEntries)
+        .where(where(collectionEntries))
+        .groupBy(collectionEntries.printId, collectionEntries.finish),
+      this.db
+        .select({ printId: wishlistEntries.printId, n: n(wishlistEntries) })
+        .from(wishlistEntries)
+        .where(where(wishlistEntries))
+        .groupBy(wishlistEntries.printId),
+    ]);
+    const total = (rows: { printId: string; n: number }[]) => {
+      const out: Record<string, number> = {};
+      for (const r of rows) out[r.printId] = (out[r.printId] ?? 0) + r.n;
+      return out;
     };
+    const byFinish: Record<string, Record<string, number>> = {};
+    for (const r of owned) (byFinish[r.printId] ??= {})[r.finish] = r.n;
+    return { owned: total(owned), byFinish, wished: total(wished) };
   }
 
   async *exportRows(userId: string): AsyncIterable<ExportRow[]> {
