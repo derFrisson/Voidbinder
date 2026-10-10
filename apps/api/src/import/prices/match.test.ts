@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  GROUP_ALIASES,
   matchGroups,
   matchProducts,
   normName,
@@ -55,6 +56,90 @@ describe('matchGroups', () => {
   it('matches Yu-Gi-Oh! groups by abbreviation, not the anniversary edition', () => {
     const sets = [set('lob', 'Legend of Blue Eyes White Dragon')];
     expect(matchGroups(groups(2), sets)).toEqual([{ groupId: 330, setId: 'set-lob' }]);
+  });
+
+  // TCGCSV's real groups (2026-10-10) against TCGdex's sets (VB-111).
+  const pokemon = (groupId: number, name: string, abbreviation: string | null): TcgGroup => ({
+    groupId,
+    name,
+    abbreviation,
+  });
+  const tcgdex = (code: string, name: string, abbreviation: string | null, series: string) => ({
+    ...set(code, name),
+    abbreviation,
+    series,
+  });
+  const sv = (code: string, name: string, abbreviation: string | null) =>
+    tcgdex(code, name, abbreviation, 'Scarlet & Violet');
+
+  it('matches Pokémon base sets and 151 by TCGdex’s abbreviation', () => {
+    const sets = [
+      sv('sv01', 'Scarlet & Violet', 'SVI'),
+      sv('sv03.5', '151', 'MEW'),
+      tcgdex('swsh1', 'Sword & Shield', 'SSH', 'Sword & Shield'),
+    ];
+    const groups = [
+      pokemon(22873, 'SV01: Scarlet & Violet Base Set', 'SVI'),
+      pokemon(23237, 'SV: Scarlet & Violet 151', 'MEW'),
+      pokemon(2585, 'SWSH01: Sword & Shield Base Set', 'SSH'),
+    ];
+    expect(matchGroups(groups, sets)).toEqual([
+      { groupId: 22873, setId: 'set-sv01' },
+      { groupId: 23237, setId: 'set-sv03.5' },
+      { groupId: 2585, setId: 'set-swsh1' },
+    ]);
+    // Without abbreviations: `Base Set` and the leading series name are not part of the name.
+    const bare = sets.map((s) => ({ ...s, abbreviation: null }));
+    expect(matchGroups(groups, bare)).toHaveLength(3);
+  });
+
+  it('takes no abbreviation that names another set or that two groups share', () => {
+    const sets = [
+      tcgdex('swsh5', 'Battle Styles', 'BST', 'Sword & Shield'),
+      tcgdex('base5', 'Team Rocket', 'RO', 'Base'),
+      tcgdex('ex7', 'Team Rocket Returns', 'TR', 'EX'),
+      tcgdex('xy9', 'BREAKpoint', 'BKP', 'XY'),
+    ];
+    const groups = [
+      pokemon(1853, 'EX Battle Stadium', 'BST'),
+      pokemon(1373, 'Team Rocket', 'TR'),
+      pokemon(2175, 'Burger King Promos', 'BKP'),
+      pokemon(1701, 'XY - BREAKpoint', 'BKP'),
+    ];
+    expect(matchGroups(groups, sets)).toEqual([
+      { groupId: 1373, setId: 'set-base5' },
+      { groupId: 1701, setId: 'set-xy9' },
+    ]);
+  });
+
+  it('matches the groups no rule finds through the alias list', () => {
+    const sets = [sv('svp', 'SVP Black Star Promos', 'SVP'), set('swshp', 'SWSH Black Star Promos')];
+    expect(
+      matchGroups(
+        [
+          pokemon(22872, 'SV: Scarlet & Violet Promo Cards', 'SVP'),
+          pokemon(2545, 'SWSH: Sword & Shield Promo Cards', 'SWSD'),
+        ],
+        sets,
+      ),
+    ).toEqual([
+      { groupId: 22872, setId: 'set-svp' },
+      { groupId: 2545, setId: 'set-swshp' },
+    ]);
+    expect(GROUP_ALIASES[2545]).toBe('swshp');
+  });
+
+  it('keeps a match by Scryfall’s group id whatever the abbreviation says', () => {
+    const sets = [
+      set('mid', 'Innistrad: Midnight Hunt', 2864),
+      // The abbreviation and the name would take the group, were the group id not first.
+      { ...set('mh', 'Midnight Hunt'), abbreviation: 'MID' },
+      set('neo', 'Kamigawa: Neon Dynasty'),
+    ];
+    expect(matchGroups(groups(1), sets)).toEqual([
+      { groupId: 2864, setId: 'set-mid' },
+      { groupId: 2965, setId: 'set-neo' },
+    ]);
   });
 
   it('matches Pokémon groups by name without the series prefix', () => {
