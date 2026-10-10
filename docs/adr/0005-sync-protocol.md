@@ -36,7 +36,9 @@ native client runs the same code.
   user's own open writes.
 - **Push.** `POST /sync/push` takes `{ changes: [{ table, rows }] }`: full rows with `updatedAt`
   (the device's edit time), `deletedAt` for a delete and `baseUpdatedAt` (the `updatedAt` the
-  device last pulled; null for a row it created). At most 500 rows; one transaction; applied in
+  device last pulled; null for a row it created). At most 500 rows, and at most 5000 deck
+  entries (500 per deck), so one push cannot hold the user's lock for a quarter million writes;
+  one transaction; applied in
   table order (binders before entries, decks before their lists). A deck's entries are its whole
   list and travel with the deck row, because the deck rules judge a list as a whole.
 - **Conflict rule: last writer wins per row, the server's row has authority.** The stored row
@@ -66,7 +68,8 @@ native client runs the same code.
   - The unique rules (a binder name, one wish per print, language and finish) answer 409 for the
     whole push when two devices created the same thing offline; the client has to rename or
     merge and push again.
-  - A pull page holds at most 500 rows plus the full lists of the decks among them.
+  - A pull page holds at most 500 rows plus the full lists of the decks among them, and ends
+    early once rows and lists pass 5000 (one row always fits, so a full deck still pages).
 - The native client half (local SQLite mirror of these rows, the outbox of pushes, applying pull
   pages and conflicts) follows with the device work (VB-67, VB-29) and reuses
   `resolvePush` and `orderChanges` from `@voidbinder/core`.

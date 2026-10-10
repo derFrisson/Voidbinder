@@ -1,5 +1,6 @@
 import { orderChanges, resolvePush, type SyncResolution } from '@voidbinder/core';
 import {
+  SYNC_DECK_ENTRIES_TOTAL,
   SYNC_TABLES,
   type DeckGame,
   type SyncChange,
@@ -10,7 +11,7 @@ import {
   type SyncPushResponse,
   type SyncTable,
 } from '@voidbinder/shared/api';
-import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { HTTPException } from 'hono/http-exception';
 import { binders, collectionEntries, deckEntries, decks, wishlistEntries } from '../../db/schema';
@@ -321,9 +322,9 @@ export async function syncPush(
 
 /**
  * `GET /sync/pull`: the user's rows with `sync_seq > since`, tombstones included, the lowest
- * first across the tables, `limit` of them (each deck with its whole list). Holds the per-user
- * lock exclusively, so every write of the user in flight has committed: no row can appear later
- * with a `sync_seq` below the cursor.
+ * first across the tables, `limit` of them (each deck with its whole list, fewer rows once the
+ * lists pass `SYNC_DECK_ENTRIES_TOTAL`). Holds the per-user lock exclusively, so every write of
+ * the user in flight has committed: no row can appear later with a `sync_seq` below the cursor.
  */
 export async function syncPull(
   db: NodePgDatabase,
@@ -345,7 +346,27 @@ export async function syncPull(
       for (const r of rows) found.push({ table: name, seq: r.syncSeq, row: toRow(r) });
     }
     found.sort((a, b) => a.seq - b.seq);
-    const page = found.slice(0, limit);
+    const candidates = found.slice(0, limit);
+    // Every deck brings its whole list: stop once rows and lists pass the budget, one row always.
+    const candidateDecks = candidates.filter((f) => f.table === 'decks').map((f) => f.row.id);
+    const sizes = new Map(
+      candidateDecks.length
+        ? (
+            await tx
+              .select({ deckId: deckEntries.deckId, n: count() })
+              .from(deckEntries)
+              .where(inArray(deckEntries.deckId, candidateDecks))
+              .groupBy(deckEntries.deckId)
+          ).map((r) => [r.deckId, r.n])
+        : [],
+    );
+    const page: typeof found = [];
+    let size = 0;
+    for (const f of candidates) {
+      size += 1 + (f.table === 'decks' ? (sizes.get(f.row.id) ?? 0) : 0);
+      if (page.length && size > SYNC_DECK_ENTRIES_TOTAL) break;
+      page.push(f);
+    }
     const rows = new Map<SyncTable, unknown[]>();
     for (const f of page) rows.set(f.table, [...(rows.get(f.table) ?? []), f.row]);
     const deckIds = page.filter((f) => f.table === 'decks').map((f) => f.row.id);
@@ -357,7 +378,7 @@ export async function syncPull(
     return {
       changes: grouped(rows),
       cursor: page.at(-1)?.seq ?? since,
-      more: found.length > limit,
+      more: found.length > page.length,
     };
   });
 }

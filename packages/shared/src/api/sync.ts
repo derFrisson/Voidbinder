@@ -32,6 +32,11 @@ export type SyncTable = z.infer<typeof SyncTableSchema>;
 export const SYNC_LIMIT = 500;
 /** Entries of one deck in a push, as `PUT /decks/:id/entries`. */
 export const SYNC_DECK_ENTRIES_LIMIT = 500;
+/**
+ * Deck entries of all decks in one push; a pull page stops adding rows once they and their decks'
+ * entries pass it (one row always fits, so a deck with a full list still pages).
+ */
+export const SYNC_DECK_ENTRIES_TOTAL = 5000;
 
 const Timestamp = z.iso.datetime({ offset: true });
 
@@ -118,7 +123,8 @@ const rowKey = (
 ) => (table === 'deck_entries' ? `${table}:${r.deckId}:${r.cardId}:${r.zone}` : `${table}:${r.id}`);
 
 /**
- * `POST /sync/push`: the device's changes, at most `SYNC_LIMIT` rows (deck entries aside). A
+ * `POST /sync/push`: the device's changes, at most `SYNC_LIMIT` rows (deck entries aside: at most
+ * `SYNC_DECK_ENTRIES_LIMIT` per deck and `SYNC_DECK_ENTRIES_TOTAL` in all). A
  * deck's entries are its whole list and need the deck's row in the same push; a deck row without
  * entries means an empty list.
  */
@@ -140,7 +146,13 @@ export const SyncPushRequestSchema = z
       if (c.table === 'deck_entries')
         for (const r of c.rows) perDeck.set(r.deckId, (perDeck.get(r.deckId) ?? 0) + 1);
     return [...perDeck.values()].every((n) => n <= SYNC_DECK_ENTRIES_LIMIT);
-  }, `At most ${SYNC_DECK_ENTRIES_LIMIT} entries per deck`);
+  }, `At most ${SYNC_DECK_ENTRIES_LIMIT} entries per deck`)
+  .refine(
+    (b) =>
+      b.changes.reduce((n, c) => n + (c.table === 'deck_entries' ? c.rows.length : 0), 0) <=
+      SYNC_DECK_ENTRIES_TOTAL,
+    `At most ${SYNC_DECK_ENTRIES_TOTAL} deck entries per push`,
+  );
 export type SyncPushRequest = z.infer<typeof SyncPushRequestSchema>;
 
 /**
@@ -169,7 +181,8 @@ export type SyncPullQuery = z.infer<typeof SyncPullQuerySchema>;
 
 /**
  * `GET /sync/pull` answer: up to `limit` rows (deck entries aside: every deck comes with its whole
- * list), tombstones included, in table order. `cursor` is the next `since`; `more`: pull again.
+ * list; the page ends early once rows and lists pass `SYNC_DECK_ENTRIES_TOTAL`), tombstones
+ * included, in table order. `cursor` is the next `since`; `more`: pull again.
  */
 export const SyncPullResponseSchema = z.object({
   changes: z.array(SyncChangeSchema),

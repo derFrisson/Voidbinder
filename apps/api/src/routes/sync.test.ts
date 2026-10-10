@@ -11,7 +11,7 @@ import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
-import { binders, collectionEntries, deckEntries, decks, prints, sets } from '../db/schema';
+import { binders, cards, collectionEntries, deckEntries, decks, prints, sets } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -473,6 +473,69 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(await db.select().from(decks).where(eq(decks.id, d.id))).toEqual([]);
     // Entries without their deck's row.
     expect((await push(ash, [{ table: 'deck_entries', rows: [line({})] }])).status).toBe(400);
+  });
+
+  it('caps deck entries at 500 per deck and 5000 per push', async () => {
+    const lines = (deckId: string, n: number) =>
+      Array.from({ length: n }, () => ({
+        deckId,
+        cardId: randomUUID(),
+        printId: null,
+        zone: 'main',
+        quantity: 1,
+      }));
+    const decksOf = (n: number) => Array.from({ length: n }, () => deck());
+    const messages = async (res: Response) =>
+      ((await res.json()) as { error: { issues?: { message: string }[] } }).error.issues?.map(
+        (i) => i.message,
+      );
+    const body = (ds: { id: string }[], per: number) => ({
+      changes: [
+        { table: 'decks', rows: ds },
+        { table: 'deck_entries', rows: ds.flatMap((d) => lines(d.id, per)) },
+      ],
+    });
+
+    const one = await ash('/sync/push', { body: body(decksOf(1), 501) });
+    expect(one.status).toBe(400);
+    expect(await messages(one)).toEqual(['At most 500 entries per deck']);
+    const many = await ash('/sync/push', { body: body(decksOf(11), 500) });
+    expect(many.status).toBe(400);
+    expect(await messages(many)).toEqual(['At most 5000 deck entries per push']);
+    // 10 full decks pass validation (and then fail on the made-up cards).
+    expect((await ash('/sync/push', { body: body(decksOf(10), 500) })).status).toBe(404);
+  });
+
+  it('ends a pull page early once the decks’ lists pass 5000 entries', async () => {
+    const brock = as(await signUp());
+    const allCards = await db.select({ id: cards.id }).from(cards).where(eq(cards.gameId, 'mtg'));
+    const zones = ['main', 'extra', 'side', 'commander'];
+    const lines = allCards.flatMap((c) => zones.map((zone) => ({ cardId: c.id, zone })));
+    const perDeck = Math.min(lines.length, 500);
+    const count = Math.ceil(5000 / perDeck) + 2;
+    const ds = Array.from({ length: count }, () => deck());
+    await push(brock, [{ table: 'decks', rows: ds }]);
+    // Straight into the table: the lists only need to be long, not legal.
+    for (const d of ds)
+      await db
+        .insert(deckEntries)
+        .values(
+          lines.slice(0, perDeck).map((l) => ({ ...l, deckId: d.id, printId: null, quantity: 1 })),
+        );
+
+    const seen: string[] = [];
+    let cursor = 0;
+    let more = true;
+    while (more) {
+      const page = await pull(brock, cursor);
+      const rows = rowsOf(page, 'decks').length;
+      expect(rows).toBeGreaterThan(0);
+      expect(rows + rowsOf(page, 'deck_entries').length).toBeLessThanOrEqual(5000);
+      seen.push(...rowsOf(page, 'decks').map((r) => r.id ?? ''));
+      ({ cursor, more } = page);
+    }
+    expect(seen.length).toBeGreaterThan(Math.floor(5000 / (perDeck + 1)));
+    expect(new Set(seen)).toEqual(new Set(ds.map((d) => d.id)));
   });
 
   it('caps a push at 500 rows', async () => {

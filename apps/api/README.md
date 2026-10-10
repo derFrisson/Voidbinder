@@ -545,12 +545,13 @@ for the user's writes in flight and no row commits later below the cursor it han
 **Pull.** `GET /sync/pull?since=<cursor>&limit=` (`since` 0 = everything, `limit` 1 to 500, default
 500): the user's rows with `sync_seq > since`, tombstones included, the lowest first across the
 tables, grouped per table in table order; every deck comes with its whole list under
-`deck_entries` (not counted in `limit`). `cursor` is the next `since`; `more: true` means pull again.
+`deck_entries` (not counted in `limit`, but a page ends early once its rows and lists pass 5000;
+one row always fits). `cursor` is the next `since`; `more: true` means pull again.
 
 **Push.** `POST /sync/push` with `{ changes: [{ table, rows }] }`: full rows (the fields of the REST
 routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` for a delete and
 `baseUpdatedAt` = the `updatedAt` last pulled, null for a row the device created). At most 500 rows
-(deck entries aside: at most 500 per deck), one transaction, applied binders, entries, wishes,
+(deck entries aside: at most 500 per deck and 5000 in all), one transaction, applied binders, entries, wishes,
 decks. A deck's entries are its whole list and need the deck row in the same push (400 otherwise);
 they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown print, card or
 binder answers 404 and nothing is written; a taken binder name or wish 409. An entry filed into a
