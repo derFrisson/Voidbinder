@@ -79,18 +79,28 @@ Probes: `GET /cards/search?q=lang:ja&unique=prints&include=extras`, all 357 page
   Japanese printings of prints that have an English object (`ltr` 235, `40k` 161, `ltc` 100, …);
   `prices_current` has no language dimension, so those stay out, as the German ones do today.
 
-### Yu-Gi-Oh!: Yugipedia
+### Yu-Gi-Oh!: YGOPRODeck `ja` and Yugipedia
 
-Probes: YGOPRODeck `cardinfo.php?language=ja|jp`, `?misc=yes`; Yugipedia `api.php`
+Probes: YGOPRODeck `cardinfo.php?id=46986414&language=ja` and `language=jp`, the full
+`cardinfo.php?language=ja` dump against the English one, `?misc=yes`; Yugipedia `api.php`
 (`action=ask` over the Semantic MediaWiki data, `list=categorymembers`, `meta=siteinfo`);
 db.ygoresources.com `/data/card/4041` and `/data/idx/card/name/ja`; dev: Yu-Gi-Oh! set codes.
 
-- **YGOPRODeck has no Japanese.** `language=jp` answers 400 "This API accepts the following
-  language values: 'fr', 'de', 'it' or 'pt'"; `language=ja` 400 too. `card_sets` lists TCG prints
-  only; `misc_info` has `ocg_date` and `konami_id`, nothing more.
-- **Yugipedia (chosen).** Licensed CC BY-SA (`meta=siteinfo&siprop=rightsinfo`: "Creative Commons
-  Attribution Share Alike"); the API is reachable without the Cloudflare challenge that guards the
-  wiki pages. Two kinds of data:
+- **YGOPRODeck `language=ja` carries the Japanese card text (chosen for names and lore).**
+  `cardinfo.php?id=46986414&language=ja` answers 200 with `name` `ブラック・マジシャン`, a Japanese
+  `desc` and `name_en` `Dark Magician`. The full `cardinfo.php?language=ja` dump answers 200 with
+  11,646 cards in one request (24.6 MB; the English dump has 14,599 cards, 21.3 MB). Every `id` is
+  also in the English dump, so it is the `id` we already use as `cards.oracle_key`; 11,593 of the
+  cards have kanji or kana in `name`, 11,639 in `desc`, and 12 repeat `name_en` as `name`. The
+  2,953 English cards missing from the `ja` dump have no Japanese text there. Only `language=jp`
+  answers 400 ("This API accepts the following language values: 'fr', 'de', 'it' or 'pt'"; the
+  message omits `ja`, but the value works). A name lookup with an English name,
+  `name=Dark Magician&language=ja`, answers 400 "No card matching your query was found", so look
+  cards up by `id` or take the dump. Its `card_sets` lists TCG prints only and `misc_info` has
+  `ocg_date` and `konami_id`, so the dump has no OCG set, code or rarity.
+- **Yugipedia (chosen for the OCG set lists, and for cards YGOPRODeck lacks).** Licensed CC BY-SA
+  (`meta=siteinfo&siprop=rightsinfo`: "Creative Commons Attribution Share Alike"); the API is
+  reachable without the Cloudflare challenge that guards the wiki pages. Two kinds of data:
   - _Set lists_: the category "Japanese Set Card Lists" has 1,849 pages
     (`Set Card Lists:<set> (OCG-JP)`), each with `Release date`, `Local_name` (Japanese, with ruby
     markup) and one subobject per entry with `Card number` (`SD1-JP001`), `Rarity` (one or more)
@@ -100,7 +110,12 @@ db.ygoresources.com `/data/card/4041` and `/data/idx/card/name/ja`; dev: Yu-Gi-O
     query per 1.2 s.
   - _Card pages_: `Japanese name`, `Japanese kana name` (reading), `Romaji name`, `Japanese lore`,
     `Password` and `Database ID` (Konami's id). `Password` is YGOPRODeck's card id, which is our
-    `cards.oracle_key`, so the Japanese prints attach to the existing card rows.
+    `cards.oracle_key`. The importer reads a card page only for a card the `ja` dump lacks: a
+    title match of the set lists' card pages against the dump's `name_en` finds 11,237 of 17,097
+    titles; the other 5,860 are the upper bound (disambiguated titles such as `Token (card)`,
+    tokens, anime cards, and 2,521 that exist in the English dump but not in the `ja` one, for
+    example `Diabellstar the Black Witch`). The importer joins on `Password`, not on titles, and
+    reports the real number.
   - Limit: Semantic MediaWiki ignores an `offset` above roughly 5,000 and starts again from the
     first row, so a crawl must partition its queries (the probe used half-year windows of the set
     list's release date; none came near the cap).
@@ -233,11 +248,11 @@ table.
 
 ## Size and duration
 
-| Game      | New rows                                                                                     | Postgres    | Images to R2                      | Import time                                                        |
-| --------- | -------------------------------------------------------------------------------------------- | ----------- | --------------------------------- | ------------------------------------------------------------------ |
-| Magic     | 62,423 `print_localizations`                                                                 | about 60 MB | about 7,500 (high-res scans only) | the daily run grows by one or two minutes (more `all_cards` lines) |
-| Pokémon   | 118 sets with cards (+ set localizations), 13,006 cards, 13,006 prints, 13,006 localizations | about 50 MB | 3,882                             | full: about 13,200 requests, 25 min at 9/s; daily: a few hundred   |
-| Yu-Gi-Oh! | about 860 sets, about 42,400 prints, 42,400 localizations                                    | about 80 MB | none                              | about 4 min of Yugipedia queries per run plus the card pages       |
+| Game      | New rows                                                                                     | Postgres    | Images to R2                      | Import time                                                                                             |
+| --------- | -------------------------------------------------------------------------------------------- | ----------- | --------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| Magic     | 62,423 `print_localizations`                                                                 | about 60 MB | about 7,500 (high-res scans only) | the daily run grows by one or two minutes (more `all_cards` lines)                                      |
+| Pokémon   | 118 sets with cards (+ set localizations), 13,006 cards, 13,006 prints, 13,006 localizations | about 50 MB | 3,882                             | full: about 13,200 requests, 25 min at 9/s; daily: a few hundred                                        |
+| Yu-Gi-Oh! | about 860 sets, about 42,400 prints, 42,400 localizations                                    | about 80 MB | none                              | one YGOPRODeck `ja` request plus about 4 min of Yugipedia set-list queries; card pages only for the gap |
 
 Row sizes are dev's averages (`pg_column_size`: a `ja` localization row 952 B with its tsvector,
 prints 477 to 852 B), rounded up for the indexes, including the new trigram index (about 26 MB at
@@ -278,12 +293,14 @@ about 9 MB (62,400 localizations with Japanese text, which compresses less than 
 - **TCGdex `ja` is incomplete:** 68 of 186 sets list no cards and no set after April 2025 has
   images. The importer skips sets without cards (they would be empty pages) and picks them up when
   TCGdex fills them (the incremental run already refetches sets whose card count changed).
-- **Yugipedia is a wiki:** set lists change by hand and the SMW offset cap needs partitioned
-  queries. Each run keeps the raw answers in `RAW` as the other importers do, and a set that
+- **Yugipedia is a wiki:** the OCG set lists change by hand and the SMW offset cap needs
+  partitioned queries. Each run keeps the raw answers in `RAW` as the other importers do, and a set that
   disappears from the source stays in the catalog, as today.
 - **OCG-only cards:** a Yugipedia card whose `Password` is unknown to YGOPRODeck (or that has no
-  password) has no card row to attach to. Step 1 counts them before deciding whether to create cards
-  keyed `konami:<Database ID>` or to skip and list them like `codeConflicts`.
+  password) has no card row to attach to, and a card in the English dump but not in the `ja` dump
+  has a card row but no Japanese text from YGOPRODeck. Step 2 counts both before deciding whether
+  to create cards keyed `konami:<Database ID>`, to read the Japanese name from the card page, or to
+  skip and list them like `codeConflicts`.
 - **Short Japanese queries** (one or two characters) scan instead of using the index: 12 to 45 ms
   measured at 432,000 names, growing linearly.
 - **Pokémon JP names** are Japanese only; someone who reads no Japanese finds a Japanese card by
@@ -310,11 +327,16 @@ Each step is one PR and leaves `main` working.
    across the whole game, so each pass filters by region (or the `-jp` suffix) or it sees the other pass's sets. The
    comment on `cards.name` ("English canonical name") changes: for a Japanese Pokémon card it holds
    the Japanese name. Tests with fixtures from the probe (`SV2a`, `neo1` for the collision).
-2. **Yu-Gi-Oh! OCG importer.** `src/import/yugipedia/` with the YGOPRODeck shape: set lists in
-   half-year windows, card pages for Japanese name, lore and password, raw answers to `RAW`, codes
-   `<prefix>-jp`, prints per code and rarity on the existing cards, `ja` localizations; a Workflow,
+2. **Yu-Gi-Oh! OCG importer.** `src/import/yugipedia/` with the YGOPRODeck shape. Japanese names and
+   lore come from one YGOPRODeck `cardinfo.php?language=ja` request (keyed by the `id` we already
+   use as `oracle_key`) and are written as `ja` localizations on the OCG prints only, never on the
+   TCG prints. Yugipedia supplies the OCG set lists (code, rarity, card link, release date, in
+   half-year windows) and the English set title (`sets.name`, the Japanese title as the `ja` set
+   localization), and a card page only for a card YGOPRODeck lacks. Raw answers to `RAW`, codes
+   `<prefix>-jp` (lowercased), one print per code and rarity on the existing cards, a Workflow,
    cron and `POST /admin/import/yugipedia`; CC BY-SA attribution where the app credits sources.
-   Report the OCG-only card count (Risks).
+   Report the OCG-only and the no-Japanese-text card counts (Risks). Effort: the set lists, about
+   56 queries and 4 minutes; no card-page crawl of all 14,800 cards.
 3. **Image mirror.** Nothing to code: `ja` localizations and Japanese prints carry the source URLs
    the mirror already reads. Run the bulk load on the VPS once steps 1 and 2 are on prod.
 4. **Prices.** TCGCSV category 85 in the TCGCSV import, matched to `region = 'jp'` Pokémon sets by
@@ -332,9 +354,11 @@ Each step is one PR and leaves `main` working.
 ## What needs Max
 
 Nothing blocks the work. TCGdex `ja` needs no key, sign-up or agreement (MIT, same API). One
-decision to confirm in step 2: Yugipedia's data is CC BY-SA, so the OCG data needs an attribution
-line (with a link to the license) wherever Voidbinder credits its sources, and redistributing it
-(the offline modules) keeps it under CC BY-SA.
+decision to confirm in step 2: Yugipedia's data is CC BY-SA, so the OCG set-list data (set titles,
+codes, rarities, release dates, and any card page read for the gap) needs an attribution line (with
+a link to the license) wherever Voidbinder credits its sources, and redistributing it (the offline
+modules) keeps it under CC BY-SA. The Japanese names and lore from YGOPRODeck fall under the
+YGOPRODeck terms we already rely on, not under CC BY-SA.
 
 ## Follow-ups (not part of VB-77)
 
