@@ -2,6 +2,7 @@ import type { DeckAnalysis, DeckDetail, DeckEntry, DeckZone } from '@voidbinder/
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
+import { hitHref, useBrowsingLanguage } from '../../hooks/browsing-language';
 import { BanBadge, statusFromLimit } from '../banlist/BanBadge';
 import { IconButton } from '../collection/Controls';
 import { Thumb } from '../collection/Entries';
@@ -89,6 +90,7 @@ function Row({
 }) {
   const t = useT();
   const locale = useLocale();
+  const lang = useBrowsingLanguage();
   const wide = useWide();
   const l = t.decks.deckList;
   const sub = [
@@ -130,7 +132,7 @@ function Row({
     </View>
   );
   const name = (
-    <Link href={`/cards/${entry.cardId}${entry.print ? `?print=${entry.print.id}` : ''}`} asChild>
+    <Link href={hitHref({ cardId: entry.cardId, id: entry.print?.id, lang }, locale)} asChild>
       <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
         <Thumb print={thumb} />
         <View className="min-w-0 flex-1">

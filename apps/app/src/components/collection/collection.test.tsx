@@ -417,6 +417,26 @@ describe('wide layout', () => {
     window.dispatchEvent(new Event('resize'));
   });
 
+  it('links an entry to its print in its own language, ?lang= only when not the user’s (VB-107)', async () => {
+    fakeApi(signedIn, (c) => {
+      if (c.path === '/collection/summary') return json(summary);
+      if (c.path === '/collection/binders') return json({ binders: [] });
+      if (c.path.startsWith('/collection/entries'))
+        return json(page([{ ...entry, language: 'en' }]));
+      return undefined;
+    });
+    renderApp(<Collection />);
+    await screen.findByText('Adeline, strahlende Katharerin');
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole('link')
+          .map((l) => l.getAttribute('href'))
+          .filter((h) => h?.startsWith('/cards/')),
+      ).toEqual([`/cards/${entry.print.cardId}?print=${entry.print.id}&lang=en`]),
+    );
+  });
+
   it('replaces a row’s stepper with the plain number while its form is open', async () => {
     collectionApi();
     renderApp(<Collection />);

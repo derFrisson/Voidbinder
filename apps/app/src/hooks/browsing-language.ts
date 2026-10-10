@@ -17,9 +17,11 @@ export function useBrowsingLanguage() {
  * before VB-102 sends no `lang`.
  */
 export function hitHref(
-  hit: { cardId: string; id: string; lang?: string | undefined },
+  hit: { cardId: string; id?: string | null | undefined; lang?: string | undefined },
   locale: string,
 ) {
-  const lang = hit.lang && hit.lang !== locale ? `&lang=${hit.lang}` : '';
-  return `/cards/${hit.cardId}?print=${hit.id}${lang}`;
+  const query = [hit.id && `print=${hit.id}`, hit.lang && hit.lang !== locale && `lang=${hit.lang}`]
+    .filter(Boolean)
+    .join('&');
+  return `/cards/${hit.cardId}${query && `?${query}`}`;
 }
