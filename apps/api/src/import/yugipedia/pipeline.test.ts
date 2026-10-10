@@ -32,11 +32,11 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
   afterAll(() => drop());
 
   const requests: string[] = [];
-  const run = (blobs = new MemoryBlobStore()) =>
+  const run = (date = '2026-10-10', blobs = new MemoryBlobStore()) =>
     runYugipediaImport(
       { fetch: fakeYugipedia(requests), raw: blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
       (_name, fn) => fn(),
-      { env: 'dev', date: '2026-10-10', delayMs: 0 },
+      { env: 'dev', date, delayMs: 0 },
     );
   const version = async () =>
     Number((await db.select().from(appMeta).where(eq(appMeta.key, 'catalog_version')))[0]?.value);
@@ -81,7 +81,11 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
         .values(made.map((p) => ({ printId: p.id, lang: 'en', name })));
       return made;
     };
-    await card('34950192', 'Lev Shaddoll Fusion', ['EN024', 'EN124']);
+    // YGOPRODeck has Lev in German on every print, but no other language.
+    const lev = await card('34950192', 'Lev Shaddoll Fusion', ['EN024', 'EN124']);
+    await db
+      .insert(printLocalizations)
+      .values(lev.map((p) => ({ printId: p.id, lang: 'de', name: 'Lev (YGOPRODeck)' })));
     await card('300104004', 'Cocoon of Ultra Evolution (Skill Card)', ['EN901']);
     await card('99999999', 'Not On The Wiki', ['EN999']);
     // YGOPRODeck has Odd-Eyes in German, but a newer print lacks the row.
@@ -93,8 +97,8 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
     });
   });
 
-  it('fills every language Yugipedia has for every print of the cards without German', async () => {
-    expect((await planCards(db)).map((c) => c.key)).toEqual([
+  it('fills every language Yugipedia has for every print that lacks it', async () => {
+    expect((await planCards(db, '2026-10-10')).map((c) => c.key)).toEqual([
       '16178681',
       '300104004',
       '34950192',
@@ -102,26 +106,27 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
     ]);
     const before = await version();
     const blobs = new MemoryBlobStore();
-    const { stats } = await run(blobs);
-    // Lev 2 prints x 5 languages, Odd-Eyes 2 x 5 less YGOPRODeck's German row, the Skill Card 5.
+    const { stats } = await run('2026-10-10', blobs);
+    // Lev 2 prints x 4 languages (German is YGOPRODeck's), Odd-Eyes 2 x 5 less YGOPRODeck's German
+    // row, the Skill Card 5.
     // One passcode request for the four cards, one title request for the two it did not find.
     expect(requests).toHaveLength(2);
     expect(requests.every((u) => u.startsWith('https://yugipedia.com/api.php?action=ask'))).toBe(
       true,
     );
-    expect(stats).toEqual({ planned: 4, found: 3, missing: 1, written: 24 });
+    expect(stats).toEqual({ planned: 4, found: 3, missing: 1, written: 22 });
     expect(await version()).toBe(before + 1);
 
     const lev = await rows('34950192');
     expect(lev.filter((r) => r.number === 'EN124').map((r) => [r.lang, r.name])).toEqual([
-      ['de', 'Lev-Schattenpuppen-Fusion'],
+      ['de', 'Lev (YGOPRODeck)'],
       ['en', 'Lev Shaddoll Fusion'],
       ['es', 'Fusión Lev Sombrañeca'],
       ['fr', "Fusion Marionnette de l'Ombre Lev"],
       ['it', 'Fusione Lev Bambolaombra'],
       ['pt', 'Fusão Lev Sombraneco'],
     ]);
-    expect(lev.find((r) => r.lang === 'de')?.ids).toEqual({ yugipedia: 'Lev Shaddoll Fusion' });
+    expect(lev.find((r) => r.lang === 'fr')?.ids).toEqual({ yugipedia: 'Lev Shaddoll Fusion' });
     // The YGOPRODeck row stays; the print without one gets Yugipedia's.
     expect(
       (await rows('16178681')).filter((r) => r.lang === 'de').map((r) => [r.number, r.name]),
@@ -139,7 +144,7 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
     expect(runRow).toMatchObject({ status: 'ok', kind: 'full' });
   });
 
-  it('writes nothing twice: the next run only asks for the card Yugipedia lacks', async () => {
+  it('writes nothing twice and asks for a card it lacks again only after the cool-down', async () => {
     const before = await version();
     const snapshot = () =>
       db
@@ -148,7 +153,16 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
         .orderBy(sql`print_id, lang`);
     const rowsBefore = await snapshot();
     requests.length = 0;
-    const { stats } = await run();
+    // A week later the card Yugipedia lacks is still cooling down: nothing to ask.
+    expect((await run('2026-10-17')).stats).toEqual({
+      planned: 0,
+      found: 0,
+      missing: 0,
+      written: 0,
+    });
+    expect(requests).toHaveLength(0);
+    // Thirty days on it is asked again; every other card has all five languages.
+    const { stats } = await run('2026-11-09');
     expect(stats).toEqual({ planned: 1, found: 0, missing: 1, written: 0 });
     expect(await snapshot()).toEqual(rowsBefore);
     expect(await version()).toBe(before);
@@ -163,7 +177,9 @@ describe.skipIf(!databaseUrl)('Yugipedia import (Postgres)', () => {
     );
     expect(await writeLocalizations(db, pages)).toBe(0);
     const lev = pages.get('34950192');
-    if (lev?.localizations[0]) lev.localizations[0].name = 'Neu';
+    // French is Yugipedia's row, German YGOPRODeck's: only the French one changes.
+    for (const l of lev?.localizations ?? [])
+      if (l.lang === 'de' || l.lang === 'fr') l.name = 'Neu';
     expect(await writeLocalizations(db, pages)).toBe(2);
   });
 });

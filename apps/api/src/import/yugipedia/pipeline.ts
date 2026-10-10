@@ -1,5 +1,5 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
-import { cards, importRuns, printLocalizations, prints } from '../../db/schema';
+import { appMeta, cards, importRuns, printLocalizations, prints } from '../../db/schema';
 import { log } from '../../middleware/log';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { chunkKey, deletePrefix, readChunk } from '../scryfall/source';
@@ -9,6 +9,7 @@ import {
   ask,
   ASK_BATCH,
   askUrl,
+  LANGUAGES,
   parseAnswer,
   pickPages,
   queryableTitle,
@@ -17,10 +18,10 @@ import {
 } from './source';
 
 // The Yugipedia import (VB-93): the names and texts YGOPRODeck lacks. Every Yu-Gi-Oh! card with a
-// print that has no German localization is looked up on Yugipedia, by passcode and, for a card
-// without one (Skill Cards, tokens), by its English name as the page title; each language the page
-// has (de, fr, it, es, pt) becomes a localization of every print of the card, marked with the page
-// in `external_ids.yugipedia`. A row another importer wrote is never overwritten, and YGOPRODeck's
+// print that lacks one of the languages (de, fr, it, es, pt) is looked up on Yugipedia, by passcode
+// and, for a card without one (Skill Cards, tokens), by its English name as the page title; each
+// language the page has becomes a localization of every print of the card, marked with the page in
+// `external_ids.yugipedia`. A looked-up card is not asked again for COOL_DOWN_DAYS, found or not. A row another importer wrote is never overwritten, and YGOPRODeck's
 // daily German pass overwrites a Yugipedia row once it has the card. The steps have the shape of
 // the other importers' (src/import/scryfall/pipeline.ts): each is retried on its own.
 
@@ -43,19 +44,56 @@ interface PlannedCard {
   name: string;
 }
 
-/** The cards with a print that has no `de` localization. */
-export async function planCards(db: Db): Promise<PlannedCard[]> {
-  return db
+/** Days a looked-up card waits before it is asked again (no page, or a language still missing). */
+export const COOL_DOWN_DAYS = 30;
+/** `app_meta` key of the map passcode → UTC day the card was last looked up. */
+export const CHECKED_KEY = 'yugipedia_checked';
+const LANGS = Object.values(LANGUAGES);
+
+/**
+ * The cards with a print that lacks one of LANGS, less those looked up within COOL_DOWN_DAYS
+ * before `date`.
+ */
+export async function planCards(db: Db, date: string): Promise<PlannedCard[]> {
+  const [meta] = await db
+    .select({ value: appMeta.value })
+    .from(appMeta)
+    .where(eq(appMeta.key, CHECKED_KEY));
+  const checked = JSON.parse(meta?.value ?? '{}') as Record<string, string>;
+  const since = new Date(Date.parse(date) - COOL_DOWN_DAYS * 86_400_000).toISOString().slice(0, 10);
+  const candidates = await db
     .select({ key: cards.oracleKey, name: cards.name })
     .from(cards)
     .where(
       and(
         eq(cards.gameId, 'yugioh'),
-        sql`exists (select 1 from ${prints} p where p.card_id = ${cards.id} and not exists (
-          select 1 from ${printLocalizations} l where l.print_id = p.id and l.lang = 'de'))`,
+        sql`exists (select 1 from ${prints} p where p.card_id = ${cards.id} and (
+          select count(*) from ${printLocalizations}
+          where ${printLocalizations.printId} = p.id and ${inArray(printLocalizations.lang, LANGS)}
+        ) < ${LANGS.length})`,
       ),
     )
     .orderBy(cards.oracleKey);
+  return candidates.filter((c) => (checked[c.key] ?? '') <= since);
+}
+
+/** Marks the cards as looked up on `date` (one atomic merge into the `app_meta` map). */
+export async function markChecked(db: Db, keys: string[], date: string) {
+  if (!keys.length) return;
+  // ponytail: one JSON map in app_meta (≈ 25 bytes per card, ~14k cards); a table if it grows.
+  await db
+    .insert(appMeta)
+    .values({
+      key: CHECKED_KEY,
+      value: JSON.stringify(Object.fromEntries(keys.map((k) => [k, date]))),
+    })
+    .onConflictDoUpdate({
+      target: appMeta.key,
+      set: {
+        value: sql`(${appMeta.value}::jsonb || excluded.value::jsonb)::text`,
+        updatedAt: sql`now()`,
+      },
+    });
 }
 
 /**
@@ -118,6 +156,7 @@ async function importChunk(
   deps: ImportDeps,
   planned: PlannedCard[],
   rawKey: string,
+  date: string,
   delayMs: number,
 ): Promise<ChunkStats> {
   const bodies: string[] = [];
@@ -138,7 +177,15 @@ async function importChunk(
     'title',
   );
   await deps.raw.put(rawKey, `[${bodies.join(',')}]`, { contentType: 'application/json' });
-  const written = await deps.withDb((db) => writeLocalizations(db, found));
+  const written = await deps.withDb(async (db) => {
+    const n = await writeLocalizations(db, found);
+    await markChecked(
+      db,
+      planned.map((c) => c.key),
+      date,
+    );
+    return n;
+  });
   return { found: found.size, missing: planned.length - found.size, written };
 }
 
@@ -160,7 +207,7 @@ export async function runYugipediaImport(deps: ImportDeps, step: StepRunner, opt
   try {
     // The plan goes to R2 in chunks, so every step reads its own and a retry reads the same.
     const chunks = await step('plan', async () => {
-      const planned = await deps.withDb(planCards);
+      const planned = await deps.withDb((db) => planCards(db, opts.date));
       const parts = batches(planned, CARDS_PER_STEP);
       for (const [i, part] of parts.entries())
         await deps.raw.put(
@@ -178,7 +225,13 @@ export async function runYugipediaImport(deps: ImportDeps, step: StepRunner, opt
         );
         return {
           planned: planned.length,
-          ...(await importChunk(deps, planned, `${raw}/cards-${n(i)}.json`, opts.delayMs ?? 1000)),
+          ...(await importChunk(
+            deps,
+            planned,
+            `${raw}/cards-${n(i)}.json`,
+            opts.date,
+            opts.delayMs ?? 1000,
+          )),
         };
       });
       for (const k of Object.keys(stats) as (keyof typeof stats)[]) stats[k] += r[k];

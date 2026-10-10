@@ -557,8 +557,8 @@ card matching your query"). `src/import/yugipedia/` fills them from
 [Yugipedia](https://yugipedia.com) (VB-93), whose card pages carry the name, lore and Pendulum
 Effect in German, French, Italian, Spanish and Portuguese as Semantic MediaWiki properties. The
 Workflow `src/workflows/yugipedia-import.ts` (binding `YUGIPEDIA_IMPORT`) runs `start run`, `plan`
-(every Yu-Gi-Oh! card with a print that has no `de` localization, written to R2 in chunks of
-100), `cards 00000` … (one per chunk) and `finish run` (`catalog_version` + 1 and the edge cache
+(every Yu-Gi-Oh! card with a print that lacks one of `de`, `fr`, `it`, `es`, `pt`, less the cards
+looked up in the last 30 days, written to R2 in chunks of 100), `cards 00000` … (one per chunk) and `finish run` (`catalog_version` + 1 and the edge cache
 purged only when a row was written). A chunk asks `action=ask` for the pages in
 `Category:Duel Monsters cards` whose `Password` is one of ten passcodes (the wiki refuses a query
 with 15), and for the cards still missing that have no passcode on the wiki (Skill Cards, tokens:
@@ -571,9 +571,15 @@ has it), a Yugipedia row is rewritten only when the page changed. Wikitext becom
 as YGOPRODeck's (`[ Pendulum Effect ]` then `[ Monster Effect ]` or `[ Flavor Text ]`). Requests are
 one second apart (robots.txt `Crawl-delay: 1`) with a `User-Agent` naming voidbinder.de and the
 contact address; the answers stay in `RAW` under `raw/<env>/yugipedia/<date>/cards-<n>.json`.
-The first run on a catalog is about 260 requests (5 minutes); afterwards the weekly cron (prod
-Mondays 04:30, dev Mondays 06:00 UTC, instance `yugipedia-<date>`, not started while a run is
-going) only asks for new prints and the ~80 cards Yugipedia lacks. `POST /admin/import/yugipedia`
+Every card a chunk looked up, found or not, goes into the `app_meta` map `yugipedia_checked`
+(passcode → day) and is not asked again for 30 days, so the ~80 cards Yugipedia lacks and pages
+without a language are not re-asked every week (a print added to a card in that time waits for
+the next lookup too). The first run on a catalog covers the whole catalog, about 1,400 requests
+(25 minutes); the weekly cron (prod Mondays 04:30, dev Mondays 06:00 UTC, instance
+`yugipedia-<date>`, not started while a run is going) then asks for new cards and those whose 30
+days are up. YGOPRODeck also publishes French, Italian and Portuguese dumps; reading them daily
+would be the cheaper source for those languages (a later ticket), with Yugipedia left for Spanish
+and the gaps. `POST /admin/import/yugipedia`
 starts one on demand (202, 409 while one is `running`). The content is CC BY-SA 4.0: the app
 credits it in the footer and on every Yu-Gi-Oh! card page (`YUGIPEDIA_ATTRIBUTION` in
 `@voidbinder/shared/notices`, source and licence linked), and the offline module's `meta` carries
