@@ -10,6 +10,7 @@ import { skipsTurnstile } from '../../middleware/turnstile';
 import { DrizzleCardStore } from './drizzle-card-store';
 import { DrizzleCollectionStore } from './drizzle-collection-store';
 import { DrizzleDeckStore } from './drizzle-deck-store';
+import { D1SearchIndex } from './d1-search-index';
 import { bindingMailSender } from './mail-sender';
 import { R2BlobStore } from './r2-blob-store';
 import { WorkflowJobQueue } from './workflow-job-queue';
@@ -59,12 +60,17 @@ export function createPlatform(env: Env): Platform {
     }),
     collectionStore: new DrizzleCollectionStore(db, env.IMAGE_BASE_URL),
     deckStore: new DrizzleDeckStore(db, env.IMAGE_BASE_URL),
+    // Without the binding (self-hosting) the search reads Postgres alone.
+    searchIndex: env.SEARCH
+      ? new D1SearchIndex(env.SEARCH, { imageBaseUrl: env.IMAGE_BASE_URL })
+      : undefined,
     blobStore: catalogImages(env),
     jobQueue: new WorkflowJobQueue({
       'scryfall-import': env.SCRYFALL_IMPORT,
       'tcgdex-import': env.TCGDEX_IMPORT,
       'ygoprodeck-import': env.YGOPRODECK_IMPORT,
       'tcgcsv-import': env.TCGCSV_IMPORT,
+      'search-index-refresh': env.SEARCH_INDEX_REFRESH,
     }),
     db,
     close: async () => {

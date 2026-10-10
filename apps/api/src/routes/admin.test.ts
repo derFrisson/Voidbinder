@@ -59,3 +59,18 @@ describe.skipIf(!databaseUrl)('POST /admin/import/<source> (Postgres)', () => {
     expect((await app.request('/admin/import/ygoprodeck', { method: 'POST' })).status).toBe(401);
   });
 });
+
+describe('POST /admin/search-index/rebuild', () => {
+  it('starts a full refresh of the search index (VB-98)', async () => {
+    const sent: unknown[] = [];
+    const jobQueue = { send: async (job: unknown) => void sent.push(job) };
+    const app = testApp({ adminToken: 't', jobQueue });
+    const post = (headers: Record<string, string>) =>
+      app.request('/admin/search-index/rebuild', { method: 'POST', headers });
+    expect((await post({})).status).toBe(401);
+    const res = await post({ Authorization: 'Bearer t' });
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ status: 'started' });
+    expect(sent).toEqual([{ type: 'search-index-refresh', payload: { full: true } }]);
+  });
+});

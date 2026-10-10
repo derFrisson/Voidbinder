@@ -1,4 +1,11 @@
-import type { BlobStore, CardStore, CollectionStore, DeckStore, JobQueue } from '@voidbinder/core';
+import type {
+  BlobStore,
+  CardStore,
+  CollectionStore,
+  DeckStore,
+  JobQueue,
+  SearchIndex,
+} from '@voidbinder/core';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
@@ -21,6 +28,8 @@ import { syncRoutes } from './routes/sync';
 /** The platform seams one request works with (ADR 0001). */
 export interface Platform {
   cardStore: CardStore;
+  /** The search index in front of the card store's search (VB-98); absent: Postgres alone. */
+  searchIndex?: SearchIndex | undefined;
   /** The signed-in user's collection (VB-31), on the cache-disabled pool. */
   collectionStore: CollectionStore;
   /** The signed-in user's decks (VB-34), on the cache-disabled pool. */
@@ -56,6 +65,8 @@ export interface AppEnv {
   Variables: {
     platform: Platform;
     requestId: string;
+    /** The catalog_version of a response the search index answered (its ETag, VB-98). */
+    catalogVersion?: string;
     /** Better Auth for this request, built on first use (src/auth). */
     auth: () => Auth;
   };

@@ -52,7 +52,8 @@ export const catalogCache = createMiddleware<AppEnv>(async (c, next) => {
   await next();
   if (c.res.status !== 200) return;
   const [version, body] = await Promise.all([
-    c.var.platform.cardStore.catalogVersion(),
+    // The search index's own version when it answered: no Postgres round trip for the typeahead.
+    c.var.catalogVersion ?? c.var.platform.cardStore.catalogVersion(),
     c.res.clone().arrayBuffer(),
   ]);
   const etag = `"v${version}-${hex(await crypto.subtle.digest('SHA-256', body)).slice(0, 32)}"`;
