@@ -1,7 +1,6 @@
 import { zValidator } from '@hono/zod-validator';
 import {
   PriceMappingRequestSchema,
-  PriceSourceSchema,
   type ErrorResponse,
   type ImportStartedResponse,
   type PriceMappingResponse,
@@ -41,11 +40,16 @@ export function adminRoutes(adminToken: string | undefined) {
       )
       .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
       // A manual price mapping (VB-30): confidence 100, never overwritten by the importers.
+      // `tcgplayer` only: the Scryfall sources write by print, never through price_mappings.
       .put(
         '/price-mappings/:printId/:source/:finish',
         zValidator(
           'param',
-          z.object({ printId: z.uuid(), source: PriceSourceSchema, finish: z.string().max(32) }),
+          z.object({
+            printId: z.uuid(),
+            source: z.literal('tcgplayer'),
+            finish: z.string().max(32),
+          }),
           throwOnInvalid,
         ),
         zValidator('json', PriceMappingRequestSchema, throwOnInvalid),
@@ -61,7 +65,7 @@ export function adminRoutes(adminToken: string | undefined) {
           if (!row) throw new HTTPException(404, { message: 'Print not found' });
           const body: PriceMappingResponse = {
             printId: row.printId,
-            source: row.source as PriceMappingResponse['source'],
+            source: 'tcgplayer',
             finish: row.finish,
             externalId: row.externalId,
             confidence: row.confidence,
