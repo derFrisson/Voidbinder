@@ -107,6 +107,7 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
   `docker exec voidbinder-db sh -c 'du -sh /home/postgres/pgdata/data/pg_wal'` and
   `df -h /var/lib/postgresql`. This is the first thing to fix, ahead of everything else on this
   list. The audit assumed section 7 was done; the runbook now has a gate for it in step 3.
+  Tracked as VB-78.
 - **B1. Privacy policy (VB-62) not on `main`.** The site's `datenschutz.md` / `privacy.md` still
   describe only the waitlist and the Cloudflare beacon. Accounts, sessions, two-factor data,
   Turnstile on sign-up and Plausible need to be in the policy before the site and the app go live
@@ -589,7 +590,7 @@ go, but before the URL is shared widely.
 
 ### 14. After the go-live
 
-- B6: set up backups (database-vps.md section 7) if it is not done yet.
+- B6 (VB-78): set up backups (database-vps.md section 7) if it is not done yet.
 - VB-76: replace the one-off Pokémon copy script with `scripts/vps/copy-catalog.sh`.
 - VB-63: price history backfill on prod, after step 9.
 - The prod crons from now on, daily (UTC): Scryfall 03:00, YGOPRODeck 03:30, TCGdex 04:00
