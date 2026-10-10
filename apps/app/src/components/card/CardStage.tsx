@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Pattern, Rect } from 'react-native-svg';
 import { fmt, useLocale, useT } from '../../i18n';
 import { usePalette } from '../palette';
-import { PokemontcgCredit, YugipediaCredit } from '../ui';
+import { YugipediaCredit } from '../ui';
 import { CardImage } from './CardImage';
 import { fieldClass, fieldColor, printFoil } from './game';
 
@@ -136,7 +136,6 @@ export function RightsNotice({
       </Text>
       {game === 'mtg' && <Text className={text}>{SCRYFALL_ATTRIBUTION[locale]}</Text>}
       {game === 'yugioh' && <YugipediaCredit className={text} />}
-      {game === 'pokemon' && <PokemontcgCredit className={text} />}
     </View>
   );
 }

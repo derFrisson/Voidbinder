@@ -3,7 +3,8 @@ import type { Game, Locale } from './index.js';
 // Rights notices per game (VB-57), from docs/marketing/card-imagery-legal.md section 7. The app
 // shows the notice of every game it serves and, on a card page, the artist and the game's
 // copyright line next to the image. Wizards' Fan Content Policy requires its notice verbatim, so
-// the Magic notice stays in English in both locales.
+// the English text stays unchanged in both locales; the German one gets a German lead-in before it
+// (Max, 2026-10-11).
 
 /** The game's copyright line for a card page, next to the artist. */
 export const COPYRIGHT: Record<Game, string> = {
@@ -16,8 +17,12 @@ export const COPYRIGHT: Record<Game, string> = {
 const MTG =
   'Voidbinder is unofficial Fan Content permitted under the Fan Content Policy. Not approved/endorsed by Wizards. Portions of the materials used are property of Wizards of the Coast. ©Wizards of the Coast LLC.';
 
+/** Wizards' notice must stay verbatim; the German footer introduces it in German first. */
+export const MTG_NOTICE_LEAD_DE =
+  'Magic: The Gathering-Inhalte sind inoffizieller Fan-Content gemäß der Fan Content Policy von Wizards of the Coast; der vorgeschriebene Hinweis lautet:';
+
 export const NOTICES: Record<Game, Record<Locale, string>> = {
-  mtg: { en: MTG, de: MTG },
+  mtg: { en: MTG, de: `${MTG_NOTICE_LEAD_DE} ${MTG}` },
   pokemon: {
     en: 'Pokémon and Pokémon character names are trademarks of Nintendo. Card images and text are © The Pokémon Company, Nintendo, Game Freak and/or Creatures. Voidbinder is not produced by, endorsed by, supported by, or affiliated with Pokémon, Nintendo, Game Freak or Creatures.',
     de: 'Pokémon und die Namen der Pokémon-Figuren sind Marken von Nintendo. Kartenbilder und -texte © The Pokémon Company, Nintendo, Game Freak und/oder Creatures. Voidbinder wird nicht von Pokémon, Nintendo, Game Freak oder Creatures produziert, befürwortet oder unterstützt und ist mit ihnen nicht verbunden.',
@@ -47,14 +52,5 @@ export const YUGIPEDIA_ATTRIBUTION: Record<Locale, string> = {
   en: 'Yu-Gi-Oh! card names and texts in other languages: Yugipedia (CC BY-SA 4.0)',
   de: 'Yu-Gi-Oh!-Kartennamen und -texte in weiteren Sprachen: Yugipedia (CC BY-SA 4.0)',
 };
-/**
- * pokemontcg.io's attribution (VB-118): the pictures of the Pokémon prints TCGdex has none for
- * (McDonald's collections, galleries, trainer kits) come from the Pokémon TCG API.
- */
-export const POKEMONTCG_ATTRIBUTION: Record<Locale, string> = {
-  en: 'Card images: Pokémon TCG API (pokemontcg.io)',
-  de: 'Kartenbilder: Pokémon TCG API (pokemontcg.io)',
-};
-export const POKEMONTCG_URL = 'https://pokemontcg.io';
 export const YUGIPEDIA_URL = 'https://yugipedia.com';
 export const CC_BY_SA_URL = 'https://creativecommons.org/licenses/by-sa/4.0/';
