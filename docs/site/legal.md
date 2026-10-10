@@ -101,5 +101,9 @@ cookie Cloudflare's edge might add.
   so "30 days" means 37 days after sign-up; word the placeholder that way ("30 Tagen nach Ablauf des
   Bestätigungslinks") or set the var to the figure you want to state minus 7. Once the Worker is deployed, check that the cron ran
   (`wrangler tail` or Workers Logs show `[waitlist] retention purge`).
+- Re-check the Workers Logs retention after 2026-12-01: Cloudflare moves Workers Logs to Observability
+  pricing then, so the stated 7 days may change (both privacy files, "Server logs of the web app").
+- Confirm that the Hetzner data processing agreement (AVV, Robot / Cloud console) and the Proton DPA are
+  concluded; the text says both act as processors, and the register only cites Max for that.
 - Bump `updated` in the frontmatter of a page whenever its text changes. If the waitlist consent text
   changes, bump `WAITLIST_CONSENT_VERSION` too.
