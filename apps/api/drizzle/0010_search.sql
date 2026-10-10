@@ -16,4 +16,7 @@ CREATE FUNCTION "catalog_number_key"(number text) RETURNS text
 CREATE INDEX "cards_name_trgm_idx" ON "cards" USING gin ("name" gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX "print_localizations_name_trgm_idx" ON "print_localizations" USING gin ("name" gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX "prints_number_key_idx" ON "prints" USING btree (catalog_number_key("number"));--> statement-breakpoint
-CREATE INDEX "sets_code_key_idx" ON "sets" USING btree (catalog_code_key("code"));
+CREATE INDEX "sets_code_key_idx" ON "sets" USING btree (catalog_code_key("code"));--> statement-breakpoint
+-- Statistics for the new expression indexes now, not at the next autovacuum: without them the
+-- planner guesses and the code lookup takes 3 to 10 times longer.
+ANALYZE "sets", "prints";
