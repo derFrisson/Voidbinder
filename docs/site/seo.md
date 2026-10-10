@@ -57,23 +57,25 @@ for a missing page under `/<locale>/` only when that route exists literally; a
 
 ## Analytics
 
-Cloudflare Web Analytics, manual beacon, only when `PUBLIC_CF_ANALYTICS_TOKEN` is set at build time
-(`docs/environments.md`); without it the page renders no script. `Base.astro` adds
+Self-hosted Plausible (VB-74), only when the build's environment has the wrangler var
+`PLAUSIBLE_HOST` (prod; `docs/environments.md`); without it the page renders no script. `Base.astro`
+adds
 
 ```html
 <script
   defer
-  src="https://static.cloudflareinsights.com/beacon.min.js"
-  data-cf-beacon='{"token":"…"}'
+  data-domain="voidbinder.de"
+  src="https://plausible.voidbinder.de/js/script.js"
 ></script>
 ```
 
-The beacon uses no cookies or `localStorage` and does not fingerprint
-([Cloudflare docs](https://developers.cloudflare.com/web-analytics/data-metrics/core-web-vitals/#information-collected)).
-It is an external script, so it needs no nonce or hash, only `https://static.cloudflareinsights.com`
-in `script-src` and `https://cloudflareinsights.com` in `connect-src` (where the manual setup
-reports to). Keep the dashboard's automatic injection off for voidbinder.de so visits are not
-counted twice.
+Plausible sets no cookies, uses no `localStorage` and keeps no personal data, so no consent banner is
+needed. It is an external script, so it needs no nonce or hash, only the host in `script-src` and,
+because it reports to the origin it was loaded from, in `connect-src`. `src/security-headers.ts`
+takes the host (`contentSecurityPolicy(host)`): the Worker passes `env.PLAUSIBLE_HOST`, the build
+integration reads it from the flattened `dist/server/wrangler.json`, so `_headers` and the Worker
+agree. This is the classic `data-domain` snippet; the web app uses the
+`@plausible-analytics/tracker` package instead.
 
 ## Security headers
 
@@ -99,7 +101,7 @@ all and uses one header policy without hashes or nonces:
   `vite.build.assetsInlineLimit: 0` keeps it from inlining small processed `<script>` chunks (they
   are emitted as `/_astro/*.js` with a `src` attribute instead);
 - components use classes, never `style=""` or `define:vars`;
-- `<script>` only with `src` (the beacon) or as a JSON-LD data block, which CSP does not govern;
+- `<script>` only with `src` (Plausible) or as a JSON-LD data block, which CSP does not govern;
 - `apps/site/test/build.test.ts` fails on an inline `<script>`, a `<style>` element or a `style`
   attribute in the built HTML.
 
@@ -119,7 +121,7 @@ GET /og/de.png, /robots.txt,
     /sitemap-index.xml  200   (static assets)
 POST /api/waitlist      303   (Worker)
 
-Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://cloudflareinsights.com; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+Content-Security-Policy: default-src 'self'; script-src 'self' https://plausible.voidbinder.de https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://plausible.voidbinder.de; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 X-Content-Type-Options: nosniff

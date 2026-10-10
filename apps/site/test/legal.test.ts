@@ -14,7 +14,8 @@ const ALLOWED_HOSTS = [
   'github.com',
   'voidcom.app',
   'cloudflare.com', // links to Cloudflare's own pages
-  'cloudflareinsights.com', // Web Analytics beacon
+  'cloudflareinsights.com', // Web Analytics beacon (only named in the privacy text)
+  'localhost', // the web app CTA of a local build (wrangler var PUBLIC_APP_URL)
 ];
 const allowed = (host: string) => ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 

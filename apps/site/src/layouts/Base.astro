@@ -1,8 +1,10 @@
 ---
+import { env } from 'cloudflare:workers';
 import '../styles/global.css';
 import Footer from '../components/Footer.astro';
 import Nav from '../components/Nav.astro';
 import Seo from '../components/Seo.astro';
+import { plausibleOrigin } from '../analytics';
 import { t, type Locale } from '../i18n';
 
 interface Props {
@@ -18,7 +20,8 @@ const { locale, title, description, noindex = false } = Astro.props;
 const d = t(locale);
 const pageTitle = title ?? d.meta.title;
 const pageDescription = description ?? d.meta.description;
-const analyticsToken: string | undefined = import.meta.env.PUBLIC_CF_ANALYTICS_TOKEN;
+// Self-hosted Plausible, prod only: the wrangler var PLAUSIBLE_HOST (docs/environments.md).
+const plausible = plausibleOrigin(env.PLAUSIBLE_HOST);
 ---
 
 <!doctype html>
@@ -33,14 +36,8 @@ const analyticsToken: string | undefined = import.meta.env.PUBLIC_CF_ANALYTICS_T
     <link rel="preload" href="/fonts/public-sans-latin.woff2" as="font" type="font/woff2" crossorigin />
     <slot name="head" />
     {
-      // Cloudflare Web Analytics: cookieless, set per environment at build time (docs/environments.md).
-      analyticsToken && (
-        <script
-          is:inline
-          defer
-          src="https://static.cloudflareinsights.com/beacon.min.js"
-          data-cf-beacon={JSON.stringify({ token: analyticsToken })}
-        />
+      plausible && (
+        <script is:inline defer data-domain={Astro.site?.hostname} src={`${plausible}/js/script.js`} />
       )
     }
   </head>
