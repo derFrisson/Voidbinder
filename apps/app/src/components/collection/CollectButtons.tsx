@@ -5,7 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import { cardOptions } from '../../api/queries/catalog';
 import { useAddEntries, useOwned } from '../../api/queries/collection';
 import { useSession } from '../../api/queries/me';
-import { useBrowsingLanguage } from '../../hooks/browsing-language';
+import { useBrowsingLanguage, useExplicitLanguage } from '../../hooks/browsing-language';
 import { fmt, useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { useWide } from '../Shell';
@@ -106,7 +106,8 @@ export function CollectButtons({
 
 /**
  * The quick "add to collection" under a tile (search, set page): one press adds one copy with the
- * defaults (the last used language, else the tile's or the browsing one, when the print has it, else English; the first
+ * defaults (the tile's or the page's explicit language, else the last used one, else the browsing one, when the print
+ * has it, else English; the first
  * finish; NM), into `binderId` when the search was opened from a binder, and says so in a toast
  * whose "Ändern" opens the add dialog for that entry. The chevron beside it (wide screens) and a
  * long press open the dialog before adding. The print's languages come from the card, read once
@@ -131,6 +132,7 @@ export function QuickAdd({
   const t = useT();
   const wide = useWide();
   const browsing = useBrowsingLanguage();
+  const explicit = useExplicitLanguage();
   const client = useQueryClient();
   const add = useAddEntries();
   const entryId = useRetryId(printId);
@@ -163,7 +165,7 @@ export function QuickAdd({
     const data = await client.fetchQuery(cardOptions(cardId)).catch(() => undefined);
     setLooking(false);
     const values: EntryValues = {
-      language: defaultLanguage(printOptions(data, printId).languages, lang ?? browsing),
+      language: defaultLanguage(printOptions(data, printId).languages, browsing, lang ?? explicit),
       finish,
       condition: 'NM',
       quantity: 1,
