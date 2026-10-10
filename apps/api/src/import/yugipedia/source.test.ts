@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs';
-import { describe, expect, it } from 'vitest';
-import { askUrl, parseAnswer, pickPages, plainText, queryableTitle } from './source';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  ask,
+  askUrl,
+  parseAnswer,
+  pickPages,
+  plainText,
+  queryableTitle,
+  USER_AGENT,
+} from './source';
 
 // Real `action=ask` answers (Yugipedia, 2026-10-10) for the queries askUrl and titlesUrl build.
 const fixture = (name: string): unknown =>
@@ -60,6 +68,27 @@ describe('Yugipedia source', () => {
       name: 'Kokon der Ultra-Evolution',
     });
     expect(queryableTitle('Maliss <P> Chessy Cat')).toBe(false);
+  });
+
+  it('waits one second before every request and names itself', async () => {
+    vi.useFakeTimers();
+    try {
+      const calls: RequestInit[] = [];
+      const fetchFn = async (_url: string, init?: RequestInit) => {
+        calls.push(init ?? {});
+        return new Response('{}');
+      };
+      // No delay given: the default is the one second promised to Yugipedia.
+      const pending = ask(fetchFn, askUrl(['1']));
+      await vi.advanceTimersByTimeAsync(999);
+      expect(calls).toHaveLength(0);
+      await vi.advanceTimersByTimeAsync(1);
+      await pending;
+      expect(calls[0]?.headers).toMatchObject({ 'User-Agent': USER_AGENT });
+      expect(USER_AGENT).toMatch(/voidbinder\.de/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('fails on an error answer and reads an empty result set', () => {

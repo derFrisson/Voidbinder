@@ -168,8 +168,15 @@ export function pickPages(
 
 const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
+/** Wait before every request: one request per second. */
+export const CRAWL_DELAY_MS = 1000;
+
 /** One `ask` request, after the crawl delay; the body as Yugipedia sent it (the raw copy). */
-export async function ask(fetchFn: Fetch, askUrl: string, delayMs: number): Promise<string> {
+export async function ask(
+  fetchFn: Fetch,
+  askUrl: string,
+  delayMs = CRAWL_DELAY_MS,
+): Promise<string> {
   if (delayMs) await sleep(delayMs);
   const res = await fetchFn(askUrl, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },

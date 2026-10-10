@@ -35,7 +35,7 @@ export interface ImportOptions {
   env: string;
   /** UTC day of the run. */
   date: string;
-  /** Wait before every request; robots.txt asks for one second. Tests pass 0. */
+  /** Wait before every request; `ask`'s CRAWL_DELAY_MS when unset. Tests pass 0. */
   delayMs?: number;
 }
 
@@ -157,7 +157,7 @@ async function importChunk(
   planned: PlannedCard[],
   rawKey: string,
   date: string,
-  delayMs: number,
+  delayMs: number | undefined,
 ): Promise<ChunkStats> {
   const bodies: string[] = [];
   const found = new Map<string, YugipediaPage>();
@@ -230,7 +230,7 @@ export async function runYugipediaImport(deps: ImportDeps, step: StepRunner, opt
             planned,
             `${raw}/cards-${n(i)}.json`,
             opts.date,
-            opts.delayMs ?? 1000,
+            opts.delayMs,
           )),
         };
       });
