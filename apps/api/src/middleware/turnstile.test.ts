@@ -212,5 +212,11 @@ describe.skipIf(!databaseUrl)('the API app, with Better Auth behind the check', 
       body: JSON.stringify({ name: 'Ada', email: 'ada@example.test', password: 'correct horse' }),
     });
     expect([400, 404]).toContain(res.status);
+    // A 400 is only fine when it is ours: Better Auth's own 400 would mean the handler was reached.
+    if (res.status === 400) {
+      expect(((await res.json()) as { error: { code: string } }).error.code).toBe(
+        'turnstile_failed',
+      );
+    }
   });
 });
