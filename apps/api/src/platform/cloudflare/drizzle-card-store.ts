@@ -2,6 +2,7 @@ import {
   conditionEstimate,
   DEFAULT_CONDITION_FACTORS,
   downsampleHistory,
+  marketplaceLinks,
   matchLanguage,
   pickDisplayPrice,
   printNumbers,
@@ -68,6 +69,7 @@ import {
   games,
   importRuns,
   legalityChanges,
+  priceMappings,
   priceSources,
   pricesCurrent,
   pricesDaily,
@@ -1192,12 +1194,18 @@ export class DrizzleCardStore implements CardStore {
     return Boolean(run);
   }
 
-  /** Game and finishes of a print, null when it does not exist. */
+  /** Game, finishes, card name and set code of a print, null when it does not exist. */
   private async printInfo(id: string) {
     const [row] = await this.catalog
-      .select({ game: sets.gameId, finishes: prints.finishes })
+      .select({
+        game: sets.gameId,
+        finishes: prints.finishes,
+        name: cards.name,
+        setCode: sets.code,
+      })
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
+      .innerJoin(cards, eq(cards.id, prints.cardId))
       .where(eq(prints.id, id));
     return row ?? null;
   }
@@ -1205,7 +1213,7 @@ export class DrizzleCardStore implements CardStore {
   async getPrintPrices(id: string, query: PricesQuery): Promise<PrintPricesResponse | null> {
     const print = await this.printInfo(id);
     if (!print) return null;
-    const [rows, factors] = await Promise.all([
+    const [rows, factors, mappings] = await Promise.all([
       // Per source and finish the price in `?lang=`, else `en`, else another (VB-103).
       this.catalog
         .selectDistinctOn([pricesCurrent.source, pricesCurrent.finish], {
@@ -1226,6 +1234,16 @@ export class DrizzleCardStore implements CardStore {
         .from(conditionMultipliers)
         .where(eq(conditionMultipliers.gameId, print.game))
         .orderBy(sql`${conditionMultipliers.factor} desc`),
+      // The products of the marketplace links (VB-115), in a stable order.
+      this.catalog
+        .selectDistinct({
+          source: priceMappings.source,
+          externalId: priceMappings.externalId,
+          finish: priceMappings.finish,
+        })
+        .from(priceMappings)
+        .where(eq(priceMappings.printId, id))
+        .orderBy(priceMappings.source, priceMappings.externalId, priceMappings.finish),
     ]);
     const prices = rows.map(({ price: p, sourceLabel }) => ({
       source: p.source as PriceSource,
@@ -1254,6 +1272,7 @@ export class DrizzleCardStore implements CardStore {
           ).map((f) => ({ ...f, cents: conditionEstimate(display.cents, f.factor) }))
         : [],
       conditionsAreEstimates: true,
+      links: marketplaceLinks({ ...print, game: print.game as Game, mappings }),
     };
   }
 
