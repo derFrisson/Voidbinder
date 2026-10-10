@@ -169,6 +169,27 @@ export const printLocalizations = pgTable(
   ],
 );
 
+/**
+ * Every change of a card's legality status in a format (VB-81), written by the trigger
+ * `record_legality_changes` (drizzle/0011_legality_changes.sql) on any update of
+ * `cards.legalities`, whichever importer writes it; a new card gets no row. A status that
+ * appears or disappears has a null on that side.
+ */
+export const legalityChanges = pgTable(
+  'legality_changes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    cardId: uuid('card_id')
+      .notNull()
+      .references(() => cards.id, { onDelete: 'cascade' }),
+    format: text('format').notNull(),
+    fromStatus: text('from_status'),
+    toStatus: text('to_status'),
+    seenAt: timestamp('seen_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index('legality_changes_format_seen_at_idx').on(t.format, t.seenAt.desc())],
+);
+
 export const importRuns = pgTable('import_runs', {
   id: uuid('id').primaryKey().defaultRandom(),
   source: text('source').notNull(),

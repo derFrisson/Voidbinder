@@ -1,4 +1,4 @@
-import type { DeckEntry, DeckProblem, ValueTotal } from '@voidbinder/shared/api';
+import type { DeckEntry, DeckGame, DeckProblem, ValueTotal } from '@voidbinder/shared/api';
 import { Platform } from 'react-native';
 import { fmt, type useT } from '../../i18n';
 
@@ -6,10 +6,15 @@ import { fmt, type useT } from '../../i18n';
 
 type Dict = ReturnType<typeof useT>;
 
-/** A rule broken, as a sentence; the zone and format codes in its params become words. */
-export function problemText(t: Dict, p: DeckProblem): string {
+/**
+ * A rule broken, as a sentence; the zone and format codes in its params become words. Yu-Gi-Oh!'s
+ * copy limits come from the TCG ban list and say so ("max. 1 laut TCG-Liste", VB-81).
+ */
+export function problemText(t: Dict, p: DeckProblem, game?: DeckGame): string {
   const zone = p.params.zone as keyof Dict['decks']['zones'] | undefined;
-  return fmt(t.decks.problems[p.code], {
+  const banlist = t.decks.problemsBanlist as Record<string, string>;
+  const text = (game === 'yugioh' && banlist[p.code]) || t.decks.problems[p.code];
+  return fmt(text, {
     ...p.params,
     ...(zone && { zone: t.decks.zones[zone] ?? zone }),
   });

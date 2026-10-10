@@ -1,6 +1,8 @@
 import { zValidator } from '@hono/zod-validator';
 import {
+  BanlistImpactQuerySchema,
   UpdateMeRequestSchema,
+  type BanlistImpactResponse,
   type DeleteMeResponse,
   type MeResponse,
 } from '@voidbinder/shared/api';
@@ -10,6 +12,7 @@ import type { AppEnv } from '../app';
 import { requireFreshUser, unauthorized } from '../auth/middleware';
 import { user } from '../db/schema/auth';
 import { throwOnInvalid } from '../middleware/errors';
+import { banlistSince } from './catalog';
 
 function toMe(row: typeof user.$inferSelect): MeResponse {
   return {
@@ -27,9 +30,10 @@ function toMe(row: typeof user.$inferSelect): MeResponse {
 }
 
 /**
- * `GET /me`, `PATCH /me`, `DELETE /me`. They check the session in the database (not the cookie
- * cache), so a revoked session fails here at once, and read and write the `user` row directly, so
- * a PATCH shows up on the next GET at once.
+ * `GET /me`, `PATCH /me`, `DELETE /me`, `GET /me/banlist-impact`. They check the session in the
+ * database (not the cookie cache), so a revoked session fails here at once, and read and write the
+ * `user` row directly, so a PATCH shows up on the next GET at once. `/banlist-impact` (VB-81)
+ * lists the collection's and the decks' cards the ban list touches, read fresh.
  */
 export function meRoutes() {
   return new Hono<AppEnv>()
@@ -48,6 +52,18 @@ export function meRoutes() {
       if (!row) throw unauthorized();
       return c.json(toMe(row), 200);
     })
+    .get(
+      '/banlist-impact',
+      zValidator('query', BanlistImpactQuerySchema, throwOnInvalid),
+      async (c) => {
+        const body: BanlistImpactResponse = await c.var.platform.cardStore.banlistImpact(
+          c.var.user.id,
+          c.req.valid('query'),
+          banlistSince(),
+        );
+        return c.json(body, 200);
+      },
+    )
     .delete('/', async (c) => {
       // Stub until VB-45: the request is recorded and every session ends; the purge job that
       // deletes the account and its data after the grace period comes with VB-45.

@@ -8,37 +8,60 @@ import {
 } from '@voidbinder/core';
 import type { Game } from '@voidbinder/shared';
 import { COPYRIGHT } from '@voidbinder/shared/notices';
-import type {
-  Card,
-  CardQuery,
-  CardResponse,
-  Condition,
-  Currency,
-  DisplayPrice,
-  GameSummary,
-  PriceHistoryResponse,
-  PriceSource,
-  PricesQuery,
-  PrintDetail,
-  PrintPricesResponse,
-  PrintResponse,
-  SearchQuery,
-  SearchResponse,
-  SearchSuggestQuery,
-  SearchSuggestResponse,
-  SetPageQuery,
-  SetPageResponse,
-  SetSummary,
+import {
+  BAN_STATUSES,
+  banLimit,
+  type BanlistCard,
+  type BanlistImpactQuery,
+  type BanlistImpactResponse,
+  type BanlistQuery,
+  type BanlistResponse,
+  type Card,
+  type CardQuery,
+  type CardResponse,
+  type Condition,
+  type Currency,
+  type DisplayPrice,
+  type GameSummary,
+  type PriceHistoryResponse,
+  type PriceSource,
+  type PricesQuery,
+  type PrintDetail,
+  type PrintPricesResponse,
+  type PrintResponse,
+  type SearchQuery,
+  type SearchResponse,
+  type SearchSuggestQuery,
+  type SearchSuggestResponse,
+  type SetPageQuery,
+  type SetPageResponse,
+  type SetSummary,
 } from '@voidbinder/shared/api';
-import { and, asc, eq, gte, inArray, isNotNull, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  gte,
+  inArray,
+  isNotNull,
+  isNull,
+  sql,
+  type SQL,
+  type SQLWrapper,
+} from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { alias } from 'drizzle-orm/pg-core';
 import {
   appMeta,
   cards,
+  collectionEntries,
   conditionMultipliers,
+  deckEntries,
+  decks,
   games,
   importRuns,
+  legalityChanges,
   priceSources,
   pricesCurrent,
   pricesDaily,
@@ -232,6 +255,15 @@ function nameScope(names: SearchQuery['names']) {
     localization: all ? sql`` : sql`and ${printLocalizations.lang} || '' = ${names}`,
   };
 }
+
+/**
+ * A change since `since` (a UTC date) between two different restrictions: a card that only
+ * enters or leaves a format unrestricted (null ↔ Unlimited) is no ban list change.
+ */
+const changeFilter = (since: string) => [
+  gte(legalityChanges.seenAt, new Date(`${since}T00:00:00Z`)),
+  sql`coalesce(${legalityChanges.fromStatus}, 'Unlimited') <> coalesce(${legalityChanges.toStatus}, 'Unlimited')`,
+];
 
 /**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
@@ -998,6 +1030,219 @@ export class DrizzleCardStore implements CardStore {
         ...s,
         points: downsampleHistory(s.points, today),
       })),
+    };
+  }
+
+  /**
+   * Ban list tiles: the card's name in `lang` and a representative print, the first with an
+   * image of the earliest set (the original printing where it is mirrored).
+   */
+  private async banlistCards(ids: string[], lang: string): Promise<Map<string, BanlistCard>> {
+    if (!ids.length) return new Map();
+    const rows = await this.catalog
+      .selectDistinctOn([cards.id], {
+        id: cards.id,
+        name: sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`,
+        printId: prints.id,
+        number: prints.number,
+        setCode: sets.code,
+        imageKey: prints.imageKey,
+        externalIds: prints.externalIds,
+        localizedImageKey: localized.imageKey,
+        localizedIds: localized.externalIds,
+      })
+      .from(cards)
+      .leftJoin(prints, eq(prints.cardId, cards.id))
+      .leftJoin(sets, eq(sets.id, prints.setId))
+      .leftJoin(localized, and(eq(localized.printId, prints.id), eq(localized.lang, lang)))
+      .leftJoin(english, and(eq(english.printId, prints.id), eq(english.lang, 'en')))
+      .where(inArray(cards.id, ids))
+      .orderBy(
+        cards.id,
+        sql`${prints.imageKey} is null`,
+        sql`${sets.releasedOn} nulls last`,
+        sets.code,
+        prints.number,
+      );
+    return new Map(
+      rows.map((r) => [
+        r.id,
+        {
+          id: r.id,
+          name: r.name,
+          printId: r.printId,
+          imageUrl: r.printId
+            ? this.imageUrl(
+                lang,
+                { imageKey: r.localizedImageKey, externalIds: r.localizedIds },
+                { imageKey: r.imageKey, externalIds: r.externalIds },
+              )
+            : null,
+          setCode: r.setCode,
+          number: r.number,
+        },
+      ]),
+    );
+  }
+
+  /** The newest change per card in `format` since `since` that touched a restricted status. */
+  private latestChanges(db: NodePgDatabase, format: string, since: string) {
+    return db
+      .selectDistinctOn([legalityChanges.cardId], {
+        cardId: legalityChanges.cardId,
+        from: legalityChanges.fromStatus,
+        to: legalityChanges.toStatus,
+        seenAt: legalityChanges.seenAt,
+      })
+      .from(legalityChanges)
+      .where(and(eq(legalityChanges.format, format), ...changeFilter(since)))
+      .orderBy(legalityChanges.cardId, desc(legalityChanges.seenAt))
+      .as('latest');
+  }
+
+  async getBanlist(query: BanlistQuery, since: string): Promise<BanlistResponse> {
+    const status = sql<string>`${cards.legalities} ->> ${query.format}`;
+    const [listed, changes, [effective], [run]] = await Promise.all([
+      this.catalog
+        .select({ id: cards.id, status })
+        .from(cards)
+        .where(and(eq(cards.gameId, 'yugioh'), inArray(status, [...BAN_STATUSES]))),
+      this.catalog
+        .select({
+          cardId: legalityChanges.cardId,
+          from: legalityChanges.fromStatus,
+          to: legalityChanges.toStatus,
+          seenAt: legalityChanges.seenAt,
+        })
+        .from(legalityChanges)
+        .innerJoin(cards, eq(cards.id, legalityChanges.cardId))
+        .where(
+          and(
+            eq(cards.gameId, 'yugioh'),
+            eq(legalityChanges.format, query.format),
+            ...changeFilter(since),
+          ),
+        )
+        .orderBy(desc(legalityChanges.seenAt), legalityChanges.cardId),
+      this.catalog
+        .select({ value: appMeta.value })
+        .from(appMeta)
+        .where(eq(appMeta.key, `banlist_${query.format}_effective`)),
+      this.catalog
+        .select({ at: sql<Date | string | null>`max(${importRuns.finishedAt})` })
+        .from(importRuns)
+        .where(and(eq(importRuns.source, 'ygoprodeck'), eq(importRuns.status, 'ok'))),
+    ]);
+    const tiles = await this.banlistCards(
+      [...new Set([...listed.map((r) => r.id), ...changes.map((c) => c.cardId)])],
+      query.lang,
+    );
+    const group = (s: string) =>
+      listed
+        .filter((r) => r.status === s)
+        .flatMap((r) => tiles.get(r.id) ?? [])
+        .sort((a, b) => a.name.localeCompare(b.name));
+    return {
+      format: query.format,
+      effectiveDate: effective?.value ?? null,
+      asOf: run?.at ? new Date(run.at).toISOString() : null,
+      groups: {
+        forbidden: group('Forbidden'),
+        limited: group('Limited'),
+        semiLimited: group('Semi-Limited'),
+      },
+      changes: changes.flatMap((c) => {
+        const card = tiles.get(c.cardId);
+        return card ? [{ card, from: c.from, to: c.to, seenAt: c.seenAt.toISOString() }] : [];
+      }),
+    };
+  }
+
+  async banlistImpact(
+    userId: string,
+    query: BanlistImpactQuery,
+    since: string,
+  ): Promise<BanlistImpactResponse> {
+    const status = sql<string | null>`${cards.legalities} ->> ${query.format}`;
+    const latest = this.latestChanges(this.db, query.format, since);
+    const [owned, lines] = await Promise.all([
+      this.db
+        .select({
+          cardId: cards.id,
+          owned: sql<number>`sum(${collectionEntries.quantity})::int`,
+          status,
+          from: latest.from,
+          to: latest.to,
+          seenAt: latest.seenAt,
+        })
+        .from(collectionEntries)
+        .innerJoin(prints, eq(prints.id, collectionEntries.printId))
+        .innerJoin(cards, eq(cards.id, prints.cardId))
+        .innerJoin(latest, eq(latest.cardId, cards.id))
+        .where(
+          and(
+            eq(collectionEntries.userId, userId),
+            isNull(collectionEntries.deletedAt),
+            eq(cards.gameId, query.game),
+          ),
+        )
+        .groupBy(cards.id, latest.from, latest.to, latest.seenAt),
+      this.db
+        .select({
+          deckId: decks.id,
+          deckName: decks.name,
+          cardId: cards.id,
+          copies: sql<number>`sum(${deckEntries.quantity})::int`,
+          status,
+          from: latest.from,
+          to: latest.to,
+          seenAt: latest.seenAt,
+        })
+        .from(deckEntries)
+        .innerJoin(decks, eq(decks.id, deckEntries.deckId))
+        .innerJoin(cards, eq(cards.id, deckEntries.cardId))
+        .leftJoin(latest, eq(latest.cardId, cards.id))
+        .where(and(eq(decks.userId, userId), isNull(decks.deletedAt), eq(decks.gameId, query.game)))
+        .groupBy(decks.id, cards.id, latest.from, latest.to, latest.seenAt),
+    ]);
+    const hit = lines.filter((l) => {
+      const limit = banLimit(l.status);
+      return l.seenAt || (limit !== null && l.copies > limit);
+    });
+    const tiles = await this.banlistCards(
+      [...new Set([...owned.map((o) => o.cardId), ...hit.map((l) => l.cardId)])],
+      query.lang,
+    );
+    const change = (r: { from: string | null; to: string | null; seenAt: Date | null }) =>
+      r.seenAt ? { from: r.from, to: r.to, seenAt: r.seenAt.toISOString() } : null;
+    const byName = (a: { card: BanlistCard }, b: { card: BanlistCard }) =>
+      a.card.name.localeCompare(b.card.name);
+    return {
+      format: query.format,
+      collection: owned
+        .flatMap((o) => {
+          const card = tiles.get(o.cardId);
+          const c = change(o);
+          return card && c ? [{ card, owned: o.owned, status: o.status, change: c }] : [];
+        })
+        .sort(byName),
+      decks: hit
+        .flatMap((l) => {
+          const card = tiles.get(l.cardId);
+          return card
+            ? [
+                {
+                  deck: { id: l.deckId, name: l.deckName },
+                  card,
+                  copies: l.copies,
+                  limit: banLimit(l.status),
+                  status: l.status,
+                  change: change(l),
+                },
+              ]
+            : [];
+        })
+        .sort((a, b) => a.deck.name.localeCompare(b.deck.name) || byName(a, b)),
     };
   }
 
