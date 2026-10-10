@@ -2082,6 +2082,17 @@ done
 from `pg.env`, never the migrate or superuser URL. `--from` / `--to` (default 2024-02-08 to
 yesterday, both included), `--delay-ms` (pause between days, default 2000), `--dry-run` (downloads and maps, writes nothing),
 `--refill` (ignores the progress file and the rows already there, see Rerun).
+**First run: check the archive by hand.** The URL scheme and the folder layout come from TCGCSV's
+FAQ and have not been checked against a real file, and neither has the assumption that
+`prices-<D>` holds day D's ~20:00 UTC build (the daily import's `observedAt` day). With the archive
+reachable, download one day, run `7z l prices-<D>.ppmd.7z | head` and confirm `<D>/<category>/<group>/prices`.
+Then compare with a day the daily import wrote, `--refill` so that day is not skipped:
+`pnpm --filter api backfill-prices $ENV --db dev --from <D> --to <D> --refill --dry-run` logs a
+`sample` of rows; the same print and finish must have the same prices in `prices_daily` for `<D>`.
+If they match the previous day instead, the archive is named for the day after its build. The
+script stops on its own when a day unpacks no group for a game or three days in a row have no
+archive.
+
 A short range first, then the full range in `tmux` or a transient user unit so it survives a
 dropped SSH session:
 

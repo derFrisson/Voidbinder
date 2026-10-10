@@ -153,6 +153,8 @@ try {
         message: 'price backfill day',
         day,
         rows: rows.length,
+        // A dry run shows a few rows to compare with the daily import's rows of the same day.
+        ...(dryRun && { sample: rows.slice(0, 3) }),
         inserted,
         ...Object.fromEntries(
           Object.entries(perGame).map(([g, s]) => [
