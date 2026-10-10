@@ -3,18 +3,16 @@ import { describe, expect, it } from 'vitest';
 import { matchCards, matchSets, normName, normNumber, type OurPrint, type OurSet } from './match';
 import type { PtcgCard, PtcgSet } from './source';
 
-// Recorded answers of pokemontcg.io (test/fixtures/pokemontcg/, 2026-10-10) and our Pokémon sets
+// Recorded files of pokemontcg.io's data repository (test/fixtures/pokemontcg/, 2026-10-10) and our Pokémon sets
 // with prints without a picture as TCGdex describes them (id, name, release day, codes).
 
 const fixture = <T>(name: string) =>
-  (
-    JSON.parse(
-      readFileSync(
-        new URL(`../../../test/fixtures/pokemontcg/${name}`, import.meta.url).pathname,
-        'utf8',
-      ),
-    ) as { data: T[] }
-  ).data;
+  JSON.parse(
+    readFileSync(
+      new URL(`../../../test/fixtures/pokemontcg/${name}`, import.meta.url).pathname,
+      'utf8',
+    ),
+  ) as T[];
 export const PTCG_SETS = fixture<PtcgSet>('sets.json');
 export const ptcgCards = (set: string) => fixture<PtcgCard>(`cards-${set}.json`);
 

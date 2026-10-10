@@ -57,6 +57,7 @@ it('ends the TCGdex import with the image mirror and the search index steps', as
 });
 
 it('adds the pokemontcg.io pictures between the TCGdex import and the mirror on Mondays (VB-118)', async () => {
+  const retries: Record<string, unknown> = {};
   const run = async (day: string, payload: Record<string, unknown> = {}) => {
     const names: string[] = [];
     const canned: Record<string, unknown> = {
@@ -72,7 +73,11 @@ it('adds the pokemontcg.io pictures between the TCGdex import and the mirror on 
       'pokemontcg: cards 2021swsh': { prints: 1, matched: 1, written: 1 },
     };
     const step = {
-      do: (name: string) => (names.push(name), Promise.resolve(canned[name] ?? {})),
+      do: (name: string, config: { retries: { limit: number } }) => (
+        names.push(name),
+        (retries[name] = config.retries.limit),
+        Promise.resolve(canned[name] ?? {})
+      ),
       sleep: (name: string) => (names.push(name), Promise.resolve()),
     } as unknown as WorkflowStep;
     const event = { timestamp: new Date(day), payload } as WorkflowEvent<unknown>;
@@ -91,6 +96,8 @@ it('adds the pokemontcg.io pictures between the TCGdex import and the mirror on 
     'mirror images',
     'refresh search index',
   ]);
+  // A pokemontcg.io outage fails fast: one retry, not the import's three.
+  expect([retries['pokemontcg: plan'], retries['finish run']]).toEqual([1, 3]);
   // Other days only on request (POST /admin/import/tcgdex?pokemontcg=true).
   expect((await run('2026-10-10')).filter((n) => n.startsWith('pokemontcg'))).toEqual([]);
   expect(await run('2026-10-10', { pokemontcg: true })).toContain('pokemontcg: finish run');
