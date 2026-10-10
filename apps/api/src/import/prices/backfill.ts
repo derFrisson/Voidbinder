@@ -100,6 +100,10 @@ export async function readDay(
   return out;
 }
 
+/** The games of a read day that unpacked no group at all: the archive's layout is not as assumed. */
+export const emptyGames = (perGame: Partial<Record<PricedGame, { groups: number }>>) =>
+  Object.entries(perGame).flatMap(([game, g]) => (g.groups === 0 ? [game] : []));
+
 /** Whether `prices_daily` has any `tcgplayer` row of that day (the daily import or a backfill). */
 export async function hasDay(db: Db, day: string): Promise<boolean> {
   // ponytail: one probe per day; with chunk exclusion it only reads that day's month.

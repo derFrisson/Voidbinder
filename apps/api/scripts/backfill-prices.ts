@@ -23,6 +23,7 @@ import {
   ARCHIVE_START,
   archiveUrl,
   days,
+  emptyGames,
   hasDay,
   loadMappings,
   readDay,
@@ -104,6 +105,9 @@ try {
   const mappings = await loadMappings(pg);
   log('info', { message: 'price backfill', db, from, to, games, mappings: mappings.size, dryRun });
   let first = true;
+  // Days answered 404, saved as `missing` only once a later day downloads, so a wrong URL
+  // scheme never marks the range as finished.
+  const notFound: string[] = [];
   for (const day of days(from, to)) {
     if (!args.refill && (progress[day] !== undefined || (await hasDay(pg, day)))) {
       total.skipped++;
@@ -116,9 +120,11 @@ try {
     try {
       const archive = await download(day, dir);
       if (!archive) {
+        // The URL scheme is unverified against a real file: a few 404s in a row means it is wrong.
+        if (notFound.push(day) >= 3)
+          throw new Error(`no archive for ${notFound.length} days in a row up to ${day}`);
         log('warn', { message: 'no archive for this day', day });
         total.missing++;
-        if (!dryRun) progress[day] = 'missing';
         continue;
       }
       // Only the three games' files leave the archive; everything else stays packed.
@@ -132,6 +138,12 @@ try {
       ]);
       await rm(archive);
       const perGame = await readDay(dir, day, mappings, games);
+      // Nothing unpacked for a game: the inner layout is not `<day>/<category>/<group>/prices`.
+      // Stop before the day is saved as done.
+      const empty = emptyGames(perGame);
+      if (empty.length) throw new Error(`${day}: no groups unpacked for ${empty.join(', ')}`);
+      if (!dryRun) for (const d of notFound) progress[d] = 'missing';
+      notFound.length = 0;
       const rows = Object.values(perGame).flatMap((g) => g.rows);
       const inserted = dryRun ? 0 : await writeDay(pg, day, rows);
       if (!dryRun) progress[day] = inserted;
@@ -153,6 +165,10 @@ try {
       await rm(dir, { recursive: true, force: true });
       if (!dryRun) await saveProgress();
     }
+  }
+  if (!dryRun) {
+    for (const d of notFound) progress[d] = 'missing';
+    await saveProgress();
   }
 } finally {
   await rm(work, { recursive: true, force: true });

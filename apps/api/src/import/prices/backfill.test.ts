@@ -8,7 +8,7 @@ import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { runScryfallImport } from '../scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../scryfall/test-fixtures';
 import type { Db } from '../scryfall/write';
-import { days, hasDay, loadMappings, mapPrices, readDay, writeDay } from './backfill';
+import { days, emptyGames, hasDay, loadMappings, mapPrices, readDay, writeDay } from './backfill';
 import { runTcgcsvImport } from './pipeline';
 import { fakeTcgcsv } from './test-fixtures';
 
@@ -16,6 +16,15 @@ describe('days', () => {
   it('lists every day of the range, both ends included, across a month end', () => {
     expect(days('2024-02-28', '2024-03-01')).toEqual(['2024-02-28', '2024-02-29', '2024-03-01']);
     expect(days('2024-03-01', '2024-02-28')).toEqual([]);
+  });
+});
+
+describe('emptyGames', () => {
+  it('names the games that unpacked no group', () => {
+    expect(
+      emptyGames({ mtg: { groups: 2 }, yugioh: { groups: 0 }, pokemon: { groups: 0 } }),
+    ).toEqual(['yugioh', 'pokemon']);
+    expect(emptyGames({ mtg: { groups: 1 } })).toEqual([]);
   });
 });
 
