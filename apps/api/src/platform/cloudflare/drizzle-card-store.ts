@@ -201,7 +201,7 @@ export const NUMBER_HITS = 50;
  * the rest as a number in that set: 300 the number as stored (a Yu-Gi-Oh! language code such as
  * `DE024` also finds `EN024`: German copies are localizations of the English print), 200 the same
  * number without prefix and leading zeros (`lds3 121`, `sv1 1`), 150 a number starting with the
- * rest (`lds3en12` → EN120…EN129), 0 every print of a set named alone (`lds3`, below the name
+ * rest (`lds3en12` → EN120…EN129, `lc01de` → every EN number of LC01), 0 every print of a set named alone (`lds3`, below the name
  * matches of /search). A split where the user typed a separator ranks 10 higher, a longer set code
  * among those slightly higher still (`swsh1 25` is swsh1 #25, not swsh12 #5; `sv03.5 12` splits
  * after `sv035`). A pure number matches within every set or, as `001/128`, within the sets
@@ -213,11 +213,11 @@ function codeHits(q: string, game: Game | undefined): SQL | null {
   const inGame = game ? sql`and ${sets.gameId} = ${game}` : sql``;
   if (code) {
     const stored = alnum(prints.number);
+    // A Yu-Gi-Oh! language token, alone or before a number, reads as the stored English one.
+    const english = sql`regexp_replace(r.rest, '^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9]|$)', 'en')`;
     branches.push(sql`select ${prints.id} as print_id, (case
         when r.rest = '' then 0
-        when ${stored} = r.rest
-          or (${sets.gameId} = 'yugioh'
-            and ${stored} = regexp_replace(r.rest, '^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9])', 'en'))
+        when ${stored} = r.rest or (${sets.gameId} = 'yugioh' and ${stored} = ${english})
           then 300 + r.typed
         when catalog_number_key(${prints.number}) = catalog_number_key(r.rest) then 200 + r.typed
         else 150 + r.typed end)::real as rank
@@ -229,6 +229,7 @@ function codeHits(q: string, game: Game | undefined): SQL | null {
       join ${sets} on catalog_code_key(${sets.code}) = catalog_code_key(r.part) ${inGame}
       join ${prints} on ${prints.setId} = ${sets.id}
       where r.rest = '' or ${stored} like r.rest || '%'
+        or (${sets.gameId} = 'yugioh' and ${stored} like ${english} || '%')
         or catalog_number_key(${prints.number}) like catalog_number_key(r.rest) || '%'`);
   }
   if (number) {
