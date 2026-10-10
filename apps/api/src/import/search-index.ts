@@ -93,7 +93,8 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
               p.rarity, p.released_on, p.image_key,
               p.external_ids #>> '{scryfall_images,normal}', ${EXTENDED_ART},
               (select string_agg(concat_ws('=', pl.lang, pl.name, pl.image_key,
-                  pl.external_ids #>> '{scryfall_images,normal}'), ',' order by pl.lang)
+                  pl.external_ids #>> '{scryfall_images,normal}', pl.external_ids ->> 'set_code'),
+                  ',' order by pl.lang)
                 from print_localizations pl where pl.print_id = p.id)
             ), ';' order by p.id))
             from prints p join cards c on c.id = p.card_id where p.set_id = s.id)
@@ -216,8 +217,14 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         name: string;
         image_key: string | null;
         image_src: string | null;
+        code: string | null;
+        code_alnum: string | null;
       }>(sql`select pl.print_id, pl.lang, pl.name, pl.image_key,
-          pl.external_ids #>> '{scryfall_images,normal}' as image_src
+          pl.external_ids #>> '{scryfall_images,normal}' as image_src,
+          -- storedCode: '' for a language the set lists dropped (VB-94).
+          coalesce(nullif(pl.external_ids ->> 'set_code', ''),
+            case when pl.external_ids ->> 'set_code_source' = 'yugipedia' then '' end) as code,
+          regexp_replace(lower(pl.external_ids ->> 'set_code'), '[^a-z0-9]+', '', 'g') as code_alnum
         from print_localizations pl join prints p on p.id = pl.print_id
         where p.set_id = any(${list}::uuid[])`),
     ]);
@@ -239,11 +246,13 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
     n.name.toLowerCase(),
     n.image_key,
     n.image_src,
+    n.code,
+    n.code_alnum,
   ]);
   // The card's English name, matched by `?names=all`, where no `en` name equals it.
   for (const p of data.prints)
     if (!english.has(`${p.id}|${p.card_name}`))
-      nameRows.push([p.id, '', p.card_name, p.card_name.toLowerCase(), null, null]);
+      nameRows.push([p.id, '', p.card_name, p.card_name.toLowerCase(), null, null, null, null]);
   const keys = [...new Set(nameRows.map((n) => n[3] as string))];
 
   const d1 = deps.d1;
@@ -322,7 +331,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
     ...inserts(
       d1,
       'names',
-      ['print_id', 'lang', 'name', 'name_key', 'image_key', 'image_src'],
+      ['print_id', 'lang', 'name', 'name_key', 'image_key', 'image_src', 'code', 'code_alnum'],
       nameRows,
     ),
     // New names only; one no print has any more is deleted by the refresh's last step.

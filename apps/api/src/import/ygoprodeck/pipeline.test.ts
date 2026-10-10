@@ -222,14 +222,15 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
         { lang: 'de', name: 'Dunkler Magier' },
         { lang: 'en', name: 'Dark Magician' },
       ]);
-    // The German entry's own id is kept, the passcode the Yugipedia import matches by title.
+    // The German entry's own id is kept, the passcode the Yugipedia import matches by title,
+    // beside the print's German code by rule (VB-94).
     const [de] = await db
       .select({ ids: printLocalizations.externalIds })
       .from(printLocalizations)
       .where(
         and(eq(printLocalizations.printId, own[0]?.id ?? ''), eq(printLocalizations.lang, 'de')),
       );
-    expect(de?.ids).toEqual({ ygoprodeck: 46986414 });
+    expect(de?.ids).toMatchObject({ ygoprodeck: 46986414, set_code_source: 'rule' });
   });
 
   it('never gives a card the translation of an entry with another English name', async () => {

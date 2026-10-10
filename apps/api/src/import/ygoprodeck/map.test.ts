@@ -6,6 +6,7 @@ import {
   mapSets,
   parseSetCode,
   raritySlug,
+  ruleCode,
   setKey,
 } from './map';
 import { fixture } from './test-fixtures';
@@ -105,6 +106,37 @@ describe('YGOPRODeck card mapping', () => {
       text: c.desc,
       externalIds: {},
     });
+    // VB-94: with the print's English code, its code in that language by rule.
+    expect(mapLocalization(c, 'es', 'LOB-EN005').externalIds).toEqual({
+      set_code: 'LOB-SP005',
+      set_code_source: 'rule',
+    });
+    expect(mapLocalization(c, 'en', 'LOB-EN005').externalIds).toEqual({});
+  });
+});
+
+describe('localized codes by rule (VB-94)', () => {
+  it.each([
+    ['BLGG-EN024', 'de', 'BLGG-DE024'],
+    ['BLGG-EN024', 'fr', 'BLGG-FR024'],
+    ['BLGG-EN024', 'it', 'BLGG-IT024'],
+    ['BLGG-EN024', 'es', 'BLGG-SP024'],
+    ['BLGG-EN024', 'pt', 'BLGG-PT024'],
+    ['RA05-ENA26', 'de', 'RA05-DEA26'],
+    ['YS15-ENF27', 'fr', 'YS15-FRF27'],
+    // A token-less number gets the token inserted.
+    ['LON-065', 'de', 'LON-DE065'],
+    ['LON-065', 'es', 'LON-SP065'],
+    ['AST-081', 'pt', 'AST-PT081'],
+  ])('%s in %s is %s', (code, lang, localized) => expect(ruleCode(code, lang)).toBe(localized));
+
+  it('has none for English, Japanese, other numbers and codes without a number', () => {
+    expect(ruleCode('BLGG-EN024', 'en')).toBeNull();
+    expect(ruleCode('BLGG-EN024', 'ja')).toBeNull();
+    expect(ruleCode('LON-E006', 'de')).toBeNull();
+    expect(ruleCode('LOB-DE001', 'fr')).toBeNull();
+    expect(ruleCode('DB49', 'de')).toBeNull();
+    expect(ruleCode(null, 'de')).toBeNull();
   });
 });
 

@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runGalleryImport } from '../import/yugipedia/galleries';
 import { runYugipediaImport } from '../import/yugipedia/pipeline';
+import { runSetListImport } from '../import/yugipedia/set-lists';
 import { purgeEdgeCache } from '../import/util';
 import { scryfallImportDeps } from '../platform/cloudflare';
 import { edgeCacheDeps } from '../platform/cloudflare/cache';
@@ -21,9 +22,10 @@ const STEP = {
 /**
  * Binding `YUGIPEDIA_IMPORT`: the Yugipedia localization import (src/import/yugipedia/pipeline.ts)
  * with one durable step per 100 cards, then the artworks of the set galleries (galleries.ts,
- * VB-106) with one step per 20 sets and the image mirror for the scans they found. A failed step
- * is retried; completed steps are never repeated within the instance. `POST
- * /admin/import/yugipedia-galleries` starts it with `{ galleries: 'only' }`: the galleries alone.
+ * VB-106) with one step per 20 sets and the image mirror for the scans they found, then the codes
+ * of the set lists (set-lists.ts, VB-94) with one step per 50 sets. A failed step is retried;
+ * completed steps are never repeated within the instance. `POST /admin/import/yugipedia-galleries`
+ * starts it with `{ galleries: 'only' }`: the galleries alone.
  */
 export class YugipediaImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<{ galleries?: 'only' } | undefined>, step: WorkflowStep) {
@@ -39,8 +41,13 @@ export class YugipediaImportWorkflow extends WorkflowEntrypoint<Env> {
     // one purge for the artworks and the keys the mirror replaced (the rest keep their old key).
     const images = galleries.stats.written ? await mirrorStepFor('yugioh')(this.env, step) : null;
     if (galleries.stats.written) await purgeEdgeCache(deps, runner, ['catalog'], 'galleries: ');
-    // The names this run wrote reach the D1 typeahead (VB-98) now, not with the next daily import.
-    const searchIndex = names?.stats.written ? await refreshSearchIndexStep(this.env, step) : null;
-    return { ...names, galleries, images, searchIndex };
+    const setLists = names ? await runSetListImport(deps, runner, opts) : null;
+    // The names and codes this run wrote reach the D1 typeahead (VB-98) now, not with the next
+    // daily import.
+    const searchIndex =
+      names?.stats.written || setLists?.stats.written
+        ? await refreshSearchIndexStep(this.env, step)
+        : null;
+    return { ...names, galleries, images, setLists, searchIndex };
   }
 }
