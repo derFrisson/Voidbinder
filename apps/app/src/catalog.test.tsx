@@ -23,6 +23,7 @@ const print = (n: number, extra: object = {}) => ({
   rarity: n % 2 ? 'rare' : 'common',
   finishes: ['normal', 'foil'],
   imageUrl: n === 1 ? 'https://img.voidbinder.de/images/mtg/1/en/sm.webp' : null,
+  marketPrice: null,
   ...extra,
 });
 

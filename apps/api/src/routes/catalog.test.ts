@@ -139,7 +139,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       const page = await store.getSetPage(
         'mtg',
         'tie',
-        { lang: 'en', sort: 'number', page: 1 },
+        { lang: 'en', sort: 'number', currency: 'EUR', page: 1 },
         60,
       );
       expect(page?.facets.rarities.map((r) => r.rarity)).toEqual(['Alpha', 'Zeta']);
