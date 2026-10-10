@@ -100,12 +100,16 @@ function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
             </View>
           )}
           <Text className="border-t border-line pt-2.5 font-body text-[12.5px] text-ink-3">
-            {[
-              price.sourceLabel,
-              label(t.card.finishes, price.finish),
-              t.prices.nearMint,
-              fmt(t.prices.asOf, { date: dateTime(price.observedAt, locale) }),
-            ].join(' · ')}
+            {/* The line may only break after a separator, and keeps "Stand date, time" together
+                (no-break spaces; they read as spaces to the tests and to screen readers). */}
+            {[price.sourceLabel, label(t.card.finishes, price.finish), t.prices.nearMint].join(
+              ' · ',
+            )}
+            {'\u00a0· '}
+            {fmt(t.prices.asOf, { date: dateTime(price.observedAt, locale) }).replaceAll(
+              ' ',
+              '\u00a0',
+            )}
           </Text>
         </>
       ) : (
