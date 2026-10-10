@@ -39,6 +39,7 @@ account ID (also in `apps/site/wrangler.jsonc`) and your Worker URL instead.
 | [9. Security notes](#9-security-notes)                                                              | 5 min                     |
 | [10. Done](#10-done)                                                                                | 10 min                    |
 | [11. Image mirror](#11-image-mirror)                                                                | 15 min, then 2 to 4 h     |
+| [12. Offline catalog modules](#12-offline-catalog-modules)                                          | 10 min                    |
 
 Versions checked on 2026-10-09:
 
@@ -1977,3 +1978,64 @@ docker exec voidbinder-db psql -U postgres -d voidbinder_dev -tAc \
 is above zero, and `curl -sI https://img.voidbinder.de/<one image_key>` answers `200` with
 `cache-control: public, max-age=31536000, immutable` (once the custom domain is connected).
 `systemctl --user list-timers image-mirror.timer` shows the next start at 05:30 UTC.
+
+## 12. Offline catalog modules
+
+The app works offline from one SQLite file per game (sets, cards, prints, English and German
+names and texts, image keys, display prices and a name index), built here every night from the
+catalog and published to the public bucket `voidbinder-catalog` under `modules/<db>/<game>/`
+with a `manifest.json` and a delta from the previous version. Schema and the app's side:
+[docs/architecture/catalog-module.md](../architecture/catalog-module.md); the script is
+`apps/api/scripts/build-catalog-module.ts`. Needs Node 24, the clone and `r2.env` from section 11.
+
+**Database role.** The builder logs in as `voidbinder_mirror` (section 11) and only reads. On top
+of the image mirror's grants it needs the rest of the catalog and the current prices:
+
+```sh
+for db in voidbinder_dev voidbinder; do
+docker exec -i voidbinder-db psql -U postgres -d "$db" -v ON_ERROR_STOP=1 <<'EOF2'
+SET ROLE voidbinder_migrate;
+GRANT SELECT ON cards, set_localizations, prices_current, app_meta TO voidbinder_mirror;
+EOF2
+done
+```
+
+**Run by hand.** `--db dev|prod` as for the mirror; `--out` keeps the last module per game, the
+source of the next delta (`<out>/<game>/`). Without `--upload` the files and the manifest stay in
+`--out` only:
+
+```sh
+cd ~/voidbinder && pnpm install --filter api... && pnpm --filter "api^..." build
+ENV="--env-file $HOME/.config/voidbinder/r2.env --env-file $HOME/.config/voidbinder/pg.env"
+pnpm --filter api build-catalog-module $ENV --db dev --game yugioh --out ~/catalog-modules/dev
+pnpm --filter api build-catalog-module $ENV --db dev --game yugioh --out ~/catalog-modules/dev --upload
+```
+
+With `--upload` a game whose published manifest already has the current `catalog_version` is
+skipped (logged `catalog module up to date`). Otherwise the script builds from one consistent
+snapshot, uploads `catalog-<game>-v<version>.sqlite.gz`, the delta
+`catalog-<game>-v<from>-v<version>.sql.gz` when the published version's module is still in
+`--out`, and the manifest last; then it deletes everything in `<out>/<game>/` but the new module.
+A game without prints (One Piece today) is skipped. The log line `catalog module built` has the
+row counts and the sizes. `--db prod` only after Max's go.
+
+**Nightly timer.** `scripts/vps/catalog-modules.service` and `.timer` run at 06:30 UTC, after the
+imports and the image mirror, for Yu-Gi-Oh!, Pokémon and Magic. Install once as `ubuntu` (linger
+from section 11):
+
+```sh
+ln -sf ~/voidbinder/scripts/vps/catalog-modules.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now catalog-modules.timer
+```
+
+It builds `dev` only (`Environment=DBS=dev`). After Max's go for prod:
+`systemctl --user edit catalog-modules.service`, add `[Service]` and `Environment=DBS=prod dev`,
+save. Logs: `journalctl --user -u catalog-modules -n 50`; start one by hand with
+`systemctl --user start catalog-modules`.
+
+**Disk.** `~/catalog-modules/<db>/` holds one unpacked module per game (Magic about 150 MB) and,
+during a run, the new one next to it.
+
+**verify:** `curl -s https://img.voidbinder.de/modules/dev/yugioh/manifest.json` shows the
+version, size and SHA-256; `GET /catalog/modules` on the dev API answers the same manifests;
+`systemctl --user list-timers catalog-modules.timer` shows the next start at 06:30 UTC.

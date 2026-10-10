@@ -39,10 +39,11 @@ function openPool(connectionString: string): Pool {
 }
 
 /**
- * The public `CATALOG` bucket (img.voidbinder.de) holds card images only; anything else (raw
- * source dumps, whose republication breaks the sources' terms) goes to the private `RAW` bucket.
+ * The public `CATALOG` bucket (img.voidbinder.de) holds card images and the offline catalog
+ * modules (VB-29) only; anything else (raw source dumps, whose republication breaks the sources'
+ * terms) goes to the private `RAW` bucket.
  */
-const catalogImages = (env: Env) => new R2BlobStore(env.CATALOG, 'images/');
+const catalogImages = (env: Env) => new R2BlobStore(env.CATALOG, ['images/', 'modules/']);
 
 export function createPlatform(env: Env): Platform {
   const pool = openPool(env.HYPERDRIVE.connectionString);
@@ -97,6 +98,7 @@ export function appDeps(env: Env): AppDeps {
       nativeBypass: String(env.TURNSTILE_NATIVE_BYPASS) === 'true',
     },
     adminToken: env.ADMIN_TOKEN,
+    importEnv: env.IMPORT_ENV,
     openPlatform: () => createPlatform(env),
   };
 }

@@ -1,0 +1,13 @@
+# Starts catalog-modules.service daily at 06:30 UTC, after the import crons (last: dev 05:30) and
+# the image mirror (05:30). The mirror may still be running or may have failed: the service waits
+# for it (After=image-mirror.service), but a module can still carry image keys that lag the
+# mirror by up to one build.
+[Unit]
+Description=Nightly Voidbinder offline catalog modules
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

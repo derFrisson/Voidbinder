@@ -9,7 +9,10 @@ const databaseUrl = process.env.DATABASE_URL ?? '';
 export default defineConfig({
   test: {
     projects: [
-      { extends: true, test: { name: 'unit', include: ['src/**/*.test.ts'] } },
+      {
+        extends: true,
+        test: { name: 'unit', include: ['src/**/*.test.ts', 'scripts/**/*.test.ts'] },
+      },
       {
         extends: true,
         plugins: [
