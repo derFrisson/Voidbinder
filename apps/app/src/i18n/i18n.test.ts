@@ -27,6 +27,20 @@ const SAME_IN_BOTH = new Set([
   'Deutsch',
   'English',
   'Euro (€)',
+  // Card page and search (VB-35): terms the German card trade uses as they are.
+  'Set',
+  'Normal',
+  'Foil',
+  'Holo',
+  'legal',
+  'Near Mint',
+  'Trend',
+  'Market',
+  'ATK',
+  'ATK/DEF',
+  'Link',
+  'Illustration',
+  'Illustration: {artist}',
 ]);
 
 describe('i18n', () => {
