@@ -118,6 +118,8 @@ export const de = {
     printsTitle: 'Drucke und Varianten',
     allPrints: 'Alle {count} Drucke zeigen',
     legality: 'Legalität',
+    copies: '{n} Kopien',
+    copiesOne: '{n} Kopie',
     text: 'Kartentext',
     noText: 'Diese Karte hat keinen Text.',
     attrs: {

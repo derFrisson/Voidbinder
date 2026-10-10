@@ -1,5 +1,5 @@
 import type { Game } from '@voidbinder/shared';
-import type { CardPrint, PrintDetail } from '@voidbinder/shared/api';
+import { banLimit, type CardPrint, type PrintDetail } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
@@ -176,11 +176,21 @@ export function Legality({
               className="min-w-[140px] flex-1 basis-[45%] flex-row items-center justify-between rounded-[10px] bg-page py-2 pl-3 pr-2.5"
             >
               <Text className="font-display text-[13.5px] font-semibold text-ink">{name}</Text>
-              <Text
-                className={`rounded-[7px] px-2 py-1 font-display text-xs font-semibold ${STATUS[status] ?? 'bg-surface-2 text-ink-2'}`}
-              >
-                {label(t.card.legal, status)}
-              </Text>
+              <View className="flex-row items-center gap-2">
+                {game === 'yugioh' && banLimit(status) !== null && (
+                  // How many copies the list allows (Max, VB-81): 0, 1, 2 or 3.
+                  <Text className="font-mono text-xs text-ink-3">
+                    {fmt(banLimit(status) === 1 ? t.card.copiesOne : t.card.copies, {
+                      n: String(banLimit(status)),
+                    })}
+                  </Text>
+                )}
+                <Text
+                  className={`rounded-[7px] px-2 py-1 font-display text-xs font-semibold ${STATUS[status] ?? 'bg-surface-2 text-ink-2'}`}
+                >
+                  {label(t.card.legal, status)}
+                </Text>
+              </View>
             </View>
           );
         })}

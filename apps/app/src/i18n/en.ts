@@ -114,6 +114,8 @@ export const en: Dict = {
     printsTitle: 'Prints and variants',
     allPrints: 'Show all {count} prints',
     legality: 'Legality',
+    copies: '{n} copies',
+    copiesOne: '{n} copy',
     text: 'Card text',
     noText: 'This card has no text.',
     attrs: {
