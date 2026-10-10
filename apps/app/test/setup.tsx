@@ -1,6 +1,7 @@
 import './fetch';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { turnstileFake } from './turnstile';
 
 // Native modules and the router are replaced: the tests cover the app's own logic, and the
 // router is exercised end to end in test/web.test.ts.
@@ -44,7 +45,23 @@ vi.mock('expo-router', async () => {
   };
 });
 
+// jsdom has no layout, so react-native-web never calls `onLayout`: this observer reports the
+// width in `turnstileFake.boxWidth` for every element that has a handler, at once on observe().
+window.ResizeObserver = class {
+  observe(node: Element) {
+    const handler = (node as unknown as Record<string, unknown>).__reactLayoutHandler;
+    if (typeof handler !== 'function') return;
+    const layout = { x: 0, y: 0, width: turnstileFake.boxWidth, height: 0, left: 0, top: 0 };
+    handler({ nativeEvent: { layout }, timeStamp: Date.now() });
+  }
+  unobserve() {}
+  disconnect() {}
+};
+
+beforeEach(() => turnstileFake.install());
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  delete window.turnstile;
 });

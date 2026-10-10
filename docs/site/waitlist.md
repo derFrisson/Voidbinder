@@ -22,16 +22,18 @@ Accepts `application/x-www-form-urlencoded` or `multipart/form-data` (fields `em
 to `de`; the address is trimmed and lower-cased; at most 254 characters. The body is read up to
 8 KiB, whatever `Content-Length` claims, and refused past that.
 
-| Case                         | Form post                                         | JSON                           |
-| ---------------------------- | ------------------------------------------------- | ------------------------------ |
-| Accepted (any address state) | `303` → `/{locale}/waitlist/pending`              | `200 {"status":"pending"}`     |
-| Honeypot filled              | same as accepted, nothing stored or sent          | same as accepted               |
-| Invalid email                | `303` → `/{locale}/waitlist/error?reason=email`   | `400 {"error":"email"}`        |
-| Consent missing              | `303` → `/{locale}/waitlist/error?reason=consent` | `400 {"error":"consent"}`      |
-| Database or mail failure     | `303` → `/{locale}/waitlist/error?reason=server`  | `500 {"error":"server"}`       |
-| Rate limited (5 / 60 s / IP) | `429` text, `Retry-After: 60`                     | `429 {"error":"rate_limited"}` |
-| Body over 8 KiB              | `413` text                                        | `413 {"error":"too_large"}`    |
-| Other content type           | `415 {"error":"content-type"}`                    |                                |
+| Case                         | Form post                                                       | JSON                                    |
+| ---------------------------- | --------------------------------------------------------------- | --------------------------------------- |
+| Accepted (any address state) | `303` → `/{locale}/waitlist/pending`                            | `200 {"status":"pending"}`              |
+| Honeypot filled              | same as accepted, nothing stored or sent                        | same as accepted                        |
+| Turnstile token missing/bad  | `303` → `/{locale}/waitlist/error?reason=turnstile`             | `400 {"error":"turnstile"}`             |
+| Siteverify unreachable       | `303` → `/{locale}/waitlist/error?reason=turnstile_unavailable` | `503 {"error":"turnstile_unavailable"}` |
+| Invalid email                | `303` → `/{locale}/waitlist/error?reason=email`                 | `400 {"error":"email"}`                 |
+| Consent missing              | `303` → `/{locale}/waitlist/error?reason=consent`               | `400 {"error":"consent"}`               |
+| Database or mail failure     | `303` → `/{locale}/waitlist/error?reason=server`                | `500 {"error":"server"}`                |
+| Rate limited (5 / 60 s / IP) | `429` text, `Retry-After: 60`                                   | `429 {"error":"rate_limited"}`          |
+| Body over 8 KiB              | `413` text                                                      | `413 {"error":"too_large"}`             |
+| Other content type           | `415 {"error":"content-type"}`                                  |                                         |
 
 What happens behind the same `pending` answer (no email enumeration):
 
@@ -41,6 +43,19 @@ What happens behind the same `pending` answer (no email enumeration):
 | `pending`      | New confirmation link (the old one stops working) unless a mail went out in the last 24 h |
 | `confirmed`    | Short "you are already on the list" mail, at most one per 24 h                            |
 | `unsubscribed` | Fresh double opt-in: back to `pending`, new confirmation mail                             |
+
+**Turnstile (VB-72).** The body also carries the widget's token, as the field
+`cf-turnstile-response` (the widget adds it to the form itself; the page script sends it in the
+JSON). After the rate limit, the honeypot and the validation, the handler checks it with Cloudflare's
+Siteverify (`src/server/waitlist/turnstile.ts`; `remoteip` = `cf-connecting-ip`). A missing,
+wrong, spent or expired token is `turnstile`; Siteverify not reachable is `turnstile_unavailable`
+(the error page then shows the generic "went wrong" text), never a pass. The check is skipped when
+`TURNSTILE_SECRET` is Cloudflare's test secret **and** `SITE_URL` is on `localhost`. Without
+JavaScript there is no widget, so the plain form post fails the check and lands on the error page
+(which says why). The page loads Cloudflare's script only when the form is about to scroll into view,
+reserves 65 px for the widget so nothing jumps, shows a text if the script cannot load, and asks for
+a new challenge after every failed attempt. The sitekey is the wrangler var `TURNSTILE_SITE_KEY`
+(docs/environments.md).
 
 ### `GET /api/waitlist/confirm?token=…`
 
@@ -161,7 +176,7 @@ psql "$DATABASE_URL" -c "delete from waitlist_signups where status = 'confirmed'
 ## Local development
 
 ```sh
-cp apps/site/.dev.vars.example apps/site/.dev.vars     # UNSUBSCRIBE_SECRET for astro dev
+cp apps/site/.dev.vars.example apps/site/.dev.vars     # UNSUBSCRIBE_SECRET, TURNSTILE_SECRET for astro dev
 docker compose up -d                                   # Postgres 18 on localhost:5434
 export DATABASE_URL=postgres://voidbinder:voidbinder@localhost:5434/voidbinder
 pnpm --filter site db:migrate                          # apply apps/site/drizzle/*.sql
@@ -192,8 +207,10 @@ All bindings live in `apps/site/wrangler.jsonc`, once at the top level (local) a
 | `EMAIL`                       | simulated               | `hello@voidbinder.de`                             | `hello@voidbinder.de`   |
 | `RL_WAITLIST`                 | namespace `1700`        | namespace `1701`                                  | namespace `1702`        |
 | `UNSUBSCRIBE_SECRET` (secret) | `.dev.vars`             | `wrangler secret put`                             | `wrangler secret put`   |
+| `TURNSTILE_SECRET` (secret)   | `.dev.vars` (test)      | `wrangler secret put`                             | `wrangler secret put`   |
+| `TURNSTILE_SITE_KEY` (var)    | test key `1x…AA`        | the widget's sitekey                              | the widget's sitekey    |
 
-`UNSUBSCRIBE_SECRET` is the only secret; the Hyperdrive config holds the database credentials on
+`UNSUBSCRIBE_SECRET` and `TURNSTILE_SECRET` are the secrets; the Hyperdrive config holds the database credentials on
 Cloudflare's side. `secrets.required` in `wrangler.jsonc` makes `wrangler deploy` fail while it is
 unset.
 

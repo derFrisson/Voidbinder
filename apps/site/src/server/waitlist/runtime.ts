@@ -4,6 +4,7 @@ import { Pool } from 'pg';
 import type { WaitlistDeps } from './handlers';
 import { bindingMailSender, logMailSender } from './mail';
 import { DrizzleWaitlistRepository, type WaitlistRepository } from './repository';
+import { skipsTurnstile } from './turnstile';
 
 /**
  * A deployment without a Hyperdrive binding (the dev Worker before the database exists, VB-50)
@@ -41,6 +42,10 @@ export async function withWaitlist(
       mail: env.EMAIL ? bindingMailSender(env.EMAIL) : logMailSender,
       siteUrl: env.SITE_URL,
       unsubscribeSecret: env.UNSUBSCRIBE_SECRET,
+      turnstile: {
+        secret: env.TURNSTILE_SECRET,
+        skip: skipsTurnstile(env.TURNSTILE_SECRET, env.SITE_URL),
+      },
       rateLimit: async (key) => (await env.RL_WAITLIST.limit({ key })).success,
     });
   } finally {

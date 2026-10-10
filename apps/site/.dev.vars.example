@@ -1,3 +1,7 @@
 # Copy to .dev.vars (gitignored) for astro dev / wrangler dev. Any value works locally.
 # Deployed environments: openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod
 UNSUBSCRIBE_SECRET=local-dev-unsubscribe-secret-not-for-production
+# Turnstile on the waitlist form (VB-72): Cloudflare's always-passes test secret. Locally (wrangler
+# var SITE_URL = http://localhost:4321) the handler then skips the check, so no token is needed.
+# Deployed: wrangler secret put TURNSTILE_SECRET --env dev|prod
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA

@@ -30,9 +30,22 @@
     // Prefix of the import's R2 keys (raw/<env>/…, work/<env>/…): local, dev or prod.
     "IMPORT_ENV": "local",
     "VERSION": "local",
+    // Turnstile (VB-72): the widget's public sitekey (one widget for every hostname; the web app
+    // and the site embed it too; the API only verifies tokens with TURNSTILE_SECRET) and the
+    // Sprint 3 switch for native clients ("true": a request with an Authorization: Bearer header
+    // skips the check). Locally Cloudflare's always-passes test key.
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    "TURNSTILE_NATIVE_BYPASS": "false",
   },
   // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
-  "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN", "TWO_FACTOR_ENCRYPTION_KEY"] },
+  "secrets": {
+    "required": [
+      "BETTER_AUTH_SECRET",
+      "ADMIN_TOKEN",
+      "TWO_FACTOR_ENCRYPTION_KEY",
+      "TURNSTILE_SECRET",
+    ],
+  },
   // Auth mails (verification, password reset); `wrangler dev` simulates the binding locally.
   "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
   // Local Postgres from the root docker-compose.yml. HYPERDRIVE is cache-disabled (fresh reads);
@@ -101,8 +114,17 @@
         "SCRYFALL_LANGUAGES": "en,de",
         "IMPORT_ENV": "dev",
         "VERSION": "local",
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAFS5R7qPne3TN2Nz",
+        "TURNSTILE_NATIVE_BYPASS": "false",
       },
-      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN", "TWO_FACTOR_ENCRYPTION_KEY"] },
+      "secrets": {
+        "required": [
+          "BETTER_AUTH_SECRET",
+          "ADMIN_TOKEN",
+          "TWO_FACTOR_ENCRYPTION_KEY",
+          "TURNSTILE_SECRET",
+        ],
+      },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-dev" (database voidbinder_dev, caching disabled).
@@ -159,8 +181,17 @@
         "SCRYFALL_LANGUAGES": "en,de",
         "IMPORT_ENV": "prod",
         "VERSION": "local",
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAFS5R7qPne3TN2Nz",
+        "TURNSTILE_NATIVE_BYPASS": "false",
       },
-      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN", "TWO_FACTOR_ENCRYPTION_KEY"] },
+      "secrets": {
+        "required": [
+          "BETTER_AUTH_SECRET",
+          "ADMIN_TOKEN",
+          "TWO_FACTOR_ENCRYPTION_KEY",
+          "TURNSTILE_SECRET",
+        ],
+      },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-prod" (database voidbinder, caching disabled).

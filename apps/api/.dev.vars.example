@@ -9,3 +9,7 @@ ADMIN_TOKEN=local-dev-admin-token
 # Encrypts the two-factor secrets at rest (AES-256-GCM), 32 bytes in base64: `openssl rand -base64 32`.
 # Changing it makes every enrolled authenticator and backup code unreadable.
 TWO_FACTOR_ENCRYPTION_KEY=bG9jYWwtZGV2LW9ubHktdHdvLWZhY3Rvci1rZXkhISE=
+# Turnstile (VB-72). Cloudflare's always-passes test secret; with IMPORT_ENV=local (the top-level
+# wrangler vars) the API then skips the check entirely, so no token is needed locally. Deployed
+# environments hold the real secret: wrangler secret put TURNSTILE_SECRET --env dev|prod
+TURNSTILE_SECRET=1x0000000000000000000000000000000AA

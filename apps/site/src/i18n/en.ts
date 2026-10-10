@@ -200,11 +200,17 @@ export const en: Dict = {
     consentAfter: '.',
     submit: 'Sign up',
     sending: 'Sending',
+    turnstileLabel: 'Security check',
+    turnstileNoscript: 'The security check needs JavaScript to sign up.',
     honeypot: 'Website, leave this empty',
     errors: {
       email: "That email address doesn't look right. Please check it.",
       consent: "Please check the box, otherwise we can't store your address.",
       rate: 'Too many attempts. Please wait a minute.',
+      turnstile: 'The security check failed. Please try again.',
+      turnstileWait: 'Please complete the security check first.',
+      turnstileLoad:
+        'The security check could not be loaded. Check your connection, allow challenges.cloudflare.com in your blocker and reload the page.',
       server: "That didn't work. Please try again later.",
     },
   },
@@ -236,6 +242,10 @@ export const en: Dict = {
       consent: {
         title: 'We need your consent.',
         text: "Without the check mark we can't store your address.",
+      },
+      turnstile: {
+        title: 'The security check failed.',
+        text: 'It needs JavaScript and access to challenges.cloudflare.com. Please try again.',
       },
       server: {
         title: "That didn't work.",

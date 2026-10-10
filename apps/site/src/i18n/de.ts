@@ -200,11 +200,17 @@ export const de = {
     consentAfter: '.',
     submit: 'Eintragen',
     sending: 'Wird gesendet',
+    turnstileLabel: 'Sicherheitsprüfung',
+    turnstileNoscript: 'Für die Sicherheitsprüfung braucht die Anmeldung JavaScript.',
     honeypot: 'Website, bitte leer lassen',
     errors: {
       email: 'Diese E-Mail-Adresse sieht nicht richtig aus. Bitte prüfe sie.',
       consent: 'Bitte setze den Haken, sonst dürfen wir deine Adresse nicht speichern.',
       rate: 'Zu viele Versuche. Bitte warte eine Minute.',
+      turnstile: 'Die Sicherheitsprüfung hat nicht geklappt. Bitte versuche es noch einmal.',
+      turnstileWait: 'Bitte schließe zuerst die Sicherheitsprüfung ab.',
+      turnstileLoad:
+        'Die Sicherheitsprüfung konnte nicht geladen werden. Prüfe deine Verbindung, erlaube challenges.cloudflare.com in deinem Blocker und lade die Seite neu.',
       server: 'Das hat nicht geklappt. Bitte versuche es später noch einmal.',
     },
   },
@@ -236,6 +242,10 @@ export const de = {
       consent: {
         title: 'Wir brauchen deine Einwilligung.',
         text: 'Ohne den Haken dürfen wir deine Adresse nicht speichern.',
+      },
+      turnstile: {
+        title: 'Die Sicherheitsprüfung hat nicht geklappt.',
+        text: 'Dafür braucht die Seite JavaScript und Zugriff auf challenges.cloudflare.com. Bitte versuche es noch einmal.',
       },
       server: {
         title: 'Das hat nicht geklappt.',

@@ -124,11 +124,25 @@ pnpm --filter app deploy:dev    # voidbinder-app-dev on workers.dev, API voidbin
 pnpm --filter app deploy:prod   # app.voidbinder.de, API voidbinder-api
 ```
 
-The app has no secrets and no `vars`. The API's `APP_URL` must be the app's origin
+The app has no secrets and no `vars`; its one build-time setting is the public Turnstile sitekey
+(`EXPO_PUBLIC_TURNSTILE_SITE_KEY`, below). The API's `APP_URL` must be the app's origin
 (`https://voidbinder-app-dev.frisson.workers.dev`, `https://app.voidbinder.de`), since Better Auth
 admits only that origin and builds the mail links from it.
 
-**CSP:** no inline scripts (`script-src 'self'`). `style-src` needs `'unsafe-inline'`:
+**Turnstile (VB-72):** the sign-up, the reset request and the verification resend (`/verify`) show
+Cloudflare's widget (`src/components/auth/Turnstile.tsx`, explicit render: size normal, theme auto,
+the UI language, 65 px reserved so nothing shifts) and send its token as `cf-turnstile-response`;
+the API refuses these calls without it (apps/api/README.md). A token works once, so the form asks
+for a new challenge after a failed request. If Cloudflare's script cannot load, a text says so
+(blocker, offline) instead of the widget. The sitekey is inlined by `expo export` from
+`EXPO_PUBLIC_TURNSTILE_SITE_KEY`; unset, it is Cloudflare's always-passes test key, which is right
+for `pnpm dev`, CI and the tests. `deploy:dev|prod` set the real key (docs/environments.md). `build` runs `expo export --clear`, because
+Metro's transform cache does not notice a changed `EXPO_PUBLIC_*` value and would ship the old key. Native
+builds render no widget (the component returns `null`): the API refuses their sign-up unless
+`TURNSTILE_NATIVE_BYPASS` is on. The React Native widget is a Sprint 3 follow-up.
+
+**CSP:** no inline scripts (`script-src 'self' https://challenges.cloudflare.com`, plus
+`frame-src https://challenges.cloudflare.com` for the widget's iframe). `style-src` needs `'unsafe-inline'`:
 react-native-web inserts its styles into a `<style>` element at runtime and expo-font registers the
 fonts the same way, and neither can carry a nonce. Images: self, `data:` and `img.voidbinder.de`.
 

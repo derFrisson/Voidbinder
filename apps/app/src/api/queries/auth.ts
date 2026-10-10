@@ -11,6 +11,7 @@ export type AuthFailure =
   | 'tokenInvalid'
   | 'wrongPassword'
   | 'codeInvalid'
+  | 'turnstile'
   | 'generic';
 
 export class AuthError extends Error {
@@ -147,10 +148,27 @@ export function useDisableTwoFactor() {
   });
 }
 
+/**
+ * The Turnstile token (VB-72) of the requests the API checks it on: sign-up, the reset request and
+ * the verification resend. One token works once, so a failed call needs a fresh one. A 400 on
+ * these calls is a failed check (the forms validate everything else first).
+ */
+// Native builds have no widget yet (Sprint 3) and send none; the API then refuses them.
+const turnstile = (token: string | null | undefined) =>
+  token ? { headers: { 'cf-turnstile-response': token } } : {};
+const CHECK_FAILED = { 400: 'turnstile' } as const;
+
 export function useSignUp() {
   return useMutation({
-    mutationFn: (input: { name: string; email: string; password: string }) =>
-      unwrap(authClient.signUp.email(input)),
+    mutationFn: ({
+      turnstileToken,
+      ...input
+    }: {
+      name: string;
+      email: string;
+      password: string;
+      turnstileToken?: string | null;
+    }) => unwrap(authClient.signUp.email(input, turnstile(turnstileToken)), CHECK_FAILED),
   });
 }
 
@@ -174,13 +192,21 @@ export function useVerifyEmail() {
 
 export function useResendVerification() {
   return useMutation({
-    mutationFn: (email: string) => unwrap(authClient.sendVerificationEmail({ email })),
+    mutationFn: (input: { email: string; turnstileToken?: string | null }) =>
+      unwrap(
+        authClient.sendVerificationEmail({ email: input.email }, turnstile(input.turnstileToken)),
+        CHECK_FAILED,
+      ),
   });
 }
 
 export function useRequestPasswordReset() {
   return useMutation({
-    mutationFn: (email: string) => unwrap(authClient.requestPasswordReset({ email })),
+    mutationFn: (input: { email: string; turnstileToken?: string | null }) =>
+      unwrap(
+        authClient.requestPasswordReset({ email: input.email }, turnstile(input.turnstileToken)),
+        CHECK_FAILED,
+      ),
   });
 }
 
