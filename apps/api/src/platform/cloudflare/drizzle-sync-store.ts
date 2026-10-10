@@ -34,14 +34,21 @@ type Stored = Record<string, unknown> & {
 
 const notFound = (what: string) => new HTTPException(404, { message: `${what} not found` });
 
-/** The Postgres error code under Drizzle's wrapper (`DrizzleQueryError.cause`). */
-function pgCode(err: unknown): string | undefined {
-  const e = err as { code?: string; cause?: { code?: string } };
-  return e.cause?.code ?? e.code;
+/** The Postgres error under Drizzle's wrapper (`DrizzleQueryError.cause`). */
+function pgError(err: unknown): { code?: string; constraint?: string } {
+  const e = err as { code?: string; constraint?: string; cause?: { code?: string } };
+  return e.cause?.code ? e.cause : e;
 }
 
+/** The unique rules a push can run into: a live binder name, one live wish per print. */
+const UNIQUE_RULES = [
+  'binders_user_id_name_live_key',
+  'wishlist_entries_user_print_lang_finish_live_key',
+];
+
 const iso = (d: Date | null) => d?.toISOString() ?? null;
-const lockKey = (userId: string) => sql`hashtextextended(${`voidbinder.sync:${userId}`}, 0)`;
+const lockKey = (userId: string, name = 'sync') =>
+  sql`hashtextextended(${`voidbinder.${name}:${userId}`}, 0)`;
 
 /** Per table: the Drizzle table, the row as the protocol sends it, the columns a row writes. */
 const TABLES = {
@@ -217,6 +224,9 @@ export async function syncPush(
 
   try {
     return await db.transaction(async (tx) => {
+      // One push per user at a time: a retry running alongside its original waits for it and
+      // then finds its rows equal, instead of colliding on their primary keys.
+      await tx.execute(sql`select pg_advisory_xact_lock(${lockKey(userId, 'push')})`);
       // The lock the trigger takes, taken before any row lock (a pull waits on it).
       await tx.execute(sql`select pg_advisory_xact_lock_shared(${lockKey(userId)})`);
       const applied: SyncPushResponse['applied'] = [];
@@ -311,8 +321,9 @@ export async function syncPush(
       return { applied, conflicts: grouped(conflicts) };
     });
   } catch (err) {
-    if (pgCode(err) === '23503') throw notFound('Print');
-    if (pgCode(err) === '23505')
+    const pg = pgError(err);
+    if (pg.code === '23503') throw notFound('Print');
+    if (pg.code === '23505' && UNIQUE_RULES.includes(pg.constraint ?? ''))
       throw new HTTPException(409, {
         message: 'A live binder of that name or a wish for that card exists already',
       });

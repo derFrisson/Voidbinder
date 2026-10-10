@@ -551,10 +551,11 @@ one row always fits). `cursor` is the next `since`; `more: true` means pull agai
 **Push.** `POST /sync/push` with `{ changes: [{ table, rows }] }`: full rows (the fields of the REST
 routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` for a delete and
 `baseUpdatedAt` = the `updatedAt` last pulled, null for a row the device created). At most 500 rows
-(deck entries aside: at most 500 per deck and 5000 in all), one transaction, applied binders, entries, wishes,
-decks. A deck's entries are its whole list and need the deck row in the same push (400 otherwise);
-they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown print, card or
-binder answers 404 and nothing is written; a taken binder name or wish 409. An entry filed into a
+(deck entries aside: at most 500 per deck and 5000 in all), one transaction, applied binders,
+entries, wishes, decks; a user's pushes run one at a time, so a retry that overlaps its original
+answers like it. A deck's entries are its whole list and need the deck row in the same push (400
+otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown
+print, card or binder answers 404 and nothing is written; a taken binder name or wish 409. An entry filed into a
 deleted binder lands in no binder, and a pushed binder delete moves its entries out, as the REST
 delete does.
 

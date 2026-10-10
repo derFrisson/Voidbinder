@@ -32,15 +32,16 @@ native client runs the same code.
   cursor past 10 for good. The trigger therefore takes a shared per-user advisory lock (held to
   the end of the transaction) before it takes a number, and a pull takes the same lock
   exclusively: it waits for every write of that user in flight, and while it reads, no write of
-  that user can take a number. Writers never block each other; a pull waits at most for the
-  user's own open writes.
+  that user can take a number. Writers never block each other on this lock; a pull waits at
+  most for the user's own open writes.
 - **Push.** `POST /sync/push` takes `{ changes: [{ table, rows }] }`: full rows with `updatedAt`
   (the device's edit time), `deletedAt` for a delete and `baseUpdatedAt` (the `updatedAt` the
   device last pulled; null for a row it created). At most 500 rows, and at most 5000 deck
   entries (500 per deck), so one push cannot hold the user's lock for a quarter million writes;
-  one transaction; applied in
-  table order (binders before entries, decks before their lists). A deck's entries are its whole
-  list and travel with the deck row, because the deck rules judge a list as a whole.
+  one transaction; applied in table order (binders before entries, decks before their lists). A
+  deck's entries are its whole list and travel with the deck row, because the deck rules judge a
+  list as a whole. Pushes of one user run one at a time (an exclusive per-user push lock), so a
+  retry that overlaps its original waits for it and then finds its rows equal.
 - **Conflict rule: last writer wins per row, the server's row has authority.** The stored row
   changed after the device's base: the server keeps it and returns it in `conflicts`, and the
   device replaces its copy. Two exceptions, both decided by the edit times: a delete newer than
@@ -58,8 +59,9 @@ native client runs the same code.
 ## Consequences
 
 - The REST routes need no change: the trigger stamps their writes too.
-- One more lock per write and a short exclusive lock per pull, per user. Fine for one person's
-  devices; a pull that waits on a long write of the same user (a 500-row import) waits for it.
+- One more lock per write, a short exclusive lock per pull and one push at a time, per user.
+  Fine for one person's devices; a pull or push that comes during a long write of the same user (a
+  500-row import) waits for it.
 - Ceilings, accepted for now:
   - Last writer wins per **row**: two devices that change different fields of the same row
     offline keep one device's row (the other gets a conflict). No field-level merge.

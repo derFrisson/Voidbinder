@@ -427,6 +427,21 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(rowsOf(await pulling, 'binders').map((r) => r.id)).toEqual([inFlight, later.id]);
   });
 
+  it('answers a retry running alongside its original like the original', async () => {
+    const adeline = await print('mid', '1');
+    const changes = [
+      { table: 'binders', rows: Array.from({ length: 50 }, () => binder()) },
+      {
+        table: 'collection_entries',
+        rows: Array.from({ length: 50 }, () => entry(adeline.printId)),
+      },
+    ];
+    const [a, b] = await Promise.all([push(ash, changes), push(ash, changes)]);
+    expect([a.status, b.status]).toEqual([200, 200]);
+    expect(a.body).toEqual(b.body);
+    expect(a.body.applied).toHaveLength(100);
+  });
+
   it('isolates users: no foreign rows pulled, a foreign id is a 404 and writes nothing', async () => {
     const b = binder();
     await push(ash, [{ table: 'binders', rows: [b] }]);
