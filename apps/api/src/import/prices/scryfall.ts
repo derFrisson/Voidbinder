@@ -1,8 +1,9 @@
-import { and, eq, inArray } from 'drizzle-orm';
-import { prints, sets } from '../../db/schema';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { priceMappings, pricesCurrent, prints, sets } from '../../db/schema';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import type { ScryfallCard } from '../scryfall/types';
-import { failRun, finishRun, type Db } from '../scryfall/write';
+import { batches } from '../util';
+import { BATCH_SIZE, failRun, finishRun, type Db } from '../scryfall/write';
 import { chunkKey, readChunk } from '../scryfall/source';
 import { startRun, upsertMappings, writePrices, type MappingRow, type PriceRow } from './write';
 
@@ -38,6 +39,27 @@ async function printIds(db: Db, cards: Priced[]) {
       ),
     );
   return new Map(rows.map((r) => [`${r.code}|${r.number}`, r.id]));
+}
+
+/**
+ * Scryfall prices a print in one language: drops the print's rows of the same source and finish
+ * in another (a pre-VB-103 `en` row of a Japanese-only print).
+ */
+async function dropOtherLangs(
+  db: Db,
+  table: typeof pricesCurrent | typeof priceMappings,
+  keys: { printId: string; source: string; finish: string; lang: string }[],
+) {
+  for (const batch of batches(keys, BATCH_SIZE)) {
+    const values = sql.join(
+      batch.map((k) => sql`(${k.printId}::uuid, ${k.source}, ${k.finish}, ${k.lang})`),
+      sql`, `,
+    );
+    await db.execute(sql`delete from ${table} t
+      using (values ${values}) as v(print_id, source, finish, lang)
+      where t.print_id = v.print_id and t.source = v.source and t.finish = v.finish
+        and t.lang <> v.lang`);
+  }
 }
 
 /** Writes the prices of one batch of `default_cards` lines. */
@@ -80,7 +102,10 @@ export async function writeScryfallPrices(db: Db, lines: string[], observedAt: s
     }
   }
   await upsertMappings(db, mappings);
-  return { prices: await writePrices(db, rows, observedAt), noPrint };
+  await dropOtherLangs(db, priceMappings, mappings);
+  const written = await writePrices(db, rows, observedAt);
+  await dropOtherLangs(db, pricesCurrent, rows);
+  return { prices: written, noPrint };
 }
 
 /**

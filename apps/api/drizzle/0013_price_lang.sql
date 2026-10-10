@@ -1,4 +1,4 @@
--- Hand-ordered (VB-103): prices per card language. Every existing row is an English price
+-- Hand-ordered (VB-103): prices per card language. An existing row becomes an English price
 -- (`en`); the keys take the language. On the VPS `prices_daily` is a hypertable with compressed
 -- (columnstore) chunks: TimescaleDB allows adding a column with a constant default and swapping
 -- the primary key there without converting chunks back to the rowstore (docs: "Altering
@@ -18,3 +18,14 @@ ALTER TABLE "prices_current"
 ALTER TABLE "prices_daily"
 	DROP CONSTRAINT "prices_daily_print_id_finish_source_observed_at_pk",
 	ADD CONSTRAINT "prices_daily_print_id_finish_source_lang_observed_at_pk" PRIMARY KEY("print_id","finish","source","lang","observed_at");
+--> statement-breakpoint
+-- Scryfall prices a print in its `default_cards` language: a print with one localization, not
+-- English (a Japanese-only print), had its Scryfall rows in that language all along. Prints with
+-- several or no localizations stay `en`; the Scryfall writer drops a wrong guess on its next run.
+-- `prices_daily` stays: the history picks one row per day.
+UPDATE "prices_current" p SET "lang" = l."lang"
+FROM (SELECT "print_id", min("lang") AS "lang" FROM "print_localizations" GROUP BY "print_id" HAVING count(*) = 1) l
+WHERE p."print_id" = l."print_id" AND l."lang" <> 'en' AND p."source" IN ('cardmarket', 'tcgplayer_scryfall');--> statement-breakpoint
+UPDATE "price_mappings" p SET "lang" = l."lang"
+FROM (SELECT "print_id", min("lang") AS "lang" FROM "print_localizations" GROUP BY "print_id" HAVING count(*) = 1) l
+WHERE p."print_id" = l."print_id" AND l."lang" <> 'en' AND p."source" IN ('cardmarket', 'tcgplayer_scryfall');

@@ -651,7 +651,8 @@ never replaces a newer one); `prices_daily` one row per print, finish, source, l
 day (market, low, high). `lang` (VB-103, `drizzle/0013_price_lang.sql`, also in the keys of
 `price_mappings`) is the language of the copies the price is for, since a German copy sells for
 something else than an English one: TCGCSV writes `en`, Scryfall the language of its
-`default_cards` object (a Japanese-only print: `ja`). Where the `timescaledb` extension is installed (the VPS), the migration turns `prices_daily`
+`default_cards` object (a Japanese-only print: `ja`) and drops that print's rows of the same
+source and finish in another language. Where the `timescaledb` extension is installed (the VPS), the migration turns `prices_daily`
 into a hypertable with monthly chunks compressed after 30 days; plain PostgreSQL (CI, Docker)
 skips that and logs a notice. `condition_multipliers` holds the share of the near-mint price per
 condition and game (NM 1.0, EX 0.85, GD 0.7, LP 0.6, PL 0.45, PO 0.3): estimates, labelled as

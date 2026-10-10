@@ -17,6 +17,7 @@ import {
   sets,
 } from '../db/schema';
 import { writeScryfallPrices } from '../import/prices/scryfall';
+import { upsertMappings, writePrices } from '../import/prices/write';
 import { runScryfallImport, type ImportDeps } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -422,13 +423,12 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     const [row] = await db.select({ cardId: prints.cardId }).from(prints).where(eq(prints.id, id));
     const cardId = row?.cardId ?? '';
     const observedAt = '2026-10-09T03:00:00.000Z';
-    // Scryfall prices a print in its object's language.
-    const line = { set: 'mid', collector_number: '1', lang: 'de', cardmarket_id: 999 };
-    await writeScryfallPrices(
-      db,
-      [JSON.stringify({ ...line, prices: { eur: '9.00' } })],
-      observedAt,
-    );
+    // A German copy's price (a source that prices several languages of one print).
+    const german = { printId: id, source: 'cardmarket', finish: 'normal', lang: 'de' };
+    await upsertMappings(db, [
+      { ...german, externalId: '999', method: 'scryfall_id', confidence: 100 },
+    ]);
+    await writePrices(db, [{ ...german, currency: 'EUR', market: 900 }], observedAt);
     const byLang = async (table: typeof pricesCurrent | typeof pricesDaily) =>
       (
         await db
@@ -538,6 +538,50 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       .where(and(eq(pricesCurrent.printId, id), eq(pricesCurrent.lang, 'ja')));
     for (const table of [pricesCurrent, pricesDaily, priceMappings])
       await db.delete(table).where(and(eq(table.printId, id), eq(table.lang, 'de')));
+  });
+
+  // VB-103 review: a Japanese-only print kept its pre-migration `en` row; Scryfall prices a print
+  // in one language, so its next write drops the row in another.
+  it("a Scryfall write drops the print's rows in another language", async () => {
+    const id = await printId('neo', '293');
+    const [row] = await db.select({ cardId: prints.cardId }).from(prints).where(eq(prints.id, id));
+    const cm = and(
+      eq(pricesCurrent.printId, id),
+      eq(pricesCurrent.source, 'cardmarket'),
+      eq(pricesCurrent.finish, 'normal'),
+    );
+    // The state after migration 0013 guessed wrong: the cardmarket row and mapping as `en`.
+    await db.update(pricesCurrent).set({ lang: 'en', centsMarket: 111 }).where(cm);
+    await db
+      .update(priceMappings)
+      .set({ lang: 'en' })
+      .where(and(eq(priceMappings.printId, id), eq(priceMappings.finish, 'normal')));
+
+    const line = { set: 'neo', collector_number: '293', lang: 'ja', cardmarket_id: 605034 };
+    await writeScryfallPrices(
+      db,
+      [JSON.stringify({ ...line, prices: { eur: '3.50' } })],
+      '2026-10-10T03:00:00.000Z',
+    );
+    expect(
+      await db
+        .select({ lang: pricesCurrent.lang, cents: pricesCurrent.centsMarket })
+        .from(pricesCurrent)
+        .where(cm),
+    ).toEqual([{ lang: 'ja', cents: 350 }]);
+    expect(
+      await db
+        .select({ lang: priceMappings.lang })
+        .from(priceMappings)
+        .where(and(eq(priceMappings.printId, id), eq(priceMappings.finish, 'normal'))),
+    ).toEqual([{ lang: 'ja' }]);
+    const card = CardResponseSchema.parse(
+      await (await app.request(`/catalog/cards/${row?.cardId ?? ''}`)).json(),
+    );
+    expect(card.prints.find((p) => p.id === id)?.marketPrice).toMatchObject({
+      lang: 'ja',
+      cents: 350,
+    });
   });
 
   it('PUT /admin/price-mappings sets a manual mapping', async () => {
