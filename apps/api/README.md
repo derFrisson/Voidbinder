@@ -807,7 +807,10 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    `RATE-SE` to `rate`, VB-113); then the name without TCGplayer's series prefix (`SWSH03: `,
    `SM - `), a trailing `Base Set` or a leading series name (`SV: Scarlet & Violet 151` → `151`);
    last `GROUP_ALIASES` in `match.ts` (promos, McDonald's, Radiant Collections, Shonen Jump
-   Magazine Promos, by group id).
+   Magazine Promos, by group id). Magic also imports the groups no set matches (VB-114: Promo
+   Pack, Art Series, Buy-A-Box, the store promos and others that span several of Scryfall's sets;
+   about 100 groups and 4,500 prints), since its products match by Scryfall's ids whatever the
+   set; they do not count in `matchedGroups`.
 3. `prices <game> 000` …: products and prices of about 25 matched groups per step, mapped to
    prints (below) and written to `prices_current` and `prices_daily`. A set's groups share a step
    and are matched together (LOB: the North American prints are in `LOB`, the EN ones in
@@ -817,17 +820,19 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    it prices it, else the lowest, and the others are left unmapped (VB-113: the Worldwide English
    `MRD-EN010` has no market price, its 25th Anniversary reprint has). A print already mapped keeps
    its product while that is listed with a market price, so `prices_daily` does not switch between
-   two products as their prices come and go; it falls forward only when its product has none. Yu-Gi-Oh! products whose
-   number names another set (LC03's group lists Legendary Collection 3's mega pack `LCYW-EN…`,
-   SJMP the `JMP` and `JMPS` promos) are matched to that set's prints when it has no group of its
-   own.
-4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
-   with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
-   have a group but no priced print, from the group list the run just kept. Logged in the step as
-   one line `price coverage` per game (`game`, `sets`, `setsWithGroup`, `setsPriced`, `prints`,
-   `priced`, `unmatchedGroups`, `unpricedSets`) and a WARN `set has a TCGplayer group and no
-price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
-   on (the prices are written by then).
+   two products as their prices come and go; it falls forward only when its product has none.
+   Yu-Gi-Oh! products whose number names another set (LC03's group lists Legendary Collection 3's
+   mega pack `LCYW-EN…`, SJMP the `JMP` and `JMPS` promos) are matched to that set's prints when it
+   has no group of its own.
+4. `coverage <game>` after each game (VB-111, VB-114, `src/import/prices/coverage.ts`): per set
+   the prints with a current price from any source, per source (`tcgplayer`, `cardmarket`,
+   `tcgplayer_scryfall`) and from none, the groups that matched no set and the sets that have a
+   group but no `tcgplayer` price, from the group list the run just kept. Magic's groups without a
+   set are imported all the same (step 2), so its `unmatchedGroups` are informational, not a gap.
+   Logged in the step as one line `price coverage` per game (`game`, `sets`, `setsWithGroup`,
+   `setsPriced`, `prints`, `priced`, `sources`, `unpriced`, `unmatchedGroups`, `unpricedSets`,
+   `stale`) and a WARN `set has a TCGplayer group and no price` per such set. Never fatal: a
+   failure is a WARN `price coverage failed` and the run goes on (the prices are written by then).
 5. `freshness` (VB-116, `runFreshness` in `coverage.ts`, also on a run that skips the build): per
    game of `tcgplayer` the `prints`, the `mapped` ones (a mapping or a current price), `unmapped`,
    `priced`, `fresh` (newest price younger than 24 h), `stale` (older than 36 h) and `share`
@@ -841,29 +846,30 @@ A `prices <game> …` step that still fails after the Workflow's three retries d
 (VB-116): its groups go into `stats.failedGroups` (`game`, `groupIds`, `error`), a WARN `price
 groups failed` is logged and the other groups and games go on. A systemic failure (TCGCSV down or
 rate-limiting, the database unreachable) does end it: after three failed steps in a row, or when
-every step of a game failed, the run is `failed` (`price groups failed: <game>, …`). The build counts as imported (the
-next run skips it) only after a run that pulled all of it ended `ok`: a failed run, one still
-`running` and one with `failedGroups` do not count, so the 22:30 run pulls the build again. A
-TCGCSV run `running` for more than an hour is taken as dead and no longer blocks the next one
-(other sources: 6 hours); a run that fails fast takes about 25 minutes at most.
+every step of a game failed, the run is `failed` (`price groups failed: <game>, …`). The build
+counts as imported (the next run skips it) only after a run that pulled all of it ended `ok`: a
+failed run, one still `running` and one with `failedGroups` do not count, so the 22:30 run pulls the
+build again. A TCGCSV run `running` for more than an hour is taken as dead and no longer blocks the
+next one (other sources: 6 hours); a run that fails fast takes about 25 minutes at most.
 
-A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
-groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
-gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/` (`groups.json.gz`,
-`<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a `marketPrice` (too few
-sales) are not written. The cron runs on prod only: dev would be a second pull of the same build,
-so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs). A second
-prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that landed late: when the
-20:30 run imported the build it reads `last-updated.txt` and ends without bumping
-`catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
+A full run is about 2,700 requests (VB-114: every Magic group); the first local run for Magic
+(2026-10-10) matched 352 of 454 groups and mapped 92,990 of 104,595 card products in 2 min 23 s.
+Every answer is kept gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/`
+(`groups.json.gz`, `<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a
+`marketPrice` (too few sales) are not written. The cron runs on prod only: dev would be a second
+pull of the same build, so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while
+one runs). A second prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that
+landed late: when the 20:30 run imported the build it reads `last-updated.txt` and ends without
+bumping `catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
 
 **Forced re-import.** `POST /admin/import/tcgcsv?force=true` (or `?force=1`; any other value is
 a plain run) imports the build even when the last run did: groups and products are matched anew,
 so a matching change reaches the current prices the same day instead of with the next build. It
-is a second pull of that build (about 2,500 requests, within TCGCSV's daily limit). After a
-matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN` groups,
-VB-113's Yu-Gi-Oh! rarity aliases, reprint families, artwork variants and set codes) run
-both steps, once for both: the forced import, then the archive backfill on the VPS with
+is a second pull of that build (about 2,700 requests, within TCGCSV's daily limit). After a
+matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN`
+groups, VB-113's Yu-Gi-Oh! rarity aliases, reprint families, artwork variants and set codes,
+VB-114's Magic groups without a set and shared 7th–10th Edition products) run both steps, once
+for both: the forced import, then the archive backfill on the VPS with
 `--refill`, since a plain backfill skips every day that already has `tcgplayer` rows and the
 re-mapped prints' history would otherwise start with the forced run:
 
@@ -881,11 +887,13 @@ insert plus the 2 s pause, so expect several hours (not measured yet: the archiv
 since 2026-10-10); run it under `systemd-run` as in the runbook.
 
 `GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
-the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced`, `groups`,
-`stale`), `unmatchedGroups` (`groupId`, `name`, `abbreviation`), `unpricedSets`, `freshness` (the
-game's counts per price source, as the run's `stats.freshness`, computed now) and `failedGroups`
-(the group ids that failed in that run); 404 before such a run or when its group list is gone
-from `RAW`, 400 for another game.
+the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced` by any
+source, `sources` per source, `unpriced` by none, `groups`, `groupMatched` and `rules`, the
+`matchGroups` rule of each group: `scryfall-id`, `abbreviation`, `name` or `alias`, and `stale`),
+`unmatchedGroups` (`groupId`, `name`, `abbreviation`), `unpricedSets` (a group, no `tcgplayer`
+price), `totals` (the counts of the log line), `freshness` (the game's counts per price source, as
+the run's `stats.freshness`, computed now) and `failedGroups` (the group ids that failed in that
+run); 404 before such a run or when its group list is gone from `RAW`, 400 for another game.
 
 `GET /admin/imports/health` folds the newest `ok` price run's `freshness` in (VB-116): a source is
 `stale` when fewer than 95 % of a game's priced prints were refreshed in 24 h, or when the stale
@@ -895,7 +903,8 @@ prints, whichever is more (a few a day are everyday churn); the message names th
 Kuma push (`scripts/vps/import-health.sh`) reports it unchanged. A mapped print never priced (no
 market price yet) is coverage (`priced`), not freshness. The newest `ok` TCGCSV run's
 `failedGroups` go in as well (`failed groups: tcgplayer/mtg 2864 2965`), so the health stays red
-while groups keep failing, not just for the day they first did. Steps when it fires: `docs/guides/go-live.md`.
+while groups keep failing, not just for the day they first did. Steps when it fires:
+`docs/guides/go-live.md`.
 
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
@@ -936,8 +945,11 @@ misspelled `Cr` and `Duel Terminal Normal Rare Parallel Rare`. Checked equal on 
 Gold, Gold Secret, Premium Gold, Mosaic, Starfoil and Shatterfoil Rare, the Duel Terminal parallels
 of DT07. A product only takes prints of the set its number names, when that set is a candidate.
 
-Two products that claim one print with the same confidence are both left unmapped, and so is a
-TCGplayer id Scryfall gives more than one print. Yu-Gi-Oh! products of one number and rarity that
+Two products that claim one print with the same confidence are both left unmapped. A TCGplayer id
+Scryfall gives more than one print goes by printing: each print takes the finishes none of the
+others has (VB-114: 7th to 10th Edition list the nonfoil `115` and the foil-only `115★` as one
+product, whose `Normal` price is the first's and `Foil` price the second's); a finish two of them
+have is left unmapped. Yu-Gi-Oh! products of one number and rarity that
 differ by name are resolved per print (VB-113; Pokémon keeps the tie): the one with the print's
 name wins (LOB-012 is Trial of Nightmare and its misprint Trial of Hell); artwork variants (`Harpie Lady (Original Artwork)` and
 `(New Artwork)`, MRD-008) go to the original, or to the other one when Yugipedia gives the print an

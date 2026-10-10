@@ -98,6 +98,7 @@ export async function candidatePrints(
       name: cards.name,
       tcgplayer,
       tcgplayerEtched: sql<string | null>`${prints.externalIds} ->> 'tcgplayer_etched'`,
+      finishes: prints.finishes,
       artwork: sql<string | null>`${prints.externalIds} -> 'artwork' ->> 'alt'`,
     })
     .from(prints)
