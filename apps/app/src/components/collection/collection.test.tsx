@@ -601,6 +601,25 @@ describe('adding from the search', () => {
     ]);
   });
 
+  it('QuickAdd on a set page with a language chip adds in that language, not the last used one', async () => {
+    session.language = 'en';
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, lang: 'de' });
+    const calls = fakeApi(signedIn, (c) => {
+      if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(['en', 'de']));
+      if (c.method === 'POST' && c.path === '/collection/entries')
+        return json({ entries: [] }, 201);
+      return undefined;
+    });
+    renderApp(<QuickAdd printId={PRINT} cardId={CARD} name="Adeline" finish="normal" />);
+    fireEvent.click(await screen.findByRole('button', { name: /Adeline/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual([
+      expect.objectContaining({ printId: PRINT, language: 'de' }),
+    ]);
+    session.language = undefined;
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD });
+  });
+
   it('a retried add sends the same client id; a new one after it went through', async () => {
     let fail = true;
     const calls = fakeApi(signedIn, (c) => {
