@@ -98,7 +98,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       ['PO', 100],
     ]);
     expect(body.conditionsAreEstimates).toBe(true);
-    // VB-115: Cardmarket's foil and normal share one product, one link without a finish.
+    // VB-115: Cardmarket's foil and normal share one product, one link.
     expect(body.links).toEqual([
       {
         portal: 'cardnexus',
