@@ -70,8 +70,10 @@ Probes: `GET /cards/search?q=lang:ja&unique=prints&include=extras`, all 357 page
   `langFilter`.
 - **Images.** `image_status` of the 62,423: `highres_scan` 7,506 (12.0 %), `lowres` 46,282
   (74.1 %), `placeholder` 8,628 (13.8 %), `missing` 7. The mirror copies only high-res scans
-  (`sourceUrl` in `src/import/images.ts`), so about 7,500 images go to R2; the low-res ones keep
-  Scryfall's URL, the placeholders show the English print's image.
+  (`sourceUrl` in `src/import/images.ts`), so about 7,500 images go to R2. Only those show Japanese
+  art: `imageUrl` (`drizzle-card-store.ts`) puts the print's English R2 key ahead of the localized
+  source URL, because the app renders only our image host. The other 54,900 Japanese printings (the
+  46,282 low-res scans, the placeholders and the missing ones) show the English print's image.
 - **Prices.** 1,543 of the 62,423 Japanese objects carry any price; most have none. 592 of them
   are Japanese-only prints, which `default_cards` already prices today. The other 951 are
   Japanese printings of prints that have an English object (`ltr` 235, `40k` 161, `ltc` 100, …);
