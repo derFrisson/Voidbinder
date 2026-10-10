@@ -136,7 +136,8 @@ the API refuses these calls without it (apps/api/README.md). A token works once,
 for a new challenge after a failed request. If Cloudflare's script cannot load, a text says so
 (blocker, offline) instead of the widget. The sitekey is inlined by `expo export` from
 `EXPO_PUBLIC_TURNSTILE_SITE_KEY`; unset, it is Cloudflare's always-passes test key, which is right
-for `pnpm dev`, CI and the tests. `deploy:dev|prod` set the real key (docs/environments.md). Native
+for `pnpm dev`, CI and the tests. `deploy:dev|prod` set the real key (docs/environments.md). `build` runs `expo export --clear`, because
+Metro's transform cache does not notice a changed `EXPO_PUBLIC_*` value and would ship the old key. Native
 builds render no widget (the component returns `null`): the API refuses their sign-up unless
 `TURNSTILE_NATIVE_BYPASS` is on. The React Native widget is a Sprint 3 follow-up.
 
