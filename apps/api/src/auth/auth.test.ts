@@ -234,6 +234,7 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
       '/collection/summary',
       '/collection/export.csv',
       '/decks',
+      '/me/banlist-impact?game=yugioh',
     ];
     for (const [who, client] of [
       ['cookie', b],

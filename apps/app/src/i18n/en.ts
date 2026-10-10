@@ -494,7 +494,7 @@ export const en: Dict = {
       Unlimited: 'Unlimited',
     } as Record<string, string>,
     notInFormat: 'not on the list',
-    badge: '{format} {status}',
+    badge: '{format}: {status}',
     effective: 'In effect since {date} (date: Yugipedia)',
     asOf: 'As of {date}',
     source: 'Card data: YGOPRODeck',
