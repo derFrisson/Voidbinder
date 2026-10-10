@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 42346,
+      "lowPrice": 43.99,
+      "midPrice": 59.99,
+      "highPrice": 9999.0,
+      "marketPrice": 70.76,
+      "directLowPrice": null,
+      "subTypeName": "Holofoil"
+    },
+    {
+      "productId": 42400,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 1.5,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    },
+    {
+      "productId": 42401,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 9.5,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    },
+    {
+      "productId": 42500,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 0.4,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    },
+    {
+      "productId": 42501,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 0.3,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    },
+    {
+      "productId": 42999,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 300.0,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import type { BlobStore } from '@voidbinder/core';
 import { log } from '../../middleware/log';
+import { runScryfallPrices } from '../prices/scryfall';
 import {
   bulkFiles,
   chunkKey,
@@ -49,6 +50,8 @@ export interface ImportOptions {
   date: string;
   /** Localizations to import; `en` always comes from default_cards, the rest from all_cards. */
   languages: string[];
+  /** VB-30: when set, the dump's prices as observed then (src/import/prices/scryfall.ts). */
+  pricesObservedAt?: string;
 }
 
 export interface ChunkStep {
@@ -150,10 +153,22 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
       otherLanguages: localizations,
     };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
-    result = { runId, stats };
+    result = { runId, stats, chunks: cardSplit.chunks };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));
     throw err;
+  }
+  // VB-30: the prices of the same chunks, before they are deleted. The catalog is imported
+  // either way, so a failure is logged and leaves that run ok.
+  let prices;
+  if (opts.pricesObservedAt) {
+    const observedAt = opts.pricesObservedAt;
+    prices = await runScryfallPrices(deps, step, { work, chunks: result.chunks, observedAt }).catch(
+      (err: unknown) => {
+        log('warn', { message: 'Scryfall prices failed', runId, error: String(err) });
+        return undefined;
+      },
+    );
   }
   // The run is finished: a failed cleanup leaves chunks behind, never a failed run.
   try {
@@ -161,5 +176,5 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
   } catch (err) {
     log('warn', { message: 'chunk cleanup failed', runId, prefix: work, error: String(err) });
   }
-  return result;
+  return { runId: result.runId, stats: result.stats, prices };
 }

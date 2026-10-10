@@ -19,6 +19,7 @@ import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { catalogCache } from '../middleware/catalog-cache';
 import { throwOnInvalid } from '../middleware/errors';
+import { priceRoutes } from './prices';
 
 const IdParam = z.object({ id: z.uuid() });
 
@@ -28,8 +29,8 @@ function found<T>(value: T | null, what: string): T {
 }
 
 /**
- * `GET /catalog/**`: games, sets, set pages, cards and prints (VB-26) and the search (VB-35),
- * cached per ADR 0004.
+ * `GET /catalog/**`: games, sets, set pages, cards, prints and prices (VB-26, VB-30) and the
+ * search (VB-35), cached per ADR 0004.
  */
 export function catalogRoutes() {
   return new Hono<AppEnv>()
@@ -81,5 +82,6 @@ export function catalogRoutes() {
       const print = await c.var.platform.cardStore.getPrint(c.req.valid('param').id);
       const body: PrintResponse = found(print, 'Print');
       return c.json(body, 200);
-    });
+    })
+    .route('/', priceRoutes());
 }

@@ -1,0 +1,60 @@
+{
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 21800,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 80.0,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 21800,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 900.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 21801,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 150.0,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 21747,
+      "lowPrice": 0.15,
+      "midPrice": 0.5,
+      "highPrice": 19.81,
+      "marketPrice": 0.53,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 21747,
+      "lowPrice": 5.99,
+      "midPrice": 7.41,
+      "highPrice": 95.82,
+      "marketPrice": 11.9,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 21850,
+      "lowPrice": null,
+      "midPrice": null,
+      "highPrice": null,
+      "marketPrice": 40.0,
+      "directLowPrice": null,
+      "subTypeName": "Normal"
+    }
+  ]
+}

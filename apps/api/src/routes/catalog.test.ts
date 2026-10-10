@@ -91,7 +91,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     const beyond = SetPageResponseSchema.parse((await get('/sets/mtg/mid?page=2')).body);
     expect(beyond).toMatchObject({ page: 2, total: 22, prints: [] });
-    const query = { lang: 'en', sort: 'number', page: 2 } as const;
+    const query = { lang: 'en', sort: 'number', currency: 'EUR', page: 2 } as const;
     const second = await store.getSetPage('mtg', 'mid', query, 5);
     expect(second?.prints.map((p) => p.number)).toEqual(['6', '7', '8', '9', '10']);
 
@@ -221,8 +221,8 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     });
 
     it('pages by the given size', async () => {
-      const second = await store.search({ q: 'cathar', lang: 'en', page: 2 }, 3);
-      const first = await store.search({ q: 'cathar', lang: 'en', page: 1 }, 3);
+      const second = await store.search({ q: 'cathar', lang: 'en', currency: 'EUR', page: 2 }, 3);
+      const first = await store.search({ q: 'cathar', lang: 'en', currency: 'EUR', page: 1 }, 3);
       expect(first.prints).toHaveLength(3);
       expect(second.page).toBe(2);
       expect(second.total).toBe(first.total);
@@ -279,7 +279,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
                 : Reflect.get(target, key),
           });
           await new DrizzleCardStore(db, { catalogDb: explaining }).search(
-            { q: 'adeline', lang: 'de', game: 'mtg', page: 1 },
+            { q: 'adeline', lang: 'de', currency: 'EUR', game: 'mtg', page: 1 },
             30,
           );
           throw rollback;
