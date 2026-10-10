@@ -49,6 +49,8 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price)              |
 | `GET /catalog/cards/:id?currency=`                                | Card, legalities and every print with localizations and `marketPrice`                |
 | `GET /catalog/prints/:id`                                         | One print with its card                                                              |
+| `GET /catalog/search?q=&game=&set=&rarity=&lang=&finish=&page=`   | 30 prints per page by name, text, set code and number (see Search)                   |
+| `GET /catalog/search/suggest?q=&game=&lang=`                      | Up to 8 prints and sets for the search box's typeahead (see Search)                  |
 | `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)                      |
 | `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                               |
 | `GET /catalog/modules`                                            | Manifests of the offline catalog modules, one per game (see Offline catalog modules) |
@@ -116,6 +118,37 @@ curl -sI "$URL" | grep -i cf-cache-status   # MISS, then HIT
 for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL"; done | sort -n | sed -n 20p
 for i in $(seq 40); do curl -s -o /dev/null -w '%{time_total}\n' "$URL?nocache=$RANDOM$i"; done | sort -n | sed -n 20p
 ```
+
+## Search
+
+`GET /catalog/search` and its typeahead `GET /catalog/search/suggest` (VB-35, VB-79) stay in
+PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010_search.sql`.
+`src/platform/cloudflare/drizzle-card-store.ts` (`search`, `suggest`, `codeHits`).
+
+- **Names and texts:** `websearch_to_tsquery('simple')` over `cards.search` and
+  `print_localizations.search`, the last word as a prefix; a match in the name ranks first.
+- **Set code and number:** the query loses spaces, `-`, `/`, `_` and `.` and goes lower case
+  (`LDS3-EN121` → `lds3en121`). Every prefix of it is tried as a set code through
+  `catalog_code_key` (lower case, letters and digits, no leading zeros in a digit run: `SV01` →
+  `sv1`, index `sets_code_key_idx`), the rest as a number in that set: the number as stored
+  first (`lds3 en121`, `mid 123`), then without its language prefix and leading zeros
+  (`catalog_number_key`: `LDS3-121`, `sv1 1`), then numbers starting with it (`lds3en12` →
+  EN120…EN129). Yu-Gi-Oh! language codes (`DE`, `FR`, `IT`, `PT`, `SP`, `ES`, `JP`, `JA`) find
+  the English print: other languages are localizations of it, not prints of their own
+  (`BLGG-DE024` → BLGG-EN024). A set code alone (`lds3`, `mid`, `sv1`) lists the set.
+- **Numbers:** `121` matches that number in every set, `001/128` in the sets of 128 cards
+  (`prints_number_key_idx`), newest first, at most 50.
+- **Typos:** when neither finds anything, names with a trigram similarity of 0.3 or more
+  (`name % q`, GIN indexes `cards_name_trgm_idx`, `print_localizations_name_trgm_idx`), for
+  queries of 4 characters and more without websearch syntax: `Satelite` finds Satellite Warrior.
+
+`/search` ranks code matches above name matches, a set named alone below them. The typeahead
+answers `{ suggestions: [{ kind: 'print' | 'set', id, name, game, set: { code, name }, number?,
+variant?, rarity?, imageUrl?, cardId? }] }` (`packages/shared/src/api/search.ts`), at most 8, in
+this order: the exact code, other number forms and partial numbers, sets by code or name prefix,
+the first 3 prints of a set named by its code, cards whose name starts with `q` (in `lang` or
+English, shortest first), similar names. A name match shows the card's newest print. Both are
+cached like every catalog route; the typeahead embeds no price, so it is tagged `catalog` only.
 
 ## Local development
 
