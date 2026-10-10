@@ -95,7 +95,10 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
             from set_localizations l where l.set_id = s.id),
           (select md5(string_agg(concat_ws('|', p.id, p.card_id, c.name, p.number, p.variant,
               p.rarity, p.released_on, p.image_key,
-              p.external_ids #>> '{scryfall_images,normal}', ${EXTENDED_ART}, ${siblingScan('p')},
+              p.external_ids #>> '{scryfall_images,normal}', ${EXTENDED_ART},
+              -- Prefixed: concat_ws skips nulls, so an Extended Art print and a sibling-scan one
+              -- would hash alike; a print with neither keeps its hash.
+              'sibling' || ${siblingScan('p')},
               (select string_agg(concat_ws('=', pl.lang, pl.name, pl.image_key,
                   pl.external_ids #>> '{scryfall_images,normal}', pl.external_ids ->> 'set_code',
                   ${siblingScan('pl')}),
