@@ -2,6 +2,7 @@ import { and, eq, sql, type SQLWrapper } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { importRuns, printLocalizations, prints, sets } from '../db/schema';
 import { USER_AGENT, type Fetch } from './scryfall/source';
+import { USER_AGENT as YUGIPEDIA_USER_AGENT } from './yugipedia/source';
 
 // The card image mirror (VB-57): copies every print's source image into R2 under
 // images/<game>/<source id>/<lang>/{orig.<ext>,sm.webp} and writes the key into `image_key`. The
@@ -23,8 +24,20 @@ export type ImageSize = 'orig' | 'sm' | 'orig-lowres' | 'sm-lowres';
 export const SM_WIDTH = 320;
 export const IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
-/** Requests per second per source: Scryfall's file hosts have no limit (be polite), YGOPRODeck allows 20, TCGdex asks to be considerate. */
-export const SOURCE_RATES: Record<string, number> = { mtg: 20, yugioh: 15, pokemon: 8 };
+/**
+ * Requests per second per source: Scryfall's file hosts have no limit (be polite), YGOPRODeck
+ * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API.
+ */
+export const SOURCE_RATES: Record<string, number> = {
+  mtg: 20,
+  yugioh: 15,
+  pokemon: 8,
+  yugipedia: 1,
+};
+
+/** The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan. */
+const sourceOf = (game: string, url: string) =>
+  new URL(url).hostname.endsWith('yugipedia.com') ? 'yugipedia' : game;
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -59,6 +72,7 @@ export const IMAGE_ID_FIELDS = [
   'image_url',
   'tcgdex',
   'tcgdex_images',
+  'artwork',
 ] as const;
 
 const https = (v: unknown) => (typeof v === 'string' && v.startsWith('https://') ? v : null);
@@ -74,7 +88,8 @@ export function lowresScan(game: string, ids: Record<string, unknown>): boolean 
  * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, for a high-res scan
  * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
  * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
- * placeholder; YGOPRODeck `image_url`; TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106), else YGOPRODeck's
+ * `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
  */
 export function sourceUrl(
   game: string,
@@ -89,7 +104,9 @@ export function sourceUrl(
       return url && new URL(url).hostname !== 'errors.scryfall.com' ? url : null;
     }
     case 'yugioh':
-      return https(ids.image_url);
+      return (
+        https((ids.artwork as Record<string, unknown> | undefined)?.url) ?? https(ids.image_url)
+      );
     case 'pokemon':
       return https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high);
     default:
@@ -101,7 +118,8 @@ const SAFE_ID = /^[A-Za-z0-9._-]+$/;
 
 /**
  * The source's stable id that names an image's objects: the Scryfall card id; for YGOPRODeck the
- * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it);
+ * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it); for
+ * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106);
  * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`).
  */
 export function sourceId(game: string, ids: Record<string, unknown>, url: string): string | null {
@@ -297,8 +315,11 @@ export async function mirrorJobs(
   };
 
   const download = async (job: ImageJob) => {
-    await bucket(job.game).take();
-    const res = await deps.fetch(job.url, { headers: { 'User-Agent': USER_AGENT } });
+    const source = sourceOf(job.game, job.url);
+    await bucket(source).take();
+    const res = await deps.fetch(job.url, {
+      headers: { 'User-Agent': source === 'yugipedia' ? YUGIPEDIA_USER_AGENT : USER_AGENT },
+    });
     if (!res.ok) {
       // An unread body keeps the connection open (Workers allow six).
       await res.body?.cancel();
@@ -410,7 +431,8 @@ const needsWork = (
           and (${key} is null or ${key} like '%-lowres.%'))`
       : sql``;
   const mirrorable = sql`((${sets.gameId} = 'mtg' and (${highres}${lowres}))
-    or (${sets.gameId} = 'yugioh' and ${ids} ->> 'image_url' is not null)
+    or (${sets.gameId} = 'yugioh' and (${ids} ->> 'image_url' is not null
+      or ${ids} -> 'artwork' ->> 'url' is not null))
     or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
   const todo = sql`(${key} is null
     ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}

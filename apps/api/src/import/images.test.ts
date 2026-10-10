@@ -105,6 +105,18 @@ describe('sourceUrl', () => {
     expect(sourceUrl('yugioh', ids)).toBe(ids.image_url);
   });
 
+  it("takes a print's own Yugipedia scan before YGOPRODeck's first artwork (VB-106)", () => {
+    const scan = 'https://ms.yugipedia.com//b/bf/RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png';
+    const ids = {
+      image_url: 'https://images.ygoprodeck.com/images/cards/37818794.jpg',
+      artwork: { file: 'RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png', url: scan, alt: 'EA' },
+    };
+    expect(sourceUrl('yugioh', ids)).toBe(scan);
+    expect(sourceId('yugioh', ids, scan)).toBe('RedEyesDarkDragoon-RA05-EN-UR-1E-EA');
+    // A localization has the scan and no image_url.
+    expect(sourceUrl('yugioh', { artwork: ids.artwork })).toBe(scan);
+  });
+
   it('takes TCGdex high', () => {
     const base = 'https://assets.tcgdex.net/de/swsh/swsh3/136';
     const ids = { tcgdex_images: { high: `${base}/high.webp`, low: `${base}/low.webp` } };

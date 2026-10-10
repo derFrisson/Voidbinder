@@ -170,6 +170,12 @@ describe('YGOPRODeck print mapping', () => {
     expect(mapPrints(card('ABC-Dragon Buster'))).toHaveLength(1);
   });
 
+  it('counts the artworks of a card that has several (VB-106)', () => {
+    const lob = mapPrints(card('Blue-Eyes White Dragon')).find((p) => p.setCode === 'LOB');
+    expect(lob?.print.externalIds.artworks).toBe(2);
+    expect(mapPrints(card('Raigeki'))[0]?.print.externalIds).not.toHaveProperty('artworks');
+  });
+
   it('keeps a variant without an English print as a print of its own', () => {
     const own = mapPrints(card('Raigeki')).find((p) => p.setCode === 'LOB');
     expect(own?.print).toMatchObject({

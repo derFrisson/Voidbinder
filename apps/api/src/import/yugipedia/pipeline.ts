@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql, type SQLWrapper } from 'drizzle-orm';
 import { appMeta, cards, importRuns, printLocalizations, prints } from '../../db/schema';
 import { log } from '../../middleware/log';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
@@ -87,14 +87,14 @@ export async function planCards(db: Db, date: string): Promise<PlannedCard[]> {
   return candidates.filter((c) => (checked[c.key] ?? '') <= since);
 }
 
-/** Marks the cards as looked up on `date` (one atomic merge into the `app_meta` map). */
-export async function markChecked(db: Db, keys: string[], date: string) {
+/** Marks the cards (or, with `metaKey`, the gallery sets) as looked up on `date` (one atomic merge into the `app_meta` map). */
+export async function markChecked(db: Db, keys: string[], date: string, metaKey = CHECKED_KEY) {
   if (!keys.length) return;
   // ponytail: one JSON map in app_meta (≈ 25 bytes per card, ~14k cards); a table if it grows.
   await db
     .insert(appMeta)
     .values({
-      key: CHECKED_KEY,
+      key: metaKey,
       value: JSON.stringify(Object.fromEntries(keys.map((k) => [k, date]))),
     })
     .onConflictDoUpdate({
@@ -105,6 +105,16 @@ export async function markChecked(db: Db, keys: string[], date: string) {
       },
     });
 }
+
+/** `external_ids` key of a print's own scan (VB-106, galleries.ts), kept by the other importers. */
+export const ARTWORK = 'artwork';
+
+/** `excluded.external_ids` plus the row's own `artwork`: an upsert's `set` that keeps the scan. */
+export const keepArtwork = (column: SQLWrapper) =>
+  sql`excluded.external_ids || jsonb_strip_nulls(jsonb_build_object(${ARTWORK}::text, ${column} -> ${ARTWORK}::text))`;
+
+/** `external_ids` without the artwork, for a setWhere that compares it with `excluded`'s. */
+export const withoutArtwork = (column: SQLWrapper) => sql`(${column} - ${ARTWORK}::text)`;
 
 /**
  * The pages' localizations for every print of their cards. Inserts, or updates a row this importer
@@ -140,10 +150,10 @@ export async function writeLocalizations(
         set: {
           name: excluded('name'),
           text: excluded('text'),
-          externalIds: excluded('external_ids'),
+          externalIds: keepArtwork(printLocalizations.externalIds),
         },
         setWhere: sql`${printLocalizations.externalIds} ? 'yugipedia'
-          and (${printLocalizations.name}, ${printLocalizations.text}, ${printLocalizations.externalIds})
+          and (${printLocalizations.name}, ${printLocalizations.text}, ${withoutArtwork(printLocalizations.externalIds)})
           is distinct from (excluded.name, excluded.text, excluded.external_ids)`,
       })
       .returning({ printId: printLocalizations.printId });
