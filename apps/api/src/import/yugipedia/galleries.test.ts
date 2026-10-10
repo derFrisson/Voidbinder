@@ -179,19 +179,42 @@ Glory of the King's Hand
     expect(['E001', 'G001', '001'].map(numberKey)).toEqual(['001', '001', '001']);
     expect(numberKey('ENS01')).toBe('S01');
     expect(numberKey('ENA26')).toBe('A26');
+    // Several letters before the digits.
+    expect(['ENSE1', 'DESE1'].map(numberKey)).toEqual(['SE1', 'SE1']);
   });
 
   it('plans the prints of multi-artwork cards and flagged rows, best file first', () => {
     const ra05 = planArtworks(
       'ra05',
       [
-        { id: 'dragoon-ur', number: 'EN141', rarity: 'Ultra Rare', artworks: null, langs: [] },
-        { id: 'dragoon-str', number: 'EN141', rarity: 'Starlight Rare', artworks: null, langs: [] },
+        {
+          id: 'dragoon-ur',
+          number: 'EN141',
+          rarity: 'Ultra Rare',
+          artworks: null,
+          langs: [],
+          language: null,
+        },
+        {
+          id: 'dragoon-str',
+          number: 'EN141',
+          rarity: 'Starlight Rare',
+          artworks: null,
+          langs: [],
+          language: null,
+        },
         // One artwork, no alt code: the passcode image is right.
-        { id: 'psy', number: 'EN002', rarity: 'Super Rare', artworks: null, langs: [] },
-        { id: 'dm', number: 'EN083', rarity: 'Ultra Rare', artworks: 9, langs: [] },
+        {
+          id: 'psy',
+          number: 'EN002',
+          rarity: 'Super Rare',
+          artworks: null,
+          langs: [],
+          language: null,
+        },
+        { id: 'dm', number: 'EN083', rarity: 'Ultra Rare', artworks: 9, langs: [], language: null },
         // A rarity the gallery lacks: no guess.
-        { id: 'dm-cr', number: 'EN083', rarity: 'Common', artworks: 9, langs: [] },
+        { id: 'dm-cr', number: 'EN083', rarity: 'Common', artworks: 9, langs: [], language: null },
       ],
       [gallery(RA05)],
     );
@@ -227,11 +250,36 @@ Glory of the King's Hand
           rarity: 'Platinum Secret Rare',
           artworks: null,
           langs: ['de', 'fr'],
+          language: null,
         },
       ],
       [gallery(RA04_DE), gallery(RA04_EN)],
     );
     // The German page has no `AA` where the English one has: its own row is taken as it is.
+    // A German-only print reads the German page alone, never the English row of its number.
+    expect(
+      planArtworks(
+        'ra04',
+        [
+          {
+            id: 'aleister-de',
+            number: 'DE024',
+            rarity: 'Platinum Secret Rare',
+            artworks: 2,
+            langs: [],
+            language: 'de',
+          },
+        ],
+        [gallery(RA04_DE), gallery(RA04_EN)],
+      ),
+    ).toEqual([
+      {
+        printId: 'aleister-de',
+        lang: 'en',
+        alt: '',
+        files: ['AleistertheInvoker-RA04-DE-PlScR-1E.png'],
+      },
+    ]);
     expect(ra04).toEqual([
       {
         printId: 'aleister',

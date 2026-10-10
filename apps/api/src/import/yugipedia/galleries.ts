@@ -293,13 +293,13 @@ export function parseGallery(wikitext: string, page: GalleryPage): GalleryRow[] 
 }
 
 /**
- * A print number without its region (`EN141`, `DE141`, `E001` → `141`/`001`), so a German or a
+ * A print number without its region (`EN141`, `DE141`, `E001`, `ENSE1` → `141`/`001`/`SE1`), so a German or a
  * European English row finds the print YGOPRODeck keys by the English (or North American) code.
  * ponytail: a regex over the known region tokens; a number that starts with one of the letters
  * without being a region would lose it on both sides alike.
  */
 export const numberKey = (number: string) =>
-  number.replace(/^(EN|DE|FR|IT|SP|PT|E|G|F|I|S|P)(?=[A-Z]?\d)/, '');
+  number.replace(/^(EN|DE|FR|IT|SP|PT|E|G|F|I|S|P)(?=[A-Z]*\d)/, '');
 
 /** One MediaWiki API request, after the crawl delay; `format=json` last, so a title never ends the URL in `.png` (MediaWiki answers that with a "Security redirect"). */
 export function apiUrl(params: Record<string, string>): string {
@@ -420,6 +420,8 @@ export type PrintArtworks = {
   artworks: number | null;
   /** Languages with a localization row (other than `en`). */
   langs: string[];
+  /** A print of one language only (`external_ids.language`, a German-only code), else null. */
+  language: string | null;
 };
 
 export interface ArtworkChoice {
@@ -460,8 +462,9 @@ export function planArtworks(
     if (!rarity) continue;
     const rows = rowsOf(p);
     if (!((p.artworks ?? 0) > 1 || rows.some((r) => r.alt))) continue;
-    for (const lang of ['en', ...p.langs]) {
-      const own = rows.filter((r) => r.lang === lang);
+    // A print of one language only (its own scan on the print) reads that language's page alone.
+    for (const lang of p.language ? ['en'] : ['en', ...p.langs]) {
+      const own = rows.filter((r) => r.lang === (p.language ?? lang));
       const alt = own.find((r) => r.rarity === rarity)?.alt;
       if (alt === undefined) continue;
       // An alt code names one artwork within its gallery, so its scan in another rarity is the
@@ -551,7 +554,7 @@ async function hasArtworkCounts(db: Db): Promise<boolean> {
 async function printsOf(db: Db, codes: string[]) {
   const result = await db.execute<PrintArtworks & { set_code: string }>(sql`
     select p.id, s.code as set_code, p.number, p.rarity,
-      (p.external_ids ->> 'artworks')::int as artworks,
+      (p.external_ids ->> 'artworks')::int as artworks, p.external_ids ->> 'language' as language,
       coalesce((select array_agg(l.lang order by l.lang) from print_localizations l
         where l.print_id = p.id and l.lang in (${sql.join(
           GALLERY_LANGS.slice(1).map((l) => sql`${l}`),
@@ -591,7 +594,9 @@ async function importSets(
   const pages = planned.flatMap((s) => {
     const langs = new Set([
       'en',
-      ...prints.filter((p) => p.set_code === s.code).flatMap((p) => p.langs),
+      ...prints
+        .filter((p) => p.set_code === s.code)
+        .flatMap((p) => (p.language ? [p.language] : p.langs)),
     ]);
     return s.titles.flatMap((t) => {
       const page = parseGalleryTitle(t);
