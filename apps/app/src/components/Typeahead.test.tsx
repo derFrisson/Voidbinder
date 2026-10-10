@@ -147,6 +147,20 @@ describe('search typeahead (VB-79)', () => {
     expect(router.push).toHaveBeenCalledWith(`/cards/${CARD}?print=${PRINT}`);
   });
 
+  it('does not pick a row of the previous text while the next answer is pending', async () => {
+    answer();
+    const box = shell();
+    type(box, 'lds3');
+    await screen.findByRole('listbox');
+    type(box, 'lds');
+    // Within the debounce the rows still show but belong to "lds3": no highlight, Enter submits "lds".
+    key(box, 'ArrowDown');
+    expect(box.getAttribute('aria-activedescendant')).toBeNull();
+    key(box, 'Enter');
+    expect(router.push).toHaveBeenCalledTimes(1);
+    expect(router.push).toHaveBeenCalledWith({ pathname: '/search', params: { q: 'lds' } });
+  });
+
   it('closes on Escape and on leaving the box', async () => {
     answer();
     const box = shell();

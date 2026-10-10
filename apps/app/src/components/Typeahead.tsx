@@ -146,7 +146,10 @@ export function useTypeahead({
   const listId = `${useId()}-suggestions`;
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(-1);
-  const suggest = useSuggest(useDebounced(text.trim(), DEBOUNCE_MS), locale, web);
+  const settled = useDebounced(text.trim(), DEBOUNCE_MS);
+  const suggest = useSuggest(settled, locale, web);
+  // The rows answer this text (not the previous one's, kept while the next query loads).
+  const fresh = settled === text.trim() && !suggest.isPlaceholderData;
   const items = suggest.data?.suggestions ?? [];
   // New suggestions start without a highlight.
   useEffect(() => setActive(-1), [suggest.data]);
@@ -168,7 +171,9 @@ export function useTypeahead({
     const key = e.nativeEvent.key;
     if (key === 'Escape') return close();
     if (key === 'ArrowDown' && !open) return setOpen(true);
+    // Stale rows can't be picked: Enter submits the box as typed, the arrows wait for the answer.
     if (!expanded) return;
+    if (!fresh) return key === 'Enter' ? close() : undefined;
     if (key === 'ArrowDown' || key === 'ArrowUp') {
       e.preventDefault();
       const n = items.length;
