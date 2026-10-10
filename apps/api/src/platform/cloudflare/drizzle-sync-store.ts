@@ -26,7 +26,7 @@ import {
   wishlistEntries,
 } from '../../db/schema';
 import { log } from '../../middleware/log';
-import { logDeletions } from './drizzle-collection-store';
+import { clearDeletions, logDeletions } from './drizzle-collection-store';
 import { checkDeckEntries } from './drizzle-deck-store';
 
 // The sync protocol (VB-32, ADR 0005) on PostgreSQL, on the cache-disabled pool. `sync_seq` is
@@ -379,16 +379,7 @@ export async function syncPush(
           if (r.action === 'insert') {
             await tx.insert(table).values({ ...set, id: row.id, userId } as never);
             // Brought back: the delete no longer stands.
-            if (deletion)
-              await tx
-                .delete(syncDeletions)
-                .where(
-                  and(
-                    eq(syncDeletions.userId, userId),
-                    eq(syncDeletions.table, change.table),
-                    eq(syncDeletions.id, row.id),
-                  ),
-                );
+            if (deletion) await clearDeletions(tx, userId, change.table, [row.id]);
           } else
             await tx
               .update(table)

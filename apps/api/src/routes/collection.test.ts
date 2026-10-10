@@ -190,6 +190,10 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     expect(list.binders.map((x) => x.id)).not.toContain(b.id);
     expect((await ash('/binders', { body: { name: 'Bulk' } })).status).toBe(201);
     expect((await ash(`/binders/${b.id}`, { method: 'DELETE' })).status).toBe(404);
+    // Written again under its id (a retried POST): the row is back, its log entry gone.
+    expect((await ash('/binders', { body: { id: b.id, name: 'Again' } })).status).toBe(201);
+    expect(await logged(b.id)).toEqual([]);
+    await ash(`/binders/${b.id}`, { method: 'DELETE' });
     await ash(`/entries/${entry?.id}`, { method: 'DELETE' });
   });
 
@@ -296,6 +300,11 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     expect(
       (await ash(`/entries/${neoEntry?.id}`, { method: 'PATCH', body: { quantity: 2 } })).status,
     ).toBe(404);
+    // Written again under its id: the log entry goes.
+    const again = await ash('/entries', { body: { id: neoEntry?.id, printId: neo } });
+    expect(again.status).toBe(201);
+    expect(await logged(neoEntry?.id)).toEqual([]);
+    await ash(`/entries/${neoEntry?.id}`, { method: 'DELETE' });
     for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
     await ash(`/binders/${binder.id}`, { method: 'DELETE' });
   });
@@ -377,8 +386,10 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
         .where(eq(wishlistEntries.id, first?.id ?? '')),
     ).toEqual([]);
     expect(await logged(first?.id)).toEqual([{ table: 'wishlist_entries', id: first?.id }]);
-    // The deleted wish does not block the same wish again.
-    expect((await ash('/wishlist', { body: wish })).status).toBe(201);
+    // The deleted wish does not block the same wish again, under its old id too: the log entry
+    // goes.
+    expect((await ash('/wishlist', { body: { ...wish, id: first?.id } })).status).toBe(201);
+    expect(await logged(first?.id)).toEqual([]);
     for (const w of WishlistResponseSchema.parse(await json(ash('/wishlist'))).entries)
       await ash(`/wishlist/${w.id}`, { method: 'DELETE' });
   });

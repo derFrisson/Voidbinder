@@ -41,7 +41,7 @@ import {
   prints,
   sets,
 } from '../../db/schema';
-import { logDeletions } from './drizzle-collection-store';
+import { clearDeletions, logDeletions } from './drizzle-collection-store';
 
 type DeckRow = typeof decks.$inferSelect;
 type Ids = Record<string, unknown>;
@@ -423,17 +423,27 @@ export class DrizzleDeckStore implements DeckStore {
   async create(userId: string, req: CreateDeckData, opts: DeckReadOptions): Promise<DeckDetail> {
     const id = req.id ?? crypto.randomUUID();
     // Idempotent on the client's id: a retried POST writes nothing and answers the stored deck.
-    await this.db
-      .insert(decks)
-      .values({
-        id,
+    await this.db.transaction(async (tx) => {
+      const added = await tx
+        .insert(decks)
+        .values({
+          id,
+          userId,
+          gameId: req.game,
+          name: req.name,
+          format: req.format,
+          description: req.description ?? null,
+        })
+        .onConflictDoNothing({ target: decks.id })
+        .returning({ id: decks.id });
+      // Written again under a deleted deck's id: that delete no longer stands.
+      await clearDeletions(
+        tx,
         userId,
-        gameId: req.game,
-        name: req.name,
-        format: req.format,
-        description: req.description ?? null,
-      })
-      .onConflictDoNothing({ target: decks.id });
+        'decks',
+        added.map((r) => r.id),
+      );
+    });
     const [row] = await this.db
       .select()
       .from(decks)

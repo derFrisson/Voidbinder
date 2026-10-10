@@ -650,6 +650,8 @@ for the user's writes in flight and no row commits later below the cursor it han
 delete's time `deleted_at` (a pushed delete's device clock, else now) and the server's
 `logged_at`. Its `sync_seq` comes from `sync_stamp()` like a row's, under the same per-user lock.
 Deleting again refreshes the entry. A deck's entries go with the deck (only the deck is logged).
+A create under a deleted id (a retried `POST`, or a sync edit that wins) writes the row again and
+removes its log entry in the same transaction.
 The daily Scryfall cron of every environment also sweeps the log (`sweepSyncDeletions`): rows
 with `logged_at` older than `SYNC_DELETION_RETENTION_DAYS` (30, `packages/shared/src/api/sync.ts`)
 less one day, so that no entry outlives 30 days, go in batches of 1000, logged as `sync deletions swept` with the count, and the highest `sync_seq`

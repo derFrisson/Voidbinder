@@ -107,6 +107,25 @@ export async function logDeletions(
     });
 }
 
+/** Clears the deletion log entries of rows written again under their old ids (VB-75). */
+export async function clearDeletions(
+  db: Pick<NodePgDatabase, 'delete'>,
+  userId: string,
+  table: SyncDeletion['table'],
+  ids: string[],
+): Promise<void> {
+  if (!ids.length) return;
+  await db
+    .delete(syncDeletions)
+    .where(
+      and(
+        eq(syncDeletions.userId, userId),
+        eq(syncDeletions.table, table),
+        inArray(syncDeletions.id, ids),
+      ),
+    );
+}
+
 /** `%q%` for ILIKE with the user's `%`, `_` and `\` taken literally. */
 const contains = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
@@ -308,17 +327,26 @@ export class DrizzleCollectionStore implements CollectionStore {
   async createBinder(userId: string, req: CreateBinderRequest): Promise<Binder> {
     const id = req.id ?? crypto.randomUUID();
     await this.binderWrite(() =>
-      this.db
-        .insert(binders)
-        .values({
-          id,
+      this.db.transaction(async (tx) => {
+        const added = await tx
+          .insert(binders)
+          .values({
+            id,
+            userId,
+            name: req.name,
+            gameId: req.game ?? null,
+            colour: req.colour ?? null,
+            position: sql`(select coalesce(max(${binders.position}) + 1, 0) from ${binders} where ${binders.userId} = ${userId})`,
+          })
+          .onConflictDoNothing({ target: binders.id })
+          .returning({ id: binders.id });
+        await clearDeletions(
+          tx,
           userId,
-          name: req.name,
-          gameId: req.game ?? null,
-          colour: req.colour ?? null,
-          position: sql`(select coalesce(max(${binders.position}) + 1, 0) from ${binders} where ${binders.userId} = ${userId})`,
-        })
-        .onConflictDoNothing({ target: binders.id }),
+          'binders',
+          added.map((r) => r.id),
+        );
+      }),
     );
     const [row] = await this.db
       .select()
@@ -508,10 +536,19 @@ export class DrizzleCollectionStore implements CollectionStore {
     // Idempotent on the client's id: a retried POST writes nothing and answers the stored rows.
     await this.insert(
       () =>
-        this.db
-          .insert(collectionEntries)
-          .values(values)
-          .onConflictDoNothing({ target: collectionEntries.id }),
+        this.db.transaction(async (tx) => {
+          const added = await tx
+            .insert(collectionEntries)
+            .values(values)
+            .onConflictDoNothing({ target: collectionEntries.id })
+            .returning({ id: collectionEntries.id });
+          await clearDeletions(
+            tx,
+            userId,
+            'collection_entries',
+            added.map((r) => r.id),
+          );
+        }),
       'Print',
     );
     return this.entriesById(
@@ -667,10 +704,19 @@ export class DrizzleCollectionStore implements CollectionStore {
       note: w.note ?? null,
     }));
     await this.wishWrite(() =>
-      this.db
-        .insert(wishlistEntries)
-        .values(values)
-        .onConflictDoNothing({ target: wishlistEntries.id }),
+      this.db.transaction(async (tx) => {
+        const added = await tx
+          .insert(wishlistEntries)
+          .values(values)
+          .onConflictDoNothing({ target: wishlistEntries.id })
+          .returning({ id: wishlistEntries.id });
+        await clearDeletions(
+          tx,
+          userId,
+          'wishlist_entries',
+          added.map((r) => r.id),
+        );
+      }),
     );
     return this.wishesById(
       userId,

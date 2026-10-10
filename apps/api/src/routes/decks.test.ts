@@ -400,5 +400,8 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
         .from(syncDeletions)
         .where(eq(syncDeletions.id, full.id)),
     ).toEqual([{ table: 'decks', id: full.id }]);
+    // Written again under its id (a retried POST): the log entry goes.
+    await newDeck({ id: full.id, game: 'mtg', name: 'Back' });
+    expect(await db.select().from(syncDeletions).where(eq(syncDeletions.id, full.id))).toEqual([]);
   });
 });
