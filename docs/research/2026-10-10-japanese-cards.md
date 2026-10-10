@@ -130,7 +130,7 @@ db.ygoresources.com `/data/card/4041` and `/data/idx/card/name/ja`; dev: Yu-Gi-O
   YGOPRODeck has TCG images only. A new OCG print row has no image key and no source URL, and
   `imageUrl` looks only at the print's own key and its localization's, so as the code stands it
   would show no image: the English art lives on the TCG print rows, not on the card. Step 5 adds
-  the fallback: the three queries that call `imageUrl` (set page, card page, search) take the image
+  the fallback: the three queries that call `imageUrl` (set page, card page incl. the print endpoint sharing `printDetails`, search) take the image
   of another print of the same card (a lateral pick by `card_id`, one print with an image key) when
   the print has none. An OCG-only card has no other print and stays without an image.
 - **Prices.** None: TCGCSV has no OCG category (`/tcgplayer/categories`: 1 Magic, 2 YuGiOh,
@@ -315,7 +315,7 @@ Each step is one PR and leaves `main` working.
    `GET /catalog/games/:game/sets`, default `intl`: an older app build sends no region and so sees
    exactly the international sets it sees today, and the Japanese sets only appear to a build that
    asks for `region=jp`. (Search and the card page return Japanese prints from this step on, with
-   their Japanese set name, as any print.) `SCRYFALL_LANGUAGES=en,de,ja` in all three envs of `wrangler.jsonc`. TCGdex: a second
+   their Japanese set (English name from TCGCSV where one exists), as any print.) `SCRYFALL_LANGUAGES=en,de,ja` in all three envs of `wrangler.jsonc`. TCGdex: a second
    pass with `ja` as the master language (`/v2/ja/sets`, codes `<lowercased id>-jp`, `region = 'jp'`,
    `oracle_key` `ja:<id>`, sets without cards skipped); the plan, rotation and missing-card logic
    reused per region. This pass is the only writer of a Japanese Pokémon set's `sets.name`: it reads
