@@ -205,6 +205,8 @@ export const de = {
     days: { '30': '30 T', '90': '90 T', '365': '1 J' },
     /** Next to a price for copies in another language than the card shown (VB-103). */
     langNote: 'Preis für {lang}-Karten',
+    /** The marketplace links under the prices (VB-115). */
+    buyAt: 'Kaufen bei',
   },
   search: {
     title: 'Suche',

@@ -896,9 +896,10 @@ describe('web build', () => {
       if (zones === 'three zones') {
         // Both price sources side by side, each condition chip on one line (it is a price panel,
         // not a table: a chip that wraps its price is taller than the Near Mint one).
+        // The tiles' headings come first; the "Kaufen bei" links below repeat the names (VB-115).
         const [cm, tcg] = await Promise.all([
-          rect(page.getByText('Cardmarket', { exact: true })),
-          rect(page.getByText('TCGplayer', { exact: true })),
+          rect(page.getByText('Cardmarket', { exact: true }).first()),
+          rect(page.getByText('TCGplayer', { exact: true }).first()),
         ]);
         expect(tcg.y).toBe(cm.y);
         const chips = page

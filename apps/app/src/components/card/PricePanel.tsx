@@ -1,4 +1,6 @@
 import type { Locale } from '@voidbinder/shared';
+import type { Marketplace, MarketplaceLink } from '@voidbinder/shared/api';
+import { Link } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import {
@@ -171,12 +173,54 @@ function History({ printId, finish, lang }: { printId: string; finish: string; l
   );
 }
 
+// Proper names, the same in both languages.
+const PORTAL_NAME: Record<Marketplace, string> = {
+  tcgplayer: 'TCGplayer',
+  cardmarket: 'Cardmarket',
+  ebay: 'eBay',
+};
+
+/**
+ * "Buy at": a text chip per marketplace link (VB-115), the finish in its name when the portal
+ * links one product per finish. A new tab on the web, the browser on a phone (expo-router opens
+ * an external href with `Linking.openURL`). Nothing without links.
+ */
+function BuyLinks({ links }: { links: MarketplaceLink[] }) {
+  const t = useT();
+  if (!links.length) return null;
+  return (
+    <View
+      role="group"
+      aria-label={t.prices.buyAt}
+      className="flex-row flex-wrap items-center gap-2.5 border-t border-line pt-3"
+    >
+      <Text className="font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3">
+        {t.prices.buyAt}
+      </Text>
+      {links.map((l) => (
+        <Link
+          key={l.url}
+          href={l.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="rounded-lg border border-line bg-surface px-2.5 py-1.5 font-body text-[13.5px] font-semibold text-blue-ink underline"
+        >
+          {[PORTAL_NAME[l.portal], l.finish && label(t.card.finishes, l.finish)]
+            .filter(Boolean)
+            .join(' · ')}
+        </Link>
+      ))}
+    </View>
+  );
+}
+
 // NM, EX and GD on the mockup's row; the lower grades come with "more".
 const MAIN_CONDITIONS = ['NM', 'EX', 'GD'];
 
 /**
  * The price panel: Cardmarket and TCGplayer side by side with source, finish, condition and
- * time, the condition row (NM observed, the others estimated, marked ≈) and the history line.
+ * time, the condition row (NM observed, the others estimated, marked ≈), the history line and
+ * the marketplace links.
  * The finish starts at the display price's and offers the print's finishes and the ones its
  * prices are filed under. Without prices it says so and shows no number; a failed read says so
  * and offers a retry.
@@ -195,7 +239,7 @@ export function PricePanel({
   const locale = useLocale();
   const [picked, setPicked] = useState<string>();
   const [more, setMore] = useState(false);
-  const { prices, failed, retry } = usePrintPrices(printId, lang, picked);
+  const { prices, failed, retry, links } = usePrintPrices(printId, lang, picked);
   const display = prices?.display;
   const finish = picked ?? display?.finish ?? finishes[0] ?? 'normal';
   const options = finishOptions(finishes, prices);
@@ -222,7 +266,10 @@ export function PricePanel({
         failed ? (
           <ErrorState onRetry={retry} />
         ) : (
-          <Text className="font-body text-[15px] text-ink-2">{t.prices.none}</Text>
+          <>
+            <Text className="font-body text-[15px] text-ink-2">{t.prices.none}</Text>
+            <BuyLinks links={links} />
+          </>
         )
       ) : (
         <>
@@ -282,6 +329,7 @@ export function PricePanel({
             </View>
           )}
           <History printId={printId} finish={finish} lang={lang} />
+          <BuyLinks links={links} />
         </>
       )}
     </Section>

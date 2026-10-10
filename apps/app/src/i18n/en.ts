@@ -192,6 +192,7 @@ export const en: Dict = {
     range: 'Period',
     days: { '30': '30 d', '90': '90 d', '365': '1 y' },
     langNote: 'Price of {lang} copies',
+    buyAt: 'Buy at',
   },
   search: {
     title: 'Search',
