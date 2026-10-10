@@ -1,5 +1,6 @@
 import {
   conditionEstimate,
+  DEFAULT_CONDITION_FACTORS,
   downsampleHistory,
   pickDisplayPrice,
   SOURCE_PREFERENCE,
@@ -401,11 +402,13 @@ export class DrizzleCardStore implements CardStore {
       prices,
       display,
       conditions: display
-        ? factors.map((f) => ({
-            condition: f.condition as Condition,
-            factor: Number(f.factor),
-            cents: conditionEstimate(display.cents, Number(f.factor)),
-          }))
+        ? (factors.length
+            ? factors.map((f) => ({
+                condition: f.condition as Condition,
+                factor: Number(f.factor),
+              }))
+            : DEFAULT_CONDITION_FACTORS
+          ).map((f) => ({ ...f, cents: conditionEstimate(display.cents, f.factor) }))
         : [],
       conditionsAreEstimates: true,
     };

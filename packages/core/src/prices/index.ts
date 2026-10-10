@@ -1,4 +1,10 @@
-import type { Currency, DisplayPrice, PricePoint, PriceSource } from '@voidbinder/shared/api';
+import type {
+  Condition,
+  Currency,
+  DisplayPrice,
+  PricePoint,
+  PriceSource,
+} from '@voidbinder/shared/api';
 
 // Price domain logic (VB-30), free of any platform: which price to show, condition estimates,
 // the value of a collection and the history the chart draws. Formatting is the app's job.
@@ -36,6 +42,19 @@ export function pickDisplayPrice(
     ? { source: best.source, finish: best.finish, currency: best.currency, cents: best.market }
     : null;
 }
+
+/**
+ * The factors migration 0004 seeds into `condition_multipliers`, for a game without rows there.
+ * Estimates, not observed prices.
+ */
+export const DEFAULT_CONDITION_FACTORS: readonly { condition: Condition; factor: number }[] = [
+  { condition: 'NM', factor: 1 },
+  { condition: 'EX', factor: 0.85 },
+  { condition: 'GD', factor: 0.7 },
+  { condition: 'LP', factor: 0.6 },
+  { condition: 'PL', factor: 0.45 },
+  { condition: 'PO', factor: 0.3 },
+];
 
 /** A condition's estimated price from the near-mint cents and the condition's factor. */
 export const conditionEstimate = (cents: number, factor: number): number =>
