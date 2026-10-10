@@ -3,7 +3,7 @@ import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
 import { coverageCounts, groupsKey, priceCoverage, readGroups } from './coverage';
-import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
+import { isCard, matchGroups, matchProducts, rarityKey, type ProductMatch } from './match';
 import {
   CATEGORIES,
   cents,
@@ -93,6 +93,42 @@ export function groupSteps(groups: readonly { groupId: number; setId: string }[]
 }
 
 /**
+ * A set's products in group id order, without the reprints: a card that two groups of the set list
+ * under one number and rarity is one print (VB-111: LOB's 25th Anniversary Edition, folded into
+ * the set by the YGOPRODeck import). The lowest group id that has a market price for it prices the
+ * print, else the lowest (VB-113: the Worldwide English `MRD-EN010` has none, its 25th Anniversary
+ * reprint has); the other groups' products are the reprints, left out of the matching.
+ */
+export function splitReprints(
+  own: readonly { groupId: number; product: TcgProduct }[],
+  prices: readonly TcgPrice[],
+) {
+  // ponytail: group id order stands in for TCGplayer's `publishedOn`; read that if they diverge.
+  const priced = new Set(prices.flatMap((p) => (p.marketPrice == null ? [] : [p.productId])));
+  const key = (p: TcgProduct) => {
+    const number = extended(p, 'Number');
+    return number && `${number}|${rarityKey(extended(p, 'Rarity') ?? '')}`;
+  };
+  const chosen = new Map<string, { groupId: number; priced: boolean }>();
+  for (const { groupId, product } of own) {
+    const k = key(product);
+    if (!k) continue;
+    const had = chosen.get(k);
+    const hasPrice = priced.has(product.productId);
+    if (!had || (!had.priced && hasPrice && had.groupId !== groupId))
+      chosen.set(k, { groupId, priced: hasPrice });
+    else if (had.groupId === groupId && hasPrice) had.priced = true;
+  }
+  const products: TcgProduct[] = [];
+  const reprints: TcgProduct[] = [];
+  for (const { groupId, product } of own) {
+    const k = key(product);
+    (k && chosen.get(k)?.groupId !== groupId ? reprints : products).push(product);
+  }
+  return { products, reprints };
+}
+
+/**
  * Imports the products and prices of a range of matched groups; returns their counts. The groups
  * of one set are matched together (VB-111: LOB's `LOB` group holds the North American prints, its
  * two `LOB-EN` groups the EN ones), so a print one group's product claims by number is taken for
@@ -108,15 +144,8 @@ export async function importGroups(
   const byId = game === 'mtg';
   const stats = { cards: 0, mapped: 0, unmapped: 0, prices: 0, noMarket: 0 };
   for (const [setId, groupIds] of groupsBySet(groups)) {
-    const products: TcgProduct[] = [];
-    const reprints: TcgProduct[] = [];
+    const own: { groupId: number; product: TcgProduct }[] = [];
     const prices: TcgPrice[] = [];
-    // A card a lower group id already lists under its number and rarity is a reprint of that
-    // print (LOB's 25th Anniversary Edition, folded into the set by the YGOPRODeck import): the
-    // older group prices it, not a tie that leaves the print unpriced.
-    // ponytail: group id order stands in for TCGplayer's `publishedOn`; read that if they diverge.
-    const listed = new Set<string>();
-    const cardKey = (p: TcgProduct) => `${extended(p, 'Number')}|${extended(p, 'Rarity') ?? ''}`;
     for (const groupId of groupIds) {
       const fetchFile = (file: string) =>
         fetchRaw(
@@ -128,12 +157,13 @@ export async function importGroups(
           // A group without products has no files.
           true,
         );
-      const own = results<TcgProduct>(await fetchFile('products'), `products ${groupId}`);
+      for (const product of results<TcgProduct>(await fetchFile('products'), `products ${groupId}`))
+        own.push({ groupId, product });
       prices.push(...results<TcgPrice>(await fetchFile('prices'), `prices ${groupId}`));
-      for (const p of own)
-        (!byId && extended(p, 'Number') && listed.has(cardKey(p)) ? reprints : products).push(p);
-      for (const p of own) if (extended(p, 'Number')) listed.add(cardKey(p));
     }
+    const { products, reprints } = byId
+      ? { products: own.map((o) => o.product), reprints: [] }
+      : splitReprints(own, prices);
     const productIds = [...new Set(prices.map((p) => String(p.productId)))];
 
     const r = await deps.withDb(async (db) => {

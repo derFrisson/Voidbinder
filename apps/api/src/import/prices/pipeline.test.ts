@@ -14,8 +14,9 @@ import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { runScryfallImport, type ImportDeps } from '../scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../scryfall/test-fixtures';
 import type { Db } from '../scryfall/write';
-import { importGroups, runTcgcsvImport } from './pipeline';
-import { fakeTcgcsv, type FakeTcgcsv } from './test-fixtures';
+import { importGroups, runTcgcsvImport, splitReprints } from './pipeline';
+import { results, type TcgPrice, type TcgProduct } from './tcgcsv';
+import { fakeTcgcsv, tcgcsvFixture, type FakeTcgcsv } from './test-fixtures';
 import { setManualMapping } from './override';
 
 describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
@@ -653,5 +654,28 @@ describe.skipIf(!databaseUrl)('Yu-Gi-Oh! regional prints (Postgres, VB-110)', ()
     expect((await market('na'))[0]).toEqual(['first_edition', 100000]);
     expect((await market('en'))[0]).toEqual(['first_edition', 90000]);
     expect((await market('eu'))[0]).toEqual(['first_edition', 90000]);
+  });
+});
+
+describe('splitReprints (VB-113)', () => {
+  const own = (groupId: number) =>
+    results<TcgProduct>(tcgcsvFixture(`2/${groupId}/products.json`), 'products').map((product) => ({
+      groupId,
+      product,
+    }));
+  const prices = (groupId: number) =>
+    results<TcgPrice>(tcgcsvFixture(`2/${groupId}/prices.json`), 'prices');
+
+  it('keeps the oldest group of a card with a market price, else the oldest', () => {
+    const { products, reprints } = splitReprints(
+      [...own(255), ...own(22882), ...own(23052)],
+      [...prices(255), ...prices(22882), ...prices(23052)],
+    );
+    // MRD-EN010 Kojikocy and MRD-EN081 Tainted Wisdom: no market price in the Worldwide English
+    // group, so the 25th Anniversary Edition's product prices the EN print.
+    expect(products.map((p) => p.productId)).toEqual([
+      22062, 173924, 22131, 21835, 21762, 22477, 476262, 476271, 476288, 486249, 486358,
+    ]);
+    expect(reprints.map((p) => p.productId)).toEqual([476268, 476659, 486247, 486250, 486257]);
   });
 });
