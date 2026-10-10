@@ -699,6 +699,22 @@ describe('web build', () => {
     },
   );
 
+  // The real mouse path: mousedown must not blur the box (the list would close before the click).
+  it('opens a suggestion with a mouse click (desktop)', async () => {
+    const { context, page, csp } = await open({ width: 1440, height: 844, scheme: 'light' });
+    try {
+      await page.goto(origin);
+      await page.getByRole('combobox', { name: 'Karte, Set oder Nummer suchen' }).fill('adel');
+      const list = page.getByRole('listbox', { name: 'Vorschläge' });
+      await list.waitFor();
+      await list.getByRole('option').first().click();
+      await page.waitForURL(new RegExp(`/cards/${CARD}\\?print=${PRINT}$`));
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
   it('lists the sets of a game and opens one, remembering it on the home page', async () => {
     const { context, page } = await open();
     try {
