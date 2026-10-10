@@ -85,6 +85,7 @@ export function appDeps(env: Env): AppDeps {
     auth: {
       secret: env.BETTER_AUTH_SECRET,
       apiUrl: env.API_URL,
+      twoFactorKey: env.TWO_FACTOR_ENCRYPTION_KEY,
       // Always the binding: `wrangler dev` simulates it locally, and a mail that cannot be sent
       // is logged as an error, never with its link.
       mail: bindingMailSender(env.EMAIL),

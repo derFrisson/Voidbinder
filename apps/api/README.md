@@ -13,7 +13,7 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | `src/index.ts`               | Worker entry (`fetch`) and `export type AppType`                                                              |
 | `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                            |
 | `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `POST /admin/import/<source>` |
-| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client                                  |
+| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client, 2FA encryption                  |
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                                 |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                            |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                               |
@@ -102,16 +102,18 @@ request (the pool is per request) on first use; `app.ts` mounts its handler at `
 **Flow.** Every path below is relative to the API; the web app reaches it as `/api/...` through
 its own Worker (VB-25), so the cookies are first-party.
 
-| Step            | Request                                                     | Result                                                                                             |
-| --------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Sign up         | `POST /auth/sign-up/email` `{ name, email, password }`      | 200 (also for a taken address, no enumeration); verification mail with `${APP_URL}/verify?token=…` |
-| Verify          | `GET /auth/verify-email?token=…` (the app's `/verify` page) | `{ "status": true }`; sign-in is refused with 403 until then                                       |
-| Sign in         | `POST /auth/sign-in/email` `{ email, password }`            | session cookie, plus the session token in the `set-auth-token` header for native clients           |
-| Sign out        | `POST /auth/sign-out`                                       | session deleted, cookies cleared                                                                   |
-| Forgot password | `POST /auth/request-password-reset` `{ email }`             | 200 always; mail with `${APP_URL}/reset-password?token=…` if the address exists                    |
-| Reset password  | `POST /auth/reset-password` `{ token, newPassword }`        | new password set, every session of the user revoked                                                |
-| Profile         | `GET /me`, `PATCH /me` (`UpdateMeRequestSchema`)            | `MeResponseSchema` (`@voidbinder/shared/api`); 401 with `WWW-Authenticate: Bearer` when signed out |
-| Delete account  | `DELETE /me`                                                | 202, `deletionRequestedAt` set, every session revoked, cookies cleared                             |
+| Step            | Request                                                             | Result                                                                                             |
+| --------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Sign up         | `POST /auth/sign-up/email` `{ name, email, password }`              | 200 (also for a taken address, no enumeration); verification mail with `${APP_URL}/verify?token=…` |
+| Verify          | `GET /auth/verify-email?token=…` (the app's `/verify` page)         | `{ "status": true }`; sign-in is refused with 403 until then                                       |
+| Sign in         | `POST /auth/sign-in/email` `{ email, password }`                    | session cookie, plus the session token in the `set-auth-token` header for native clients           |
+| Second factor   | `POST /auth/two-factor/verify-totp` `{ code, trustDevice? }`        | with 2FA, sign-in answers `{ twoFactorRedirect: true }` and no session; the code starts it         |
+| Backup code     | `POST /auth/two-factor/verify-backup-code` `{ code, trustDevice? }` | instead of the TOTP code; each backup code works once                                              |
+| Sign out        | `POST /auth/sign-out`                                               | session deleted, cookies cleared                                                                   |
+| Forgot password | `POST /auth/request-password-reset` `{ email }`                     | 200 always; mail with `${APP_URL}/reset-password?token=…` if the address exists                    |
+| Reset password  | `POST /auth/reset-password` `{ token, newPassword }`                | new password set, every session of the user revoked                                                |
+| Profile         | `GET /me`, `PATCH /me` (`UpdateMeRequestSchema`)                    | `MeResponseSchema` (`@voidbinder/shared/api`); 401 with `WWW-Authenticate: Bearer` when signed out |
+| Delete account  | `DELETE /me`                                                        | 202, `deletionRequestedAt` set, every session revoked, cookies cleared                             |
 
 Passwords have at least 10 characters; links are valid for one hour. `/auth/*` errors have Better
 Auth's shape (`{ code, message }`), every other route the API's (`{ error: … }`).
@@ -144,14 +146,54 @@ cookie cache holds the old profile.
 **Account deletion is a stub until VB-45:** `DELETE /me` records the request and ends every
 session; the job that purges the account and its data after the grace period comes with VB-45.
 Signing in again within the grace period withdraws the request (`deletionRequestedAt` back to
-null, like Discord): every new session clears it (`databaseHooks.session.create.after` in
-`src/auth/index.ts`).
+null, like Discord): every completed sign-in clears it (`voidbinderHooks` in `src/auth/index.ts`),
+with 2FA only once the second factor passed, so the password alone cannot withdraw it.
 
 **Rate limits** count per client IP (`cf-connecting-ip`) in the `rate_limit` table, so every
-isolate sees the same count: sign-up 3 and sign-in 5 per minute (`AUTH_RATE_LIMITS`), Better
+isolate sees the same count: sign-up 3, sign-in 5 and the two 2FA code checks
+(`/two-factor/verify-totp`, `/two-factor/verify-backup-code`) 5 per minute each
+(`AUTH_RATE_LIMITS`), the other `/two-factor/*` routes 3 per 10 seconds (the plugin's rule), Better
 Auth's defaults elsewhere (password-reset and verification mails 3 per minute), `/get-session`
 unlimited. Over the limit: 429 with `X-Retry-After`. A request without the header falls into one
 shared bucket, so the web app's proxy must pass `cf-connecting-ip` on.
+
+**Two-factor authentication (VB-68)** is Better Auth's `twoFactor` plugin with TOTP: issuer
+"Voidbinder", 6 digits, 30 seconds (a code from the step before or after is accepted too), 10
+backup codes. In the order the app uses it, all with the session:
+
+| Step             | Request                                                      | Result                                                                   |
+| ---------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| Set up           | `POST /auth/two-factor/enable` `{ password }`                | `{ totpURI, backupCodes }`; 2FA stays off; 400 for a wrong password      |
+| Turn on          | `POST /auth/two-factor/verify-totp` `{ code }`               | the first valid code turns it on (`user.two_factor_enabled`)             |
+| New backup codes | `POST /auth/two-factor/generate-backup-codes` `{ password }` | `{ backupCodes }`; the old ones stop working                             |
+| Turn off         | `POST /auth/two-factor/disable` `{ password }`               | 2FA off, secret and backup codes deleted, every trusted device forgotten |
+
+- **Sign-in with 2FA:** the password step deletes the session it made and sets the signed
+  `two_factor` cookie (10 minutes, 5 tries); the code step then creates the session. Any wrong code,
+  TOTP or backup, answers the same 401 `{ code: "INVALID_CODE" }`; the plugin also locks the second
+  step for 15 minutes after 10 failures in a row (429). `trustDevice: true` sets the `trust_device`
+  cookie (HttpOnly, 30 days, renewed on each sign-in, backed by a `verification` row): that browser
+  skips the code step. Turning 2FA off, setting it up again and a password reset delete every
+  trusted-device row of the user (`forgetTrustedDevices` in `src/auth/index.ts`), so each browser
+  gets the challenge again.
+- **Native clients** get the same challenge through the client plugin (`twoFactorClient` in
+  `createApiAuthClient`): they keep the `two_factor` cookie between the two calls (Better Auth's
+  Expo plugin stores cookies) and take the session token from `set-auth-token` of the code step.
+  Turning 2FA on or off replaces the session; the new token is in `set-auth-token` (the body still
+  names the old one).
+- **Secrets at rest:** the TOTP secret is encrypted by Better Auth (with `BETTER_AUTH_SECRET`) and
+  again with AES-256-GCM under `TWO_FACTOR_ENCRYPTION_KEY` (`withEncryptedTotpSecret` in
+  `src/auth/two-factor.ts`, around the database adapter); the backup codes with the same key
+  through the plugin's `storeBackupCodes`. A database dump alone gives neither.
+- **Password reset keeps 2FA** (and forgets the trusted devices); `DELETE /me` and the session
+  revocation are unchanged.
+- **Known limits of the plugin (better-auth 1.7.7):** the backup codes are encrypted, not hashed
+  (the plugin compares the stored value when it consumes one), so whoever has the database and
+  `TWO_FACTOR_ENCRYPTION_KEY` can read them. A TOTP code is not remembered once used: it works again
+  until its window ends (the 30 seconds plus one step either side), within the rate limits above.
+- **Lost both factors:** the app tells the user to write to hello@voidbinder.de. There is no
+  self-service way around the second factor; support turns it off by hand after checking the
+  person (delete the `two_factor` row, set `user.two_factor_enabled` to false).
 
 **Mails** (verification, password reset) go out through the `EMAIL` binding (Cloudflare Email
 Service, `hello@voidbinder.de`, sender name "Voidbinder") in the user's `language`; sign-up sets
@@ -165,6 +207,12 @@ deployed once per environment from `apps/api`:
 `openssl rand -base64 32 | pnpm exec wrangler secret put BETTER_AUTH_SECRET --env dev|prod`.
 `wrangler.jsonc` lists it under `secrets.required`, so a deploy fails while it is unset. Changing
 it signs everyone out.
+
+**Secret:** `TWO_FACTOR_ENCRYPTION_KEY` (32 bytes in base64) encrypts the 2FA secrets. Locally in
+`.dev.vars`; deployed once per environment from `apps/api`:
+`openssl rand -base64 32 | pnpm exec wrangler secret put TWO_FACTOR_ENCRYPTION_KEY --env dev|prod`.
+Under `secrets.required` too. Never change it once users have enrolled: every authenticator and
+backup code becomes unreadable (their code step then fails with 500), and those users need support.
 
 **A test user locally** (with `pnpm --filter api dev` running and the database migrated):
 
@@ -180,7 +228,8 @@ curl localhost:8787/me -H 'Authorization: Bearer <set-auth-token>'
 
 **Schema.** `src/db/schema/auth.ts` is generated by the Better Auth CLI (header of the file) and
 migrated like every other table (`drizzle/0002_auth.sql`, with CHECKs on `language`,
-`currency` and the length of `display_name`). Regenerate it, then `db:generate`,
+`currency` and the length of `display_name`; `drizzle/0007_two_factor.sql` for the `twoFactor`
+plugin). Regenerate it, then `db:generate`,
 whenever the auth config or a plugin changes.
 
 ## Migrations

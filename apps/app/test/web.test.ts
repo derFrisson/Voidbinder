@@ -224,6 +224,14 @@ const collectionApi: Record<string, unknown> = {
   wishlist: { entries: [], page: 1, pageSize: 50, total: 0 },
 };
 
+// Two-factor setup (VB-68): what POST /auth/two-factor/enable answers.
+const twoFactorSetup = {
+  method: 'totp',
+  totpURI:
+    'otpauth://totp/Voidbinder:ada%40example.test?secret=GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ&issuer=Voidbinder&digits=6&period=30',
+  backupCodes: Array.from({ length: 10 }, (_, i) => `K${i}X7Q-M2P4R`),
+};
+
 // A Yu-Gi-Oh! deck (VB-34): one owned and one missing card, one problem, prices.
 const DECK = 'd0000000-0000-4000-8000-000000000001';
 const eur = (cents: number) => ({
@@ -370,6 +378,15 @@ async function open({
             status: 401,
             json: { error: { code: 'unauthorized', message: 'x', requestId: 'r' } },
           });
+    }
+    if (path === '/api/auth/get-session') {
+      return route.fulfill({
+        json: { session: { id: 's' }, user: { ...me, twoFactorEnabled: false } },
+      });
+    }
+    if (path === '/api/auth/two-factor/enable') return route.fulfill({ json: twoFactorSetup });
+    if (path === '/api/auth/two-factor/verify-totp') {
+      return route.fulfill({ json: { token: 't', user: me } });
     }
     if (path === '/api/catalog/games') return route.fulfill({ json: games });
     const collection = collectionApi[path.replace('/api/collection/', '')];
@@ -543,6 +560,7 @@ describe('web build', () => {
       [
         '/',
         '/sign-in',
+        '/two-factor',
         '/mtg',
         '/mtg/sets/mid',
         '/mtg/sets/mid?view=list',
@@ -610,6 +628,55 @@ describe('web build', () => {
       await page.waitForLoadState('networkidle');
       expect(await axe(page)).toEqual([]);
       expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // The profile's 2FA section (VB-68) in its setup step (QR code, key) and with the backup codes.
+  // `SHOTS=<dir>` also saves screenshots of the section and the challenge screen.
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          [1440, 900],
+          [390, 844],
+        ] as const
+      ).map(([width, height]) => [scheme, width, height] as const),
+    ),
+  )('axe: %s profile 2FA setup at %i px has no violations', async (scheme, width, height) => {
+    const { context, page, csp } = await open({ width, height, scheme, session: true });
+    const shots = process.env.SHOTS;
+    const shot = async (name: string) => {
+      if (shots)
+        await page.screenshot({ path: `${shots}/${name}-${scheme}-${width}.png`, fullPage: true });
+    };
+    try {
+      await page.goto(`${origin}/profile`);
+      const section = page.getByRole('heading', {
+        level: 2,
+        name: 'Zwei-Faktor-Authentifizierung',
+      });
+      await section.waitFor();
+      await page.getByText('Aus', { exact: true }).waitFor();
+      await section.evaluate((el) => el.scrollIntoView({ block: 'start' }));
+      await shot('profile-2fa-off');
+      await page.getByLabel('Passwort zur Bestätigung').fill('correct horse battery');
+      await page.getByRole('button', { name: 'Einrichten' }).click();
+      await page.getByRole('img', { name: 'QR-Code für die Authenticator-App' }).waitFor();
+      await shot('profile-2fa-setup');
+      expect(await axe(page)).toEqual([]);
+      await page.getByLabel('Code aus der App').fill('123456');
+      await page.getByRole('button', { name: 'Aktivieren' }).click();
+      await page.getByText('K0X7Q-M2P4R').waitFor();
+      await shot('profile-2fa-codes');
+      expect(await axe(page)).toEqual([]);
+      expect(csp).toEqual([]);
+      if (shots) {
+        await page.goto(`${origin}/two-factor`);
+        await page.getByRole('button', { name: 'Bestätigen' }).waitFor();
+        await shot('two-factor-challenge');
+      }
     } finally {
       await context.close();
     }

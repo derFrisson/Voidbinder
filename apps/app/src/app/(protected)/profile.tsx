@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { Modal, Text, View } from 'react-native';
 import { useSignOut } from '../../api/queries/auth';
 import { useDeleteMe, useSession, useUpdateMe } from '../../api/queries/me';
+import { TwoFactorSettings } from '../../components/auth/TwoFactorSettings';
 import { FormError } from '../../components/AuthForm';
 import { Heading, Page } from '../../components/Shell';
 import { Button, Checkbox, Field, Note, Panel, Segmented } from '../../components/ui';
@@ -165,6 +166,7 @@ export default function Profile() {
         </View>
         <FormError error={signOut.error} />
         <Settings me={me} />
+        <TwoFactorSettings email={me.email} />
         <DeleteAccount />
       </View>
     </Page>

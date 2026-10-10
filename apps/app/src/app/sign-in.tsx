@@ -25,7 +25,12 @@ export default function SignIn() {
     if (!parsed.success || !password) return;
     signIn.mutate(
       { email: parsed.data, password },
-      { onSuccess: () => router.replace(safeNext(next)) },
+      {
+        onSuccess: ({ twoFactor }) =>
+          twoFactor
+            ? router.replace({ pathname: '/two-factor', params: next ? { next } : {} })
+            : router.replace(safeNext(next)),
+      },
     );
   };
 

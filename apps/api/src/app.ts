@@ -39,7 +39,7 @@ export interface AppDeps {
   /** Reported by /health: the short git sha of the deploy, "local" otherwise. */
   version: string;
   /** Better Auth settings (src/auth); the origins come from `appUrl` and `extraOrigins`. */
-  auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail'>;
+  auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail' | 'twoFactorKey'>;
   /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
   adminToken?: string | undefined;
   /** `IMPORT_ENV` (`local`, `dev`, `prod`): the R2 prefix of the catalog modules; default `local`. */

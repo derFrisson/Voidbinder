@@ -1,5 +1,5 @@
 import { createAuthClient } from 'better-auth/client';
-import { inferAdditionalFields } from 'better-auth/client/plugins';
+import { inferAdditionalFields, twoFactorClient } from 'better-auth/client/plugins';
 // Type-only: the server config stays out of the app bundle.
 import type { Auth } from './index';
 
@@ -20,7 +20,9 @@ export interface ApiAuthClientOptions {
 export function createApiAuthClient(baseURL: string, options: ApiAuthClientOptions = {}) {
   return createAuthClient({
     baseURL,
-    plugins: [inferAdditionalFields<Auth>()],
+    // A sign-in that needs the second factor answers `{ twoFactorRedirect: true }`; the caller
+    // then sends the code with `twoFactor.verifyTotp` or `verifyBackupCode`.
+    plugins: [inferAdditionalFields<Auth>(), twoFactorClient()],
     ...(options.bearerToken && {
       fetchOptions: { auth: { type: 'Bearer' as const, token: options.bearerToken } },
     }),
