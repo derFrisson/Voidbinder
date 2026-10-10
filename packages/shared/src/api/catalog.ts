@@ -65,7 +65,10 @@ export const PrintSummarySchema = z.object({
   rarity: z.string().nullable(),
   finishes: z.array(z.string()),
   imageUrl: z.url().nullable(),
-  /** Market price of the `normal` finish (the first finish without one), null without a price. */
+  /**
+   * Market price of the `normal` finish (the first finish without one); a print without a price
+   * for it falls back to a finish it has one for (Yu-Gi-Oh!: `first_edition`). null without any.
+   */
   marketPrice: DisplayPriceSchema.nullable(),
 });
 export type PrintSummary = z.infer<typeof PrintSummarySchema>;
@@ -131,10 +134,24 @@ export const PrintDetailSchema = z.object({
 });
 export type PrintDetail = z.infer<typeof PrintDetailSchema>;
 
+/** `GET /catalog/cards/:id?currency=`. */
+export const CardQuerySchema = z.object({
+  /** Picks the source of each print's `marketPrice`, as on the set page. */
+  currency: CurrencySchema.default('EUR'),
+});
+export type CardQuery = z.infer<typeof CardQuerySchema>;
+
+/** A print of the card page's table: the detail plus its price, as on the set page. */
+export const CardPrintSchema = PrintDetailSchema.extend({
+  /** Market price of the `normal` finish, else the print's first finish, else any finish it has a price for. */
+  marketPrice: DisplayPriceSchema.nullable(),
+});
+export type CardPrint = z.infer<typeof CardPrintSchema>;
+
 /** `GET /catalog/cards/:id`: the card with all its prints, newest first. */
 export const CardResponseSchema = z.object({
   card: CardSchema,
-  prints: z.array(PrintDetailSchema),
+  prints: z.array(CardPrintSchema),
   /** The game's copyright line (`@voidbinder/shared/notices`), shown with a print's `artist`. */
   copyright: z.string(),
 });

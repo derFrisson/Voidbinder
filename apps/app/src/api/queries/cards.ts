@@ -6,7 +6,7 @@ import type {
 } from '@voidbinder/shared/api';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { api } from '../client';
-import { read, retry } from './http';
+import { ApiError, read, retry } from './http';
 import { useSession } from './me';
 
 // Prices of a print on the card page (VB-64). The card itself comes from `useCard` (./catalog).
@@ -40,14 +40,20 @@ export function useCurrency(): { currency: Currency; ready: boolean } {
 
 const staleTime = 5 * 60_000;
 
+export interface PrintPrices {
+  /** Null while loading, for a print without any price row and for an unknown print (404). */
+  prices: PrintPricesResponse | null;
+  /** The read failed (a 5xx or the network, after the retries): not the same as "no prices yet". */
+  failed: boolean;
+  /** Asks again after a failure. */
+  retry: () => void;
+}
+
 /**
- * The current prices of a print; `finish` picks the finish of the condition estimates. Null while
- * loading, when the read fails, and for a print without any price row.
+ * The current prices of a print; `finish` picks the finish of the display price and the condition
+ * estimates (the API's default, usually `normal`, without it).
  */
-export function usePrintPrices(
-  printId: string | undefined,
-  finish?: string,
-): PrintPricesResponse | null {
+export function usePrintPrices(printId: string | undefined, finish?: string): PrintPrices {
   const { currency, ready } = useCurrency();
   const query = useQuery({
     queryKey: ['catalog', 'prices', printId, currency, finish],
@@ -65,7 +71,13 @@ export function usePrintPrices(
     placeholderData: (previous, previousQuery) =>
       previousQuery?.queryKey[2] === printId ? previous : undefined,
   });
-  return query.data?.prices.length ? query.data : null;
+  // A 4xx (an unknown print) does not get better by asking again and counts as "no prices".
+  const failed = query.isError && !(query.error instanceof ApiError && query.error.status < 500);
+  return {
+    prices: query.data?.prices.length ? query.data : null,
+    failed,
+    retry: () => void query.refetch(),
+  };
 }
 
 export type PriceSeries = {

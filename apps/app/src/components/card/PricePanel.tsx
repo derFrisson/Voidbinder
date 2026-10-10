@@ -1,6 +1,6 @@
 import type { Locale } from '@voidbinder/shared';
 import { useState, type ReactNode } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import {
   SOURCE_NAME,
   usePriceHistory,
@@ -9,7 +9,7 @@ import {
   type PrintPricesResponse,
 } from '../../api/queries/cards';
 import { fmt, useLocale, useT } from '../../i18n';
-import { Segmented } from '../ui';
+import { ErrorState, Segmented } from '../ui';
 import { formatDate, label } from './attributes';
 import { PriceLine } from './PriceLine';
 
@@ -32,6 +32,18 @@ const pick = (prices: PrintPricesResponse | null, i: 0 | 1, finish: string) =>
   SOURCES[i].match
     .map((source) => prices?.prices.find((p) => p.source === source && p.finish === finish))
     .find(Boolean);
+
+const hasSource = (prices: PrintPricesResponse | null, i: 0 | 1) =>
+  !!prices?.prices.some((p) => (SOURCES[i].match as readonly string[]).includes(p.source));
+
+/**
+ * The finishes to choose from: the print's own, then any the price rows are filed under that the
+ * print does not list (Yu-Gi-Oh!: TCGplayer prices per edition, `first_edition`, while the print
+ * says `normal`).
+ */
+const finishOptions = (finishes: readonly string[], prices: PrintPricesResponse | null) => [
+  ...new Set([...finishes, ...(prices?.prices.map((p) => p.finish) ?? [])]),
+];
 
 /** A panel of the card page (the mockup's `.panel`): heading, optional controls, content. */
 export function Section({
@@ -153,43 +165,61 @@ function History({ printId, finish }: { printId: string; finish: string }) {
   );
 }
 
+// NM, EX and GD on the mockup's row; the lower grades come with "more".
+const MAIN_CONDITIONS = ['NM', 'EX', 'GD'];
+
 /**
  * The price panel: Cardmarket and TCGplayer side by side with source, finish, condition and
- * time, the condition row (NM observed, EX and GD estimated, marked ≈) and the history line.
- * Without prices it says so and shows no number.
+ * time, the condition row (NM observed, the others estimated, marked ≈) and the history line.
+ * The finish starts at the display price's and offers the print's finishes and the ones its
+ * prices are filed under. Without prices it says so and shows no number; a failed read says so
+ * and offers a retry.
  */
 export function PricePanel({ printId, finishes }: { printId: string; finishes: string[] }) {
   const t = useT();
   const locale = useLocale();
-  const [finish, setFinish] = useState(finishes[0] ?? 'normal');
-  const prices = usePrintPrices(printId, finish);
+  const [picked, setPicked] = useState<string>();
+  const [more, setMore] = useState(false);
+  const { prices, failed, retry } = usePrintPrices(printId, picked);
   const display = prices?.display;
-  // NM, EX and GD only: the lower grades are not offered on the mockup's row.
-  const conditions = prices?.conditions.filter((c) => ['NM', 'EX', 'GD'].includes(c.condition));
+  const finish = picked ?? display?.finish ?? finishes[0] ?? 'normal';
+  const options = finishOptions(finishes, prices);
+  // The estimates belong to the display price's finish: not shown for a finish without a price.
+  const all = display?.finish === finish ? (prices?.conditions ?? []) : [];
+  const conditions = more ? all : all.filter((c) => MAIN_CONDITIONS.includes(c.condition));
+  const estimated = conditions.filter((c) => c.factor !== 1).map((c) => c.condition);
   return (
     <Section
       title={t.prices.title}
       aside={
         prices &&
-        finishes.length > 1 && (
+        options.length > 1 && (
           <Segmented
             label={t.card.table.finish}
             value={finish}
-            onChange={setFinish}
-            options={finishes.map((f) => ({ value: f, label: label(t.card.finishes, f) }))}
+            onChange={setPicked}
+            options={options.map((f) => ({ value: f, label: label(t.card.finishes, f) }))}
           />
         )
       }
     >
       {!prices ? (
-        <Text className="font-body text-[15px] text-ink-2">{t.prices.none}</Text>
+        failed ? (
+          <ErrorState onRetry={retry} />
+        ) : (
+          <Text className="font-body text-[15px] text-ink-2">{t.prices.none}</Text>
+        )
       ) : (
         <>
           <View className="flex-row flex-wrap gap-3">
-            <SourceColumn i={0} price={pick(prices, 0, finish)} />
-            <SourceColumn i={1} price={pick(prices, 1, finish)} />
+            {([0, 1] as const).map(
+              (i) =>
+                hasSource(prices, i) && (
+                  <SourceColumn key={i} i={i} price={pick(prices, i, finish)} />
+                ),
+            )}
           </View>
-          {display && conditions && conditions.length > 0 && (
+          {display && conditions.length > 0 && (
             <View className="gap-2 border-t border-line pt-3">
               <View
                 role="group"
@@ -214,11 +244,26 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
                   </View>
                 ))}
               </View>
-              <Text className="font-body text-[12.5px] text-ink-3">
-                {fmt(t.prices.estimates, {
-                  basis: `${SOURCE_NAME[display.source]}, ${label(t.card.finishes, display.finish)}`,
-                })}
-              </Text>
+              {all.length > conditions.length || more ? (
+                <Pressable
+                  role="button"
+                  aria-expanded={more}
+                  onPress={() => setMore(!more)}
+                  className="self-start py-1"
+                >
+                  <Text className="font-body text-sm font-semibold text-blue-ink underline">
+                    {more ? t.prices.lessConditions : t.prices.moreConditions}
+                  </Text>
+                </Pressable>
+              ) : null}
+              {estimated.length > 0 && (
+                <Text className="font-body text-[12.5px] text-ink-3">
+                  {fmt(t.prices.estimates, {
+                    grades: new Intl.ListFormat(locale).format(estimated),
+                    basis: `${SOURCE_NAME[display.source]}, ${label(t.card.finishes, display.finish)}`,
+                  })}
+                </Text>
+              )}
             </View>
           )}
           <History printId={printId} finish={finish} />
@@ -228,14 +273,20 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
   );
 }
 
-/** The phone's two-price strip above the buttons; a dash while there is no price. */
-export function PriceStrip({ printId, finish }: { printId: string; finish: string }) {
+/**
+ * The phone's price strip above the buttons, of the display price's finish: both sources, or the
+ * one that has rows; dashes while there is no price.
+ */
+export function PriceStrip({ printId }: { printId: string }) {
   const t = useT();
   const locale = useLocale();
-  const prices = usePrintPrices(printId, finish);
+  const { prices } = usePrintPrices(printId);
+  const finish = prices?.display?.finish ?? '';
   return (
     <View className="flex-row gap-2">
       {([0, 1] as const).map((i) => {
+        // A source without a row for any finish is left out while the other has some.
+        if (prices && !hasSource(prices, i)) return null;
         const p = pick(prices, i, finish);
         return (
           <View

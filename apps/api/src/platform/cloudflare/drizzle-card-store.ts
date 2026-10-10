@@ -10,6 +10,7 @@ import type { Game } from '@voidbinder/shared';
 import { COPYRIGHT } from '@voidbinder/shared/notices';
 import type {
   Card,
+  CardQuery,
   CardResponse,
   Condition,
   Currency,
@@ -27,7 +28,7 @@ import type {
   SetPageResponse,
   SetSummary,
 } from '@voidbinder/shared/api';
-import { and, asc, eq, gte, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, isNotNull, sql, type SQL, type SQLWrapper } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { alias } from 'drizzle-orm/pg-core';
 import {
@@ -65,8 +66,15 @@ const RARITY_ORDER = sql`case ${prints.rarity} when 'common' then 0 when 'uncomm
 const NUMBER_VALUE = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int`;
 const NUMBER_ORDER = sql`${NUMBER_VALUE} nulls last`;
 
-/** The finish a set page prices: `normal`, or the print's first finish when it has no normal. */
-const LIST_FINISH = sql`case when 'normal' = any(${prints.finishes}) then 'normal' else ${prints.finishes}[1] end`;
+/**
+ * Which finish a print's `marketPrice` takes, as an ORDER BY term (smallest first): the `normal`
+ * finish, or the print's first finish when it has no normal; then the print's other finishes in
+ * order; then a finish the print does not list but has a price row for (Yu-Gi-Oh!: TCGplayer
+ * prices per edition, `first_edition`, while the print says `normal`).
+ */
+const finishRank = (finish: SQLWrapper, finishes: SQLWrapper) =>
+  // An empty finishes array (schema default, TCGdex cards without variants) counts as ['normal'], like core.
+  sql`case when ${finish} = case when 'normal' = any(${finishes}) or cardinality(${finishes}) = 0 then 'normal' else (${finishes})[1] end then 0 else coalesce(array_position(${finishes}, ${finish}), 98) + 1 end`;
 const DAY_MS = 86_400_000;
 
 /** `currency`'s preferred source first (core's SOURCE_PREFERENCE), as an ORDER BY term. */
@@ -75,6 +83,26 @@ const sourceOrder = (currency: Currency) =>
     SOURCE_PREFERENCE[currency].map((source, i) => sql`when ${source} then ${i}`),
     sql` `,
   )} else 99 end`;
+
+/** The `marketPrice` of a lateral row; null without a price. */
+function displayPrice(m: {
+  cents: number | null;
+  currency: string | null;
+  source: string | null;
+  finish: string | null;
+  /** A Date from the query builder, the driver's text from raw SQL. */
+  observedAt: Date | string | null;
+}): DisplayPrice | null {
+  return m.cents == null || !m.currency || !m.source || !m.finish || !m.observedAt
+    ? null
+    : {
+        cents: m.cents,
+        currency: m.currency as Currency,
+        source: m.source as PriceSource,
+        finish: m.finish,
+        observedAt: new Date(m.observedAt).toISOString(),
+      };
+}
 
 /**
  * The text-search query for `q`: websearch syntax, and the last word as a prefix (`adel` finds
@@ -179,6 +207,60 @@ export class DrizzleCardStore implements CardStore {
     return rows.map((r) => r.summary);
   }
 
+  /**
+   * One cheap lateral lookup per print on prices_current's primary key: the print's `marketPrice`
+   * (`finishRank`, then `sourceOrder`), joined with `leftJoinLateral(market, sql`true`)`.
+   */
+  private marketLateral(currency: Currency) {
+    return this.catalog
+      .select({
+        cents: pricesCurrent.centsMarket,
+        currency: pricesCurrent.currency,
+        source: pricesCurrent.source,
+        finish: pricesCurrent.finish,
+        observedAt: pricesCurrent.observedAt,
+      })
+      .from(pricesCurrent)
+      .where(eq(pricesCurrent.printId, prints.id))
+      .orderBy(
+        finishRank(pricesCurrent.finish, prints.finishes),
+        pricesCurrent.finish,
+        sourceOrder(currency),
+      )
+      .limit(1)
+      .as('market');
+  }
+
+  /** `marketPrice` per print id, for the prints of a card. */
+  private async marketPrices(
+    ids: string[],
+    currency: Currency,
+  ): Promise<Map<string, DisplayPrice>> {
+    const market = this.marketLateral(currency);
+    const rows = ids.length
+      ? await this.catalog
+          .select({
+            id: prints.id,
+            market: {
+              cents: market.cents,
+              currency: market.currency,
+              source: market.source,
+              finish: market.finish,
+              observedAt: market.observedAt,
+            },
+          })
+          .from(prints)
+          .leftJoinLateral(market, sql`true`)
+          .where(inArray(prints.id, ids))
+      : [];
+    return new Map(
+      rows.flatMap((r) => {
+        const price = r.market && displayPrice(r.market);
+        return price ? [[r.id, price] as const] : [];
+      }),
+    );
+  }
+
   async getSetPage(
     game: Game,
     code: string,
@@ -199,19 +281,7 @@ export class DrizzleCardStore implements CardStore {
     const name = sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`;
 
     const inSet = eq(prints.setId, setId);
-    // One cheap lateral lookup per print on prices_current's primary key.
-    const market = this.catalog
-      .select({
-        cents: pricesCurrent.centsMarket,
-        currency: pricesCurrent.currency,
-        source: pricesCurrent.source,
-        finish: pricesCurrent.finish,
-      })
-      .from(pricesCurrent)
-      .where(and(eq(pricesCurrent.printId, prints.id), eq(pricesCurrent.finish, LIST_FINISH)))
-      .orderBy(sourceOrder(query.currency))
-      .limit(1)
-      .as('market');
+    const market = this.marketLateral(query.currency);
 
     // The variants of a number follow each other (sorted by number or name).
     const order = {
@@ -252,6 +322,7 @@ export class DrizzleCardStore implements CardStore {
             currency: market.currency,
             source: market.source,
             finish: market.finish,
+            observedAt: market.observedAt,
           },
         })
         .from(prints)
@@ -295,7 +366,7 @@ export class DrizzleCardStore implements CardStore {
           { imageKey: r.localizedImageKey, externalIds: r.localizedIds },
           r,
         ),
-        marketPrice: r.market?.cents == null ? null : (r.market as DisplayPrice),
+        marketPrice: r.market ? displayPrice(r.market) : null,
       })),
       page: query.page,
       pageSize,
@@ -385,16 +456,20 @@ export class DrizzleCardStore implements CardStore {
     return c ? { ...c, game: c.game as Game } : null;
   }
 
-  async getCard(id: string): Promise<CardResponse | null> {
+  async getCard(id: string, query: CardQuery): Promise<CardResponse | null> {
     const card = await this.card(id);
-    return (
-      card && {
-        card,
-        prints: await this.printDetails(eq(prints.cardId, id)),
-        // The card page shows it with each print's `artist` (VB-57).
-        copyright: COPYRIGHT[card.game],
-      }
+    if (!card) return null;
+    const details = await this.printDetails(eq(prints.cardId, id));
+    const market = await this.marketPrices(
+      details.map((p) => p.id),
+      query.currency,
     );
+    return {
+      card,
+      prints: details.map((p) => ({ ...p, marketPrice: market.get(p.id) ?? null })),
+      // The card page shows it with each print's `artist` (VB-57).
+      copyright: COPYRIGHT[card.game],
+    };
   }
 
   async search(query: SearchQuery, pageSize: number): Promise<SearchResponse> {
@@ -443,6 +518,7 @@ export class DrizzleCardStore implements CardStore {
       price_currency: Currency | null;
       price_source: DisplayPrice['source'] | null;
       price_finish: string | null;
+      price_observed_at: Date | string | null;
       type_line: string | null;
       game: Game;
       set_code: string;
@@ -474,7 +550,8 @@ export class DrizzleCardStore implements CardStore {
           page.finishes, page.image_key, page.external_ids,
           localized.image_key as localized_image_key, localized.external_ids as localized_ids,
           market.cents as price_cents, market.currency as price_currency,
-          market.source as price_source, market.finish as price_finish, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
+          market.source as price_source, market.finish as price_finish,
+          market.observed_at as price_observed_at, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
         from page
         left join ${printLocalizations} localized
           on localized.print_id = page.id and localized.lang = ${query.lang}
@@ -484,11 +561,12 @@ export class DrizzleCardStore implements CardStore {
           on set_l.set_id = page.set_id and set_l.lang = ${query.lang}
         left join lateral (
           select ${pricesCurrent.centsMarket} as cents, ${pricesCurrent.currency} as currency,
-            ${pricesCurrent.source} as source, ${pricesCurrent.finish} as finish
+            ${pricesCurrent.source} as source, ${pricesCurrent.finish} as finish,
+            ${pricesCurrent.observedAt} as observed_at
           from ${pricesCurrent}
-          where ${pricesCurrent.printId} = page.id and ${pricesCurrent.finish} =
-            case when 'normal' = any(page.finishes) then 'normal' else page.finishes[1] end
-          order by ${sourceOrder(query.currency)}
+          where ${pricesCurrent.printId} = page.id
+          order by ${finishRank(pricesCurrent.finish, sql`page.finishes`)}, ${pricesCurrent.finish},
+            ${sourceOrder(query.currency)}
           limit 1
         ) market on true
         order by page.rank desc, page.card_name, page.released_on desc nulls last, page.set_code,
@@ -508,15 +586,13 @@ export class DrizzleCardStore implements CardStore {
           { imageKey: r.localized_image_key, externalIds: r.localized_ids },
           { imageKey: r.image_key, externalIds: r.external_ids },
         ),
-        marketPrice:
-          r.price_cents == null || !r.price_currency || !r.price_source || !r.price_finish
-            ? null
-            : {
-                cents: r.price_cents,
-                currency: r.price_currency,
-                source: r.price_source,
-                finish: r.price_finish,
-              },
+        marketPrice: displayPrice({
+          cents: r.price_cents,
+          currency: r.price_currency,
+          source: r.price_source,
+          finish: r.price_finish,
+          observedAt: r.price_observed_at,
+        }),
         typeLine: r.type_line,
         game: r.game,
         setCode: r.set_code,

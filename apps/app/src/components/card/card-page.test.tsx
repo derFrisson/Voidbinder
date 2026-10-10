@@ -1,7 +1,7 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { useLocalSearchParams } from 'expo-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fakeApi, json, renderApp } from '../../../test/fake-api';
+import { fakeApi, json, me, renderApp } from '../../../test/fake-api';
 import type { Card, PrintDetail } from '@voidbinder/shared/api';
 import CardPage from '../../app/cards/[id]';
 import { printPrices } from '../../../test/prices';
@@ -84,7 +84,7 @@ describe('card page', () => {
   beforeEach(() => vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD }));
 
   it('shows loading, then the card in German with attributes, legality and no prices', async () => {
-    fakeApi((c) => (c.path === `/catalog/cards/${CARD}` ? json(card) : undefined));
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined));
     renderApp(<CardPage />);
     expect(screen.getByText('Lädt …')).toBeTruthy();
     // The German name from the print that has one, the text in German.
@@ -111,7 +111,7 @@ describe('card page', () => {
   it('shows the real prices of the selected print in the price panel', async () => {
     const id = card.prints[0]?.id ?? '';
     fakeApi(
-      (c) => (c.path === `/catalog/cards/${CARD}` ? json(card) : undefined),
+      (c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined),
       (c) =>
         c.path.startsWith(`/catalog/prints/${id}/prices?`)
           ? json({ ...printPrices, printId: id })
@@ -122,9 +122,46 @@ describe('card page', () => {
     expect(screen.queryByText('Für diesen Druck gibt es noch keine Preise.')).toBeNull();
   });
 
+  it("fills the prints table's price column from each print's market price, with source and day", async () => {
+    const priced = {
+      ...card,
+      prints: [
+        {
+          ...card.prints[0],
+          marketPrice: {
+            source: 'cardmarket',
+            finish: 'normal',
+            currency: 'EUR',
+            cents: 334,
+            observedAt: '2026-10-10T03:44:08.135Z',
+          },
+        },
+        { ...card.prints[1], marketPrice: null },
+      ],
+    };
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(priced) : undefined));
+    renderApp(<CardPage />);
+    const rows = await screen.findAllByRole('row');
+    expect(within(rows[1] as HTMLElement).getByText(/3,34/)).toBeTruthy();
+    expect(within(rows[1] as HTMLElement).getByText('Cardmarket, Stand 10.10.2026')).toBeTruthy();
+    expect(within(rows[2] as HTMLElement).getByLabelText('kein Preis').textContent).toBe('–');
+  });
+
+  it("asks for the prints' prices in the profile currency, not sending the default EUR", async () => {
+    const calls = fakeApi(
+      (c) => (c.path === '/me' ? json({ ...me, currency: 'USD' }) : undefined),
+      (c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined),
+    );
+    renderApp(<CardPage />);
+    await screen.findByText('Wachsamkeit');
+    expect(calls.filter((c) => c.path.startsWith('/catalog/cards/')).map((c) => c.path)).toEqual([
+      `/catalog/cards/${CARD}?currency=USD`,
+    ]);
+  });
+
   it('shows the print from the URL', async () => {
     vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, print: card.prints[1]?.id ?? '' });
-    fakeApi((c) => (c.path === `/catalog/cards/${CARD}` ? json(card) : undefined));
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined));
     renderApp(<CardPage />);
     expect(await screen.findByText('MID 1')).toBeTruthy();
     expect(screen.getByRole('row', { current: true }).textContent).toContain('Midnight Hunt');

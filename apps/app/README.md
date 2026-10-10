@@ -32,8 +32,8 @@ the whole set (`GET /collection/owned?game=&set=`), `useSetPrices` maps the `mar
 page's prints (VB-64), so a signed-out visitor sees prices but no owned badge, "fehlt" or value
 strip, and never an invented number. The set page and
 `/search` send the profile's `currency` (EUR when signed out) after the session is known
-(`useCurrency` in `src/api/queries/cards.ts`). `marketPrice` carries the source but no date, so the
-tiles name the source only. The `price` sort is the API's `sort=price` (high to low, unpriced last). "Recently viewed" is
+(`useCurrency` in `src/api/queries/cards.ts`). `marketPrice` carries the source and `observedAt`,
+so the tiles and the value strip read "Quelle, Stand Datum". The `price` sort is the API's `sort=price` (high to low, unpriced last). "Recently viewed" is
 `src/storage/recent.ts`: localStorage on the web behind a small `KeyValueStorage` seam, in memory
 natively until Sprint 3.
 
@@ -44,8 +44,13 @@ pages by 30. `/cards/[id]?print=` shows the print from the URL, else the newest 
 names and text in the user's language; its parts are in `src/components/card/`. Prices (VB-64):
 `usePrintPrices` and `usePriceHistory` (`src/api/queries/cards.ts`) read the VB-30 routes; the panel
 shows Cardmarket and TCGplayer with source, finish, near-mint and the observed time, the EX and GD
-estimates (≈), and the history line (the series of the finish from the source the currency
-prefers). A print without price rows, or a failed read, shows "no prices" and no number. The API has
+estimates (≈; LP, PL and PO behind "Mehr Zustände") and the history line (the series of the finish
+from the source the currency prefers). The finish selector starts at the display price's finish and
+offers the print's finishes plus the ones its price rows are filed under (Yu-Gi-Oh!: TCGplayer's
+`first_edition` on a print that says `normal`); a source without a row for any finish is hidden
+while the other has some. A print without price rows shows "no prices" and no number, a failed
+read (5xx) an error with a retry. The prints table's price column is `marketPrice` of
+`GET /catalog/cards/:id`. The API has
 no language dimension, so there is no language switch. Search hits show their `marketPrice` like the
 set page. "In Sammlung" and
 "Auf Wunschliste" add the print (VB-31), signed out they lead to sign-in.

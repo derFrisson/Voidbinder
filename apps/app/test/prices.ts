@@ -63,7 +63,13 @@ export const printPrices: PrintPricesResponse = {
       '2026-10-10T03:44:08.135Z',
     ),
   ],
-  display: { source: 'cardmarket', finish: 'normal', currency: 'EUR', cents: 334 },
+  display: {
+    source: 'cardmarket',
+    finish: 'normal',
+    currency: 'EUR',
+    cents: 334,
+    observedAt: '2026-10-10T03:44:08.135Z',
+  },
   conditions: [
     { condition: 'NM', factor: 1, cents: 334 },
     { condition: 'EX', factor: 0.85, cents: 284 },
