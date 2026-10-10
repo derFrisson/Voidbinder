@@ -35,7 +35,10 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
   const app = createApp({
     ...deps,
     openPlatform: () => ({
-      cardStore: {} as never,
+      // Only the ban-list impact is reached through /me (VB-81); it answers an empty report.
+      cardStore: {
+        banlistImpact: async () => ({ format: 'tcg', collection: [], decks: [] }),
+      } as never,
       collectionStore: new DrizzleCollectionStore(db),
       deckStore: new DrizzleDeckStore(db),
       blobStore: {} as never,
@@ -234,6 +237,7 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
       '/collection/summary',
       '/collection/export.csv',
       '/decks',
+      '/me/banlist-impact?game=yugioh',
     ];
     for (const [who, client] of [
       ['cookie', b],

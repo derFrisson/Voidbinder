@@ -1,5 +1,6 @@
 import { DECK_ZONES, type DeckDetail, type DeckZone } from '@voidbinder/shared/api';
 import { Text, View } from 'react-native';
+import { useBanlist } from '../../api/queries/catalog';
 import { fmt, useLocale, useT } from '../../i18n';
 import { CardImage } from '../catalog/CardImage';
 import { field, GameChip } from '../catalog/GameChip';
@@ -7,6 +8,7 @@ import { day, money, SOURCE_NAMES } from '../collection/format';
 import { Icon } from '../Icon';
 import { usePalette } from '../palette';
 import { useWide } from '../Shell';
+import { TextLink } from '../ui';
 import { headline, problemText } from './format';
 
 const small = 'font-display text-xs font-semibold uppercase tracking-wider text-ink';
@@ -101,7 +103,26 @@ function CopiesRule({ deck }: { deck: DeckDetail }) {
               : r.banlistOk}
         </Text>
       </View>
+      {deck.game === 'yugioh' && <ListLine />}
     </View>
+  );
+}
+
+/** "TCG-Liste gültig ab 01.09.2026", a link to the ban list (VB-81); Yu-Gi-Oh! decks are TCG. */
+function ListLine() {
+  const t = useT();
+  const locale = useLocale();
+  const list = useBanlist('tcg', locale).data;
+  const b = t.banlist;
+  const text = list?.effectiveDate
+    ? fmt(b.deckLine, { date: day(list.effectiveDate, locale) })
+    : list?.asOf
+      ? fmt(b.deckLineAsOf, { date: day(list.asOf, locale) })
+      : b.open;
+  return (
+    <Text className="font-body text-[13px]">
+      <TextLink href="/yugioh/banlist">{text}</TextLink>
+    </Text>
   );
 }
 
@@ -187,7 +208,7 @@ export function DeckHeader({ deck }: { deck: DeckDetail }) {
           <View role="list" className="gap-1">
             {deck.analysis.problems.map((p, i) => (
               <Text key={i} role="listitem" className="font-body text-sm leading-5 text-ink">
-                {problemText(t, p)}
+                {problemText(t, p, deck.game)}
               </Text>
             ))}
           </View>

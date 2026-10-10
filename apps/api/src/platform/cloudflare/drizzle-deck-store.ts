@@ -42,6 +42,7 @@ import {
   sets,
 } from '../../db/schema';
 import { clearDeletions, logDeletions } from './drizzle-collection-store';
+import { imagePick, resolveImage, type ImagePick } from './image';
 
 type DeckRow = typeof decks.$inferSelect;
 type Ids = Record<string, unknown>;
@@ -57,7 +58,7 @@ type PrintRow = PrintPrices & {
   setCode: string;
   number: string;
   rarity: string | null;
-  imageKey: string | null;
+  image: ImagePick | null;
   externalIds: Ids;
 };
 
@@ -108,15 +109,6 @@ export class DrizzleDeckStore implements DeckStore {
     private readonly db: NodePgDatabase,
     private readonly imageBaseUrl = '',
   ) {}
-
-  /**
-   * The R2 copy of the print, else Scryfall's image (VB-57). ponytail: the gist of the card and
-   * collection stores' private `imageUrl`, without the localized image; share it in a follow-up.
-   */
-  private imageUrl(p: { imageKey: string | null; externalIds: Ids }): string | null {
-    if (p.imageKey && this.imageBaseUrl) return `${this.imageBaseUrl}/${p.imageKey}`;
-    return (p.externalIds.scryfall_images as { normal?: string } | undefined)?.normal ?? null;
-  }
 
   private async deckRow(userId: string, id: string): Promise<DeckRow> {
     const [row] = await this.db
@@ -172,7 +164,7 @@ export class DrizzleDeckStore implements DeckStore {
               number: prints.number,
               rarity: prints.rarity,
               finishes: prints.finishes,
-              imageKey: prints.imageKey,
+              image: imagePick(prints, opts.lang),
               externalIds: prints.externalIds,
             })
             .from(prints)
@@ -332,7 +324,9 @@ export class DrizzleDeckStore implements DeckStore {
                 id: shown.printId,
                 setCode: shown.setCode,
                 number: shown.number,
-                imageUrl: this.imageUrl(shown),
+                ...resolveImage(this.imageBaseUrl, shown.image, [
+                  { lang: 'en', ids: shown.externalIds },
+                ]),
               }
             : null,
           owned: owned.get(`${game}:${c.name}`) ?? 0,

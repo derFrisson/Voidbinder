@@ -1,5 +1,5 @@
 import type { Game, Locale } from '@voidbinder/shared';
-import type { Currency, SetPageQuery } from '@voidbinder/shared/api';
+import type { BanlistFormat, Currency, SetPageQuery } from '@voidbinder/shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../client';
 import { useCurrency } from './cards';
@@ -68,4 +68,23 @@ export function useCard(id: string) {
   // The prints table is priced in the profile's currency; wait for the session to know it.
   const { currency, ready } = useCurrency();
   return useQuery({ ...cardOptions(id, currency), enabled: ready });
+}
+
+/**
+ * The Yu-Gi-Oh! ban list of `format` (VB-81), names in `lang`; null: no list wanted (another game),
+ * nothing is fetched. Every tile of a page shares the one cached answer.
+ */
+export function useBanlist(format: BanlistFormat | null, lang: Locale) {
+  return useQuery({
+    queryKey: ['catalog', 'banlist', format, lang],
+    queryFn: () =>
+      read(
+        api.catalog.banlist[':game'].$get({
+          param: { game: 'yugioh' },
+          query: { format: format ?? 'tcg', lang },
+        }),
+      ),
+    staleTime,
+    enabled: format !== null,
+  });
 }

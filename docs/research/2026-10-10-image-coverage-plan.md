@@ -59,21 +59,21 @@ Localized data, on Max's model: no new print rows. Each language is a `print_loc
 
 ## Decision table
 
-| #   | change                                                                                               |                                   prints | source / terms                           | status                               | ticket   |
-| --- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------: | ---------------------------------------- | ------------------------------------ | -------- |
-| 1   | Mirror Scryfall `lowres` scans for prints, under `-lowres` key names, upgraded when the scan arrives |                                    3,066 | Scryfall, mirroring allowed              | **build now**                        | this run |
-| 2   | Pokémon pokemontcg.io / Scrydex fallback (incl. Mew B/G/R, 30th-c)                                   |                                      858 | Scrydex terms: "mirror" needs written OK | needs Max (email)                    | VB-84    |
-| 3   | MTG placeholder prints: sibling print's scan or Scryfall's badge image                               |                                      569 | Scryfall                                 | needs Max (product)                  | VB-87    |
-| 4   | Pokémon other-language scan for English prints, import es/it/fr                                      |                                      457 | TCGdex (MIT data)                        | needs Max (product)                  | VB-86    |
-| 5   | TCGdex conventional URL when `card.image` is absent                                                  |                                       61 | TCGdex                                   | ready to build                       | VB-85    |
-| 6   | MTG lowres scans for localizations (de 42,480)                                                       | 0 keyless prints; changes language shown | Scryfall                                 | needs Max (product)                  | VB-88    |
-| 7   | Remember permanent 404s (daily run shows `failed: 14`)                                               |                                        0 | n/a                                      | ready to build                       | VB-89    |
-| 8   | Report the six declared-but-missing TCGdex files upstream                                            |                                    3 + 3 | TCGdex                                   | needs Max's go (public GitHub issue) | VB-90    |
-| 9   | Set `card_count` falls back to `total` when `official` is 0 (mep, 30th-c)                            |                                   2 sets | TCGdex                                   | ready to build                       | VB-91    |
-| 10  | Scryfall `/bulk-data` 429 fails the whole daily import: back off                                     |                                        0 | Scryfall                                 | ready to build                       | VB-92    |
-| 11  | Yu-Gi-Oh! names and texts from Yugipedia (2,508 cards without `de`, plus FR/IT/ES/PT)                |                                        0 | Yugipedia CC BY-SA 4.0                   | needs Max (legal)                    | VB-93    |
-| 12  | Yu-Gi-Oh! localized set codes on `print_localizations`                                               |                       about 175,000 rows | rule + Yugipedia                         | needs Max (legal, same as 11)        | VB-94    |
-| 13  | TCGplayer CDN, Cardmarket, pokemon.com, Limitless, Malie                                             |                                          | terms forbid or no grant                 | rejected                             | none     |
+| #   | change                                                                                               |                                   prints | source / terms                           | status                                     | ticket   |
+| --- | ---------------------------------------------------------------------------------------------------- | ---------------------------------------: | ---------------------------------------- | ------------------------------------------ | -------- |
+| 1   | Mirror Scryfall `lowres` scans for prints, under `-lowres` key names, upgraded when the scan arrives |                                    3,066 | Scryfall, mirroring allowed              | **build now**                              | this run |
+| 2   | Pokémon pokemontcg.io / Scrydex fallback (incl. Mew B/G/R, 30th-c)                                   |                                      858 | Scrydex terms: "mirror" needs written OK | needs Max (email)                          | VB-84    |
+| 3   | MTG placeholder prints: sibling print's scan or Scryfall's badge image                               |                                      569 | Scryfall                                 | built (sibling scan)                       | VB-87    |
+| 4   | Pokémon other-language scan for English prints, import es/it/fr                                      |                                      457 | TCGdex (MIT data)                        | built (API fallback; es/it/fr import open) | VB-86    |
+| 5   | TCGdex conventional URL when `card.image` is absent                                                  |                                       61 | TCGdex                                   | ready to build                             | VB-85    |
+| 6   | MTG lowres scans for localizations (de 42,480)                                                       | 0 keyless prints; changes language shown | Scryfall                                 | needs Max (product)                        | VB-88    |
+| 7   | Remember permanent 404s (daily run shows `failed: 14`)                                               |                                        0 | n/a                                      | ready to build                             | VB-89    |
+| 8   | Report the six declared-but-missing TCGdex files upstream                                            |                                    3 + 3 | TCGdex                                   | needs Max's go (public GitHub issue)       | VB-90    |
+| 9   | Set `card_count` falls back to `total` when `official` is 0 (mep, 30th-c)                            |                                   2 sets | TCGdex                                   | ready to build                             | VB-91    |
+| 10  | Scryfall `/bulk-data` 429 fails the whole daily import: back off                                     |                                        0 | Scryfall                                 | ready to build                             | VB-92    |
+| 11  | Yu-Gi-Oh! names and texts from Yugipedia (2,508 cards without `de`, plus FR/IT/ES/PT)                |                                        0 | Yugipedia CC BY-SA 4.0                   | needs Max (legal)                          | VB-93    |
+| 12  | Yu-Gi-Oh! localized set codes on `print_localizations`                                               |                       about 175,000 rows | rule + Yugipedia                         | needs Max (legal, same as 11)              | VB-94    |
+| 13  | TCGplayer CDN, Cardmarket, pokemon.com, Limitless, Malie                                             |                                          | terms forbid or no grant                 | rejected                                   | none     |
 
 Why #1 is the fix to build now:
 
@@ -150,9 +150,9 @@ This should give 569 (the placeholders). Prod: the nightly timer (`image-mirror.
 1. **Email Scrydex** (VB-84) with these questions:
    - May Voidbinder, a paid collection app, download card images from `images.pokemontcg.io` / `images.scrydex.com` and host them itself, as their best-practices page recommends, given the "mirror" clause in their terms?
    - Would the Starter plan ($29/month) cover MEP, the trainer kits and the sets after 2027-03-01, when the free API ends?
-2. **Magic placeholder prints** (VB-87): choose the sibling printing's scan, Scryfall's "Localized Image Not Available" image, or our placeholder.
+2. **Magic placeholder prints** (VB-87): decided 2026-10-10, the sibling printing's scan; built with VB-86.
 3. **Magic localized lowres** (VB-88): show the German lowres scan for German copies instead of the English high-res scan?
-4. **Pokémon other-language scans** (VB-86): show a foreign scan on an English print that has none?
+4. **Pokémon other-language scans** (VB-86): decided 2026-10-10, show what exists in the order EN > JA > the rest, for every game, a high-res scan before a lowres one; built (the API's image fallback chain, `apps/api/src/platform/cloudflare/image.ts`). The import of the `es`/`it`/`fr` scans is still open.
 5. **Yugipedia legal check** (VB-93, VB-94): CC BY-SA 4.0 attribution and ShareAlike reach for names, texts and set codes; the Konami database terms.
 6. **Upstream report** (VB-90): go for a public issue at tcgdex/cards-database, or file it yourself.
 7. **The top fix's build PR**: once it is merged and the VPS checkout is pulled, the nightly mirror fills prod with the lowres scans. Pulling is the prod go.

@@ -7,6 +7,7 @@ import CardPage from '../../app/cards/[id]';
 import { printPrices } from '../../../test/prices';
 import { de } from '../../i18n/de';
 import { attributeChips } from './attributes';
+import { Legality } from './CardPanels';
 
 const CARD = '2d112e72-f8b2-48e0-9798-208873db6761';
 const print = (id: string, set: string, number: string, langs: string[]) => ({
@@ -108,6 +109,20 @@ describe('card page', () => {
     expect(screen.getAllByRole('row')).toHaveLength(3);
   });
 
+  it('shows how many copies the Yu-Gi-Oh! lists allow next to the status', async () => {
+    renderApp(<Legality game="yugioh" legalities={{ tcg: 'Limited', ocg: 'Forbidden' }} />);
+    expect(await screen.findByText('limitiert')).toBeTruthy();
+    expect(screen.getByText('1 Kopie')).toBeTruthy();
+    expect(screen.getByText('verboten')).toBeTruthy();
+    expect(screen.getByText('0 Kopien')).toBeTruthy();
+  });
+
+  it('shows no copies line for Magic', async () => {
+    renderApp(<Legality game="mtg" legalities={{ standard: 'banned' }} />);
+    expect(await screen.findByText('gebannt')).toBeTruthy();
+    expect(screen.queryByText(/Kopie/)).toBeNull();
+  });
+
   it('shows the real prices of the selected print in the price panel', async () => {
     const id = card.prints[0]?.id ?? '';
     fakeApi(
@@ -165,6 +180,56 @@ describe('card page', () => {
     renderApp(<CardPage />);
     expect(await screen.findByText('MID 1')).toBeTruthy();
     expect(screen.getByRole('row', { current: true }).textContent).toContain('Midnight Hunt');
+  });
+
+  it('says under the image when it is in another language or of another print', async () => {
+    const withImage = (imageLang: string, imageFrom: 'print' | 'sibling') => ({
+      ...card,
+      prints: card.prints.map((p) => ({
+        ...p,
+        localizations: p.localizations.map((l) => ({
+          ...l,
+          imageUrl: p.imageUrl,
+          imageLang,
+          imageFrom,
+        })),
+      })),
+    });
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, print: card.prints[1]?.id ?? '' });
+    let body = withImage('en', 'print');
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(body) : undefined));
+    const { unmount } = renderApp(<CardPage />);
+    expect(await screen.findByText('Bild: EN')).toBeTruthy();
+    unmount();
+
+    body = withImage('ja', 'sibling');
+    renderApp(<CardPage />);
+    expect(await screen.findByText('Bild: JA · Bild eines anderen Drucks')).toBeTruthy();
+  });
+
+  it('says nothing under an image in the user language, or from an older server', async () => {
+    const german = {
+      ...card,
+      prints: card.prints.map((p) => ({
+        ...p,
+        localizations: p.localizations.map((l) => ({
+          ...l,
+          imageUrl: p.imageUrl,
+          imageLang: l.lang,
+        })),
+      })),
+    };
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, print: card.prints[1]?.id ?? '' });
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(german) : undefined));
+    const { unmount } = renderApp(<CardPage />);
+    await screen.findByText('Wachsamkeit');
+    expect(screen.queryByText(/^Bild/)).toBeNull();
+    unmount();
+
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined));
+    renderApp(<CardPage />);
+    await screen.findByText('Wachsamkeit');
+    expect(screen.queryByText(/^Bild/)).toBeNull();
   });
 
   it('says not found for an unknown card', async () => {

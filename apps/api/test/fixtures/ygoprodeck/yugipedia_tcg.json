@@ -1,0 +1,39 @@
+{
+  "query": {
+    "results": {
+      "January 2027 Lists (TCG)": {
+        "printouts": {
+          "Effective date": [
+            {
+              "timestamp": "1799107200",
+              "raw": "1/2027/01/05"
+            }
+          ]
+        },
+        "fulltext": "January 2027 Lists (TCG)"
+      },
+      "September 2026 Lists (TCG)": {
+        "printouts": {
+          "Effective date": [
+            {
+              "timestamp": "1789948800",
+              "raw": "1/2026/09/21"
+            }
+          ]
+        },
+        "fulltext": "September 2026 Lists (TCG)"
+      },
+      "May 2026 Lists (TCG)": {
+        "printouts": {
+          "Effective date": [
+            {
+              "timestamp": "1779062400",
+              "raw": "1/2026/05/18"
+            }
+          ]
+        },
+        "fulltext": "May 2026 Lists (TCG)"
+      }
+    }
+  }
+}

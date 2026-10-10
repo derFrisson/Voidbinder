@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { GameSchema } from '../index.js';
-import { LangSchema } from './catalog.js';
+import { ImageInfoSchema, LangSchema } from './catalog.js';
 import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
 
@@ -85,6 +85,7 @@ export const EntryPrintSchema = z.object({
   rarity: z.string().nullable(),
   finishes: z.array(z.string()),
   imageUrl: z.url().nullable(),
+  ...ImageInfoSchema.shape,
 });
 export type EntryPrint = z.infer<typeof EntryPrintSchema>;
 
