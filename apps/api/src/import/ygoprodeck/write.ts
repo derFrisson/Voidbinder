@@ -330,7 +330,10 @@ export interface LocalizationChunkStats {
  * by an alternate artwork's passcode (Dark Magician is 46986420 there, 46986414 in the German
  * list, VB-93), so an entry whose own id is no card falls back to its artworks' ids, and only
  * when that card's English name is the entry's `name_en` (a Skill Card shares a regular card's
- * artwork id but not its name). A card matched by its own id never takes another entry.
+ * artwork id but not its name). A card matched by its own id never takes another entry of the
+ * same `source`; importLocalizationLines calls this per batch of BATCH_SIZE lines, so an own-id
+ * entry and a fallback to the same card in two batches would both be written, the later winning
+ * (none in the 2026-10-10 dumps: 14 fallbacks, no conflict).
  */
 export function matchLocalizedCards(
   source: YgoCard[],
