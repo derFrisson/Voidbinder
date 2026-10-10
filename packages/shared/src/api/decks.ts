@@ -4,8 +4,8 @@ import { EntryPriceSchema, ValueGroupSchema } from './collection.js';
 import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
 
-// Decks (`/decks/**`, VB-34) of the signed-in user. A deck carries a client-generated `id` and a
-// tombstone like the collection (VB-31); its entries are replaced as a whole. The rules
+// Decks (`/decks/**`, VB-34) of the signed-in user. A deck carries a client-generated `id` like
+// the collection (VB-31); its entries are replaced as a whole. The rules
 // (`packages/core/src/decks`) run on the server for every read.
 
 const Timestamp = z.iso.datetime({ offset: true });

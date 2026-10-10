@@ -45,7 +45,14 @@ export const onError: ErrorHandler<AppEnv> = (err, c) => {
   }
   if (err instanceof HTTPException && err.status < 500) {
     const status = err.status as ContentfulStatusCode;
-    const res = errorJson(c, status, CODES[status] ?? 'bad_request', err.message || 'Bad request');
+    // A specific code rides on the exception's cause (`{ code: 'resync_required' }`).
+    const code = (err.cause as { code?: unknown } | undefined)?.code;
+    const res = errorJson(
+      c,
+      status,
+      typeof code === 'string' ? code : (CODES[status] ?? 'bad_request'),
+      err.message || 'Bad request',
+    );
     // Headers of the exception's own response (e.g. `WWW-Authenticate` on a 401) survive; its
     // body and content headers give way to the JSON error.
     for (const [name, value] of err.res?.headers ?? []) {

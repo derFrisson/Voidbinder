@@ -14,7 +14,14 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
-import { binders, collectionEntries, prints, sets, wishlistEntries } from '../db/schema';
+import {
+  binders,
+  collectionEntries,
+  prints,
+  sets,
+  syncDeletions,
+  wishlistEntries,
+} from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -118,6 +125,12 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
   afterAll(() => drop());
 
   const json = async (res: Response | Promise<Response>) => (await res).json() as Promise<unknown>;
+  /** The deletion log's entries of an id: what other devices learn of a delete (VB-75). */
+  const logged = (id = '') =>
+    db
+      .select({ table: syncDeletions.table, id: syncDeletions.id })
+      .from(syncDeletions)
+      .where(eq(syncDeletions.id, id));
 
   it('needs a session', async () => {
     const res = await app.request('/collection/entries');
@@ -125,7 +138,7 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     expect(res.headers.get('WWW-Authenticate')).toBe('Bearer');
   });
 
-  it('creates, renames, orders and tombstones binders; names are unique among live ones', async () => {
+  it('creates, renames, orders and deletes binders; names are unique, free again after a delete', async () => {
     const a = BinderSchema.parse(await json(ash('/binders', { body: { name: 'Foils' } })));
     const clientId = randomUUID();
     const b = BinderSchema.parse(
@@ -158,23 +171,29 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     await ash(`/binders/${c.id}`, { method: 'DELETE' });
     await ash('/binders/order', { method: 'PUT', body: { ids: [b.id, a.id] } });
 
-    // Deleting leaves a tombstone; the name is free again and the binder's entries move out.
+    // Deleting removes the row and logs only its id; the name is free again at once and the
+    // binder's entries move out.
     const adeline = await printId('mid', '1');
     const [entry] = CreateEntriesResponseSchema.parse(
       await json(ash('/entries', { body: { printId: adeline, binderId: b.id } })),
     ).entries;
     expect((await ash(`/binders/${b.id}`, { method: 'DELETE' })).status).toBe(204);
-    const [row] = await db.select().from(binders).where(eq(binders.id, b.id));
-    expect(row?.deletedAt).toBeInstanceOf(Date);
+    expect(await db.select().from(binders).where(eq(binders.id, b.id))).toEqual([]);
+    expect(await logged(b.id)).toEqual([{ table: 'binders', id: b.id }]);
     const [moved] = await db
       .select()
       .from(collectionEntries)
       .where(eq(collectionEntries.id, entry?.id ?? ''));
     expect(moved?.binderId).toBeNull();
+    expect(await logged(entry?.id)).toEqual([]);
     const list = BindersResponseSchema.parse(await json(ash('/binders')));
     expect(list.binders.map((x) => x.id)).not.toContain(b.id);
     expect((await ash('/binders', { body: { name: 'Bulk' } })).status).toBe(201);
     expect((await ash(`/binders/${b.id}`, { method: 'DELETE' })).status).toBe(404);
+    // Written again under its id (a retried POST): the row is back, its log entry gone.
+    expect((await ash('/binders', { body: { id: b.id, name: 'Again' } })).status).toBe(201);
+    expect(await logged(b.id)).toEqual([]);
+    await ash(`/binders/${b.id}`, { method: 'DELETE' });
     await ash(`/entries/${entry?.id}`, { method: 'DELETE' });
   });
 
@@ -216,7 +235,7 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     await ash(`/entries/${id}`, { method: 'DELETE' });
   });
 
-  it('lists with filters and pages, edits and tombstones entries', async () => {
+  it('lists with filters and pages, edits and deletes entries', async () => {
     const [adeline, gavony, neo] = await Promise.all([
       printId('mid', '1'),
       printId('mid', '20'),
@@ -269,16 +288,23 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     ).toBe(400);
 
     expect((await ash(`/entries/${neoEntry?.id}`, { method: 'DELETE' })).status).toBe(204);
-    const [tomb] = await db
-      .select()
-      .from(collectionEntries)
-      .where(eq(collectionEntries.id, neoEntry?.id ?? ''));
-    expect(tomb?.deletedAt).toBeInstanceOf(Date);
+    expect(
+      await db
+        .select()
+        .from(collectionEntries)
+        .where(eq(collectionEntries.id, neoEntry?.id ?? '')),
+    ).toEqual([]);
+    expect(await logged(neoEntry?.id)).toEqual([{ table: 'collection_entries', id: neoEntry?.id }]);
     expect((await list()).total).toBe(2);
     expect((await ash(`/entries/${neoEntry?.id}`, { method: 'DELETE' })).status).toBe(404);
     expect(
       (await ash(`/entries/${neoEntry?.id}`, { method: 'PATCH', body: { quantity: 2 } })).status,
     ).toBe(404);
+    // Written again under its id: the log entry goes.
+    const again = await ash('/entries', { body: { id: neoEntry?.id, printId: neo } });
+    expect(again.status).toBe(201);
+    expect(await logged(neoEntry?.id)).toEqual([]);
+    await ash(`/entries/${neoEntry?.id}`, { method: 'DELETE' });
     for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
     await ash(`/binders/${binder.id}`, { method: 'DELETE' });
   });
@@ -329,7 +355,7 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     await ash(`/binders/${binder.id}`, { method: 'DELETE' });
   });
 
-  it('keeps one live wish per print, language and finish, with the current price', async () => {
+  it('keeps one wish per print, language and finish, with the current price', async () => {
     const adeline = await printId('mid', '1');
     const wish = { printId: adeline, maxPriceCents: 300, currency: 'EUR', finish: 'normal' };
     const created = await ash('/wishlist', { body: wish });
@@ -353,13 +379,17 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     expect(list.total).toBe(2);
 
     expect((await ash(`/wishlist/${first?.id}`, { method: 'DELETE' })).status).toBe(204);
-    const [tomb] = await db
-      .select()
-      .from(wishlistEntries)
-      .where(eq(wishlistEntries.id, first?.id ?? ''));
-    expect(tomb?.deletedAt).toBeInstanceOf(Date);
-    // The tombstone does not block the same wish again.
-    expect((await ash('/wishlist', { body: wish })).status).toBe(201);
+    expect(
+      await db
+        .select()
+        .from(wishlistEntries)
+        .where(eq(wishlistEntries.id, first?.id ?? '')),
+    ).toEqual([]);
+    expect(await logged(first?.id)).toEqual([{ table: 'wishlist_entries', id: first?.id }]);
+    // The deleted wish does not block the same wish again, under its old id too: the log entry
+    // goes.
+    expect((await ash('/wishlist', { body: { ...wish, id: first?.id } })).status).toBe(201);
+    expect(await logged(first?.id)).toEqual([]);
     for (const w of WishlistResponseSchema.parse(await json(ash('/wishlist'))).entries)
       await ash(`/wishlist/${w.id}`, { method: 'DELETE' });
   });

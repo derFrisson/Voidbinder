@@ -27,6 +27,11 @@ describe('resolvePush', () => {
     });
   });
 
+  it('answers an edit of a row the server once held, now gone without a log entry, as deleted', () => {
+    // The base proves the row existed: its delete's log entry was swept (30 days).
+    expect(resolvePush(null, pushed())).toEqual({ action: 'conflict' });
+  });
+
   it('applies an edit made on the stored row', () => {
     expect(resolvePush(stored(), pushed())).toEqual({ action: 'apply', updatedAt: t(20) });
     // A base newer than the stored row (the stored time was read at millisecond precision).
@@ -66,15 +71,23 @@ describe('resolvePush', () => {
     });
   });
 
-  it('resurrects a deleted row only with a newer edit', () => {
+  it('brings a deleted row back (an insert) only with a newer edit', () => {
+    // The deletion log's entry: the row is gone, the delete's time stands for both stamps.
     const deleted = stored({ updatedAt: t(15), deletedAt: t(15) });
-    expect(resolvePush(deleted, pushed({ updatedAt: t(20) })).action).toBe('apply');
+    expect(resolvePush(deleted, pushed({ updatedAt: t(20) }))).toEqual({
+      action: 'insert',
+      updatedAt: t(20),
+    });
     expect(resolvePush(deleted, pushed({ updatedAt: t(12) }))).toEqual({ action: 'conflict' });
-    // The device saw the delete and edits again: that edit is newer by definition.
-    expect(resolvePush(deleted, pushed({ baseUpdatedAt: t(15) })).action).toBe('apply');
+    // A base at or after the delete (a skewed clock stamped the row's last edit later than the
+    // delete) proves nothing: only the edit and delete times count.
+    expect(resolvePush(deleted, pushed({ updatedAt: t(12), baseUpdatedAt: t(16) }))).toEqual({
+      action: 'conflict',
+    });
+    expect(resolvePush(deleted, pushed({ baseUpdatedAt: t(16) })).action).toBe('insert');
   });
 
-  it('writes nothing for a delete of a deleted row', () => {
+  it('writes nothing for a delete of a deleted row (a retried delete)', () => {
     expect(
       resolvePush(stored({ updatedAt: t(15), deletedAt: t(15) }), pushed({ deletedAt: t(20) })),
     ).toEqual({ action: 'noop', updatedAt: t(15) });

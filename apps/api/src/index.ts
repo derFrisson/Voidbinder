@@ -7,7 +7,9 @@ import {
   startTcgcsvCron,
   startTcgdexCron,
   startYgoprodeckImport,
+  withDatabase,
 } from './platform/cloudflare';
+import { sweepSyncDeletions } from './platform/cloudflare/drizzle-sync-store';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
 export { TcgcsvImportWorkflow } from './workflows/tcgcsv-import';
@@ -33,10 +35,15 @@ export default class Api extends CachePurgingEntrypoint {
     return app.fetch(request, this.env, this.ctx);
   }
 
-  /** Each cron starts the import CRON_SOURCES names; one Workflow instance per cron and day. */
+  /**
+   * Each cron starts the import CRON_SOURCES names; one Workflow instance per cron and day. The
+   * daily Scryfall cron (every environment has one) also sweeps the sync deletion log (VB-75).
+   */
   override async scheduled(controller: ScheduledController) {
     const source = CRON_SOURCES[controller.cron];
     if (!source) throw new Error(`no import for cron ${controller.cron}`);
+    if (source === 'scryfall')
+      this.ctx.waitUntil(withDatabase(this.env, (db) => sweepSyncDeletions(db)));
     await START[source](
       this.env,
       cronInstanceId(controller.cron, source, controller.scheduledTime),

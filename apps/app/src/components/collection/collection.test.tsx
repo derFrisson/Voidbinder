@@ -385,6 +385,7 @@ describe('card page collection buttons', () => {
     renderApp(<CardPage />);
     expect(await screen.findByText('Du hast 1× in deiner Sammlung')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: '+ In Sammlung' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Hinzufügen' }));
     expect(await screen.findByText('Du hast 2× in deiner Sammlung')).toBeTruthy();
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual([
       expect.objectContaining({ printId: PRINT, finish: 'normal', language: 'de' }),

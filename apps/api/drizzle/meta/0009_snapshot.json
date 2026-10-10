@@ -1,6 +1,6 @@
 {
-  "id": "6e4cb137-9459-47bc-be4f-7cc60d046830",
-  "prevId": "a635029f-05b5-4735-b409-972bca82c584",
+  "id": "a635029f-05b5-4735-b409-972bca82c584",
+  "prevId": "1eab87b1-07c2-4270-bc24-2785da4c3536",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -674,22 +674,6 @@
           "concurrently": false,
           "method": "gin",
           "with": {}
-        },
-        "cards_name_trgm_idx": {
-          "name": "cards_name_trgm_idx",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -878,22 +862,6 @@
           "concurrently": false,
           "method": "gin",
           "with": {}
-        },
-        "print_localizations_name_trgm_idx": {
-          "name": "print_localizations_name_trgm_idx",
-          "columns": [
-            {
-              "expression": "name",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "gin",
-          "with": {}
         }
       },
       "foreignKeys": {
@@ -1049,21 +1017,6 @@
           "columns": [
             {
               "expression": "(\"external_ids\"->>'tcgplayer')",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "prints_number_key_idx": {
-          "name": "prints_number_key_idx",
-          "columns": [
-            {
-              "expression": "catalog_number_key(\"number\")",
               "asc": true,
               "isExpression": true,
               "nulls": "last"
@@ -1242,21 +1195,6 @@
               "expression": "game_id",
               "isExpression": false,
               "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "sets_code_key_idx": {
-          "name": "sets_code_key_idx",
-          "columns": [
-            {
-              "expression": "catalog_code_key(\"code\")",
-              "asc": true,
-              "isExpression": true,
               "nulls": "last"
             }
           ],

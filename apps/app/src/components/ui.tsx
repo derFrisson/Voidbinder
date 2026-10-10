@@ -155,7 +155,7 @@ export function Checkbox({
   );
 }
 
-/** A segmented radio group (language, currency). */
+/** A segmented radio group (language, currency). An option's `name` is its accessible name when the visible label is short ("DE"). */
 export function Segmented<T extends string>({
   label,
   options,
@@ -163,7 +163,7 @@ export function Segmented<T extends string>({
   onChange,
 }: {
   label: string;
-  options: readonly { value: T; label: string }[];
+  options: readonly { value: T; label: string; name?: string }[];
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -175,12 +175,13 @@ export function Segmented<T extends string>({
       <View
         role="radiogroup"
         aria-label={label}
-        className="flex-row gap-1 self-start rounded-xl bg-surface-2 p-1"
+        className="flex-row flex-wrap gap-1 self-start rounded-xl bg-surface-2 p-1"
       >
         {options.map((o, i) => (
           <Pressable
             key={o.value}
             role="radio"
+            {...(o.name && { 'aria-label': o.name })}
             aria-checked={o.value === value}
             // Roving focus: only the checked radio is a tab stop, arrows move the selection.
             tabIndex={o.value === value ? 0 : -1}

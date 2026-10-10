@@ -33,8 +33,8 @@ export interface ExportRow {
 /**
  * The signed-in user's collection (VB-31): binders, entries, wishes. Every method is scoped to
  * `userId`; a row of another user, a deleted row or an unknown print or binder rejects with a
- * not-found error, a taken binder name with a conflict. Deletes leave a tombstone (`deleted_at`),
- * and reads never return one.
+ * not-found error, a taken binder name with a conflict. A delete removes the row and logs its id
+ * for sync (VB-75).
  */
 export interface CollectionStore {
   listBinders(userId: string): Promise<Binder[]>;
