@@ -15,6 +15,10 @@ const SCHEMA = 'v1';
 /** 1 for an Extended Art print (VB-106), else null (which concat_ws skips in the hash). */
 const EXTENDED_ART = sql.raw(`case when p.external_ids #>> '{artwork,alt}' = 'EA' then 1 end`);
 
+/** 1 for a key that is another rarity's scan (`SIBLING_SCAN`, VB-117), else null (as EXTENDED_ART). */
+const siblingScan = (alias: string) =>
+  sql.raw(`case when ${alias}.external_ids #>> '{artwork,sibling}' = 'true' then 1 end`);
+
 /** Prints per chunk (one Workflow step, one D1 batch); a bigger set is a chunk of its own. */
 export const CHUNK_PRINTS = 1000;
 
@@ -92,8 +96,12 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
           (select md5(string_agg(concat_ws('|', p.id, p.card_id, c.name, p.number, p.variant,
               p.rarity, p.released_on, p.image_key,
               p.external_ids #>> '{scryfall_images,normal}', ${EXTENDED_ART},
+              -- Prefixed: concat_ws skips nulls, so an Extended Art print and a sibling-scan one
+              -- would hash alike; a print with neither keeps its hash.
+              'sibling' || ${siblingScan('p')},
               (select string_agg(concat_ws('=', pl.lang, pl.name, pl.image_key,
-                  pl.external_ids #>> '{scryfall_images,normal}', pl.external_ids ->> 'set_code'),
+                  pl.external_ids #>> '{scryfall_images,normal}', pl.external_ids ->> 'set_code',
+                  ${siblingScan('pl')}),
                   ',' order by pl.lang)
                 from print_localizations pl where pl.print_id = p.id)
             ), ';' order by p.id))
@@ -203,13 +211,14 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         image_key: string | null;
         image_src: string | null;
         extended_art: number | null;
+        image_sibling: number | null;
       }>(sql`select p.id, p.card_id, p.set_id, c.name as card_name, p.number,
           nullif(regexp_replace(p.number, '[^0-9].*$', ''), '')::int as number_value,
           regexp_replace(lower(p.number), '[^a-z0-9]+', '', 'g') as number_alnum,
           catalog_number_key(p.number) as number_key, p.variant, p.rarity,
           p.released_on::text as released_on, p.image_key,
           p.external_ids #>> '{scryfall_images,normal}' as image_src,
-          ${EXTENDED_ART} as extended_art
+          ${EXTENDED_ART} as extended_art, ${siblingScan('p')} as image_sibling
         from prints p join cards c on c.id = p.card_id where p.set_id = any(${list}::uuid[])`),
       db.execute<{
         print_id: string;
@@ -219,7 +228,8 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         image_src: string | null;
         code: string | null;
         code_alnum: string | null;
-      }>(sql`select pl.print_id, pl.lang, pl.name, pl.image_key,
+        image_sibling: number | null;
+      }>(sql`select pl.print_id, pl.lang, pl.name, pl.image_key, ${siblingScan('pl')} as image_sibling,
           pl.external_ids #>> '{scryfall_images,normal}' as image_src,
           -- storedCode: '' for a language the set lists dropped (VB-94).
           coalesce(nullif(pl.external_ids ->> 'set_code', ''),
@@ -248,11 +258,22 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
     n.image_src,
     n.code,
     n.code_alnum,
+    n.image_sibling,
   ]);
   // The card's English name, matched by `?names=all`, where no `en` name equals it.
   for (const p of data.prints)
     if (!english.has(`${p.id}|${p.card_name}`))
-      nameRows.push([p.id, '', p.card_name, p.card_name.toLowerCase(), null, null, null, null]);
+      nameRows.push([
+        p.id,
+        '',
+        p.card_name,
+        p.card_name.toLowerCase(),
+        null,
+        null,
+        null,
+        null,
+        null,
+      ]);
   const keys = [...new Set(nameRows.map((n) => n[3] as string))];
 
   const d1 = deps.d1;
@@ -310,6 +331,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         'image_key',
         'image_src',
         'extended_art',
+        'image_sibling',
       ],
       data.prints.map((p) => [
         p.id,
@@ -326,12 +348,23 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         p.image_key,
         p.image_src,
         p.extended_art,
+        p.image_sibling,
       ]),
     ),
     ...inserts(
       d1,
       'names',
-      ['print_id', 'lang', 'name', 'name_key', 'image_key', 'image_src', 'code', 'code_alnum'],
+      [
+        'print_id',
+        'lang',
+        'name',
+        'name_key',
+        'image_key',
+        'image_src',
+        'code',
+        'code_alnum',
+        'image_sibling',
+      ],
       nameRows,
     ),
     // New names only; one no print has any more is deleted by the refresh's last step.

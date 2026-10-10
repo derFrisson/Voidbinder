@@ -1,4 +1,11 @@
 import { eq, sql } from 'drizzle-orm';
+import {
+  YUGIOH_FOIL_TIERS,
+  YUGIOH_RARITIES,
+  YUGIOH_RARITY_ARTWORK,
+  yugiohRarityAbbr,
+  yugiohScanBacks,
+} from '@voidbinder/shared';
 import { appMeta, importRuns, sets } from '../../db/schema';
 import { log } from '../../middleware/log';
 import { extension, sourceId } from '../images';
@@ -7,7 +14,7 @@ import { chunkKey, deletePrefix, readChunk, type Fetch } from '../scryfall/sourc
 import { failRun, finishRun, type Db } from '../scryfall/write';
 import { parseSetCode } from '../ygoprodeck/map';
 import { batches } from '../util';
-import { ARTWORK, COOL_DOWN_DAYS, markChecked } from './pipeline';
+import { ARTWORK, COOL_DOWN_DAYS, GALLERY_RARITY, markChecked } from './pipeline';
 import { API, ask, plainText } from './source';
 
 // The artwork each Yu-Gi-Oh! print was printed with (VB-106), from Yugipedia's set card galleries.
@@ -27,12 +34,18 @@ import { API, ask, plainText } from './source';
 // (`external_ids.artworks`, written by the YGOPRODeck import) and the prints whose gallery row has
 // an alt code. Each gets `external_ids.artwork = { file, url, alt? }` (the English one on the
 // print, the others on their localization); the image mirror copies the scan into R2 and then
-// replaces the old key (src/import/images.ts reads `artwork.url` before YGOPRODeck's `image_url`).
+// replaces the old key (src/import/images.ts reads `artwork.url` before YGOPRODeck's `image_url`)
+// only for a scan of an artwork other than the standard one (VB-117): a row with an alt code, or a
+// rarity printed with an artwork of its own (Grand Master Rare, `own_art`). Every other print shows
+// the passcode render; its scan is recorded but not shown.
 // The alt codes are each gallery's own (the German RA04 page has no `AA` where the English one
-// has), so a code is a file name part, never a fact about the artwork across languages. A row
-// whose scan is missing (RA05's Starlight Rares) falls back to the same alt code in another
-// rarity of the set; a print without a matching row or scan keeps the passcode image. One request per
-// second; a set is looked at again after COOL_DOWN_DAYS.
+// has), so a code is a file name part, never a fact about the artwork across languages. A shown
+// row whose scan is missing (RA05's Starlight Rares) falls back to the same artwork in another
+// rarity of the set of the same or a plainer foil tier (`yugiohScanBacks`, `sibling: true`); a print
+// without a matching row or scan keeps the passcode image. A print YGOPRODeck lists with a
+// placeholder rarity (`New`, VB-117) takes the one row of its number no other print of it has
+// (`resolveRarities`). One request per second; a set is looked at again after COOL_DOWN_DAYS, or
+// the next day while it has a print without a rarity.
 
 /** The namespace `Set Card Galleries`. */
 export const GALLERY_NAMESPACE = 3024;
@@ -61,97 +74,8 @@ const REGION_ORDER = ['EN', 'NA', 'EU', 'AU', 'OC', 'FR', 'FC'];
 const EDITION_ORDER = ['1E', 'UE', 'LE'];
 export const GALLERY_LANGS = ['en', 'de', 'fr', 'it', 'es', 'pt'];
 
-/** Module:Data/static/rarity/data (2026-10-10): abbreviation (in file names) and name. */
-const RARITIES: [string, string][] = [
-  ['C', 'Common'],
-  ['NR', 'Normal Rare'],
-  ['SP', 'Short Print'],
-  ['SSP', 'Super Short Print'],
-  ['R', 'Rare'],
-  ['SR', 'Super Rare'],
-  ['UR', 'Ultra Rare'],
-  ['UtR', 'Ultimate Rare'],
-  ['GR', 'Ghost Rare'],
-  ['HGR', 'Holographic Rare'],
-  ['ScR', 'Secret Rare'],
-  ['PScR', 'Prismatic Secret Rare'],
-  ['UScR', 'Ultra Secret Rare'],
-  ['ScUR', 'Secret Ultra Rare'],
-  ['EScR', 'Extra Secret Rare'],
-  ['20ScR', '20th Secret Rare'],
-  ['10000ScR', '10000 Secret Rare'],
-  ['QCScR', 'Quarter Century Secret Rare'],
-  ['StR', 'Starlight Rare'],
-  ['GMR', 'Grand Master Rare'],
-  ['GUR', 'Gold Rare'],
-  ['GScR', 'Gold Secret Rare'],
-  ['GGR', 'Ghost/Gold Rare'],
-  ['PGR', 'Premium Gold Rare'],
-  ['PlR', 'Platinum Rare'],
-  ['PlScR', 'Platinum Secret Rare'],
-  ['MLR', 'Millennium Rare'],
-  ['MLSR', 'Millennium Super Rare'],
-  ['MLUR', 'Millennium Ultra Rare'],
-  ['MLScR', 'Millennium Secret Rare'],
-  ['MLGR', 'Millennium Gold Rare'],
-  ['NPR', 'Normal Parallel Rare'],
-  ['RPR', 'Rare Parallel Rare'],
-  ['SPR', 'Super Parallel Rare'],
-  ['UPR', 'Ultra Parallel Rare'],
-  ['ScPR', 'Secret Parallel Rare'],
-  ['EScPR', 'Extra Secret Parallel Rare'],
-  ['HGPR', 'Holographic Parallel Rare'],
-  ['DNPR', 'Duel Terminal Normal Parallel Rare'],
-  ['DNRPR', 'Duel Terminal Normal Rare Parallel Rare'],
-  ['DRPR', 'Duel Terminal Rare Parallel Rare'],
-  ['DSPR', 'Duel Terminal Super Parallel Rare'],
-  ['DUPR', 'Duel Terminal Ultra Parallel Rare'],
-  ['DScPR', 'Duel Terminal Secret Parallel Rare'],
-  ['KCC', 'Kaiba Corporation Common'],
-  ['KCR', 'Kaiba Corporation Rare'],
-  ['KCSR', 'Kaiba Corporation Super Rare'],
-  ['KCUR', 'Kaiba Corporation Ultra Rare'],
-  ['URBlue', 'Ultra Rare (Special Blue Version)'],
-  ['URPurple', 'Ultra Rare (Special Purple Version)'],
-  ['URRed', 'Ultra Rare (Special Red Version)'],
-  ['ScRBlue', 'Secret Rare (Special Blue Version)'],
-  ['ScRRed', 'Secret Rare (Special Red Version)'],
-  ['QCScRSV', 'Quarter Century Secret Rare (Special Version)'],
-  ['HFR', 'Holofoil Rare'],
-  ['SFR', 'Starfoil Rare'],
-  ['MSR', 'Mosaic Rare'],
-  ['SHR', 'Shatterfoil Rare'],
-  ['CR', "Collector's Rare"],
-  ['URPR', "Ultra Rare (Pharaoh's Rare)"],
-];
-
-/** The module's normalization: `Starlight Rare`, `StR` and `starlight` are one rarity. */
-const rarityKey = (v: string) =>
-  v
-    .trim()
-    .toLowerCase()
-    .replace(/[/\-_'()]/g, '')
-    .replace(/ rare$/, '')
-    .replace(/s$/, '')
-    .replace(/\s/g, '');
-
-const ABBR = new Map<string, string>([
-  ...RARITIES.flatMap(([abbr, name]): [string, string][] => [
-    [rarityKey(abbr), abbr],
-    [rarityKey(name), abbr],
-  ]),
-  // The module's other spellings.
-  ['n', 'C'],
-  ['altr', 'StR'],
-  ['alternate', 'StR'],
-  ['mr', 'MLR'],
-  ['prismatic', 'PScR'],
-  ['goldultra', 'GUR'],
-  ['pharaoh', 'URPR'],
-]);
-
 /** A rarity name or abbreviation → the abbreviation of the file names, null when unknown. */
-export const rarityAbbr = (rarity: string) => ABBR.get(rarityKey(rarity)) ?? null;
+export const rarityAbbr = yugiohRarityAbbr;
 
 /** Module:Card image name: the card name in a file name (`Dark Magician (Arkana)` → `DarkMagician`). */
 export function imageName(name: string): string {
@@ -433,7 +357,10 @@ export async function fileUrls(
 export type PrintArtworks = {
   id: string;
   number: string;
+  /** null for YGOPRODeck's placeholder (`New`), until `resolveRarities` names it. */
   rarity: string | null;
+  /** The alt code of the row `resolveRarities` gave the print (`external_ids.gallery_rarity`). */
+  alt: string | null;
   /** YGOPRODeck's artwork count of the card (`external_ids.artworks`), when more than one. */
   artworks: number | null;
   /** Languages with a localization row (other than `en`). */
@@ -446,54 +373,135 @@ export interface ArtworkChoice {
   printId: string;
   /** `en`: the print itself; else the localization. */
   lang: string;
-  /** Files to try, best first: the print's rarity, then the same artwork in another rarity. */
+  /** The print's own files (its rarity and alt code). */
   files: string[];
+  /** Then the same artwork in a rarity whose scan may stand in (`yugiohScanBacks`), plainest first. */
+  siblings: string[];
   alt: string;
+  /** A rarity printed with an artwork of its own (`YUGIOH_RARITY_ARTWORK`): its scan is shown. */
+  ownArt: boolean;
+}
+
+/** The pages sorted best first, and the rows of a number in them with the page's language. */
+function numberRows(setCode: string, pages: { page: GalleryPage; rows: GalleryRow[] }[]) {
+  const ordered = [...pages].sort((a, b) => pageRank(a.page) - pageRank(b.page));
+  return (number: string) =>
+    ordered.flatMap(({ page, rows }) =>
+      rows
+        .filter((r) => {
+          const code = parseSetCode(r.code);
+          return (
+            code.setCode.toLowerCase() === setCode && numberKey(code.number) === numberKey(number)
+          );
+        })
+        .map((r) => ({ ...r, lang: page.lang })),
+    );
+}
+
+export interface RarityChoice {
+  printId: string;
+  /** Yugipedia's name of the rarity (`Ultra Rare`). */
+  rarity: string;
+  abbr: string;
+  alt: string;
+}
+
+/**
+ * The rarity of a print YGOPRODeck lists with a placeholder (VB-117: MAMO's `New` is the Extended
+ * Art Ultra Rare of each Grand Master Rare card): the one row (rarity and alt code) of its number
+ * in its language's galleries that no other print of the number has. A known print has the row of
+ * its rarity (and its own alt code, once resolved), the first one of several. Two placeholders
+ * of one number, or more than one row left: no guess.
+ */
+export function resolveRarities(
+  setCode: string,
+  prints: PrintArtworks[],
+  pages: { page: GalleryPage; rows: GalleryRow[] }[],
+): RarityChoice[] {
+  const rowsOf = numberRows(setCode, pages);
+  const groups = new Map<string, PrintArtworks[]>();
+  for (const p of prints) {
+    const key = `${p.language ?? 'en'}|${numberKey(p.number)}`;
+    groups.set(key, [...(groups.get(key) ?? []), p]);
+  }
+  const choices: RarityChoice[] = [];
+  for (const group of groups.values()) {
+    const unknown = group.filter((p) => !(p.rarity && rarityAbbr(p.rarity)));
+    const [print] = unknown;
+    if (!print || unknown.length > 1) continue;
+    const rows = rowsOf(print.number).filter((r) => r.lang === (print.language ?? 'en'));
+    const pair = (rarity: string, alt: string) => `${rarity}|${alt}`;
+    const taken = new Set(
+      group.flatMap((p) => {
+        const abbr = p.rarity && rarityAbbr(p.rarity);
+        const alt = abbr && (p.alt ?? rows.find((r) => r.rarity === abbr)?.alt);
+        return abbr && alt !== undefined && alt !== null ? [pair(abbr, alt)] : [];
+      }),
+    );
+    const free = [...new Map(rows.map((r) => [pair(r.rarity, r.alt), r])).values()].filter(
+      (r) => !taken.has(pair(r.rarity, r.alt)),
+    );
+    const [row] = free;
+    const rarity = row && YUGIOH_RARITIES.find(([abbr]) => abbr === row.rarity)?.[1];
+    if (row && rarity && free.length === 1)
+      choices.push({ printId: print.id, rarity, abbr: row.rarity, alt: row.alt });
+  }
+  return choices;
 }
 
 /**
  * The files to try per print and language: the prints of a card with several artworks and those
  * a gallery row gives an alt code; the others keep the passcode image. The first row of the
- * print's number and rarity in the best page of the language names the artwork (its alt code);
- * a print several rows share (LCKC-EN001 in four Blue-Eyes artworks) takes the first.
+ * print's number and rarity (and alt code, `resolveRarities`) in the best page of the language
+ * names the artwork; a print several rows share (LCKC-EN001 in four Blue-Eyes artworks) takes the
+ * first. A shown artwork (an alt code, `ownArt`) may fall back to a sibling's scan.
  */
 export function planArtworks(
   setCode: string,
   prints: PrintArtworks[],
   pages: { page: GalleryPage; rows: GalleryRow[] }[],
 ): ArtworkChoice[] {
-  const ordered = [...pages].sort((a, b) => pageRank(a.page) - pageRank(b.page));
-  const rowsOf = (p: PrintArtworks) =>
-    ordered.flatMap(({ page, rows }) =>
-      rows
-        .filter((r) => {
-          const code = parseSetCode(r.code);
-          return (
-            code.setCode.toLowerCase() === setCode && numberKey(code.number) === numberKey(p.number)
-          );
-        })
-        .map((r) => ({ ...r, lang: page.lang })),
-    );
+  const rowsOf = numberRows(setCode, pages);
+  /** The alt code of a row's artwork across rarities: a Grand Master Rare is the `EA` one. */
+  const art = (rarity: string, alt: string) => alt || YUGIOH_RARITY_ARTWORK[rarity] || '';
+  const tier = (rarity: string) => YUGIOH_FOIL_TIERS[rarity] ?? Infinity;
   const choices: ArtworkChoice[] = [];
   for (const p of prints) {
     const rarity = p.rarity && rarityAbbr(p.rarity);
     if (!rarity) continue;
-    const rows = rowsOf(p);
+    const rows = rowsOf(p.number);
     if (!((p.artworks ?? 0) > 1 || rows.some((r) => r.alt))) continue;
     // A print of one language only (its own scan on the print) reads that language's page alone.
     for (const lang of p.language ? ['en'] : ['en', ...p.langs]) {
       const own = rows.filter((r) => r.lang === (p.language ?? lang));
-      const alt = own.find((r) => r.rarity === rarity)?.alt;
+      const alt = own.find((r) => r.rarity === rarity && (p.alt === null || r.alt === p.alt))?.alt;
       if (alt === undefined) continue;
+      const ownArt = !alt && rarity in YUGIOH_RARITY_ARTWORK;
       // An alt code names one artwork within its gallery, so its scan in another rarity is the
       // same picture; a row without one may be another artwork in the other rarities (RA04's
-      // German Aleister is the alternate art in Platinum Secret Rare only, with no code).
-      const same = own.filter((r) => r.alt === alt);
-      const files = [
-        ...same.filter((r) => r.rarity === rarity),
-        ...(alt ? same.filter((r) => r.rarity !== rarity) : []),
-      ].map((r) => r.file);
-      choices.push({ printId: p.id, lang, files: [...new Set(files)], alt });
+      // German Aleister is the alternate art in Platinum Secret Rare only, with no code), and is
+      // not shown anyway (the passcode render is).
+      const files = own.filter((r) => r.rarity === rarity && r.alt === alt).map((r) => r.file);
+      const siblings =
+        alt || ownArt
+          ? own
+              .filter(
+                (r) =>
+                  r.rarity !== rarity &&
+                  art(r.rarity, r.alt) === art(rarity, alt) &&
+                  yugiohScanBacks(r.rarity, rarity),
+              )
+              .sort((a, b) => tier(a.rarity) - tier(b.rarity))
+              .map((r) => r.file)
+          : [];
+      choices.push({
+        printId: p.id,
+        lang,
+        files: [...new Set(files)],
+        siblings: [...new Set(siblings)],
+        alt,
+        ownArt,
+      });
     }
   }
   return choices;
@@ -503,11 +511,28 @@ export interface Artwork {
   file: string;
   url: string;
   alt?: string;
+  /** A rarity printed with an artwork of its own (`ArtworkChoice.ownArt`): shown (`showsScan`). */
+  own_art?: true;
+  /** Another rarity's scan of the same artwork stands in for the print's missing one. */
+  sibling?: true;
+}
+
+/** Writes the rarities `resolveRarities` found, on prints still without one; returns the rows. */
+export async function writeRarities(db: Db, rows: RarityChoice[]): Promise<number> {
+  if (!rows.length) return 0;
+  const done = await db.execute(sql`
+    update prints set rarity = v.rarity, external_ids = external_ids
+      || jsonb_build_object(${GALLERY_RARITY}::text, jsonb_build_object('rarity', v.abbr, 'alt', v.alt))
+    from jsonb_to_recordset(${JSON.stringify(rows.map((r) => ({ ...r, id: r.printId })))}::jsonb)
+      as v(id uuid, rarity text, abbr text, alt text)
+    where prints.id = v.id and prints.rarity is null`);
+  return done.rowCount ?? 0;
 }
 
 /**
  * Writes each print's (and localization's) artwork; returns the rows changed. The `image_key`
- * stays until the mirror has stored the new scan (`needsWork` plans a key that does not name it).
+ * stays until the mirror has stored the new scan (`needsWork` plans a key that does not name it),
+ * except a localization's whose scan is no longer shown.
  */
 export async function writeArtworks(
   db: Db,
@@ -525,7 +550,11 @@ export async function writeArtworks(
     where prints.id = v.id and prints.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
   const locsDone = await db.execute(sql`
     update print_localizations l
-    set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork)
+    set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork),
+      -- A localization's key is always a scan: one no longer shown (\`showsScan\`) is dropped, so
+      -- the language falls back to the print's render (as drizzle/0017 step 2 did once).
+      image_key = case when coalesce(v.artwork ->> 'alt', '') <> ''
+        or v.artwork ->> 'own_art' = 'true' then l.image_key end
     from jsonb_to_recordset(${json(false)}::jsonb) as v(id uuid, lang text, artwork jsonb)
     where l.print_id = v.id and l.lang = v.lang
       and l.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
@@ -574,13 +603,25 @@ export async function planSets(
   const checked = JSON.parse(meta?.value ?? '{}') as Record<string, string>;
   const since = new Date(Date.parse(date) - COOL_DOWN_DAYS * 86_400_000).toISOString().slice(0, 10);
   const ours = await db
-    .select({ code: sets.code, name: sets.name })
+    .select({
+      code: sets.code,
+      name: sets.name,
+      // A placeholder rarity (VB-117) the gallery may name once YGOPRODeck's import has left it
+      // null: looked at again the next day, not after the cool-down, but only while such a print
+      // is newer than the set's last read (a placeholder the gallery cannot name, `Reprint` or a
+      // number with no free row, waits for the cool-down like the rest). The UTC day of the
+      // newest one; spelled out, as drizzle writes a select field's columns unqualified.
+      unresolved: sql<string | null>`(select to_char(max(up.updated_at) at time zone 'UTC',
+        'YYYY-MM-DD') from prints up where up.set_id = "sets"."id" and up.rarity is null)`,
+    })
     .from(sets)
     .where(eq(sets.gameId, 'yugioh'))
     .orderBy(sets.code);
   return ours.flatMap((s) => {
     const pages = byName.get(setNameKey(GALLERY_NAMES[s.code] ?? s.name));
-    return pages && (checked[s.code] ?? '') <= since ? [{ code: s.code, titles: pages }] : [];
+    const last = checked[s.code] ?? '';
+    const due = last <= (s.unresolved && s.unresolved >= last ? date.slice(0, 10) : since);
+    return pages && due ? [{ code: s.code, titles: pages }] : [];
   });
 }
 
@@ -596,6 +637,7 @@ async function hasArtworkCounts(db: Db): Promise<boolean> {
 export async function printsOf(db: Db, codes: string[]) {
   const result = await db.execute<PrintArtworks & { set_code: string }>(sql`
     select p.id, s.code as set_code, p.number, p.rarity,
+      p.external_ids -> ${GALLERY_RARITY}::text ->> 'alt' as alt,
       (p.external_ids ->> 'artworks')::int as artworks, p.external_ids ->> 'language' as language,
       coalesce((select array_agg(l.lang order by l.lang) from print_localizations l
         where l.print_id = p.id and l.lang in (${sql.join(
@@ -619,6 +661,8 @@ export type GalleryStats = {
   found: number;
   /** Rows whose artwork changed (their image is mirrored again). */
   written: number;
+  /** Prints whose placeholder rarity the gallery named (`resolveRarities`). */
+  rarities: number;
 };
 
 /** Reads one chunk of sets' galleries and writes the artworks it resolves. */
@@ -651,38 +695,54 @@ async function importSets(
     raw,
     delayMs,
   );
+  const galleries = (s: PlannedSet) =>
+    pages
+      .filter((p) => s.titles.includes(p.title))
+      .map((page) => ({ page, rows: parseGallery(texts.get(page.title) ?? '', page) }));
+  const rarities = planned.flatMap((s) =>
+    resolveRarities(
+      s.code,
+      prints.filter((p) => p.set_code === s.code),
+      galleries(s),
+    ),
+  );
+  // The resolved prints take their artwork in this run.
+  for (const r of rarities) {
+    const p = prints.find((x) => x.id === r.printId);
+    if (p) Object.assign(p, { rarity: r.rarity, alt: r.alt });
+  }
   const choices = planned.flatMap((s) =>
     planArtworks(
       s.code,
       prints.filter((p) => p.set_code === s.code),
-      pages
-        .filter((p) => s.titles.includes(p.title))
-        .map((page) => ({ page, rows: parseGallery(texts.get(page.title) ?? '', page) })),
+      galleries(s),
     ),
   );
   const urls = await fileUrls(
     deps.fetch,
-    [...new Set(choices.flatMap((c) => c.files))],
+    [...new Set(choices.flatMap((c) => [...c.files, ...c.siblings]))],
     raw,
     delayMs,
   );
   const resolved = choices.flatMap((c) => {
-    const file = c.files.find((f) => urls.has(f));
-    return file
-      ? [
-          {
-            printId: c.printId,
-            lang: c.lang,
-            artwork: { file, url: urls.get(file) ?? '', ...(c.alt ? { alt: c.alt } : {}) },
-          },
-        ]
-      : [];
+    const own = c.files.find((f) => urls.has(f));
+    const file = own ?? c.siblings.find((f) => urls.has(f));
+    if (!file) return [];
+    const artwork: Artwork = {
+      file,
+      url: urls.get(file) ?? '',
+      ...(c.alt ? { alt: c.alt } : {}),
+      ...(c.ownArt ? { own_art: true as const } : {}),
+      ...(own ? {} : { sibling: true as const }),
+    };
+    return [{ printId: c.printId, lang: c.lang, artwork }];
   });
   await deps.raw.put(rawKey, `[${raw.join(',')}]`, { contentType: 'application/json' });
-  const written = await deps.withDb(async (db) => {
+  const [written, resolvedRarities] = await deps.withDb(async (db) => {
+    const r = await writeRarities(db, rarities);
     const n = await writeArtworks(db, resolved);
     await markChecked(db, codes, date, GALLERIES_CHECKED_KEY);
-    return n;
+    return [n, r];
   });
   return {
     sets: planned.length,
@@ -690,6 +750,7 @@ async function importSets(
     planned: choices.length,
     found: resolved.length,
     written,
+    rarities: resolvedRarities,
   };
 }
 
@@ -748,7 +809,14 @@ export async function runGalleryImport(
         );
       return parts.length;
     });
-    const stats: GalleryStats = { sets: 0, pages: 0, planned: 0, found: 0, written: 0 };
+    const stats: GalleryStats = {
+      sets: 0,
+      pages: 0,
+      planned: 0,
+      found: 0,
+      written: 0,
+      rarities: 0,
+    };
     for (let i = 0; i < chunks; i++) {
       const r = await step(`galleries ${n(i)}`, async () => {
         const planned = (await readChunk(deps.raw, chunkKey(work, i))).map(
@@ -759,7 +827,9 @@ export async function runGalleryImport(
       for (const k of Object.keys(stats) as (keyof GalleryStats)[]) stats[k] += r[k];
     }
     await step('galleries: finish run', () =>
-      deps.withDb((db) => finishRun(db, runId, stats, { bump: stats.written > 0 })),
+      deps.withDb((db) =>
+        finishRun(db, runId, stats, { bump: stats.written + stats.rarities > 0 }),
+      ),
     );
     result = { runId, stats };
   } catch (err) {

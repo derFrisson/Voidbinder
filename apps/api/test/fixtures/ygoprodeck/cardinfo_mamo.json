@@ -1,0 +1,242 @@
+{
+  "data": [
+    {
+      "id": 41350417,
+      "name": "Dark Magical Curtain",
+      "type": "Spell Card",
+      "humanReadableCardType": "Quick-Play Spell",
+      "frameType": "spell",
+      "desc": "Each player can Special Summon 1 DARK Spellcaster monster from their hand or Deck (but neither player can activate their effects this turn), then if you Special Summoned a monster whose original name is \"Dark Magician\" or \"Dark Magician Girl\", you can add 1 Spell/Trap that mentions \"Dark Magician\" from your Deck to your hand, except \"Dark Magical Curtain\". You can only activate 1 \"Dark Magical Curtain\" per turn.",
+      "race": "Quick-Play",
+      "archetype": "Prophecy",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/dark-magical-curtain-15566",
+      "card_sets": [
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN003",
+          "set_rarity": "Grand Master Rare",
+          "set_rarity_code": "",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN003",
+          "set_rarity": "New",
+          "set_rarity_code": "",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN003",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN003",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)",
+          "set_price": "0"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 41350417,
+          "image_url": "https://images.ygoprodeck.com/images/cards/41350417.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/41350417.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/41350417.jpg"
+        },
+        {
+          "id": 41350417,
+          "image_url": "https://images.ygoprodeck.com/images/cards/41350417.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/41350417.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/41350417.jpg"
+        },
+        {
+          "id": 41350417,
+          "image_url": "https://images.ygoprodeck.com/images/cards/41350417.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/41350417.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/41350417.jpg"
+        },
+        {
+          "id": 41350417,
+          "image_url": "https://images.ygoprodeck.com/images/cards/41350417.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/41350417.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/41350417.jpg"
+        }
+      ],
+      "card_prices": [
+        {
+          "cardmarket_price": "6.48",
+          "tcgplayer_price": "7.02",
+          "ebay_price": "0.00",
+          "amazon_price": "0.00",
+          "coolstuffinc_price": "0.00"
+        }
+      ]
+    },
+    {
+      "id": 88570003,
+      "name": "Dark Magician, the Pharaoh's Servant",
+      "typeline": ["Spellcaster", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "This card's name becomes \"Dark Magician\" while on the field or in the GY. You can only use 1 of the following effects of \"Dark Magician, the Pharaoh's Servant\" per turn, and only once that turn. If this card is in your hand: You can reveal 1 Spell in your hand; Special Summon this card, then you can Set 1 Spell/Trap that mentions \"Dark Magician\" from your Deck. (Quick Effect): You can discard 1 Spell; destroy all Spells/Traps your opponent controls.",
+      "race": "Spellcaster",
+      "atk": 2500,
+      "def": 2100,
+      "level": 7,
+      "attribute": "DARK",
+      "archetype": "Dark Magician",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/dark-magician-the-pharaoh-s-servant-15588",
+      "card_sets": [
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN001",
+          "set_rarity": "Grand Master Rare",
+          "set_rarity_code": "",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN001",
+          "set_rarity": "New",
+          "set_rarity_code": "",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN001",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN001",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)",
+          "set_price": "0"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 88570003,
+          "image_url": "https://images.ygoprodeck.com/images/cards/88570003.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/88570003.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/88570003.jpg"
+        },
+        {
+          "id": 88570003,
+          "image_url": "https://images.ygoprodeck.com/images/cards/88570003.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/88570003.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/88570003.jpg"
+        },
+        {
+          "id": 88570003,
+          "image_url": "https://images.ygoprodeck.com/images/cards/88570003.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/88570003.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/88570003.jpg"
+        },
+        {
+          "id": 88570003,
+          "image_url": "https://images.ygoprodeck.com/images/cards/88570003.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/88570003.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/88570003.jpg"
+        }
+      ],
+      "card_prices": [
+        {
+          "cardmarket_price": "2.24",
+          "tcgplayer_price": "3.20",
+          "ebay_price": "0.00",
+          "amazon_price": "0.00",
+          "coolstuffinc_price": "0.00"
+        }
+      ]
+    },
+    {
+      "id": 14965712,
+      "name": "Kuriboh - Multiply!",
+      "typeline": ["Fiend", "Effect"],
+      "type": "Effect Monster",
+      "humanReadableCardType": "Effect Monster",
+      "frameType": "effect",
+      "desc": "When your opponent activates a monster effect, or an opponent's monster declares an attack (Quick Effect): You can Special Summon this card from your hand. You can only use this effect of \"Kuriboh - Multiply!\" once per turn. Once per turn, when your opponent activates a monster effect on the field, or during damage calculation when an opponent's monster attacks (Quick Effect): You can add to your hand or Special Summon, from your Deck or GY, 1 \"Dark Magician\" or 1 monster with 300 ATK/200 DEF, then you can change that opponent's monster's ATK to 0.",
+      "race": "Fiend",
+      "atk": 300,
+      "def": 200,
+      "level": 1,
+      "attribute": "DARK",
+      "archetype": "Kuriboh",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/kuriboh-multiply-15580",
+      "card_sets": [
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN002",
+          "set_rarity": "Grand Master Rare",
+          "set_rarity_code": "",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN002",
+          "set_rarity": "New",
+          "set_rarity_code": "",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN002",
+          "set_rarity": "Starlight Rare",
+          "set_rarity_code": "(StR)",
+          "set_price": "0"
+        },
+        {
+          "set_name": "Magnificent Monsters",
+          "set_code": "MAMO-EN002",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)",
+          "set_price": "0"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 14965712,
+          "image_url": "https://images.ygoprodeck.com/images/cards/14965712.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/14965712.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/14965712.jpg"
+        },
+        {
+          "id": 14965712,
+          "image_url": "https://images.ygoprodeck.com/images/cards/14965712.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/14965712.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/14965712.jpg"
+        },
+        {
+          "id": 14965712,
+          "image_url": "https://images.ygoprodeck.com/images/cards/14965712.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/14965712.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/14965712.jpg"
+        },
+        {
+          "id": 14965712,
+          "image_url": "https://images.ygoprodeck.com/images/cards/14965712.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/14965712.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/14965712.jpg"
+        }
+      ],
+      "card_prices": [
+        {
+          "cardmarket_price": "2.48",
+          "tcgplayer_price": "2.48",
+          "ebay_price": "0.00",
+          "amazon_price": "0.00",
+          "coolstuffinc_price": "0.00"
+        }
+      ]
+    }
+  ]
+}

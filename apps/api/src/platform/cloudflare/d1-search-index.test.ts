@@ -282,6 +282,27 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     expect(hits.prints.filter((h) => h.extendedArt)).toHaveLength(1);
   });
 
+  it("says when a print shows another rarity's scan, as Postgres does (VB-117)", async () => {
+    // The gallery import's stand-in: the print's and its German localization's key.
+    await db.execute(sql`update prints set external_ids = jsonb_set(external_ids,
+        '{artwork,sibling}', 'true')
+      where number = 'EN121' and set_id = (select id from sets where code = 'lds3')`);
+    await db.execute(sql`update print_localizations set external_ids = external_ids ||
+        '{"artwork":{"file":"x.png","url":"https://x.test/x.png","alt":"EA","sibling":true}}'
+      where lang = 'de' and print_id = (select id from prints where number = 'EN121'
+        and set_id = (select id from sets where code = 'lds3'))`);
+    expect(await refresh()).toMatchObject({ setsWritten: 1 });
+    for (const [q, lang] of [
+      ['satellite w', 'en'],
+      ['satelliten', 'de'],
+    ] as const) {
+      const query = SearchSuggestQuerySchema.parse({ q, lang });
+      const [pg, d1Answer] = await Promise.all([store.suggest(query, 8), index.suggest(query, 8)]);
+      expect(d1Answer?.result.suggestions[0], q).toMatchObject({ imageFrom: 'sibling' });
+      expect(d1Answer?.result).toEqual(pg);
+    }
+  });
+
   it('rewrites a changed set and deletes a removed one', async () => {
     const [pineco] = await db
       .select({ id: prints.id, setId: prints.setId })
