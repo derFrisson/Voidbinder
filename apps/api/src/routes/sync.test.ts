@@ -392,6 +392,35 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(row?.binderId).toBeNull();
   });
 
+  it('keeps a move out of a binder deleted in the same push', async () => {
+    const adeline = await print('mid', '1');
+    const [b, c] = [binder(), binder()];
+    const x = entry(adeline.printId, { binderId: b.id });
+    await push(ash, [
+      { table: 'binders', rows: [b, c] },
+      { table: 'collection_entries', rows: [x] },
+    ]);
+    // Offline: the cards move from B to C, then B is deleted; both go up in one push.
+    const res = await push(ash, [
+      {
+        table: 'binders',
+        rows: [{ ...b, deletedAt: at(2), updatedAt: at(2), baseUpdatedAt: at(0) }],
+      },
+      {
+        table: 'collection_entries',
+        rows: [{ ...x, binderId: c.id, updatedAt: at(1), baseUpdatedAt: at(0) }],
+      },
+    ]);
+    expect(res.body.conflicts).toEqual([]);
+    expect(res.body.applied).toContainEqual({
+      table: 'collection_entries',
+      id: x.id,
+      updatedAt: at(1),
+    });
+    const [row] = await db.select().from(collectionEntries).where(eq(collectionEntries.id, x.id));
+    expect(row?.binderId).toBe(c.id);
+  });
+
   it('pages a pull by the cursor, which only grows', async () => {
     const start = (await pull(ash)).cursor;
     const adeline = await print('mid', '1');

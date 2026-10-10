@@ -559,7 +559,8 @@ otherwise); they are validated like `PUT /decks/:id/entries`. An id of another u
 print, card or binder answers 404 and nothing is written; a taken binder name or wish 409 with a
 message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>: …`), for the
 device to rename or merge before it pushes again. An entry filed into a deleted binder lands in
-no binder, and a pushed binder delete moves its entries out, as the REST delete does; such an
+no binder, and a pushed binder delete moves its entries out, as the REST delete does (after the
+push's own entries, so an entry the same push moved to another binder keeps that move); such an
 entry is listed in `applied`, but the device only learns its `binderId` is null from its next
 pull.
 

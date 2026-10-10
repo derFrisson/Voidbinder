@@ -248,6 +248,7 @@ export async function syncPush(
       await tx.execute(sql`select pg_advisory_xact_lock_shared(${lockKey(userId)})`);
       const applied: SyncPushResponse['applied'] = [];
       const conflicts = new Map<SyncTable, unknown[]>();
+      const deletedBinders: string[] = [];
       const conflict = (table: SyncTable, row: unknown) =>
         conflicts.set(table, [...(conflicts.get(table) ?? []), row]);
 
@@ -322,13 +323,7 @@ export async function syncPush(
               .set(set as never)
               .where(eq(table.id, row.id));
 
-          if (change.table === 'binders' && row.deletedAt)
-            await tx
-              .update(collectionEntries)
-              .set({ binderId: null, updatedAt: sql`now()` })
-              .where(
-                and(eq(collectionEntries.binderId, row.id), eq(collectionEntries.userId, userId)),
-              );
+          if (change.table === 'binders' && row.deletedAt) deletedBinders.push(row.id);
           if (isDecks && !row.deletedAt) {
             await checkDeckEntries(tx, row.game as DeckGame, list);
             await tx.delete(deckEntries).where(eq(deckEntries.deckId, row.id));
@@ -336,6 +331,18 @@ export async function syncPush(
           }
         }
       }
+      // Entries left in a binder this push deleted move out last, after the push's own entries:
+      // one the push moved elsewhere is no longer there and keeps its move.
+      if (deletedBinders.length)
+        await tx
+          .update(collectionEntries)
+          .set({ binderId: null, updatedAt: sql`now()` })
+          .where(
+            and(
+              inArray(collectionEntries.binderId, deletedBinders),
+              eq(collectionEntries.userId, userId),
+            ),
+          );
       return { applied, conflicts: grouped(conflicts) };
     });
   } catch (err) {
