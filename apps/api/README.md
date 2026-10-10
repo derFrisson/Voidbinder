@@ -475,9 +475,10 @@ Migrate before deploying code that needs the new schema.
 Every run is an `import_runs` row (`running`, then `ok` or `failed` with `stats` and `error`).
 `GET /admin/imports` (bearer `ADMIN_TOKEN`) lists the last 30 per source, newest first, with the
 duration and the counts, plus `health`; `GET /admin/imports/health` answers the `health` block
-alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …`) and per scheduled source its
-cadence, last success and the flags `missing` (no `ok` run within the cadence plus 2 hours) and
-`failed` (the newest finished run failed). The cadences are `IMPORT_CADENCE` in
+alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …; stale: …`) and per scheduled
+source its cadence, last success and the flags `missing` (no `ok` run within the cadence plus 2
+hours), `failed` (the newest finished run failed) and `stale` (VB-116: the newest price run left
+prices stale, see Prices). The cadences are `IMPORT_CADENCE` in
 `src/import/health.ts`: wrangler.jsonc's crons (schedule.test.ts checks they agree) and the VPS
 image mirror, listed as `image-mirror` (its `images` rows carry `stats.query.sm`; the Workflows'
 own image steps stay `images`). `IMPORT_ENV=dev` leaves TCGCSV out (no dev cron). Both answer
@@ -803,9 +804,22 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    `priced`, `unmatchedGroups`, `unpricedSets`) and a WARN `set has a TCGplayer group and no
 price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
    on (the prices are written by then).
-5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
+5. `freshness` (VB-116, `runFreshness` in `coverage.ts`, also on a run that skips the build): per
+   game of `tcgplayer` the `prints`, the `mapped` ones (a mapping or a current price), `unmapped`,
+   `priced`, `fresh` (newest price younger than 24 h), `stale` (older than 36 h) and `share`
+   (`fresh / priced`). One SQL per source (about 0.2 s for 120,000 prints and 720,000 price rows);
+   logged as one line `price freshness`, a failure is a WARN and `null`.
+6. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
    (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
-   run's `RAW` prefix) and `catalog_version` + 1.
+   run's `RAW` prefix), `freshness` and `catalog_version` + 1.
+
+A `prices <game> …` step that still fails after the Workflow's three retries does not end the run
+(VB-116): its groups go into `stats.failedGroups` (`game`, `groupIds`, `error`), a WARN `price
+groups failed` is logged and the other groups and games go on. The build counts as imported (the
+next run skips it) only after a run that pulled all of it ended `ok`: a failed run, one still
+`running` and one with `failedGroups` do not count, so the 22:30 run pulls the build again. A
+TCGCSV run `running` for more than an hour is taken as dead and no longer blocks the next one
+(other sources: 6 hours).
 
 A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
 groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
@@ -840,13 +854,24 @@ insert plus the 2 s pause, so expect several hours (not measured yet: the archiv
 since 2026-10-10); run it under `systemd-run` as in the runbook.
 
 `GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
-the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced`, `groups`),
-`unmatchedGroups` (`groupId`, `name`, `abbreviation`) and `unpricedSets`; 404 before such a run
-or when its group list is gone from `RAW`, 400 for another game.
+the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced`, `groups`,
+`stale`), `unmatchedGroups` (`groupId`, `name`, `abbreviation`), `unpricedSets`, `freshness` (the
+game's counts per price source, as the run's `stats.freshness`, computed now) and `failedGroups`
+(the group ids that failed in that run); 404 before such a run or when its group list is gone
+from `RAW`, 400 for another game.
+
+`GET /admin/imports/health` folds the newest `ok` price run's `freshness` in (VB-116): a source is
+`stale` when fewer than 95 % of a game's priced prints were refreshed in 24 h, or when more prints
+are stale than in the newest run at least 20 hours older; the message names them
+(`stale: tcgplayer/pokemon 81.2% refreshed in 24 h, tcgplayer/mtg 412 stale (was 380)`), so the
+Kuma push (`scripts/vps/import-health.sh`) reports it unchanged. A mapped print never priced (no
+market price yet) is coverage (`priced`), not freshness. Steps when it fires: `docs/guides/go-live.md`.
 
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
-of the `cards` steps, read back from `RAW`, never a second download) and `prices: finish run`; each
+of the `cards` steps, read back from `RAW`, never a second download), `prices: freshness`
+(VB-116: the `cardmarket` and `tcgplayer_scryfall` counts of Magic, as above) and `prices: finish
+run`; each
 writes `cardmarket` and `tcgplayer_scryfall` rows per finish and is idempotent, so a retried step
 is safe. A failure there is logged and leaves the catalog import `ok`.
 
