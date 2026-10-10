@@ -49,3 +49,29 @@ export const CardFormatSchema = z.enum(Object.keys(CARD_FORMATS) as [CardFormat,
 /** Width / height of a card in `format` (`standard` when unknown). */
 export const cardAspect = (format: CardFormat = 'standard') =>
   CARD_FORMATS[format].width / CARD_FORMATS[format].height;
+
+/** Finishes that are foil in every game (Magic's foil and etched, Pokémon's holo and reverse). */
+const FOIL_FINISHES = new Set(['foil', 'etched', 'holo', 'reverse', 'first_edition_holo']);
+
+/** Pokémon rarities below Rare Holo; anything else named is a holo or better. */
+const PLAIN_POKEMON = new Set(['common', 'uncommon', 'rare', 'none']);
+
+/**
+ * Whether a copy shines (VB-112): its finish (`foil`, `etched`, `holo`, `reverse`), an Extended
+ * Art print, or the rarity where the game prints it in foil: every Yu-Gi-Oh! rarity with a foil
+ * name (Rare and up, not Common or Short Print), every Pokémon rarity from Rare Holo up. Magic's
+ * rarity never decides. A catalog print passes its first finish, a collection entry its own.
+ */
+export function isFoil(
+  game: Game,
+  rarity: string | null | undefined,
+  finish = 'normal',
+  extendedArt = false,
+): boolean {
+  if (extendedArt || FOIL_FINISHES.has(finish)) return true;
+  const r = rarity?.trim().toLowerCase() ?? '';
+  // ponytail: a name match, so the importer's stray values ("New", "Reprint", "2") stay plain.
+  if (game === 'yugioh') return /rare|foil|secret|parallel/.test(r);
+  if (game === 'pokemon') return r !== '' && !PLAIN_POKEMON.has(r);
+  return false;
+}

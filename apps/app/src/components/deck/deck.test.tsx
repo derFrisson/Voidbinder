@@ -44,6 +44,8 @@ const line = (n: number, extra: Partial<DeckEntry>): DeckEntry => ({
     displayNumber: `DE00${n}`,
     displayCode: `LOB-DE00${n}`,
     cardFormat: 'japanese',
+    rarity: 'Common',
+    finishes: ['normal'],
     imageUrl: null,
   },
   owned: 3,

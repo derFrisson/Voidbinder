@@ -269,6 +269,31 @@ describe('collection screen', () => {
     expect(getComputedStyle(picture).backgroundSize).toBe('contain');
   });
 
+  it('puts the foil sheen on a copy by its own finish (VB-112)', async () => {
+    const copy = (finish: string): CollectionEntry => ({
+      ...entry,
+      finish,
+      print: { ...entry.print, imageUrl: 'https://img.voidbinder.de/images/mtg/1/en/sm.webp' },
+    });
+    for (const [finish, foil] of [
+      ['foil', true],
+      ['normal', false],
+    ] as const) {
+      fakeApi(signedIn, (c) => {
+        if (c.path === '/collection/summary') return json(summary);
+        if (c.path === '/collection/binders') return json({ binders: [] });
+        if (c.path.startsWith('/collection/entries')) return json(page([copy(finish)]));
+        return undefined;
+      });
+      const { container, unmount } = renderApp(<Collection />);
+      await screen.findByText(/^1 · DE · NM/);
+      const sheens = container.querySelectorAll('.vb-foil');
+      expect(sheens.length > 0).toBe(foil);
+      sheens.forEach((s) => expect(s.getAttribute('aria-hidden')).toBe('true'));
+      unmount();
+    }
+  });
+
   it('links a phone row’s picture to its print in its language, the row still opens the form (VB-108)', async () => {
     fakeApi(signedIn, (c) => {
       if (c.path === '/collection/summary') return json(summary);

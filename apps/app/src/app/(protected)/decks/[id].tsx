@@ -41,6 +41,8 @@ function newLine(game: DeckDetail['game'], hit: SearchHit, zone: DeckZone): Deck
       displayNumber: hit.displayNumber,
       displayCode: hit.displayCode,
       cardFormat: hit.cardFormat,
+      rarity: hit.rarity,
+      finishes: hit.finishes,
       imageUrl: hit.imageUrl,
     },
     owned: 0,

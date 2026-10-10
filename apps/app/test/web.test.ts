@@ -141,6 +141,8 @@ const banCard = (n: number, name: string) => ({
   // German UI: the German code (VB-97).
   displayNumber: `DE00${n}`,
   cardFormat: 'japanese',
+  // Pot of Greed as a Super Rare: the axe cases below cover the foil sheen (VB-112).
+  rarity: n === 1 ? 'Super Rare' : 'Common',
 });
 const banlist = (format: string) => ({
   format,
@@ -385,6 +387,8 @@ const deckLine = (n: number, name: string, extra: object) => ({
     displayNumber: `EN00${n}`,
     displayCode: `LOB-EN00${n}`,
     cardFormat: 'japanese',
+    rarity: 'Common',
+    finishes: ['normal'],
     imageUrl: null,
   },
   owned: 3,
@@ -456,6 +460,8 @@ type Options = {
   session?: boolean;
   /** An API origin: `/api/**` is answered by it instead of the fakes (the live check below). */
   live?: string | undefined;
+  /** The viewer's motion preference; reduced unless a test is about motion. */
+  reducedMotion?: 'reduce' | 'no-preference';
 };
 
 /** A page with the fake API; `posts` collects every POST body by path, `csp` every CSP violation. */
@@ -465,13 +471,14 @@ async function open({
   scheme = 'light',
   session = false,
   live,
+  reducedMotion = 'reduce',
 }: Options = {}) {
   if (!browser) throw new Error('browser did not start');
   const context = await browser.newContext({
     viewport: { width, height },
     colorScheme: scheme,
     locale: 'de-DE',
-    reducedMotion: 'reduce',
+    reducedMotion,
   });
   const page = await context.newPage();
   const posts = new Map<string, unknown>();
@@ -979,6 +986,50 @@ describe('web build', () => {
     }
   });
 
+  // VB-112. `SHOTS=<dir>` also saves the card page with the pointer on the image.
+  it.each(['no-preference', 'reduce'] as const)(
+    'puts the foil sheen on a foil print, following the pointer on the card page (motion: %s)',
+    async (reducedMotion) => {
+      const { context, page } = await open({ width: 1440, height: 1000, reducedMotion });
+      try {
+        const foil = {
+          ...ygoCard,
+          prints: ygoCard.prints.map((p) => ({
+            ...p,
+            rarity: 'Ultra Rare',
+            imageUrl: 'https://img.voidbinder.de/images/yugioh/1/en/sm.webp',
+            localizations: p.localizations.map((l) => ({
+              ...l,
+              imageUrl: 'https://img.voidbinder.de/images/yugioh/1/en/sm.webp',
+            })),
+          })),
+        };
+        await page.route(`**/api/catalog/cards/${YGO_CARD}?*`, (route) =>
+          route.fulfill({ json: foil }),
+        );
+        await page.goto(`${origin}/cards/${YGO_CARD}`);
+        await page.getByRole('heading', { level: 2, name: 'Drucke und Varianten' }).waitFor();
+        const sheen = page.locator('.vb-foil').first();
+        await sheen.waitFor({ state: 'attached' });
+        expect(await sheen.getAttribute('aria-hidden')).toBe('true');
+        const blend = await sheen.evaluate((el) => getComputedStyle(el, '::before').mixBlendMode);
+        expect(blend).toBe('soft-light');
+        const moving = reducedMotion === 'no-preference';
+        expect(await sheen.evaluate((el) => el.classList.contains('vb-foil-live'))).toBe(moving);
+        const box = await sheen.boundingBox();
+        if (!box) throw new Error('no image box');
+        await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.25);
+        expect(await sheen.evaluate((el) => el.classList.contains('vb-foil-tracking'))).toBe(
+          moving,
+        );
+        if (moving && process.env.SHOTS)
+          await page.screenshot({ path: `${process.env.SHOTS}/foil-card-page.png` });
+      } finally {
+        await context.close();
+      }
+    },
+  );
+
   it('keeps the search field to the content width on the catalog width', async () => {
     const { context, page } = await open({ width: 2048, height: 1000 });
     try {
@@ -1238,6 +1289,8 @@ describe('web build', () => {
       await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('Raigeki').waitFor();
       await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('LOB DE003').waitFor();
       await page.waitForLoadState('networkidle');
+      // Pot of Greed's foil sheen is part of what axe checks (VB-112).
+      expect(await page.locator('.vb-foil').count()).toBeGreaterThan(0);
       expect(await axe(page)).toEqual([]);
       // The OCG list has no date: the import's "as of" stands in.
       await page.getByRole('radio', { name: 'OCG' }).click();
