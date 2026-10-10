@@ -80,15 +80,6 @@ describe('requireTurnstile', () => {
     expect((fetchFn.mock.calls[0]?.[1]?.body as URLSearchParams).get('response')).toBe('tok-2');
   });
 
-  it('takes the token from a form body field', async () => {
-    const { app } = setup(() => verdict(true));
-    const res = await app.request(SIGN_UP, {
-      method: 'POST',
-      body: new URLSearchParams({ 'cf-turnstile-response': 'tok-3' }),
-    });
-    expect(res.status).toBe(200);
-  });
-
   it('answers 400 turnstile_failed when Siteverify says no', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const { post } = setup(() => verdict(false, ['timeout-or-duplicate']));

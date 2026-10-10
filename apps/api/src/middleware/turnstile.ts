@@ -9,7 +9,7 @@ export const TURNSTILE_TEST_SECRET = '1x0000000000000000000000000000000AA';
 
 const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const SITEVERIFY_TIMEOUT_MS = 5000;
-/** Where the widget's token travels: this header, or a field of the JSON or form body. */
+/** Where the widget's token travels: this header, or a field of the JSON body. */
 const TOKEN_FIELD = 'cf-turnstile-response';
 
 /**
@@ -40,7 +40,7 @@ export function skipsTurnstile(secret: string | undefined, importEnv: string | u
   return secret === TURNSTILE_TEST_SECRET && importEnv === 'local';
 }
 
-/** The token of the request, from the header first, then the body (JSON or form); else undefined. */
+/** The token of the request, from the header first, then the JSON body; else undefined. */
 async function tokenOf(req: Request): Promise<string | undefined> {
   const header = req.headers.get(TOKEN_FIELD);
   if (header) return header;
@@ -48,12 +48,8 @@ async function tokenOf(req: Request): Promise<string | undefined> {
     // A clone, so Better Auth still reads the body.
     const type = req.headers.get('content-type') ?? '';
     const copy = req.clone();
-    const body: unknown = type.includes('application/json')
-      ? await copy.json()
-      : type.includes('form')
-        ? Object.fromEntries(await copy.formData())
-        : undefined;
-    const value = (body as Record<string, unknown> | null | undefined)?.[TOKEN_FIELD];
+    if (!type.includes('application/json')) return undefined;
+    const value = ((await copy.json()) as Record<string, unknown> | null)?.[TOKEN_FIELD];
     return typeof value === 'string' && value ? value : undefined;
   } catch {
     return undefined;

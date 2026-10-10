@@ -345,6 +345,8 @@ async function open({
   });
   const page = await context.newPage();
   const posts = new Map<string, unknown>();
+  /** The headers of every POST by path. */
+  const postHeaders = new Map<string, Record<string, string>>();
   /** The query string of every set page request. */
   const queries: string[] = [];
   const csp: string[] = [];
@@ -358,7 +360,7 @@ async function open({
       const { pathname, search } = new URL(route.request().url());
       await route.fulfill({ response: await route.fetch({ url: live + pathname + search }) });
     });
-    return { context, page, posts, csp, queries };
+    return { context, page, posts, postHeaders, csp, queries };
   }
   await page.route('https://img.voidbinder.de/**', (route) =>
     route.fulfill({ body: png, contentType: 'image/png' }),
@@ -366,7 +368,13 @@ async function open({
   await page.route('**/api/**', async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
-    if (req.method() === 'POST') posts.set(path, req.postDataJSON());
+    if (req.method() === 'POST') {
+      posts.set(path, req.postDataJSON());
+      postHeaders.set(path, req.headers());
+    }
+    if (path === '/api/auth/sign-up/email') {
+      return route.fulfill({ json: { token: null, user: { id: 'u2' } } });
+    }
     if (path === '/api/auth/sign-in/email') {
       signedIn = true;
       return route.fulfill({ json: { token: 't', user: { id: 'u1' } } });
@@ -406,7 +414,7 @@ async function open({
       json: { error: { code: 'not_found', message: 'x', requestId: 'r' } },
     });
   });
-  return { context, page, posts, csp, queries };
+  return { context, page, posts, postHeaders, csp, queries };
 }
 
 async function axe(page: Page) {
@@ -485,6 +493,60 @@ describe('web build', () => {
         email: 'ada@example.test',
         password: 'correct horse battery',
       });
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // Cloudflare's script is replaced by a stub (the test needs no network): this checks the build's
+  // side, i.e. the CSP lets the script in, the sitekey of the build reaches render(), the box is
+  // reserved before the widget is there and the token goes to the API.
+  it('renders the Turnstile widget on sign-up without a layout shift and sends its token', async () => {
+    const { context, page, postHeaders, csp } = await open();
+    const sitekey = process.env.EXPO_PUBLIC_TURNSTILE_SITE_KEY || '1x00000000000000000000AA';
+    let release = () => {};
+    const released = new Promise<void>((resolve) => (release = resolve));
+    await page.route('https://challenges.cloudflare.com/turnstile/v0/api.js*', async (route) => {
+      await released;
+      await route.fulfill({
+        contentType: 'text/javascript',
+        body: `window.turnstile = {
+          render(el, o) {
+            const widget = document.createElement('div');
+            widget.style.cssText = 'width:300px;height:65px';
+            widget.dataset.sitekey = o.sitekey;
+            el.append(widget);
+            setTimeout(() => o.callback('XXXX.DUMMY.TOKEN.XXXX'), 50);
+            return 'w1';
+          },
+          reset() {},
+          remove() {},
+        };`,
+      });
+    });
+    try {
+      await page.goto(`${origin}/sign-up`);
+      const box = page.getByRole('group', { name: 'Sicherheitsprüfung' });
+      await box.waitFor();
+      const before = await box.boundingBox();
+      release();
+      await page.locator(`[data-sitekey="${sitekey}"]`).waitFor();
+      const after = await box.boundingBox();
+      expect(before?.height).toBe(65);
+      expect(after?.height).toBe(65);
+      expect(after?.y).toBe(before?.y);
+      expect(await axe(page)).toEqual([]);
+
+      await page.getByLabel('Name').fill('Ada Lovelace');
+      await page.getByLabel('E-Mail-Adresse').fill('ada@example.test');
+      await page.getByLabel('Passwort').fill('correct horse battery');
+      await page.getByRole('checkbox').first().click();
+      await page.getByRole('button', { name: 'Konto erstellen' }).click();
+      await page.getByText(/Wir haben einen Link an ada@example.test geschickt/).waitFor();
+      expect(postHeaders.get('/api/auth/sign-up/email')?.['cf-turnstile-response']).toBe(
+        'XXXX.DUMMY.TOKEN.XXXX',
+      );
       expect(csp).toEqual([]);
     } finally {
       await context.close();
