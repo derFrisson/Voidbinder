@@ -1,4 +1,5 @@
 import { mirrorStepFor } from './mirror-images';
+import { refreshSearchIndexStep } from './search-index-refresh';
 import {
   WorkflowEntrypoint,
   type WorkflowEvent,
@@ -41,8 +42,10 @@ export class TcgdexImportWorkflow extends WorkflowEntrypoint<Env, TcgdexImportPa
         mode: event.payload.mode ?? 'incremental',
       },
     );
-    // Last step (VB-57): the oldest pending Pokémon images, at most 2000.
+    // VB-57: the oldest pending Pokémon images, at most 2000.
     const images = await mirrorStepFor('pokemon')(this.env, step);
-    return { runId, stats, images };
+    // Then the search index (VB-98) copies what the import and the mirror changed.
+    const searchIndex = await refreshSearchIndexStep(this.env, step);
+    return { runId, stats, images, searchIndex };
   }
 }

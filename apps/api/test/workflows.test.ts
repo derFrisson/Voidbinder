@@ -3,7 +3,7 @@ import { expect, it } from 'vitest';
 import { TcgdexImportWorkflow } from '../src/workflows/tcgdex-import';
 import { YgoprodeckImportWorkflow } from '../src/workflows/ygoprodeck-import';
 
-it('ends the YGOPRODeck import with the image mirror step', async () => {
+it('ends the YGOPRODeck import with the image mirror and the search index steps', async () => {
   const names: string[] = [];
   // Records the step names without running them; the canned results make the import plan no chunks.
   const canned: Record<string, unknown> = { 'start run': 'run-1' };
@@ -19,7 +19,8 @@ it('ends the YGOPRODeck import with the image mirror step', async () => {
   // workerd constructs a WorkflowEntrypoint only for a real instance; `run` needs just `env`.
   await YgoprodeckImportWorkflow.prototype.run.call({ env }, event, step);
 
-  expect(names.at(-1)).toBe('mirror images');
+  // The image mirror, then the start of the search index refresh (VB-98).
+  expect(names.slice(-2)).toEqual(['mirror images', 'refresh search index']);
   // The edge cache is purged once the Hyperdrive-cached reads have expired (VB-71).
   const finish = names.indexOf('finish run');
   expect(names.slice(finish, finish + 3)).toEqual([
@@ -29,7 +30,7 @@ it('ends the YGOPRODeck import with the image mirror step', async () => {
   ]);
 });
 
-it('ends the TCGdex import with the image mirror step', async () => {
+it('ends the TCGdex import with the image mirror and the search index steps', async () => {
   const names: string[] = [];
   const canned: Record<string, unknown> = { 'start run': 'run-1', 'set list': [], plan: [] };
   const step = {
@@ -43,7 +44,8 @@ it('ends the TCGdex import with the image mirror step', async () => {
 
   await TcgdexImportWorkflow.prototype.run.call({ env }, event, step);
 
-  expect(names.at(-1)).toBe('mirror images');
+  // The image mirror, then the start of the search index refresh (VB-98).
+  expect(names.slice(-2)).toEqual(['mirror images', 'refresh search index']);
   // The edge cache is purged once the Hyperdrive-cached reads have expired (VB-71).
   const finish = names.indexOf('finish run');
   expect(names.slice(finish, finish + 3)).toEqual([

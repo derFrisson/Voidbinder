@@ -12,6 +12,7 @@ import {
 import { sweepSyncDeletions } from './platform/cloudflare/drizzle-sync-store';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
+export { SearchIndexRefreshWorkflow } from './workflows/search-index-refresh';
 export { TcgcsvImportWorkflow } from './workflows/tcgcsv-import';
 export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
 export { YgoprodeckImportWorkflow } from './workflows/ygoprodeck-import';

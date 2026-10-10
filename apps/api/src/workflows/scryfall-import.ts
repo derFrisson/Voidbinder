@@ -8,6 +8,7 @@ import { runScryfallImport, type StepRunner } from '../import/scryfall/pipeline'
 import { scryfallImportDeps } from '../platform/cloudflare';
 import { edgeCacheDeps } from '../platform/cloudflare/cache';
 import { mirrorStepFor } from './mirror-images';
+import { refreshSearchIndexStep } from './search-index-refresh';
 
 /** Every step: three retries with backoff; the downloads of the bulk files take a few minutes. */
 const STEP = {
@@ -34,8 +35,10 @@ export class ScryfallImportWorkflow extends WorkflowEntrypoint<Env> {
       // VB-30: the dump's Cardmarket EUR and TCGplayer USD prices, one step per chunk.
       pricesObservedAt: event.timestamp.toISOString(),
     });
-    // Last step (VB-57): the oldest pending Magic images, at most 2000.
+    // VB-57: the oldest pending Magic images, at most 2000.
     const images = await mirrorStepFor('mtg')(this.env, step);
-    return { runId, stats, prices, images };
+    // Then the search index (VB-98) copies what the import and the mirror changed.
+    const searchIndex = await refreshSearchIndexStep(this.env, step);
+    return { runId, stats, prices, images, searchIndex };
   }
 }

@@ -8,6 +8,7 @@ import { runYgoprodeckImport } from '../import/ygoprodeck/pipeline';
 import { ygoprodeckImportDeps } from '../platform/cloudflare';
 import { edgeCacheDeps } from '../platform/cloudflare/cache';
 import { mirrorStepFor } from './mirror-images';
+import { refreshSearchIndexStep } from './search-index-refresh';
 
 /** Every step: three retries with backoff; a download is one request of a few MB. */
 const STEP = {
@@ -35,8 +36,10 @@ export class YgoprodeckImportWorkflow extends WorkflowEntrypoint<Env> {
         languages: LANGUAGES,
       },
     );
-    // Last step (VB-57): the oldest pending Yu-Gi-Oh! images, at most 500.
+    // VB-57: the oldest pending Yu-Gi-Oh! images, at most 500.
     const images = await mirrorStepFor('yugioh')(this.env, step);
-    return { runId, stats, images };
+    // Then the search index (VB-98) copies what the import and the mirror changed.
+    const searchIndex = await refreshSearchIndexStep(this.env, step);
+    return { runId, stats, images, searchIndex };
   }
 }
