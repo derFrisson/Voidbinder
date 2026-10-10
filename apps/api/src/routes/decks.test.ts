@@ -4,7 +4,15 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
-import { cards, deckEntries, decks, prints, sets, syncDeletions } from '../db/schema';
+import {
+  cards,
+  deckEntries,
+  decks,
+  printLocalizations,
+  prints,
+  sets,
+  syncDeletions,
+} from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -403,5 +411,49 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
     // Written again under its id (a retried POST): the log entry goes.
     await newDeck({ id: full.id, game: 'mtg', name: 'Back' });
     expect(await db.select().from(syncDeletions).where(eq(syncDeletions.id, full.id))).toEqual([]);
+  });
+
+  it('shows the prints’ numbers in the user’s language (VB-97)', async () => {
+    // Ash reads in German (the profile default); EN024 has a German localization, EN025 not.
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'yugioh', code: 'blgg', name: 'Battles of Legend', cardCount: 100 })
+      .returning();
+    const [angel, ghost] = await db
+      .insert(cards)
+      .values([
+        { gameId: 'yugioh', name: 'Ghostrick Angel', oracleKey: 'ygo-angel' },
+        { gameId: 'yugioh', name: 'Ghostrick Ghoul', oracleKey: 'ygo-ghoul' },
+      ])
+      .returning();
+    if (!set || !angel || !ghost) throw new Error('insert failed');
+    const [angelPrint] = await db
+      .insert(prints)
+      .values([
+        { cardId: angel.id, setId: set.id, number: 'EN024' },
+        { cardId: ghost.id, setId: set.id, number: 'EN025' },
+      ])
+      .returning();
+    await db
+      .insert(printLocalizations)
+      .values({ printId: angelPrint?.id ?? '', lang: 'de', name: 'Geistertrick-Engel' });
+    const deck = await newDeck({ game: 'yugioh', name: 'Geister' });
+    const d = await detail(
+      ash(`/decks/${deck.id}/entries`, {
+        method: 'PUT',
+        body: {
+          entries: [
+            { cardId: angel.id, zone: 'main', quantity: 1 },
+            { cardId: ghost.id, zone: 'main', quantity: 1 },
+          ],
+        },
+      }),
+    );
+    expect(d.entries.map((e) => [e.print?.displayNumber, e.print?.displayCode])).toEqual([
+      ['DE024', 'BLGG-DE024'],
+      ['EN025', 'BLGG-EN025'],
+    ]);
+    expect(d.entries.every((e) => e.print?.cardFormat === 'japanese')).toBe(true);
+    expect(d.analysis.missing.map((m) => m.displayCode)).toEqual(['BLGG-DE024', 'BLGG-EN025']);
   });
 });

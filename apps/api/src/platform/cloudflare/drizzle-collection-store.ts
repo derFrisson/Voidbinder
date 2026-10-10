@@ -1,12 +1,13 @@
 import {
   inBudget,
   priceEntry,
+  printNumbers,
   valueBy,
   valueOf,
   type CollectionStore,
   type ExportRow,
 } from '@voidbinder/core';
-import type { Game } from '@voidbinder/shared';
+import type { CardFormat, Game } from '@voidbinder/shared';
 import type {
   Binder,
   BinderOrderRequest,
@@ -55,6 +56,7 @@ import {
   cards,
   collectionEntries,
   conditionMultipliers,
+  games,
   pricesCurrent,
   printLocalizations,
   prints,
@@ -150,6 +152,8 @@ export class DrizzleCollectionStore implements CollectionStore {
     setCode: sets.code,
     setName: sets.name,
     number: prints.number,
+    cardCount: sets.cardCount,
+    cardFormat: games.cardFormat,
     rarity: prints.rarity,
     finishes: prints.finishes,
     printImageKey: prints.imageKey,
@@ -181,30 +185,39 @@ export class DrizzleCollectionStore implements CollectionStore {
     );
   }
 
-  private toPrint(r: {
-    printId: string;
-    cardId: string;
-    game: string;
-    setCode: string;
-    setName: string;
-    number: string;
-    rarity: string | null;
-    finishes: string[];
-    printImageKey: string | null;
-    printIds: Ids;
-    localizedName: string | null;
-    localizedImageKey: string | null;
-    localizedIds: Ids | null;
-    englishName: string | null;
-    cardName: string;
-  }): EntryPrint {
+  private toPrint(
+    r: {
+      printId: string;
+      cardId: string;
+      game: string;
+      setCode: string;
+      setName: string;
+      number: string;
+      cardCount: number | null;
+      cardFormat: string;
+      rarity: string | null;
+      finishes: string[];
+      printImageKey: string | null;
+      printIds: Ids;
+      localizedName: string | null;
+      localizedImageKey: string | null;
+      localizedIds: Ids | null;
+      englishName: string | null;
+      cardName: string;
+    },
+    language: string | null,
+  ): EntryPrint {
+    const game = r.game as Game;
     return {
       id: r.printId,
       cardId: r.cardId,
-      game: r.game as Game,
+      game,
       setCode: r.setCode,
       setName: r.setName,
       number: r.number,
+      // The copy is in its language, localization row or not (a wish for any language: English).
+      ...printNumbers({ ...r, game }, language ?? 'en', true),
+      cardFormat: r.cardFormat as CardFormat,
       name: r.localizedName ?? r.englishName ?? r.cardName,
       rarity: r.rarity,
       finishes: r.finishes,
@@ -423,6 +436,7 @@ export class DrizzleCollectionStore implements CollectionStore {
       .innerJoin(prints, eq(prints.id, collectionEntries.printId))
       .innerJoin(cards, eq(cards.id, prints.cardId))
       .innerJoin(sets, eq(sets.id, prints.setId))
+      .innerJoin(games, eq(games.id, sets.gameId))
       .leftJoin(
         localized,
         and(eq(localized.printId, prints.id), eq(localized.lang, collectionEntries.language)),
@@ -452,7 +466,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         note: e.note,
         createdAt: e.createdAt.toISOString(),
         updatedAt: e.updatedAt.toISOString(),
-        print: this.toPrint(r),
+        print: this.toPrint(r, e.language),
         price: this.priceOf(ctx, r, e.finish, condition, currency),
       };
     });
@@ -596,6 +610,7 @@ export class DrizzleCollectionStore implements CollectionStore {
       .innerJoin(prints, eq(prints.id, wishlistEntries.printId))
       .innerJoin(cards, eq(cards.id, prints.cardId))
       .innerJoin(sets, eq(sets.id, prints.setId))
+      .innerJoin(games, eq(games.id, sets.gameId))
       .leftJoin(
         localized,
         and(eq(localized.printId, prints.id), eq(localized.lang, wishlistEntries.language)),
@@ -624,7 +639,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         note: w.note,
         createdAt: w.createdAt.toISOString(),
         updatedAt: w.updatedAt.toISOString(),
-        print: this.toPrint(r),
+        print: this.toPrint(r, w.language),
         price: this.priceOf(
           ctx,
           r,

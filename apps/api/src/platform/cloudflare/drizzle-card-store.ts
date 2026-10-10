@@ -3,10 +3,11 @@ import {
   DEFAULT_CONDITION_FACTORS,
   downsampleHistory,
   pickDisplayPrice,
+  printNumbers,
   SOURCE_PREFERENCE,
   type CardStore,
 } from '@voidbinder/core';
-import type { Game } from '@voidbinder/shared';
+import type { CardFormat, Game } from '@voidbinder/shared';
 import { COPYRIGHT } from '@voidbinder/shared/notices';
 import type {
   Card,
@@ -285,12 +286,17 @@ export class DrizzleCardStore implements CardStore {
 
   async listGames(): Promise<GameSummary[]> {
     const rows = await this.catalog
-      .select({ id: games.id, name: games.name, setCount: sql<number>`count(${sets.id})::int` })
+      .select({
+        id: games.id,
+        name: games.name,
+        cardFormat: games.cardFormat,
+        setCount: sql<number>`count(${sets.id})::int`,
+      })
       .from(games)
       .leftJoin(sets, eq(sets.gameId, games.id))
       .groupBy(games.id)
       .orderBy(games.sort);
-    return rows.map((r) => ({ ...r, id: r.id as Game }));
+    return rows.map((r) => ({ ...r, id: r.id as Game, cardFormat: r.cardFormat as CardFormat }));
   }
 
   private setSummaries(lang: string) {
@@ -413,7 +419,7 @@ export class DrizzleCardStore implements CardStore {
       ],
     }[query.sort];
 
-    const [[count], rows, rarities, finishes, languages] = await Promise.all([
+    const [[count], rows, rarities, finishes, languages, [format]] = await Promise.all([
       this.catalog
         .select({ total: sql<number>`count(*)::int` })
         .from(prints)
@@ -431,6 +437,7 @@ export class DrizzleCardStore implements CardStore {
           externalIds: prints.externalIds,
           localizedImageKey: localized.imageKey,
           localizedIds: localized.externalIds,
+          localizedLang: localized.lang,
           market: {
             cents: market.cents,
             currency: market.currency,
@@ -463,7 +470,9 @@ export class DrizzleCardStore implements CardStore {
         .innerJoin(prints, eq(prints.id, printLocalizations.printId))
         .where(inSet)
         .orderBy(printLocalizations.lang),
+      this.catalog.select({ cardFormat: games.cardFormat }).from(games).where(eq(games.id, game)),
     ]);
+    const cardFormat = (format?.cardFormat ?? 'standard') as CardFormat;
 
     return {
       set: { ...set, game },
@@ -471,6 +480,12 @@ export class DrizzleCardStore implements CardStore {
         id: r.id,
         cardId: r.cardId,
         number: r.number,
+        ...printNumbers(
+          { game, setCode: set.code, number: r.number, cardCount: set.cardCount },
+          query.lang,
+          r.localizedLang !== null,
+        ),
+        cardFormat,
         variant: r.variant,
         name: r.name,
         rarity: r.rarity,
@@ -496,9 +511,15 @@ export class DrizzleCardStore implements CardStore {
   /** Prints with set and localizations, newest first. */
   private async printDetails(where: SQL): Promise<PrintDetail[]> {
     const rows = await this.catalog
-      .select({ print: prints, set: { game: sets.gameId, code: sets.code, name: sets.name } })
+      .select({
+        print: prints,
+        set: { game: sets.gameId, code: sets.code, name: sets.name },
+        cardCount: sets.cardCount,
+        cardFormat: games.cardFormat,
+      })
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
+      .innerJoin(games, eq(games.id, sets.gameId))
       .where(where)
       .orderBy(
         sql`${prints.releasedOn} desc nulls last`,
@@ -519,7 +540,13 @@ export class DrizzleCardStore implements CardStore {
       )
       .orderBy(printLocalizations.lang);
 
-    return rows.map(({ print: p, set }) => {
+    return rows.map(({ print: p, set, cardCount, cardFormat }) => {
+      const shown = (lang: string) =>
+        printNumbers(
+          { game: set.game as Game, setCode: set.code, number: p.number, cardCount },
+          lang,
+          true,
+        );
       // The image URLs are served as imageUrl.
       const externalIds = { ...p.externalIds };
       delete externalIds.scryfall_images;
@@ -535,6 +562,8 @@ export class DrizzleCardStore implements CardStore {
         cardId: p.cardId,
         set: { ...set, game: set.game as Game },
         number: p.number,
+        ...shown('en'),
+        cardFormat: cardFormat as CardFormat,
         variant: p.variant,
         rarity: p.rarity,
         finishes: p.finishes,
@@ -549,6 +578,7 @@ export class DrizzleCardStore implements CardStore {
             name: l.name,
             text: l.text,
             imageUrl: this.imageUrl(l.lang, l, p),
+            ...shown(l.lang),
           })),
       };
     });
@@ -657,6 +687,9 @@ export class DrizzleCardStore implements CardStore {
       game: Game;
       set_code: string;
       set_name: string;
+      card_count: number | null;
+      card_format: CardFormat;
+      localized: boolean;
     };
     const [count, rows] = await Promise.all([
       this.catalog.execute<{ total: number }>(
@@ -672,7 +705,7 @@ export class DrizzleCardStore implements CardStore {
             ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
             ${sets.id} as set_id, ${sets.gameId} as game, ${sets.code} as set_code,
             ${sets.name} as set_name, ${sets.releasedOn} as released_on, hits.rank,
-            ${NUMBER_VALUE} as number_value
+            ${sets.cardCount} as card_count, ${NUMBER_VALUE} as number_value
           ${joins}
           where ${where}
           order by hits.rank desc, ${cards.name}, ${sets.releasedOn} desc nulls last, ${sets.code},
@@ -685,8 +718,10 @@ export class DrizzleCardStore implements CardStore {
           localized.image_key as localized_image_key, localized.external_ids as localized_ids,
           market.cents as price_cents, market.currency as price_currency,
           market.source as price_source, market.finish as price_finish,
-          market.observed_at as price_observed_at, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
+          market.observed_at as price_observed_at, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name,
+          page.card_count, g.card_format, localized.print_id is not null as localized
         from page
+        join ${games} g on g.id = page.game
         left join ${printLocalizations} localized
           on localized.print_id = page.id and localized.lang = ${query.lang}
         left join ${printLocalizations} english
@@ -706,11 +741,19 @@ export class DrizzleCardStore implements CardStore {
         order by page.rank desc, page.card_name, page.released_on desc nulls last, page.set_code,
           page.number_value nulls last, page.number, page.variant`),
     ]);
+    const { code: typed } = parseCodeQuery(query.q);
     return {
       prints: rows.rows.map((r) => ({
         id: r.id,
         cardId: r.card_id,
         number: r.number,
+        ...printNumbers(
+          { game: r.game, setCode: r.set_code, number: r.number, cardCount: r.card_count },
+          query.lang,
+          r.localized,
+          typed,
+        ),
+        cardFormat: r.card_format,
         variant: r.variant,
         name: r.name,
         rarity: r.rarity,
@@ -790,6 +833,9 @@ export class DrizzleCardStore implements CardStore {
       game: Game;
       set_code: string;
       set_name: string;
+      card_count: number | null;
+      card_format: CardFormat;
+      localized: boolean;
     };
     const rows = await this.catalog.execute<Row>(sql`
       with code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
@@ -852,11 +898,13 @@ export class DrizzleCardStore implements CardStore {
         ${prints.rarity}, ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
         localized.image_key as localized_image_key, localized.external_ids as localized_ids,
         ${sets.gameId} as game, ${sets.code} as set_code,
-        coalesce(set_l.name, ${sets.name}) as set_name
+        coalesce(set_l.name, ${sets.name}) as set_name, ${sets.cardCount} as card_count,
+        ${games.cardFormat} as card_format, localized.print_id is not null as localized
       from top
       left join ${prints} on top.kind = 'print' and ${prints.id} = top.id
       left join ${cards} on ${cards.id} = ${prints.cardId}
       join ${sets} on ${sets.id} = coalesce(${prints.setId}, top.id)
+      join ${games} on ${games.id} = ${sets.gameId}
       left join ${printLocalizations} localized
         on localized.print_id = ${prints.id} and localized.lang = ${query.lang}
       left join ${printLocalizations} english
@@ -875,6 +923,13 @@ export class DrizzleCardStore implements CardStore {
           game: r.game,
           set,
           number: r.number ?? '',
+          ...printNumbers(
+            { game: r.game, setCode: r.set_code, number: r.number ?? '', cardCount: r.card_count },
+            query.lang,
+            r.localized,
+            key,
+          ),
+          cardFormat: r.card_format,
           variant: r.variant ?? '',
           rarity: r.rarity,
           imageUrl: this.imageUrl(

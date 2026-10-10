@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
+  check,
   customType,
   date,
   index,
@@ -27,11 +28,17 @@ const timestamps = {
 };
 
 /** 'mtg' | 'pokemon' | 'yugioh' | 'onepiece', seeded by the migration. */
-export const games = pgTable('games', {
-  id: text('id').primaryKey(),
-  name: text('name').notNull(),
-  sort: smallint('sort').notNull(),
-});
+export const games = pgTable(
+  'games',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    sort: smallint('sort').notNull(),
+    /** `CARD_FORMATS` key (@voidbinder/shared): the card's size, for the image boxes (VB-97). */
+    cardFormat: text('card_format').notNull().default('standard'),
+  },
+  (t) => [check('games_card_format_check', sql`${t.cardFormat} in ('standard', 'japanese')`)],
+);
 
 export const sets = pgTable(
   'sets',
