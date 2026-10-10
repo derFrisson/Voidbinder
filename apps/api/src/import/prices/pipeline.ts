@@ -308,7 +308,13 @@ export async function importGroups(
           });
       }
       const written = await writePrices(db, rows, opts.observedAt);
-      return { priced, written, noMarket, artworks: await writeArtworkFlags(db, flags) };
+      return {
+        priced,
+        written,
+        noMarket,
+        // Only Yu-Gi-Oh!'s products flag; its stale flags go with this set's run.
+        artworks: await writeArtworkFlags(db, flags, regional ? setId : null),
+      };
     });
 
     // A reprint left out of the matching counts as a card all the same.

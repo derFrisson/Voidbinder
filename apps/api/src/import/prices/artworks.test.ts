@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { PrintResponseSchema } from '@voidbinder/shared/api';
-import { cards, prints, sets } from '../../db/schema';
+import { cards, priceMappings, prints, sets } from '../../db/schema';
 import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
 import { mirrorImages, type MirrorDeps } from '../images';
@@ -246,5 +246,39 @@ describe.skipIf(!databaseUrl)('Extended Art from TCGplayer (Postgres, VB-119)', 
     ).toBe(0);
     expect((await run()).stats).toMatchObject({ games: { yugioh: { artworks: 0 } } });
     expect(await artwork(ids.banditStr ?? '')).toMatchObject(yugipedia('Bandit-StR.png'));
+  });
+
+  it('removes the flag of a print its product no longer prices', async () => {
+    // An admin moves both Starlight Rare products to a print no product prices.
+    const remap = async (product: number, from: string) => {
+      const [p] = await db.select().from(prints).where(eq(prints.id, from));
+      if (!p) throw new Error(`no print ${from}`);
+      const [to] = await db
+        .insert(prints)
+        .values({
+          ...p,
+          id: undefined,
+          externalIds: {},
+          variant: 'qcsr',
+          rarity: 'Quarter Century Secret Rare',
+        })
+        .returning({ id: prints.id });
+      await db
+        .update(priceMappings)
+        .set({ printId: to?.id ?? '', method: 'manual' })
+        .where(eq(priceMappings.externalId, String(product)));
+      return to?.id ?? '';
+    };
+    const exceedQcr = await remap(719879, ids.exceedStr ?? '');
+    const banditQcr = await remap(719866, ids.banditStr ?? '');
+    expect((await run()).stats).toMatchObject({ games: { yugioh: { artworks: 4 } } });
+    // The flag alone was TCGplayer's: the artwork goes; the gallery's scan stays.
+    expect(await artwork(ids.exceedStr ?? '')).toBeUndefined();
+    expect(await artwork(ids.banditStr ?? '')).toEqual({
+      file: 'Bandit-StR.png',
+      url: 'https://ms.yugipedia.com/x/Bandit-StR.png',
+    });
+    expect(await artwork(exceedQcr)).toMatchObject({ alt: 'EA', tcgplayer_product: 719879 });
+    expect(await artwork(banditQcr)).toMatchObject({ alt: 'EA', tcgplayer_product: 719866 });
   });
 });

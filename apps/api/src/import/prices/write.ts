@@ -238,26 +238,49 @@ export interface ArtworkFlag {
  * 'tcgplayer'` and `tcgplayer_product`, on prints without an alt code of the gallery's; plus the
  * product image as `url` where the gallery gave no scan (`file`, its own or a sibling's), so the
  * image mirror shows it (`showsScan`). The galleries' writes replace it, keeping a code theirs
- * lacks (`writeArtworks`); the importers keep it (`keepArtwork`). Returns the prints changed.
+ * lacks (`writeArtworks`); the importers keep it (`keepArtwork`). A flag of `setId`'s prints that
+ * this run's rows no longer give (its product now prices another print) is removed in the same
+ * transaction: `alt`, `alt_source`, `tcgplayer_product` and, without a `file`, `url`. Returns the
+ * prints changed.
  */
-export async function writeArtworkFlags(db: Db, rows: ArtworkFlag[]): Promise<number> {
+export async function writeArtworkFlags(
+  db: Db,
+  rows: ArtworkFlag[],
+  setId: string | null,
+): Promise<number> {
   // One per print: the first product's.
   const unique = [...new Map(rows.map((r) => [r.printId, r])).values()];
-  if (!unique.length) return 0;
   const artwork = sql`(${prints.externalIds} -> 'artwork')`;
+  // What a stale flag leaves: the gallery's keys (its `url` only with its `file`).
+  const left = sql`${artwork} - (array['alt', 'alt_source', 'tcgplayer_product']
+    || case when ${artwork} ? 'file' then '{}'::text[] else array['url'] end)`;
   const next = sql`coalesce(${artwork}, '{}'::jsonb)
     || jsonb_build_object('alt', v.alt, 'alt_source', 'tcgplayer', 'tcgplayer_product', v.product)
     || case when v.url is null or coalesce(${artwork} ? 'file', false) then '{}'::jsonb
       else jsonb_build_object('url', v.url) end`;
-  const done = await db.execute(sql`
-    update ${prints} set external_ids = ${prints.externalIds} || jsonb_build_object('artwork', ${next})
-    from jsonb_to_recordset(${JSON.stringify(
-      unique.map((r) => ({ id: r.printId, alt: r.alt, product: r.productId, url: r.url })),
-    )}::jsonb) as v(id uuid, alt text, product bigint, url text)
-    where ${prints.id} = v.id
-      and (coalesce(${artwork} ->> 'alt', '') = '' or ${artwork} ->> 'alt_source' = 'tcgplayer')
-      and ${artwork} is distinct from ${next}`);
-  return done.rowCount ?? 0;
+  return db.transaction(async (tx) => {
+    const stripped = setId
+      ? await tx.execute(sql`
+          update ${prints} set external_ids = case when ${left} = '{}'::jsonb
+            then ${prints.externalIds} - 'artwork'
+            else ${prints.externalIds} || jsonb_build_object('artwork', ${left}) end
+          where ${prints.setId} = ${setId}
+            and ${artwork} ->> 'alt_source' = 'tcgplayer'
+            and ${prints.id}::text not in (
+              select jsonb_array_elements_text(${JSON.stringify(unique.map((r) => r.printId))}::jsonb))`)
+      : null;
+    const done = unique.length
+      ? await tx.execute(sql`
+          update ${prints} set external_ids = ${prints.externalIds} || jsonb_build_object('artwork', ${next})
+          from jsonb_to_recordset(${JSON.stringify(
+            unique.map((r) => ({ id: r.printId, alt: r.alt, product: r.productId, url: r.url })),
+          )}::jsonb) as v(id uuid, alt text, product bigint, url text)
+          where ${prints.id} = v.id
+            and (coalesce(${artwork} ->> 'alt', '') = '' or ${artwork} ->> 'alt_source' = 'tcgplayer')
+            and ${artwork} is distinct from ${next}`)
+      : null;
+    return (stripped?.rowCount ?? 0) + (done?.rowCount ?? 0);
+  });
 }
 
 export interface PriceRow {
