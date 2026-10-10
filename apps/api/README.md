@@ -238,7 +238,7 @@ face. Old School legality is per print at Scryfall and is not kept on the card.
 R2 layout (the private bucket `voidbinder-raw`, binding `RAW`, shared by all environments;
 `<env>` is the `IMPORT_ENV` var: `local` for `wrangler dev`, `dev`, `prod`). The raw dumps never
 go to the public `voidbinder-catalog` (`CATALOG`): republishing them breaks Scryfall's terms, and
-its `R2BlobStore` refuses every key outside `images/`.
+its `R2BlobStore` refuses every key outside `images/` and `modules/`.
 
 | Key                                                        | What                                        |
 | ---------------------------------------------------------- | ------------------------------------------- |
@@ -522,6 +522,19 @@ The catalog responses build `imageUrl` from `IMAGE_BASE_URL` + `image_key` and f
 source URL until the image is mirrored. `GET /catalog/cards/:id` and `GET /catalog/prints/:id`
 also carry `copyright`, the game's line from `@voidbinder/shared/notices` (which also exports the
 per-game notices and the Scryfall attribution); the card page shows it with the print's `artist`.
+
+## Offline catalog modules
+
+`scripts/build-catalog-module.ts` (VB-29) builds one SQLite file per game (sets, cards, prints,
+`en`/`de` localizations, image keys, the display price per print, finish and currency, an FTS5
+name index) from the catalog with the read-only mirror role, gzips it and diffs it against the
+previous module into a delta of row upserts and deletes; with `--upload` it publishes both and
+`manifest.json` to `CATALOG` under `modules/<db>/<game>/`, skipping a game whose manifest already
+has the current `catalog_version`. A VPS timer runs it nightly at 06:30 UTC
+([runbook section 12](../../docs/guides/database-vps.md#12-offline-catalog-modules)).
+`GET /catalog/modules` (`src/routes/modules.ts`) answers the manifests of `modules/<IMPORT_ENV>/`,
+cached like the catalog. Schema, manifest and the app's contract:
+[docs/architecture/catalog-module.md](../../docs/architecture/catalog-module.md).
 
 ## Deploy
 

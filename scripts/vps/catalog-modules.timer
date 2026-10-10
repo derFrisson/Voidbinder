@@ -1,0 +1,11 @@
+# Starts catalog-modules.service daily at 06:30 UTC, after the import crons (last: dev 05:30) and
+# the image mirror (05:30), so the modules carry the day's image keys.
+[Unit]
+Description=Nightly Voidbinder offline catalog modules
+
+[Timer]
+OnCalendar=*-*-* 06:30:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target
