@@ -45,6 +45,8 @@ describe('displayCode', () => {
 describe('typedLanguage', () => {
   it('reads the token of a typed Yu-Gi-Oh! code', () => {
     expect(typedLanguage('yugioh', 'blggde024', 'blgg', 'EN024')).toBe('de');
+    // A set plus token without a number names nothing, not even EN000.
+    expect(typedLanguage('yugioh', 'lobde', 'lob', 'EN000')).toBeNull();
     expect(typedLanguage('yugioh', 'blggsp024', 'blgg', 'EN024')).toBe('es');
     expect(typedLanguage('yugioh', 'blggjp024', 'blgg', 'EN024')).toBe('ja');
     expect(typedLanguage('yugioh', 'blggen024', 'blgg', 'EN024')).toBe('en');

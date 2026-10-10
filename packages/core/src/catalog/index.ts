@@ -68,7 +68,10 @@ export function typedLanguage(
   const digits = (s: string) => key(s).replace(/^0+/, '');
   const set = key(setCode);
   const rest = code.slice(set.length);
-  return code.startsWith(set) && digits(rest.slice(2)) === digits(number.slice(2))
+  // A typed tail is required: `lobde` alone must not claim LOB-EN000.
+  return code.startsWith(set) &&
+    rest.length > 2 &&
+    digits(rest.slice(2)) === digits(number.slice(2))
     ? (TYPED[rest.slice(0, 2)] ?? null)
     : null;
 }
