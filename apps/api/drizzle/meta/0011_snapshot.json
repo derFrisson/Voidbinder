@@ -142,12 +142,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -194,9 +190,7 @@
         "rate_limit_key_unique": {
           "name": "rate_limit_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "key"
-          ]
+          "columns": ["key"]
         }
       },
       "policies": {},
@@ -279,12 +273,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -294,9 +284,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -374,12 +362,8 @@
           "name": "two_factor_user_id_user_id_fk",
           "tableFrom": "two_factor",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -487,9 +471,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -699,12 +681,8 @@
           "name": "cards_game_id_games_id_fk",
           "tableFrom": "cards",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -714,10 +692,7 @@
         "cards_game_id_oracle_key_key": {
           "name": "cards_game_id_oracle_key_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "game_id",
-            "oracle_key"
-          ]
+          "columns": ["game_id", "oracle_key"]
         }
       },
       "policies": {},
@@ -891,12 +866,8 @@
           "name": "legality_changes_card_id_cards_id_fk",
           "tableFrom": "legality_changes",
           "tableTo": "cards",
-          "columnsFrom": [
-            "card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["card_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -981,12 +952,8 @@
           "name": "print_localizations_print_id_prints_id_fk",
           "tableFrom": "print_localizations",
           "tableTo": "prints",
-          "columnsFrom": [
-            "print_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["print_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -994,10 +961,7 @@
       "compositePrimaryKeys": {
         "print_localizations_print_id_lang_pk": {
           "name": "print_localizations_print_id_lang_pk",
-          "columns": [
-            "print_id",
-            "lang"
-          ]
+          "columns": ["print_id", "lang"]
         }
       },
       "uniqueConstraints": {},
@@ -1152,12 +1116,8 @@
           "name": "prints_card_id_cards_id_fk",
           "tableFrom": "prints",
           "tableTo": "cards",
-          "columnsFrom": [
-            "card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["card_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1165,12 +1125,8 @@
           "name": "prints_set_id_sets_id_fk",
           "tableFrom": "prints",
           "tableTo": "sets",
-          "columnsFrom": [
-            "set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["set_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1180,11 +1136,7 @@
         "prints_set_id_number_variant_key": {
           "name": "prints_set_id_number_variant_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "set_id",
-            "number",
-            "variant"
-          ]
+          "columns": ["set_id", "number", "variant"]
         }
       },
       "policies": {},
@@ -1220,12 +1172,8 @@
           "name": "set_localizations_set_id_sets_id_fk",
           "tableFrom": "set_localizations",
           "tableTo": "sets",
-          "columnsFrom": [
-            "set_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["set_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1233,10 +1181,7 @@
       "compositePrimaryKeys": {
         "set_localizations_set_id_lang_pk": {
           "name": "set_localizations_set_id_lang_pk",
-          "columns": [
-            "set_id",
-            "lang"
-          ]
+          "columns": ["set_id", "lang"]
         }
       },
       "uniqueConstraints": {},
@@ -1347,12 +1292,8 @@
           "name": "sets_game_id_games_id_fk",
           "tableFrom": "sets",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1362,10 +1303,7 @@
         "sets_game_id_code_key": {
           "name": "sets_game_id_code_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "game_id",
-            "code"
-          ]
+          "columns": ["game_id", "code"]
         }
       },
       "policies": {},
@@ -1401,12 +1339,8 @@
           "name": "condition_multipliers_game_id_games_id_fk",
           "tableFrom": "condition_multipliers",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1414,10 +1348,7 @@
       "compositePrimaryKeys": {
         "condition_multipliers_game_id_condition_pk": {
           "name": "condition_multipliers_game_id_condition_pk",
-          "columns": [
-            "game_id",
-            "condition"
-          ]
+          "columns": ["game_id", "condition"]
         }
       },
       "uniqueConstraints": {},
@@ -1503,12 +1434,8 @@
           "name": "price_mappings_print_id_prints_id_fk",
           "tableFrom": "price_mappings",
           "tableTo": "prints",
-          "columnsFrom": [
-            "print_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["print_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1516,12 +1443,8 @@
           "name": "price_mappings_source_price_sources_id_fk",
           "tableFrom": "price_mappings",
           "tableTo": "price_sources",
-          "columnsFrom": [
-            "source"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1529,22 +1452,14 @@
       "compositePrimaryKeys": {
         "price_mappings_print_id_source_finish_pk": {
           "name": "price_mappings_print_id_source_finish_pk",
-          "columns": [
-            "print_id",
-            "source",
-            "finish"
-          ]
+          "columns": ["print_id", "source", "finish"]
         }
       },
       "uniqueConstraints": {
         "price_mappings_source_external_id_finish_key": {
           "name": "price_mappings_source_external_id_finish_key",
           "nullsNotDistinct": false,
-          "columns": [
-            "source",
-            "external_id",
-            "finish"
-          ]
+          "columns": ["source", "external_id", "finish"]
         }
       },
       "policies": {},
@@ -1656,12 +1571,8 @@
           "name": "prices_current_print_id_prints_id_fk",
           "tableFrom": "prices_current",
           "tableTo": "prints",
-          "columnsFrom": [
-            "print_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["print_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1669,12 +1580,8 @@
           "name": "prices_current_source_price_sources_id_fk",
           "tableFrom": "prices_current",
           "tableTo": "price_sources",
-          "columnsFrom": [
-            "source"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1682,11 +1589,7 @@
       "compositePrimaryKeys": {
         "prices_current_print_id_finish_source_pk": {
           "name": "prices_current_print_id_finish_source_pk",
-          "columns": [
-            "print_id",
-            "finish",
-            "source"
-          ]
+          "columns": ["print_id", "finish", "source"]
         }
       },
       "uniqueConstraints": {},
@@ -1752,12 +1655,7 @@
       "compositePrimaryKeys": {
         "prices_daily_print_id_finish_source_observed_at_pk": {
           "name": "prices_daily_print_id_finish_source_observed_at_pk",
-          "columns": [
-            "print_id",
-            "finish",
-            "source",
-            "observed_at"
-          ]
+          "columns": ["print_id", "finish", "source", "observed_at"]
         }
       },
       "uniqueConstraints": {},
@@ -1885,12 +1783,8 @@
           "name": "binders_user_id_user_id_fk",
           "tableFrom": "binders",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1898,12 +1792,8 @@
           "name": "binders_game_id_games_id_fk",
           "tableFrom": "binders",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2077,12 +1967,8 @@
           "name": "collection_entries_user_id_user_id_fk",
           "tableFrom": "collection_entries",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2090,12 +1976,8 @@
           "name": "collection_entries_print_id_prints_id_fk",
           "tableFrom": "collection_entries",
           "tableTo": "prints",
-          "columnsFrom": [
-            "print_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["print_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2103,12 +1985,8 @@
           "name": "collection_entries_binder_id_binders_id_fk",
           "tableFrom": "collection_entries",
           "tableTo": "binders",
-          "columnsFrom": [
-            "binder_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["binder_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2287,12 +2165,8 @@
           "name": "wishlist_entries_user_id_user_id_fk",
           "tableFrom": "wishlist_entries",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2300,12 +2174,8 @@
           "name": "wishlist_entries_print_id_prints_id_fk",
           "tableFrom": "wishlist_entries",
           "tableTo": "prints",
-          "columnsFrom": [
-            "print_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["print_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2377,12 +2247,8 @@
           "name": "deck_entries_deck_id_decks_id_fk",
           "tableFrom": "deck_entries",
           "tableTo": "decks",
-          "columnsFrom": [
-            "deck_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deck_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2390,12 +2256,8 @@
           "name": "deck_entries_card_id_cards_id_fk",
           "tableFrom": "deck_entries",
           "tableTo": "cards",
-          "columnsFrom": [
-            "card_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["card_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2403,12 +2265,8 @@
           "name": "deck_entries_print_id_prints_id_fk",
           "tableFrom": "deck_entries",
           "tableTo": "prints",
-          "columnsFrom": [
-            "print_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["print_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -2416,11 +2274,7 @@
       "compositePrimaryKeys": {
         "deck_entries_deck_id_card_id_zone_pk": {
           "name": "deck_entries_deck_id_card_id_zone_pk",
-          "columns": [
-            "deck_id",
-            "card_id",
-            "zone"
-          ]
+          "columns": ["deck_id", "card_id", "zone"]
         }
       },
       "uniqueConstraints": {},
@@ -2550,12 +2404,8 @@
           "name": "decks_user_id_user_id_fk",
           "tableFrom": "decks",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2563,12 +2413,8 @@
           "name": "decks_game_id_games_id_fk",
           "tableFrom": "decks",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
