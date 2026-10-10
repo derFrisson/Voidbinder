@@ -3,6 +3,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
 import { chromium, type Browser, type Locator, type Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { history as priceHistory, printPrices } from './prices';
 
 // The exported web build (`pnpm build`, which turbo runs before the tests) served by the Worker
 // that ships (`wrangler dev`), in real Chromium. The API is faked with Playwright routes, so no
@@ -855,12 +856,19 @@ describe('web build', () => {
   };
   it.each([
     [1440, 'two columns'],
+    [1600, 'three zones'],
     [1760, 'three zones'],
     [2048, 'three zones'],
     [390, 'one column'],
   ] as const)('lays out the card page at %i px in %s', async (width, zones) => {
     const { context, page, csp } = await open({ width, height: 1000 });
     try {
+      // With prices: the panel is what the three zones are sized for (a later route wins).
+      await page.route('**/api/catalog/prints/**', (route) => {
+        const [, id, history] =
+          /\/prints\/([^/]+)\/prices(\/history)?/.exec(route.request().url()) ?? [];
+        return route.fulfill({ json: history ? priceHistory : { ...printPrices, printId: id } });
+      });
       await page.goto(`${origin}/cards/${YGO_CARD}`);
       const heading = (name: string) => page.getByRole('heading', { level: 2, name });
       await heading('Drucke und Varianten').waitFor();
@@ -885,14 +893,33 @@ describe('web build', () => {
         if (width >= 1180) expect(text.y).toBe(legality.y);
         else expect(text.y).toBeGreaterThan(legality.y);
       }
+      if (zones === 'three zones') {
+        // Both price sources side by side, each condition chip on one line (it is a price panel,
+        // not a table: a chip that wraps its price is taller than the Near Mint one).
+        const [cm, tcg] = await Promise.all([
+          rect(page.getByText('Cardmarket', { exact: true })),
+          rect(page.getByText('TCGplayer', { exact: true })),
+        ]);
+        expect(tcg.y).toBe(cm.y);
+        const chips = page
+          .getByRole('group', { name: 'Zustand' })
+          .locator('xpath=./*[position()>1]');
+        const heights = await chips.evaluateAll((els) =>
+          els.map((e) => Math.round(e.getBoundingClientRect().height)),
+        );
+        expect(heights.length).toBeGreaterThan(1);
+        expect(new Set(heights).size).toBe(1);
+      }
       // The catalog width: 1760 px once the window has room for it (rail 80, gutters 2 × 32).
       const main = await rect(page.getByRole('main'));
       if (width >= 1904) expect(main.width).toBe(1760);
-      // The set name keeps to one line (two on a phone), its full name stays the link's text.
+      // The set name keeps to one line, two where the prints table is the compact one (a phone, and
+      // the 440 px third zone below 1760 px); its full name stays the link's text.
+      const compact = width < 1024 || (width >= 1600 && width < 1760);
       const set = page.getByRole('table', { name: 'Drucke und Varianten' }).getByRole('link', {
         name: 'Legend of Blue Eyes White Dragon: Anniversary Pack',
       });
-      expect((await rect(set)).height).toBeLessThan(width < 768 ? 44 : 24);
+      expect((await rect(set)).height).toBeLessThan(compact ? 44 : 24);
       // The copies line follows the format name with a gap, or sits under it.
       for (const copies of ['2 Kopien', '1 Kopie']) {
         const line = page.getByText(copies, { exact: true });
