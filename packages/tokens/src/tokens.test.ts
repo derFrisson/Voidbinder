@@ -85,6 +85,9 @@ describe('contrast (docs/site/design.md)', () => {
     // site never sets green text on okSoft.
     ['okInk', 'surface'],
     ['blueInk', 'page'],
+    // Small print (price labels, source footers) sits on the card panel's surface2 (VB-101).
+    ['ink3', 'surface'],
+    ['ink3', 'surface2'],
   ] as const;
 
   it.each((['light', 'dark'] as const).flatMap((s) => pairs.map(([fg, bg]) => [s, fg, bg])))(

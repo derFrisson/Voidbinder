@@ -298,29 +298,47 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
       <View role="list" aria-label={h.label} className="gap-2">
         {entries.map((e) => (
           <View key={e.id} role="listitem" className="gap-2">
-            <Pressable
-              role="button"
-              aria-expanded={editing === e.id}
-              aria-label={fmt(h.edit, { name: e.print.name })}
-              onPress={() => toggle(e.id)}
-              className={`flex-row items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 ${editing === e.id ? 'border-blue' : 'border-line'}`}
+            <View
+              className={`flex-row items-center rounded-xl border bg-surface ${editing === e.id ? 'border-blue' : 'border-line'}`}
             >
-              <Thumb print={e.print} />
-              <View className="min-w-0 flex-1">
-                <Text numberOfLines={1} className="font-display text-[15px] font-semibold text-ink">
-                  {e.print.name}
+              {/* The picture opens the card in the copy's language (VB-108); the rest of the row edits. */}
+              <Link
+                href={hitHref({ cardId: e.print.cardId, id: e.print.id, lang: e.language }, locale)}
+                asChild
+              >
+                <Pressable
+                  aria-label={e.print.name}
+                  className="min-h-[44px] justify-center self-stretch py-2.5 pl-3 pr-3"
+                >
+                  <Thumb print={e.print} />
+                </Pressable>
+              </Link>
+              <Pressable
+                role="button"
+                aria-expanded={editing === e.id}
+                aria-label={fmt(h.edit, { name: e.print.name })}
+                onPress={() => toggle(e.id)}
+                className="min-w-0 flex-1 flex-row items-center gap-3 py-2.5 pr-3"
+              >
+                <View className="min-w-0 flex-1">
+                  <Text
+                    numberOfLines={1}
+                    className="font-display text-[15px] font-semibold text-ink"
+                  >
+                    {e.print.name}
+                  </Text>
+                  <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
+                    {e.print.displayNumber} · {e.language.toUpperCase()} · {e.condition} ·{' '}
+                    {label(t.card.finishes, e.finish)}
+                  </Text>
+                </View>
+                <Text className="font-mono text-[13px] text-ink-2">{e.quantity}×</Text>
+                <PriceLang lang={e.price?.lang} shown={e.language} />
+                <Text className="min-w-[64px] text-right font-mono text-sm font-semibold text-ink">
+                  {amount(total(e), e)}
                 </Text>
-                <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
-                  {e.print.displayNumber} · {e.language.toUpperCase()} · {e.condition} ·{' '}
-                  {label(t.card.finishes, e.finish)}
-                </Text>
-              </View>
-              <Text className="font-mono text-[13px] text-ink-2">{e.quantity}×</Text>
-              <PriceLang lang={e.price?.lang} shown={e.language} />
-              <Text className="min-w-[64px] text-right font-mono text-sm font-semibold text-ink">
-                {amount(total(e), e)}
-              </Text>
-            </Pressable>
+              </Pressable>
+            </View>
             {editing === e.id && (
               <EditEntry entry={e} binders={binders} onClose={() => setEditing(null)} />
             )}

@@ -114,6 +114,27 @@ describe('card page', () => {
     expect(screen.getAllByRole('row')).toHaveLength(3);
   });
 
+  it('remembers the card with the print and language it is shown in (VB-108)', async () => {
+    vi.mocked(useLocalSearchParams).mockReturnValue({
+      id: CARD,
+      print: '11111111-1111-4111-8111-111111111111',
+      lang: 'en',
+    });
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined));
+    renderApp(<CardPage />);
+    await screen.findAllByText('Adeline, Resplendent Cathar');
+    expect(JSON.parse(localStorage.getItem('voidbinder.recent') ?? '[]')).toEqual([
+      {
+        kind: 'card',
+        game: 'mtg',
+        id: CARD,
+        name: 'Adeline, Resplendent Cathar',
+        printId: '11111111-1111-4111-8111-111111111111',
+        lang: 'en',
+      },
+    ]);
+  });
+
   it('shows how many copies the Yu-Gi-Oh! lists allow next to the status', async () => {
     renderApp(<Legality game="yugioh" legalities={{ tcg: 'Limited', ocg: 'Forbidden' }} />);
     expect(await screen.findByText('limitiert')).toBeTruthy();

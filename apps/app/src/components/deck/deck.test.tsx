@@ -250,6 +250,25 @@ function wrapper({ children }: { children: ReactNode }) {
 const putBody = (calls: Call[]) =>
   (calls.findLast((c) => c.method === 'PUT')?.body as { entries: unknown[] } | undefined)?.entries;
 
+/**
+ * Types into the card search with its 250 ms debounce shortened to nothing, so the request goes out
+ * at once instead of whenever a loaded CI runner gets to the timer; the tests' ordinary findBy
+ * then only waits for the answer. (A fake clock would also freeze the fake API's own timers.)
+ */
+async function typeSearch(text: string) {
+  const box = await screen.findByLabelText('Karte suchen');
+  const real = globalThis.setTimeout;
+  const spy = vi
+    .spyOn(globalThis, 'setTimeout')
+    .mockImplementation(((fn: () => void, ms?: number, ...args: unknown[]) =>
+      real(fn, ms === 250 ? 0 : ms, ...args)) as typeof setTimeout);
+  try {
+    fireEvent.change(box, { target: { value: text } });
+  } finally {
+    spy.mockRestore();
+  }
+}
+
 describe('deck helpers', () => {
   it('words problems in the user’s language, zones included', () => {
     const p = deck.analysis.problems[0];
@@ -406,14 +425,8 @@ describe('deck screen', () => {
   it('adds a search hit to the open zone with the hit as preferred print', async () => {
     const calls = deckApi();
     renderApp(<DeckPage />);
-    fireEvent.change(await screen.findByLabelText('Karte suchen'), {
-      target: { value: 'nebel' },
-    });
-    // The search waits out its 250 ms debounce first: on a loaded CI runner that and the answer
-    // take longer than findBy's default second.
-    fireEvent.click(
-      await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' }, { timeout: 5000 }),
-    );
+    await typeSearch('nebel');
+    fireEvent.click(await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' }));
     await waitFor(() =>
       expect(putBody(calls)).toContainEqual({
         cardId: id(5),
@@ -436,9 +449,7 @@ describe('deck screen', () => {
   it('marks a search hit’s price only when it is for another language than the hit’s', async () => {
     deckApi();
     renderApp(<DeckPage />);
-    fireEvent.change(await screen.findByLabelText('Karte suchen'), {
-      target: { value: 'nebel' },
-    });
+    await typeSearch('nebel');
     const hit = (name: RegExp) =>
       within(screen.getByRole('button', { name }).closest('[role="listitem"]') as HTMLElement);
     await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' });
@@ -450,14 +461,8 @@ describe('deck screen', () => {
   it('lands two quick adds, and an Extra Deck monster in the extra deck', async () => {
     const calls = deckApi();
     renderApp(<DeckPage />);
-    fireEvent.change(await screen.findByLabelText('Karte suchen'), {
-      target: { value: 'nebel' },
-    });
-    const addHit = await screen.findByRole(
-      'button',
-      { name: 'Nebelschwinge hinzufügen' },
-      { timeout: 5000 },
-    );
+    await typeSearch('nebel');
+    const addHit = await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' });
     fireEvent.click(addHit);
     fireEvent.click(addHit);
     fireEvent.click(screen.getByRole('button', { name: 'Nebeldrache hinzufügen' }));
