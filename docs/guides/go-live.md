@@ -245,7 +245,11 @@ curl -s -o /dev/null -w '%{http_code}\n' https://api.voidbinder.de/admin/import/
 the previous version, the secret-only stub) or `wrangler deployments list --env prod` and
 `wrangler rollback <version-id> --env prod`. The stub keeps the custom domain but answers
 nothing useful; to take the hostname away entirely, remove `api.voidbinder.de` under Workers →
-voidbinder-api → Settings → Domains. The crons go with the rolled-back version.
+voidbinder-api → Settings → Domains. Cron triggers are not part of a Worker version: the five
+crons keep firing against the stub, which has no scheduled handler. Delete them too: dashboard →
+Workers → voidbinder-api → Settings → Triggers → delete each cron trigger (not `wrangler triggers
+deploy --env prod`, which reads the crons from the config and re-adds them). **Verify:** Triggers
+shows no cron. The next `pnpm --filter api deploy:prod` restores them.
 
 ### 6. Deploy the web app (5 min)
 
@@ -444,15 +448,15 @@ go, but before the URL is shared widely.
 
 ## Rollback overview
 
-| Part         | How                                                                                                                                       |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| API Worker   | `wrangler rollback [version-id] --env prod` from `apps/api` (the last 100 versions; bindings must still exist); or remove the domain      |
-| App Worker   | First deploy: remove `app.voidbinder.de` or `wrangler delete --env prod`; later `wrangler rollback --env prod`                            |
-| Site Worker  | `wrangler rollback --env prod` from `apps/site`                                                                                           |
-| Database     | Migrations are additive only; restore the pgBackRest backup point of step 3 for a full undo (runbook section 7)                           |
-| Catalog data | Upserts, idempotent; re-run an import to repair, never delete                                                                             |
-| VPS timers   | `systemctl --user revert image-mirror.service catalog-modules.service`                                                                    |
-| Secrets      | A rollback keeps today's secrets; `ADMIN_TOKEN` can be rotated any time, never rotate `BETTER_AUTH_SECRET` or `TWO_FACTOR_ENCRYPTION_KEY` |
+| Part         | How                                                                                                                                                                                                                                        |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| API Worker   | `wrangler rollback [version-id] --env prod` from `apps/api` (the last 100 versions; bindings must still exist); or remove the domain. Then delete the five cron triggers in the dashboard (they are not part of a version and keep firing) |
+| App Worker   | First deploy: remove `app.voidbinder.de` or `wrangler delete --env prod`; later `wrangler rollback --env prod`                                                                                                                             |
+| Site Worker  | `wrangler rollback --env prod` from `apps/site`                                                                                                                                                                                            |
+| Database     | Migrations are additive only; restore the pgBackRest backup point of step 3 for a full undo (runbook section 7)                                                                                                                            |
+| Catalog data | Upserts, idempotent; re-run an import to repair, never delete                                                                                                                                                                              |
+| VPS timers   | `systemctl --user revert image-mirror.service catalog-modules.service`                                                                                                                                                                     |
+| Secrets      | A rollback keeps today's secrets; `ADMIN_TOKEN` can be rotated any time, never rotate `BETTER_AUTH_SECRET` or `TWO_FACTOR_ENCRYPTION_KEY`                                                                                                  |
 
 ## Time
 
