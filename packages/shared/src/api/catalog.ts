@@ -168,16 +168,31 @@ export type PrintResponse = z.infer<typeof PrintResponseSchema>;
 /** Page size of `GET /catalog/search`. */
 export const SEARCH_PAGE_SIZE = 30;
 
-/** `GET /catalog/search?q=&game=&set=&rarity=&lang=&finish=&page=` (VB-35). Filters are exact. */
+/**
+ * Which names `q` matches (VB-79): `all` (every language's name and the English card name) or a
+ * language code, whose localized names alone then match (prints without one drop out). Set
+ * codes and numbers match either way.
+ */
+export const SearchNamesSchema = z.union([z.literal('all'), LangSchema]).default('all');
+
+/**
+ * `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` (VB-35). Filters are
+ * exact.
+ */
 export const SearchQuerySchema = z.object({
-  /** websearch syntax (`"exact phrase"`, `-not`, `or`); the last word matches as a prefix. */
+  /**
+   * websearch syntax (`"exact phrase"`, `-not`, `or`); the last word matches as a prefix. A set
+   * code with a number (`LDS3-EN121`, `sv1 001`), a bare set code or a number (`121`, `001/128`)
+   * finds those prints first; names similar to `q` answer when no name matches (VB-79).
+   */
   q: z.string().trim().min(2).max(80),
   game: GameSchema.optional(),
   /** Set code, lowercase as in `/catalog/sets/:game/:code`. */
   set: z.string().trim().toLowerCase().max(32).optional(),
   rarity: z.string().max(32).optional(),
-  /** Language of the names; the app sends the user's. Names fall back to English. */
+  /** Language the names are shown in; the app sends the user's. Names fall back to English. */
   lang: LangSchema.default('en'),
+  names: SearchNamesSchema,
   finish: z.string().max(32).optional(),
   /** Picks the source of each hit's `marketPrice`, as on the set page. */
   currency: CurrencySchema.default('EUR'),
@@ -195,7 +210,7 @@ export const SearchHitSchema = PrintSummarySchema.extend({
 });
 export type SearchHit = z.infer<typeof SearchHitSchema>;
 
-/** Prints whose card or localization matches, ranked by `ts_rank`, then by name. */
+/** Code matches first, then prints whose card or localization matches by `ts_rank`, then by name. */
 export const SearchResponseSchema = z.object({
   prints: z.array(SearchHitSchema),
   page: z.number().int(),
