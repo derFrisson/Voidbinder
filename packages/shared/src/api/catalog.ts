@@ -88,6 +88,8 @@ export const PrintSummarySchema = z.object({
   finishes: z.array(z.string()),
   imageUrl: z.url().nullable(),
   ...ImageInfoSchema.shape,
+  /** A Yu-Gi-Oh! Extended Art print (VB-106, Yugipedia's set gallery); absent otherwise. */
+  extendedArt: z.literal(true).optional(),
   /**
    * Market price of the `normal` finish (the first finish without one); a print without a price
    * for it falls back to a finish it has one for (Yu-Gi-Oh!: `first_edition`). null without any.
@@ -161,6 +163,8 @@ export const PrintDetailSchema = z.object({
   releasedOn: z.iso.date().nullable(),
   imageUrl: z.url().nullable(),
   ...ImageInfoSchema.shape,
+  /** A Yu-Gi-Oh! Extended Art print (VB-106, Yugipedia's set gallery); absent otherwise. */
+  extendedArt: z.literal(true).optional(),
   /** Ids at other sources: `scryfall`, `tcgplayer`, `cardmarket`, `mtgo`, `arena`, … */
   externalIds: z.record(z.string(), z.unknown()),
   localizations: z.array(PrintLocalizationSchema),
