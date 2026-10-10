@@ -10,8 +10,12 @@ import { IMAGE_LANGS, resolveImage, type ImagePick } from './image';
  */
 export const MAX_INDEX_AGE_MS = 36 * 3_600_000;
 
-/** Names the trigram index hands the similarity check (the best by bm25). */
-const FUZZY_CANDIDATES = 300;
+/**
+ * Names the trigram index hands the similarity check (the best by bm25). Postgres checks every
+ * name; on 266 sampled queries against the full local catalog 300 cut 3 names Postgres ranked 4th
+ * to 8th, 500 matched every answer (typo queries 33 ms local median, 26 ms at 300).
+ */
+const FUZZY_CANDIDATES = 500;
 
 /** pg_trgm's default `similarity_threshold`, the `%` operator of the Postgres search. */
 const SIMILARITY_THRESHOLD = 0.3;

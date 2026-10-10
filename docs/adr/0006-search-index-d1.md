@@ -59,7 +59,12 @@ SQLite file: the offline catalog modules (VB-29) cannot be loaded into it.
 - Two places rank the typeahead. The parity test (`d1-search-index.test.ts`) runs the same
   queries against both and expects identical answers; a change to the Postgres typeahead needs the
   same change in `d1-search-index.ts`. Both end their orderings in an id, so ties answer the same.
-  Names equal in length sort by the database's collation in Postgres and by bytes in D1.
+  Names equal in length sort by the database's collation in Postgres and by bytes in D1; the
+  fuzzy tier checks only the 500 names FTS5 ranks best, Postgres every name. A one-off check of
+  266 sampled queries (prefixes, typos, full names, German names, codes, set names) against the
+  full local catalog gave identical answers, all eight places; with 300 candidates three typo
+  queries lost a name in places 4 to 8. No collation difference showed up, so the Postgres ordering
+  keeps its collation.
 - Self-hosting without D1 works: without the `SEARCH` binding the typeahead reads Postgres.
 - Searching card texts from D1 would need the texts in the index (larger, and a ranking unlike
   `ts_rank`); that is a decision of its own.
