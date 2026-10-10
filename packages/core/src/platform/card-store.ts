@@ -1,5 +1,9 @@
 import type { Game } from '@voidbinder/shared';
 import type {
+  BanlistImpactQuery,
+  BanlistImpactResponse,
+  BanlistQuery,
+  BanlistResponse,
   CardQuery,
   CardResponse,
   GameSummary,
@@ -44,6 +48,20 @@ export interface CardStore {
    * query stays cacheable), thinned to weekly before the last 180 days; null when no such print.
    */
   getPriceHistory(id: string, days: number, today: string): Promise<PriceHistoryResponse | null>;
+  /**
+   * The Yu-Gi-Oh! ban list of a format with its changes since `since` (a UTC date the caller
+   * passes, so the query stays cacheable) (VB-81).
+   */
+  getBanlist(query: BanlistQuery, since: string): Promise<BanlistResponse>;
+  /**
+   * What of the user's collection and decks the ban list touches: cards changed since `since`,
+   * deck lines over the list's limit. Reads fresh, never from the catalog cache.
+   */
+  banlistImpact(
+    userId: string,
+    query: BanlistImpactQuery,
+    since: string,
+  ): Promise<BanlistImpactResponse>;
   /**
    * True while an import run of `source` is `running` and started less than 6 h ago (an older
    * one is taken as dead). Reads fresh, never from the catalog cache.
