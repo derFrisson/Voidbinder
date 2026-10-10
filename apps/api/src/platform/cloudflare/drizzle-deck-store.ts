@@ -2,6 +2,7 @@ import {
   analyzeDeck,
   cheapestPrice,
   deckGroup,
+  deckLimit,
   deckStat,
   missingCards,
   priceEntry,
@@ -55,6 +56,7 @@ type PrintRow = PrintPrices & {
   cardId: string;
   setCode: string;
   number: string;
+  rarity: string | null;
   imageKey: string | null;
   externalIds: Ids;
 };
@@ -120,8 +122,11 @@ export class DrizzleDeckStore implements DeckStore {
     const cardIds = [...new Set(entryRows.map((e) => e.cardId))];
     const names = [...new Set(entryRows.map((e) => e.name))];
     const games = [...new Set(rows.map((r) => r.gameId))];
+    const pokemonNames = [
+      ...new Set(entryRows.filter((e) => e.game === 'pokemon').map((e) => e.name)),
+    ];
 
-    const [printRows, priceRows, localRows, ownedRows, [total]] = await Promise.all([
+    const [printRows, priceRows, localRows, ownedRows, [total], pokemonRows] = await Promise.all([
       cardIds.length
         ? this.db
             .select({
@@ -129,6 +134,7 @@ export class DrizzleDeckStore implements DeckStore {
               cardId: prints.cardId,
               setCode: sets.code,
               number: prints.number,
+              rarity: prints.rarity,
               finishes: prints.finishes,
               imageKey: prints.imageKey,
               externalIds: prints.externalIds,
@@ -189,6 +195,13 @@ export class DrizzleDeckStore implements DeckStore {
         .select({ n: sql<number>`coalesce(sum(${collectionEntries.quantity}), 0)::int` })
         .from(collectionEntries)
         .where(and(eq(collectionEntries.userId, userId), isNull(collectionEntries.deletedAt))),
+      // Pokémon reprints are cards of their own: the legality of every card of the name.
+      pokemonNames.length
+        ? this.db
+            .select({ name: cards.name, legalities: cards.legalities })
+            .from(cards)
+            .where(and(eq(cards.gameId, 'pokemon'), inArray(cards.name, pokemonNames)))
+        : [],
     ]);
 
     const pricesByPrint = new Map<string, PrintPrices['prices'][number][]>();
@@ -212,6 +225,14 @@ export class DrizzleDeckStore implements DeckStore {
       list.push(row);
       printsByCard.set(p.cardId, list);
     }
+    // Per name and format: legal when any card of the name is.
+    const pokemonLegal = new Map<string, Record<string, string>>();
+    for (const r of pokemonRows) {
+      const merged = pokemonLegal.get(r.name) ?? {};
+      for (const [format, status] of Object.entries(r.legalities))
+        if (merged[format] !== 'legal') merged[format] = status;
+      pokemonLegal.set(r.name, merged);
+    }
     const localName = new Map(localRows.map((l) => [l.cardId, l.name]));
     const owned = new Map(ownedRows.map((o) => [`${o.game}:${o.name}`, o.n]));
     const cheapest = new Map(
@@ -228,8 +249,12 @@ export class DrizzleDeckStore implements DeckStore {
         label: localName.get(e.cardId) ?? e.name,
         typeLine: e.typeLine,
         text: e.text,
-        attributes: e.attributes,
-        legalities: e.legalities,
+        // The print's rarity (Pokémon's ACE SPEC, Prism Star) for the rules.
+        attributes: {
+          rarity: printsByCard.get(e.cardId)?.[0]?.rarity ?? null,
+          ...e.attributes,
+        },
+        legalities: (game === 'pokemon' && pokemonLegal.get(e.name)) || e.legalities,
         zone: e.zone as DeckZone,
         quantity: e.quantity,
       }));
@@ -253,6 +278,7 @@ export class DrizzleDeckStore implements DeckStore {
                 })
               : null;
         const stat: DeckStat | null = deckStat(game, c);
+        const limit = deckLimit(game, c, deck.format);
         return {
           cardId: c.cardId,
           printId: c.printId,
@@ -271,6 +297,7 @@ export class DrizzleDeckStore implements DeckStore {
               }
             : null,
           owned: owned.get(`${game}:${c.name}`) ?? 0,
+          limit: Number.isFinite(limit) ? limit : null,
           price,
         };
       });
@@ -278,7 +305,11 @@ export class DrizzleDeckStore implements DeckStore {
       const missing = missingCards(
         deckCards.map((c) => {
           const best = cheapest.get(c.cardId) ?? null;
-          const print = best ? printById.get(best.printId) : undefined;
+          // The priced print, else the preferred one, else the newest: a wish needs a print.
+          const print =
+            (best && printById.get(best.printId)) ||
+            (c.printId && printById.get(c.printId)) ||
+            printsByCard.get(c.cardId)?.[0];
           return {
             cardId: c.cardId,
             name: c.name,

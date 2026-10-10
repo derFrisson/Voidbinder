@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
-import { decks, prints, sets } from '../db/schema';
+import { cards, decks, prints, sets } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -252,6 +252,59 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
 
     // An empty list clears the deck.
     expect((await detail(put([]))).entries).toEqual([]);
+  });
+
+  it('reads Pokémon legality per name and gives a missing card without a price a print', async () => {
+    // Nest Ball of an old set (rotated out) and its legal reprint: TCGdex has a card for each.
+    const [oldSet, newSet] = await db
+      .insert(sets)
+      .values([
+        { gameId: 'pokemon', code: 'pk-old', name: 'Old' },
+        { gameId: 'pokemon', code: 'pk-new', name: 'New' },
+      ])
+      .returning();
+    const nestBall = (oracleKey: string, standard: string) => ({
+      gameId: 'pokemon',
+      name: 'Nest Ball',
+      oracleKey,
+      typeLine: 'Trainer - Item',
+      attributes: { category: 'Trainer' },
+      legalities: { standard, expanded: 'legal' },
+    });
+    const [oldCard, newCard] = await db
+      .insert(cards)
+      .values([nestBall('old-nest-ball', 'not_legal'), nestBall('new-nest-ball', 'legal')])
+      .returning();
+    if (!oldSet || !newSet || !oldCard || !newCard) throw new Error('insert failed');
+    const [oldPrint] = await db
+      .insert(prints)
+      .values([
+        { cardId: oldCard.id, setId: oldSet.id, number: '1' },
+        { cardId: newCard.id, setId: newSet.id, number: '1' },
+      ])
+      .returning();
+
+    const deck = await newDeck({ game: 'pokemon', name: 'Nest', format: 'standard' });
+    const d = await detail(
+      ash(`/decks/${deck.id}/entries`, {
+        method: 'PUT',
+        body: { entries: [{ cardId: oldCard.id, zone: 'main', quantity: 4 }] },
+      }),
+    );
+    // No `not_legal`: the reprint is legal in Standard.
+    expect(d.analysis.problems.map((p) => p.code)).toEqual(['wrong_size', 'no_basic_pokemon']);
+    expect(d.entries[0]).toMatchObject({ limit: 4 });
+    // No print has a price: the wish still gets one (the card's own).
+    expect(d.analysis.missing).toEqual([
+      expect.objectContaining({
+        cardId: oldCard.id,
+        englishName: 'Nest Ball',
+        printId: oldPrint?.id,
+        setCode: 'pk-old',
+        needed: 4,
+        unitPriceCents: null,
+      }),
+    ]);
   });
 
   it('checks a commander deck’s colour identity', async () => {
