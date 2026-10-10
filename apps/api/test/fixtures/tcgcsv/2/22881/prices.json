@@ -1,0 +1,43 @@
+{
+  "totalItems": 4,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 476180,
+      "lowPrice": 0.1,
+      "midPrice": 0.7,
+      "highPrice": 20.0,
+      "marketPrice": 1.2,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 476190,
+      "lowPrice": 0.2,
+      "midPrice": 0.3,
+      "highPrice": 20.0,
+      "marketPrice": null,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 476216,
+      "lowPrice": 0.9,
+      "midPrice": 5.7,
+      "highPrice": 50.0,
+      "marketPrice": null,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 476395,
+      "lowPrice": 29.0,
+      "midPrice": 423.0,
+      "highPrice": 826.0,
+      "marketPrice": 28.0,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    }
+  ]
+}

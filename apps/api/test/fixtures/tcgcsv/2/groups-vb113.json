@@ -1,0 +1,142 @@
+{
+  "totalItems": 15,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "groupId": 330,
+      "name": "The Legend of Blue Eyes White Dragon",
+      "abbreviation": "LOB",
+      "isSupplemental": false,
+      "publishedOn": "2002-03-08T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 22881,
+      "name": "Legend of Blue Eyes White Dragon (Worldwide English)",
+      "abbreviation": "LOB-EN",
+      "isSupplemental": false,
+      "publishedOn": "2005-10-05T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 23050,
+      "name": "Legend of Blue Eyes White Dragon (25th Anniversary Edition)",
+      "abbreviation": "LOB-EN",
+      "isSupplemental": false,
+      "publishedOn": "2023-04-21T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 255,
+      "name": "Metal Raiders",
+      "abbreviation": "MRD",
+      "isSupplemental": false,
+      "publishedOn": "2004-12-01T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 22882,
+      "name": "Metal Raiders (Worldwide English)",
+      "abbreviation": "MRD-EN",
+      "isSupplemental": false,
+      "publishedOn": "2004-12-01T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 23052,
+      "name": "Metal Raiders (25th Anniversary Edition)",
+      "abbreviation": "MRD-EN",
+      "isSupplemental": false,
+      "publishedOn": "2023-04-21T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 584,
+      "name": "Legendary Collection 3: Yugi's World",
+      "abbreviation": "LC03",
+      "isSupplemental": false,
+      "publishedOn": "2012-10-02T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 281,
+      "name": "Shonen Jump Magazine Promos",
+      "abbreviation": "SJMP",
+      "isSupplemental": false,
+      "publishedOn": "2017-12-01T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 1544,
+      "name": "Starter Deck: Dark Legion",
+      "abbreviation": "YS15-ENL",
+      "isSupplemental": false,
+      "publishedOn": "2015-05-29T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 1545,
+      "name": "Starter Deck: Saber Force",
+      "abbreviation": "YS15-ENF",
+      "isSupplemental": false,
+      "publishedOn": "2015-05-29T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 1877,
+      "name": "The Dark Side of Dimensions Movie Pack: Gold Edition",
+      "abbreviation": "MVP1-ENG",
+      "isSupplemental": true,
+      "publishedOn": "2017-01-13T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 2577,
+      "name": "The Dark Side of Dimensions Movie Pack: Secret Edition",
+      "abbreviation": "MVP1-ENS",
+      "isSupplemental": true,
+      "publishedOn": "2020-01-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 2322,
+      "name": "The Dark Side of Dimensions Movie Pack: Special Edition",
+      "abbreviation": "MVP1-SE",
+      "isSupplemental": true,
+      "publishedOn": "2018-09-07T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 1820,
+      "name": "The Dark Side of Dimensions Movie Pack",
+      "abbreviation": "MVP1",
+      "isSupplemental": false,
+      "publishedOn": "2016-07-22T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    },
+    {
+      "groupId": 2196,
+      "name": "The Lost Art Promotion",
+      "abbreviation": "LART",
+      "isSupplemental": true,
+      "publishedOn": "2026-10-09T20:00:05.6766899Z",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 2
+    }
+  ]
+}

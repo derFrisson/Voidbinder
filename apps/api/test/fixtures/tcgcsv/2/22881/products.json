@@ -1,0 +1,119 @@
+{
+  "totalItems": 4,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 476180,
+      "name": "Trial of Nightmare",
+      "cleanName": "Trial of Nightmare",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476180_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22881,
+      "url": "https://www.tcgplayer.com/product/476180/yugioh-legend-of-blue-eyes-white-dragon-worldwide-english-trial-of-nightmare",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN012"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 476190,
+      "name": "Monster Egg",
+      "cleanName": "Monster Egg",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476190_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22881,
+      "url": "https://www.tcgplayer.com/product/476190/yugioh-legend-of-blue-eyes-white-dragon-worldwide-english-monster-egg",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN017"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 476216,
+      "name": "Legendary Sword",
+      "cleanName": "Legendary Sword",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476216_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22881,
+      "url": "https://www.tcgplayer.com/product/476216/yugioh-legend-of-blue-eyes-white-dragon-worldwide-english-legendary-sword",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN040"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 476395,
+      "name": "Red-Eyes B. Dragon",
+      "cleanName": "Red Eyes B Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476395_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22881,
+      "url": "https://www.tcgplayer.com/product/476395/yugioh-legend-of-blue-eyes-white-dragon-worldwide-english-red-eyes-b-dragon",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN070"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    }
+  ]
+}

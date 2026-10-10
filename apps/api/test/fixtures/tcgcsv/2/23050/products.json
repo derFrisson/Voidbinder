@@ -1,0 +1,119 @@
+{
+  "totalItems": 4,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 486051,
+      "name": "Trial of Nightmare",
+      "cleanName": "Trial of Nightmare",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486051_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23050,
+      "url": "https://www.tcgplayer.com/product/486051/yugioh-legend-of-blue-eyes-white-dragon-25th-anniversary-edition-trial-of-nightmare",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN012"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 486063,
+      "name": "Monster Egg",
+      "cleanName": "Monster Egg",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486063_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23050,
+      "url": "https://www.tcgplayer.com/product/486063/yugioh-legend-of-blue-eyes-white-dragon-25th-anniversary-edition-monster-egg",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN017"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 486085,
+      "name": "Legendary Sword",
+      "cleanName": "Legendary Sword",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486085_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23050,
+      "url": "https://www.tcgplayer.com/product/486085/yugioh-legend-of-blue-eyes-white-dragon-25th-anniversary-edition-legendary-sword",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN040"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 486144,
+      "name": "Red-Eyes Black Dragon",
+      "cleanName": "Red Eyes Black Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486144_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23050,
+      "url": "https://www.tcgplayer.com/product/486144/yugioh-legend-of-blue-eyes-white-dragon-25th-anniversary-edition-red-eyes-black-dragon",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-EN070"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    }
+  ]
+}
