@@ -228,14 +228,54 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     expect(purged).toEqual([]);
   });
 
-  it('imports the same build again when forced (VB-111: a new matching rule)', async () => {
+  it('imports the same build again when forced: a group a new rule matches is mapped (VB-111)', async () => {
+    const answer = (results: object[]) => JSON.stringify({ success: true, errors: [], results });
+    // Between the runs the catalog gains the set `trc` (as a new matching rule would match the
+    // group): the first run left Commander: Star Trek (24770, `TRC`) unmatched.
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'mtg', code: 'trc', name: 'Commander: Star Trek' })
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'mtg', oracleKey: 'trc-kirk', name: 'Captain Kirk' })
+      .returning({ id: cards.id });
+    const [kirk] = await db
+      .insert(prints)
+      .values({
+        setId: set?.id ?? '',
+        cardId: card?.id ?? '',
+        number: '1',
+        finishes: ['nonfoil'],
+        externalIds: { tcgplayer: '700001' },
+      })
+      .returning({ id: prints.id });
     const before = await version();
     const requests: string[] = [];
     const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const { stats } = await run({ requests }, [], true);
+    const { stats } = await run(
+      {
+        requests,
+        files: {
+          '1/24770/products': answer([
+            {
+              productId: 700001,
+              name: 'Captain Kirk',
+              extendedData: [{ name: 'Number', value: '1' }],
+            },
+          ]),
+          '1/24770/prices': answer([
+            { productId: 700001, marketPrice: 3.5, subTypeName: 'Normal' },
+          ]),
+        },
+      },
+      [],
+      true,
+    );
     logged.mockRestore();
-    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 2, mapped: 4 } } });
-    expect(requests).toContain('https://tcgcsv.com/tcgplayer/1/2864/prices');
+    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 3, mapped: 5 } } });
+    expect(requests).toContain('https://tcgcsv.com/tcgplayer/1/24770/products');
+    expect(await current(kirk?.id ?? '')).toMatchObject([{ finish: 'normal', market: 350 }]);
     expect(await version()).toBe(before + 1);
   });
 
@@ -248,7 +288,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     const { stats } = await run({}, steps, true);
     const warnings = warned.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
     for (const spy of [unread, warned, quiet]) spy.mockRestore();
-    expect(stats).toMatchObject({ games: { mtg: { mapped: 4 } } });
+    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 3 } } });
     expect(steps).toContain('finish run');
     expect(await version()).toBe(before + 1);
     expect(warnings).toContainEqual(
