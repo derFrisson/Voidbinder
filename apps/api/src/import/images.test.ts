@@ -11,6 +11,7 @@ import {
   MirrorBusy,
   mirrorJobs,
   pendingRows,
+  writeKeys,
   planJobs,
   SourceRateLimited,
   sourceId,
@@ -41,6 +42,8 @@ describe('imageKey', () => {
   it('tells an sm key from an orig key', () => {
     expect(hasSm(`images/mtg/${ID}/en/sm.webp`)).toBe(true);
     expect(hasSm(`images/mtg/${ID}/en/orig.jpg`)).toBe(false);
+    expect(hasSm(`images/mtg/${ID}/en/sm-lowres.webp`)).toBe(true);
+    expect(hasSm(`images/mtg/${ID}/en/orig-lowres.jpg`)).toBe(false);
   });
 });
 
@@ -65,16 +68,18 @@ describe('sourceUrl', () => {
     expect(sourceUrl('mtg', { scryfall: 'abc' })).toBeNull();
   });
 
-  it('waits for a Scryfall high-res scan', () => {
-    const lowres = {
-      ...scryfall,
-      scryfall_images: {
-        ...scryfall.scryfall_images,
-        highres_image: false,
-        image_status: 'lowres',
-      },
-    };
-    expect(sourceUrl('mtg', lowres)).toBeNull();
+  const status = (image_status: string) => ({
+    ...scryfall,
+    scryfall_images: { ...scryfall.scryfall_images, highres_image: false, image_status },
+  });
+
+  it('waits for a Scryfall high-res scan unless low-res is allowed (prints)', () => {
+    const large = scryfall.scryfall_images.large;
+    expect(sourceUrl('mtg', status('lowres'))).toBeNull();
+    expect(sourceUrl('mtg', status('lowres'), { lowres: true })).toBe(large);
+    expect(sourceUrl('mtg', status('placeholder'), { lowres: true })).toBeNull();
+    expect(sourceUrl('mtg', status('missing'), { lowres: true })).toBeNull();
+    expect(sourceUrl('mtg', scryfall, { lowres: true })).toBe(large);
     const unknown = { ...scryfall.scryfall_images, highres_image: undefined };
     expect(sourceUrl('mtg', { scryfall_images: unknown })).toBeNull();
   });
@@ -331,6 +336,25 @@ describe('mirrorJobs', () => {
     expect(jobs[0]?.stored).toBe(false);
     expect(jobs[0]?.targets.map((t) => t.printId)).toEqual(['a', 'b']);
   });
+
+  it('names a low-res print scan -lowres and leaves a low-res localization alone', () => {
+    const ids = {
+      scryfall: ID,
+      scryfall_images: {
+        large: `https://cards.scryfall.io/large/front/0/b/${ID}.jpg?1`,
+        highres_image: false,
+        image_status: 'lowres',
+      },
+    };
+    const { jobs, noSource } = planJobs([
+      { table: 'prints', printId: 'a', lang: 'en', game: 'mtg', ids, key: null },
+      { table: 'print_localizations', printId: 'a', lang: 'de', game: 'mtg', ids, key: null },
+    ]);
+    expect(noSource).toBe(1);
+    expect(jobs.map((j) => j.keys)).toEqual([
+      { orig: `images/mtg/${ID}/en/orig-lowres.jpg`, sm: `images/mtg/${ID}/en/sm-lowres.webp` },
+    ]);
+  });
 });
 
 // The daily delta and the VPS catch-up against the Scryfall fixtures in a fresh database.
@@ -503,5 +527,91 @@ describe.skipIf(!databaseUrl)('image mirror backlog (Postgres)', () => {
         (_, i) => `https://cards.scryfall.io/large/${2001 + i}.jpg`,
       ).sort(),
     );
+  });
+});
+
+// Scryfall `lowres` scans: mirrored for prints under -lowres names, upgraded once the scan arrives.
+describe.skipIf(!databaseUrl)('image mirror low-res scans (Postgres)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  beforeAll(async () => {
+    ({ db, drop } = await freshDatabase());
+    // p1 low-res (with a low-res German localization), p2 placeholder, p3 a high-res sm key.
+    await db.execute(sql`
+      with s as (insert into sets (game_id, code, name) values ('mtg', 'tst', 'Test') returning id),
+        c as (insert into cards (game_id, name, oracle_key) values ('mtg', 'Card', 'o') returning id),
+        p as (insert into prints (card_id, set_id, number, external_ids, image_key)
+          select c.id, s.id, n::text, jsonb_build_object(
+              'scryfall', 'card-' || n,
+              'scryfall_images', jsonb_build_object(
+                'highres_image', n = 3,
+                'image_status', (array['lowres', 'placeholder', 'highres_scan'])[n],
+                'large', 'https://cards.scryfall.io/large/' || n || '.jpg?1')),
+            case when n = 3 then 'images/mtg/card-3/en/sm.webp' end
+          from s, c, generate_series(1, 3) n
+          returning id, number, external_ids)
+      insert into print_localizations (print_id, lang, name, external_ids)
+      select id, 'de', 'Karte', external_ids from p where number = '1'`);
+  });
+  afterAll(() => drop());
+
+  const key = async (number: string) =>
+    (
+      await db.execute<{ image_key: string | null }>(
+        sql`select image_key from prints where number = ${number}`,
+      )
+    ).rows[0]?.image_key;
+  const opts = { concurrency: 1, verify: false };
+
+  it('mirrors a low-res print under -lowres names; the sm catch-up reads it from the bucket', async () => {
+    const pending = await pendingRows(db, { game: 'mtg', sm: true });
+    // Only p1's print: never the placeholder, the localization or the high-res sm key.
+    expect(pending.map((r) => [r.table, r.lang, r.key])).toEqual([['prints', 'en', null]]);
+
+    // The Worker delta stores orig only.
+    const worker = fakeDeps({ resize: false });
+    await mirrorImages(worker.deps, db, { game: 'mtg' }, opts);
+    expect(await key('1')).toBe('images/mtg/card-1/en/orig-lowres.jpg');
+
+    const vps = fakeDeps();
+    for (const [k, o] of worker.store.objects) vps.store.objects.set(k, o);
+    await mirrorImages(vps.deps, db, { game: 'mtg', sm: true }, opts);
+    expect(vps.fetched).toEqual([]);
+    expect(await key('1')).toBe('images/mtg/card-1/en/sm-lowres.webp');
+    expect(vps.store.objects.has('images/mtg/card-1/en/sm-lowres.webp')).toBe(true);
+    expect(await pendingRows(db, { game: 'mtg', sm: true })).toEqual([]);
+    expect(await key('2')).toBeNull();
+  });
+
+  it('replaces the low-res key once Scryfall has the high-res scan', async () => {
+    await db.execute(sql`update prints set external_ids = jsonb_set(external_ids, '{scryfall_images}',
+      external_ids -> 'scryfall_images' || '{"highres_image": true, "image_status": "highres_scan",
+        "large": "https://cards.scryfall.io/large/1.jpg?2"}') where number = '1'`);
+    const pending = await pendingRows(db, { game: 'mtg' });
+    expect(pending.map((r) => r.table)).toEqual(['prints']);
+    const { deps, fetched, store } = fakeDeps();
+    await mirrorImages(deps, db, { game: 'mtg', sm: true }, opts);
+    expect(fetched).toEqual(['https://cards.scryfall.io/large/1.jpg?2']);
+    expect(store.objects.has('images/mtg/card-1/en/orig.jpg')).toBe(true);
+    expect(await key('1')).toBe('images/mtg/card-1/en/sm.webp');
+    expect(await pendingRows(db, { game: 'mtg', sm: true })).toEqual([]);
+    // The localization still has no key: it waits for its own high-res scan.
+    const [de] = await db.select({ key: printLocalizations.imageKey }).from(printLocalizations);
+    expect(de?.key).toBeNull();
+  });
+
+  it('never replaces a high-res key with a low-res one', async () => {
+    const [p3] = (await db.execute<{ id: string }>(sql`select id from prints where number = '3'`))
+      .rows;
+    const write = (k: string) =>
+      writeKeys(db, [{ table: 'prints', printId: p3?.id ?? '', lang: 'en', key: k }]);
+    await write('images/mtg/card-3/en/sm-lowres.webp');
+    await write('images/mtg/card-3/en/orig-lowres.jpg');
+    await write('images/mtg/card-3/en/orig.jpg');
+    expect(await key('3')).toBe('images/mtg/card-3/en/sm.webp');
+    await db.execute(sql`update prints set image_key = 'images/mtg/card-3/en/orig.jpg'
+      where number = '3'`);
+    await write('images/mtg/card-3/en/sm-lowres.webp');
+    expect(await key('3')).toBe('images/mtg/card-3/en/orig.jpg');
   });
 });

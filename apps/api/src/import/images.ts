@@ -12,8 +12,13 @@ import { USER_AGENT, type Fetch } from './scryfall/source';
 //
 // `image_key` is the `sm` key once that copy exists and the `orig` key until then, so the API
 // serves the small copy when there is one without asking R2 (`hasSm`).
+//
+// A Magic print whose Scryfall image is only `lowres` is mirrored too, under `orig-lowres.<ext>` /
+// `sm-lowres.webp`: the objects are immutable for a year, so the later high-res scan needs names of
+// its own. Once Scryfall flags the scan (`highres_image`), the row is pending again and its key is
+// replaced by the high-res one (`writeKeys` ranks the keys). Localizations wait for a high-res scan.
 
-export type ImageSize = 'orig' | 'sm';
+export type ImageSize = 'orig' | 'sm' | 'orig-lowres' | 'sm-lowres';
 /** Width of the `sm` copy; same aspect ratio, never enlarged. */
 export const SM_WIDTH = 320;
 export const IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
@@ -38,7 +43,7 @@ export function imageKey(
 }
 
 /** Whether an `image_key` names the `sm` copy (and so the `orig` next to it exists too). */
-export const hasSm = (key: string): boolean => key.endsWith('/sm.webp');
+export const hasSm = (key: string): boolean => /\/sm(-lowres)?\.webp$/.test(key);
 
 /** File extension of an image URL's path (`jpg`, `png`, `webp`), null for anything else. */
 export function extension(url: string): string | null {
@@ -58,18 +63,28 @@ export const IMAGE_ID_FIELDS = [
 
 const https = (v: unknown) => (typeof v === 'string' && v.startsWith('https://') ? v : null);
 
+/** A Scryfall image that is a `lowres` scan, not (yet) a high-res one. */
+export function lowresScan(game: string, ids: Record<string, unknown>): boolean {
+  const uris = (ids.scryfall_images ?? {}) as Record<string, unknown>;
+  return game === 'mtg' && uris.highres_image !== true && uris.image_status === 'lowres';
+}
+
 /**
  * The URL of the image to mirror from a print's or localization's `external_ids`, null when it
- * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, only for a high-res scan
- * (`highres_image`; a low-res or placeholder image stays keyless, so the API keeps Scryfall's URL
- * until a later run finds the scan) and never its "missing image" placeholder; YGOPRODeck
- * `image_url`; TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, for a high-res scan
+ * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
+ * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
+ * placeholder; YGOPRODeck `image_url`; TCGdex `tcgdex_images.high` (`<image>/high.webp`).
  */
-export function sourceUrl(game: string, ids: Record<string, unknown>): string | null {
+export function sourceUrl(
+  game: string,
+  ids: Record<string, unknown>,
+  opts: { lowres?: boolean } = {},
+): string | null {
   switch (game) {
     case 'mtg': {
       const uris = (ids.scryfall_images ?? {}) as Record<string, unknown>;
-      if (uris.highres_image !== true) return null;
+      if (uris.highres_image !== true && !(opts.lowres && lowresScan(game, ids))) return null;
       const url = https(uris.large) ?? https(uris.normal) ?? https(uris.png);
       return url && new URL(url).hostname !== 'errors.scryfall.com' ? url : null;
     }
@@ -151,7 +166,7 @@ export interface ImageTarget {
 export interface ImageJob {
   game: string;
   url: string;
-  keys: Record<ImageSize, string>;
+  keys: { orig: string; sm: string };
   contentType: string;
   /** A target already has the `orig` key: read it from the bucket instead of the source. */
   stored: boolean;
@@ -167,31 +182,37 @@ export interface PendingRow extends ImageTarget {
 
 /**
  * Groups rows by source URL. The first row of a URL names the keys; the rest reuse them (a print
- * and its English localization, a Yu-Gi-Oh! card in several sets share one image).
+ * and its English localization, a Yu-Gi-Oh! card in several sets share one image). A print's
+ * low-res scan gets the `-lowres` names and a job of its own.
  */
 export function planJobs(rows: PendingRow[]): { jobs: ImageJob[]; noSource: number } {
   const byUrl = new Map<string, ImageJob>();
   let noSource = 0;
   for (const { game, ids, key: current, ...target } of rows) {
-    const url = sourceUrl(game, ids);
+    const isPrint = target.table === 'prints';
+    const url = sourceUrl(game, ids, { lowres: isPrint });
     const ext = url && extension(url);
     const id = url && sourceId(game, ids, url);
     if (!url || !ext || !id) {
       noSource++;
       continue;
     }
-    let job = byUrl.get(url);
+    const lowres = isPrint && lowresScan(game, ids);
+    const group = lowres ? `lowres ${url}` : url;
+    let job = byUrl.get(group);
     if (!job) {
       const key = (size: ImageSize, e: string) => imageKey(game, id, target.lang, size, e);
       job = {
         game,
         url,
-        keys: { orig: key('orig', ext), sm: key('sm', 'webp') },
+        keys: lowres
+          ? { orig: key('orig-lowres', ext), sm: key('sm-lowres', 'webp') }
+          : { orig: key('orig', ext), sm: key('sm', 'webp') },
         contentType: CONTENT_TYPES[ext] ?? 'application/octet-stream',
         stored: false,
         targets: [],
       };
-      byUrl.set(url, job);
+      byUrl.set(group, job);
     }
     if (current === job.keys.orig) job.stored = true;
     job.targets.push(target);
@@ -370,17 +391,27 @@ const imageIds = (column: SQLWrapper) =>
   )})`;
 
 /**
- * Rows `sourceUrl` can mirror (the same conditions in SQL), or that already have a key (`sm`
- * reads `orig` back from the bucket). Filtered before the limit, so rows without a source
- * image never fill a capped run and block the rows behind them.
+ * Rows `sourceUrl` can mirror (the same conditions in SQL, `lowres` for prints only), or that
+ * already have a key (`sm` reads `orig` back from the bucket). Filtered before the limit, so rows
+ * without a source image never fill a capped run and block the rows behind them. A `-lowres` key
+ * is work again once the high-res scan is there.
  */
-const needsWork = (ids: SQLWrapper, key: SQLWrapper, sm: boolean | undefined) => {
+const needsWork = (
+  table: ImageTarget['table'],
+  ids: SQLWrapper,
+  key: SQLWrapper,
+  sm: boolean | undefined,
+) => {
+  const highres = sql`coalesce(${ids} -> 'scryfall_images' ->> 'highres_image', 'false') = 'true'`;
+  const lowres =
+    table === 'prints' ? sql` or ${ids} -> 'scryfall_images' ->> 'image_status' = 'lowres'` : sql``;
   const mirrorable = sql`(${key} is not null
-    or (${sets.gameId} = 'mtg'
-      and coalesce(${ids} -> 'scryfall_images' ->> 'highres_image', 'false') = 'true')
+    or (${sets.gameId} = 'mtg' and (${highres}${lowres}))
     or (${sets.gameId} = 'yugioh' and ${ids} ->> 'image_url' is not null)
     or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
-  const todo = sm ? sql`(${key} is null or ${key} not like '%/sm.webp')` : sql`${key} is null`;
+  const todo = sql`(${key} is null
+    ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}
+    or (${key} like '%-lowres.%' and ${highres}))`;
   return sql`${todo} and ${mirrorable}`;
 };
 
@@ -405,7 +436,7 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
         ${imageIds(prints.externalIds)} as ids, ${prints.imageKey} as key,
         ${prints.createdAt} as created_at
       from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
-      where ${needsWork(prints.externalIds, prints.imageKey, q.sm)}${where}
+      where ${needsWork('prints', prints.externalIds, prints.imageKey, q.sm)}${where}
       union all
       select ${printLocalizations.printId}, ${printLocalizations.lang}, 1, ${sets.gameId},
         ${imageIds(printLocalizations.externalIds)}, ${printLocalizations.imageKey},
@@ -413,7 +444,7 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
       from ${printLocalizations}
         join ${prints} on ${prints.id} = ${printLocalizations.printId}
         join ${sets} on ${sets.id} = ${prints.setId}
-      where ${needsWork(printLocalizations.externalIds, printLocalizations.imageKey, q.sm)}${where}
+      where ${needsWork('print_localizations', printLocalizations.externalIds, printLocalizations.imageKey, q.sm)}${where}
     ) r
     order by created_at, print_id, t, lang
     ${q.limit ? sql`limit ${q.limit}` : sql``}`);
@@ -427,7 +458,11 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
   }));
 }
 
-/** Sets `image_key` on rows without one; an `sm` key also replaces an `orig` key. */
+/**
+ * Sets `image_key` on rows without one, or replaces a key the new one outranks: `sm.webp`, then
+ * `orig.<ext>`, then `sm-lowres.webp`, then `orig-lowres.<ext>`. So `sm` replaces `orig` and a
+ * high-res scan replaces a low-res one, never the other way round.
+ */
 export async function writeKeys(db: Db, rows: (ImageTarget & { key: string })[]) {
   const json = (table: ImageTarget['table']) =>
     JSON.stringify(
@@ -435,8 +470,13 @@ export async function writeKeys(db: Db, rows: (ImageTarget & { key: string })[])
         .filter((r) => r.table === table)
         .map(({ printId, lang, key }) => ({ id: printId, lang, key })),
     );
+  const rank = (key: SQLWrapper) => sql`case
+    when ${key} like '%/sm.webp' then 4
+    when ${key} like '%/sm-lowres.webp' then 2
+    when ${key} like '%-lowres.%' then 1
+    else 3 end`;
   const replaceable = (key: SQLWrapper) =>
-    sql`(${key} is null or (v.key like '%/sm.webp' and ${key} not like '%/sm.webp'))`;
+    sql`(${key} is null or ${rank(sql`v.key`)} > ${rank(key)})`;
   await db.execute(sql`
     update ${prints} set image_key = v.key
     from jsonb_to_recordset(${json('prints')}::jsonb) as v(id uuid, lang text, key text)
