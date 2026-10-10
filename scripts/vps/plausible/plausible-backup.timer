@@ -1,0 +1,10 @@
+# Starts plausible-backup.service daily at 02:00 UTC.
+[Unit]
+Description=Daily Plausible Postgres dump
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

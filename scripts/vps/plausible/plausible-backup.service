@@ -1,0 +1,9 @@
+# Daily pg_dump of Plausible's Postgres (VB-74), a systemd user unit for `ubuntu` on the database
+# VPS; started by plausible-backup.timer. Installation: docs/guides/analytics-plausible.md.
+[Unit]
+Description=Plausible Postgres dump
+
+[Service]
+Type=oneshot
+Environment=DOCKER_HOST=unix://%t/docker.sock
+ExecStart=%h/voidbinder/scripts/vps/plausible/backup.sh

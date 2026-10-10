@@ -1,0 +1,8 @@
+# /etc/caddy/Caddyfile on the database VPS (VB-74). Caddy gets and renews the Let's Encrypt
+# certificate by itself and forwards to Plausible on loopback.
+plausible.voidbinder.de {
+	reverse_proxy 127.0.0.1:8000 {
+		# Plausible trusts this header above all others for the visitor IP; only we may set it.
+		header_up -X-Plausible-IP
+	}
+}
