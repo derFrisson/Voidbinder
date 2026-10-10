@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GameSchema } from '../index.js';
+import { CardFormatSchema, GameSchema } from '../index.js';
 import { LangSchema, SearchNamesSchema } from './catalog.js';
 
 // Search typeahead (VB-79). The full search (`GET /catalog/search`) lives in catalog.ts.
@@ -30,6 +30,11 @@ export const SearchSuggestionSchema = z.object({
   game: GameSchema,
   set: z.object({ code: z.string(), name: z.string() }),
   number: z.string().optional(),
+  /** As on SearchHit: a typed language token (`BLGG-DE024`) wins over `?lang=`. */
+  displayNumber: z.string().optional(),
+  displayCode: z.string().optional(),
+  matchedCode: z.string().optional(),
+  cardFormat: CardFormatSchema.optional(),
   variant: z.string().optional(),
   rarity: z.string().nullable().optional(),
   imageUrl: z.url().nullable().optional(),

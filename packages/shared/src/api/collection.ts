@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GameSchema } from '../index.js';
+import { CardFormatSchema, GameSchema } from '../index.js';
 import { LangSchema } from './catalog.js';
 import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
@@ -80,6 +80,10 @@ export const EntryPrintSchema = z.object({
   setCode: z.string(),
   setName: z.string(),
   number: z.string(),
+  /** The number and code in the entry's language (a German copy: `DE024`), as on PrintSummary. */
+  displayNumber: z.string(),
+  displayCode: z.string(),
+  cardFormat: CardFormatSchema,
   /** Name in the entry's language, else English. */
   name: z.string(),
   rarity: z.string().nullable(),
