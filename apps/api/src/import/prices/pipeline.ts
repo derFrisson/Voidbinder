@@ -2,13 +2,7 @@ import { failRun, finishRun } from '../scryfall/write';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
-import {
-  coverageCounts,
-  groupsKey,
-  priceCoverage,
-  readGroups,
-  type PriceCoverage,
-} from './coverage';
+import { coverageCounts, groupsKey, priceCoverage, readGroups } from './coverage';
 import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
 import {
   CATEGORIES,
@@ -232,12 +226,6 @@ export async function runTcgcsvImport(
     }
 
     const games: Partial<Record<PricedGame, GameStats>> = {};
-    const coverage: Partial<
-      Record<
-        PricedGame,
-        { counts: ReturnType<typeof coverageCounts>; unpriced: PriceCoverage['unpricedSets'] }
-      >
-    > = {};
     for (const game of opts.games ?? GAMES) {
       const category = CATEGORIES[game];
       const { total, matched } = await step(`groups ${game}`, async () => {
@@ -273,21 +261,24 @@ export async function runTcgcsvImport(
           g[k] += r[k];
       }
       games[game] = g;
-      // From the group list just kept, so the route and the log read the same thing.
-      coverage[game] = await step(`coverage ${game}`, async () => {
-        const groups = (await readGroups(deps.raw, groupsKey(raw, game))) ?? [];
-        const c = await deps.withDb((db) => priceCoverage(db, game, groups));
-        return { counts: coverageCounts(c), unpriced: c.unpricedSets };
+      // From the group list just kept, so the route and the log read the same thing. Logged inside
+      // the step (a Workflow replays a finished step's result, not its body), and never fatal: the
+      // prices are written by now.
+      await step(`coverage ${game}`, async () => {
+        try {
+          const groups = (await readGroups(deps.raw, groupsKey(raw, game))) ?? [];
+          const c = await deps.withDb((db) => priceCoverage(db, game, groups));
+          const counts = coverageCounts(c);
+          log('info', { message: 'price coverage', game, ...counts });
+          for (const set of c.unpricedSets)
+            log('warn', { message: 'set has a TCGplayer group and no price', game, ...set });
+          return counts;
+        } catch (err) {
+          log('warn', { message: 'price coverage failed', game, error: String(err) });
+          return null;
+        }
       });
     }
-    const covered = Object.entries(coverage);
-    log('info', {
-      message: 'price coverage',
-      ...Object.fromEntries(covered.map(([game, c]) => [game, c.counts])),
-    });
-    for (const [game, c] of covered)
-      for (const set of c.unpriced)
-        log('warn', { message: 'set has a TCGplayer group and no price', game, ...set });
 
     // `raw`: where the run kept its answers, the group lists of the coverage route among them.
     const stats = { lastUpdated: observedAt, raw, games };

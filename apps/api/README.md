@@ -742,10 +742,11 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    reprints, which the catalog folds into the set) is left unmapped.
 4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
    with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
-   have a group but no priced print, from the group list the run just kept. Logged as one line
-   `price coverage` per run (per game `sets`, `setsWithGroup`, `setsPriced`, `prints`, `priced`,
-   `unmatchedGroups`, `unpricedSets`) and a WARN `set has a TCGplayer group and no price` per such
-   set.
+   have a group but no priced print, from the group list the run just kept. Logged in the step as
+   one line `price coverage` per game (`game`, `sets`, `setsWithGroup`, `setsPriced`, `prints`,
+   `priced`, `unmatchedGroups`, `unpricedSets`) and a WARN `set has a TCGplayer group and no
+price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
+   on (the prices are written by then).
 5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
    (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
    run's `RAW` prefix) and `catalog_version` + 1.

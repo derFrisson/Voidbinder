@@ -155,8 +155,17 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     expect(lines).toContainEqual(
       expect.objectContaining({
         message: 'price coverage',
-        mtg: expect.objectContaining({ setsWithGroup: 2, unmatchedGroups: 1 }),
-        pokemon: expect.objectContaining({ sets: 0, unmatchedGroups: 3 }),
+        game: 'mtg',
+        setsWithGroup: 2,
+        unmatchedGroups: 1,
+      }),
+    );
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        message: 'price coverage',
+        game: 'pokemon',
+        sets: 0,
+        unmatchedGroups: 3,
       }),
     );
     // The purge reaches every page that shows a price, not only the price routes.
@@ -228,6 +237,27 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 2, mapped: 4 } } });
     expect(requests).toContain('https://tcgcsv.com/tcgplayer/1/2864/prices');
     expect(await version()).toBe(before + 1);
+  });
+
+  it('never fails the run on the coverage: it WARNs and goes on (VB-111)', async () => {
+    const before = await version();
+    const unread = vi.spyOn(blobs, 'get').mockRejectedValue(new Error('RAW unreachable'));
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const steps: string[] = [];
+    const { stats } = await run({}, steps, true);
+    const warnings = warned.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
+    for (const spy of [unread, warned, quiet]) spy.mockRestore();
+    expect(stats).toMatchObject({ games: { mtg: { mapped: 4 } } });
+    expect(steps).toContain('finish run');
+    expect(await version()).toBe(before + 1);
+    expect(warnings).toContainEqual(
+      expect.objectContaining({
+        message: 'price coverage failed',
+        game: 'mtg',
+        error: 'Error: RAW unreachable',
+      }),
+    );
   });
 
   it('keeps one prices_daily row per print, finish, source and day', async () => {
