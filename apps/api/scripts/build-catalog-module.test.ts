@@ -17,6 +17,8 @@ import {
   diffModules,
   MAX_DELTAS,
   nextManifest,
+  plan,
+  prune,
   SCHEMA_VERSION,
   TABLES,
 } from './build-catalog-module';
@@ -54,6 +56,122 @@ function search(path: string, query: string) {
     db.close();
   }
 }
+
+describe('plan', () => {
+  const published = { version: 5, schemaVersion: SCHEMA_VERSION };
+  const base = {
+    published,
+    current: 7,
+    localVersions: [3, 5],
+    version: 7,
+    upload: true,
+    schemaVersion: SCHEMA_VERSION,
+  };
+  it.each([
+    ['nothing published: no delta', { published: null }, { skip: false, from: null }],
+    ['up to date: skip', { current: 5, version: 5 }, { skip: true, from: null }],
+    ['published v5 with v5 local: delta from v5', {}, { skip: false, from: 5 }],
+    [
+      'published module missing locally: no delta',
+      { localVersions: [3] },
+      { skip: false, from: null },
+    ],
+    [
+      'schema bump: no skip, no delta',
+      { published: { ...published, schemaVersion: 0 } },
+      { skip: false, from: null },
+    ],
+    [
+      'schema bump on the same version: rebuilt, no delta',
+      { published: { version: 7, schemaVersion: 0 }, current: 7 },
+      { skip: false, from: null },
+    ],
+    [
+      'no upload: newest older local module',
+      { upload: false, published: null },
+      { skip: false, from: 5 },
+    ],
+    [
+      'no upload: none older',
+      { upload: false, published: null, localVersions: [7, 9] },
+      { skip: false, from: null },
+    ],
+  ])('%s', (_name, change, expected) => {
+    expect(plan({ ...base, ...change })).toEqual(expected);
+  });
+});
+
+describe('prune', () => {
+  const file = (name: string) => `https://img.example.test/modules/dev/mtg/${name}`;
+  const manifest = (version: number, deltas: [number, number][]) =>
+    ModuleManifestSchema.parse({
+      game: 'mtg',
+      version,
+      schemaVersion: SCHEMA_VERSION,
+      minAppSchemaVersion: 1,
+      builtAt: BUILT_AT,
+      module: {
+        url: file(`catalog-mtg-v${version}.sqlite.gz`),
+        size: 1,
+        sha256: 'a'.repeat(64),
+        rawSize: 1,
+        rawSha256: 'b'.repeat(64),
+      },
+      deltas: deltas.map(([from, to]) => ({
+        from,
+        to,
+        url: file(`catalog-mtg-v${from}-v${to}.sql.gz`),
+        size: 1,
+        sha256: 'c'.repeat(64),
+      })),
+    });
+
+  it('keeps the manifest, its files and the previous module, deletes the rest', async () => {
+    const keys = new Set(
+      [
+        'manifest.json',
+        'catalog-mtg-v1.sqlite.gz',
+        'catalog-mtg-v3.sqlite.gz',
+        'catalog-mtg-v5.sqlite.gz',
+        'catalog-mtg-v1-v3.sql.gz',
+        'catalog-mtg-v3-v5.sql.gz',
+        'catalog-mtg-v5-v7.sql.gz',
+        'catalog-mtg-v7.sqlite.gz',
+      ].map((f) => `modules/dev/mtg/${f}`),
+    );
+    keys.add('modules/dev/pokemon/catalog-pokemon-v1.sqlite.gz');
+    const store = {
+      list: async (prefix: string) => [...keys].filter((k) => k.startsWith(prefix)),
+      delete: async (key: string) => void keys.delete(key),
+    };
+    const previous = manifest(5, [[3, 5]]);
+    const next = manifest(7, [[5, 7]]);
+    const deleted = await prune(store, 'modules/dev/mtg', next, previous);
+    expect(deleted.sort()).toEqual(
+      [
+        'catalog-mtg-v1.sqlite.gz',
+        'catalog-mtg-v3.sqlite.gz',
+        'catalog-mtg-v1-v3.sql.gz',
+        'catalog-mtg-v3-v5.sql.gz',
+      ]
+        .map((f) => `modules/dev/mtg/${f}`)
+        .sort(),
+    );
+    expect([...keys].sort()).toEqual(
+      [
+        'modules/dev/mtg/manifest.json',
+        'modules/dev/mtg/catalog-mtg-v5.sqlite.gz',
+        'modules/dev/mtg/catalog-mtg-v5-v7.sql.gz',
+        'modules/dev/mtg/catalog-mtg-v7.sqlite.gz',
+        'modules/dev/pokemon/catalog-pokemon-v1.sqlite.gz',
+      ].sort(),
+    );
+    // The next run drops v5 too.
+    await prune(store, 'modules/dev/mtg', manifest(9, [[7, 9]]), next);
+    expect(keys.has('modules/dev/mtg/catalog-mtg-v5.sqlite.gz')).toBe(false);
+    expect(keys.has('modules/dev/mtg/catalog-mtg-v7.sqlite.gz')).toBe(true);
+  });
+});
 
 describe('nextManifest', () => {
   const base = {
@@ -186,7 +304,7 @@ describe.skipIf(!databaseUrl)('build-catalog-module (Postgres)', () => {
 
   it('builds a delta that turns the old module into the new one', async () => {
     await db.execute(sql`
-      update cards set text = 'Errata text.' where name = 'Blessed Defiance';
+      update cards set text = E'Errata line one.\nIt''s line two;\n-- not a comment' where name = 'Blessed Defiance';
       update print_localizations set name = 'Adeline, die Strahlende' where lang = 'de'
         and name like 'Adeline%';
       delete from prints where number = '20' and set_id = (select id from sets where code = 'mid');
@@ -204,7 +322,7 @@ describe.skipIf(!databaseUrl)('build-catalog-module (Postgres)', () => {
     const delta = diffModules(v1(), v2);
     expect(delta).toMatch(/^-- catalog-mtg v\d+ -> v\d+\n/);
     expect(delta).toContain('DELETE FROM prints WHERE id = ');
-    expect(delta).toContain("'Errata text.'");
+    expect(delta).toContain("'Errata line one.\nIt''s line two;\n-- not a comment'");
 
     const patched = join(dir, 'patched.sqlite');
     copyFileSync(v1(), patched);
@@ -216,6 +334,9 @@ describe.skipIf(!databaseUrl)('build-catalog-module (Postgres)', () => {
     target.close();
 
     expect(dump(patched)).toEqual(dump(v2));
+    expect((dump(patched).cards as { text: string | null }[]).map((c) => c.text)).toContain(
+      "Errata line one.\nIt's line two;\n-- not a comment",
+    );
     expect(search(patched, 'strahlende katharerin')).toEqual([]);
     expect(search(patched, 'strahlende')).toEqual(search(v2, 'strahlende'));
     expect(search(patched, 'trotzes')).toHaveLength(1);

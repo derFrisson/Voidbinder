@@ -5,7 +5,7 @@
 # %h/catalog-modules/<db>/<game>/ keeps the last module, the source of the next delta.
 [Unit]
 Description=Voidbinder offline catalog modules
-After=network-online.target
+After=network-online.target image-mirror.service
 Wants=network-online.target
 
 [Service]

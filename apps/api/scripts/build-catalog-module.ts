@@ -10,7 +10,8 @@
 // Without --upload it only builds into --out (and a delta from the newest older module there).
 // With --upload it skips a game whose published manifest already has the current catalog_version,
 // builds the delta from the published version when that module is still in --out, uploads the
-// files and the manifest last, and keeps only the new SQLite file in --out for the next delta.
+// files and the manifest last, deletes what the new manifest no longer names (the previous module
+// stays one more run), and keeps only the new SQLite file in --out for the next delta.
 //
 // Env (from --env-file or the shell): PG_MIRROR_URL_DEV / PG_MIRROR_URL_PROD for `--db`, else
 // DATABASE_URL; for --upload R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET
@@ -22,7 +23,13 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { parseArgs } from 'node:util';
 import { gzipSync } from 'node:zlib';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { SOURCE_PREFERENCE } from '@voidbinder/core';
 import { GameSchema } from '@voidbinder/shared';
 import {
@@ -245,7 +252,9 @@ export async function buildModule(
 /**
  * The SQL that turns module `oldPath` into module `newPath`: row-level deletes of keys the new
  * one lacks, then upserts (`ON CONFLICT … DO UPDATE`, which fires the FTS triggers) of every row
- * that is new or changed. One statement per line; the app runs it in one transaction.
+ * that is new or changed. Every statement ends with `;`, and one may span several lines (`quote()`
+ * keeps the newlines of a text value), so the app runs the whole file at once (`execAsync`) in one
+ * transaction and never splits it by line.
  */
 export function diffModules(oldPath: string, newPath: string): string {
   const db = new DatabaseSync(newPath, { readOnly: true });
@@ -290,6 +299,65 @@ const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest(
 export const moduleFile = (game: string, version: number) => `catalog-${game}-v${version}.sqlite`;
 export const deltaFile = (game: string, from: number, to: number) =>
   `catalog-${game}-v${from}-v${to}.sql.gz`;
+
+/**
+ * What the CLI does before it builds. `skip`: the published module is this version with this
+ * schema, nothing to do. `from`: the version to diff against, or null for no delta. A delta needs
+ * that version's module in `--out` (`localVersions`) and, on upload, the published manifest to be
+ * that version in the same schema (a schema bump starts a fresh chain); without upload it is the
+ * newest older module in `--out`.
+ */
+export function plan(o: {
+  published: Pick<ModuleManifest, 'version' | 'schemaVersion'> | null;
+  /** The catalog_version now; the published module is up to date when it has this version. */
+  current: number;
+  localVersions: number[];
+  /** The version being built. */
+  version: number;
+  upload: boolean;
+  schemaVersion: number;
+}): { skip: boolean; from: number | null } {
+  const sameSchema = o.published?.schemaVersion === o.schemaVersion;
+  if (o.published?.version === o.current && sameSchema) return { skip: true, from: null };
+  const older = o.localVersions.filter((v) => v < o.version);
+  const from = o.upload
+    ? o.published && sameSchema && older.includes(o.published.version)
+      ? o.published.version
+      : null
+    : older.length
+      ? Math.max(...older)
+      : null;
+  return { skip: false, from };
+}
+
+/** The slice of the bucket the retention needs. */
+export interface ModuleStore {
+  list(prefix: string): Promise<string[]>;
+  delete(key: string): Promise<void>;
+}
+
+/**
+ * After the manifest PUT: deletes every key under `prefix` that the new manifest does not name,
+ * except the previous manifest's module (one grace run for an app that read the old manifest
+ * just before it was replaced). Returns the deleted keys.
+ */
+export async function prune(
+  store: ModuleStore,
+  prefix: string,
+  manifest: ModuleManifest,
+  previous: ModuleManifest | null,
+): Promise<string[]> {
+  const key = (url: string) => `${prefix}/${url.slice(url.lastIndexOf('/') + 1)}`;
+  const keep = new Set([
+    `${prefix}/manifest.json`,
+    key(manifest.module.url),
+    ...manifest.deltas.map((d) => key(d.url)),
+    ...(previous ? [key(previous.module.url)] : []),
+  ]);
+  const stale = (await store.list(`${prefix}/`)).filter((k) => !keep.has(k));
+  for (const k of stale) await store.delete(k);
+  return stale;
+}
 
 /** The manifest of a new build: the previous chain (ending at `delta.from`) plus `delta`. */
 export function nextManifest(
@@ -338,7 +406,13 @@ async function main() {
   try {
     const current = await catalogVersion(pool);
     const published = s3 ? await s3.getManifest(`${prefix}/manifest.json`) : null;
-    if (published?.version === current) {
+    const localVersions = () =>
+      readdirSync(out)
+        .map((f) => new RegExp(`^catalog-${game}-v(\\d+)\\.sqlite$`).exec(f)?.[1])
+        .filter((v) => v !== undefined)
+        .map(Number);
+    const options = { published, current, upload: Boolean(s3), schemaVersion: SCHEMA_VERSION };
+    if (plan({ ...options, localVersions: localVersions(), version: current }).skip) {
       log('info', { message: 'catalog module up to date', game, version: current });
       return;
     }
@@ -355,14 +429,13 @@ async function main() {
     renameSync(building, sqlitePath);
 
     // The previous module: the published one (upload), else the newest older one in --out.
-    const local = readdirSync(out)
-      .map((f) => new RegExp(`^catalog-${game}-v(\\d+)\\.sqlite$`).exec(f)?.[1])
-      .filter((v) => v !== undefined)
-      .map(Number)
-      .filter((v) => v < version);
-    const from = s3 ? published?.version : local.length ? Math.max(...local) : undefined;
-    const fromPath =
-      from !== undefined && local.includes(from) ? join(out, moduleFile(game, from)) : null;
+    const { from } = plan({
+      ...options,
+      current: version,
+      localVersions: localVersions(),
+      version,
+    });
+    const fromPath = from === null ? null : join(out, moduleFile(game, from));
 
     const raw = readFileSync(sqlitePath);
     const gz = gzipSync(raw, { level: 9 });
@@ -370,7 +443,7 @@ async function main() {
       { name: `${moduleFile(game, version)}.gz`, body: gz, cache: IMMUTABLE },
     ];
     let delta: ModuleDelta | null = null;
-    if (fromPath && from !== undefined) {
+    if (fromPath && from !== null) {
       const body = gzipSync(diffModules(fromPath, sqlitePath), { level: 9 });
       const name = deltaFile(game, from, version);
       files.push({ name, body, cache: IMMUTABLE });
@@ -406,6 +479,8 @@ async function main() {
       // The manifest goes last, so it never names a file that is not there yet.
       for (const f of files) await s3.put(`${prefix}/${f.name}`, f.body, f.cache);
       await s3.put(`${prefix}/manifest.json`, manifestBody, MANIFEST_CACHE);
+      const pruned = await prune(s3, prefix, manifest, published);
+      if (pruned.length) log('info', { message: 'catalog module files pruned', game, pruned });
       // Keep only the new module, the source of the next delta.
       for (const f of readdirSync(out)) if (f !== moduleFile(game, version)) rmSync(join(out, f));
     } else {
@@ -452,6 +527,22 @@ function r2(env: (name: string, fallback?: string) => string) {
         if ((err as { name?: string }).name === 'NoSuchKey') return null;
         throw err;
       }
+    },
+    async list(prefix: string): Promise<string[]> {
+      const keys: string[] = [];
+      let token: string | undefined;
+      do {
+        const res = await s3.send(
+          new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
+        );
+        for (const o of res.Contents ?? []) if (o.Key) keys.push(o.Key);
+        token = res.NextContinuationToken;
+      } while (token);
+      return keys;
+    },
+    async delete(key: string) {
+      if (!key.startsWith('modules/')) throw new Error(`refusing to delete ${key}`);
+      await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
     },
     async put(key: string, body: Uint8Array, cacheControl: string) {
       if (!key.startsWith('modules/')) throw new Error(`refusing to write ${key}`);

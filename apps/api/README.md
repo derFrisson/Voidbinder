@@ -42,15 +42,16 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 ## Catalog API
 
-| Route                                                             | Answer                                                                  |
-| ----------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| `GET /catalog/games`                                              | Games with their set counts                                             |
-| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                             |
-| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price) |
-| `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations                     |
-| `GET /catalog/prints/:id`                                         | One print with its card                                                 |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)         |
-| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                  |
+| Route                                                             | Answer                                                                               |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `GET /catalog/games`                                              | Games with their set counts                                                          |
+| `GET /catalog/games/:game/sets?lang=`                             | Sets, newest first, with the name in `lang`                                          |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity, price)              |
+| `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations                                  |
+| `GET /catalog/prints/:id`                                         | One print with its card                                                              |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)                      |
+| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)                               |
+| `GET /catalog/modules`                                            | Manifests of the offline catalog modules, one per game (see Offline catalog modules) |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries
@@ -530,7 +531,8 @@ per-game notices and the Scryfall attribution); the card page shows it with the 
 name index) from the catalog with the read-only mirror role, gzips it and diffs it against the
 previous module into a delta of row upserts and deletes; with `--upload` it publishes both and
 `manifest.json` to `CATALOG` under `modules/<db>/<game>/`, skipping a game whose manifest already
-has the current `catalog_version`. A VPS timer runs it nightly at 06:30 UTC
+has the current `catalog_version` and schema, and deleting files the new manifest no longer names
+(the previous module stays one run). A VPS timer runs it nightly at 06:30 UTC
 ([runbook section 12](../../docs/guides/database-vps.md#12-offline-catalog-modules)).
 `GET /catalog/modules` (`src/routes/modules.ts`) answers the manifests of `modules/<IMPORT_ENV>/`,
 cached like the catalog. Schema, manifest and the app's contract:

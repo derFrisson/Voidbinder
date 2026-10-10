@@ -15,10 +15,17 @@ is a thin reader of this contract.
 | `modules/<env>/<game>/catalog-<game>-v<n>.sqlite.gz`   | The module of catalog_version `n`, gzipped   |
 | `modules/<env>/<game>/catalog-<game>-v<a>-v<b>.sql.gz` | SQL that turns module `a` into module `b`    |
 
+A build whose `schemaVersion` differs from the published one is never skipped and starts a fresh
+chain (`deltas` empty). Image keys can lag up to one build: the nightly run waits for the image
+mirror but does not require it to have succeeded.
+
 `<n>` is the global `app_meta.catalog_version` the module was built from, so versions of one game
 jump (every import of any game bumps it) and only grow. Modules and deltas never change once
 written (`Cache-Control: public, max-age=31536000, immutable`); the manifest is replaced by every
-build (`max-age=60`). Images are not inside: the module has image keys, the URL is
+build (`max-age=60`). After uploading the manifest the builder deletes every key under
+`modules/<env>/<game>/` the manifest does not name, except the previous manifest's module, which
+stays for one more run (an app that read the old manifest just before it was replaced can still
+download it). Images are not inside: the module has image keys, the URL is
 `https://img.voidbinder.de/<image_key>` as in the API.
 
 Sizes (2026-10-10): Yu-Gi-Oh! on `dev` (44,266 prints, 48,801 prices) 68 MB unpacked, 20 MB
@@ -102,11 +109,14 @@ key on `print_id, lang`. Triggers on `print_localizations` keep `names_fts` in s
 
 ## Deltas
 
-Plain SQL, one statement per line after a `-- catalog-<game> v<a> -> v<b>` comment: first
+Plain SQL after a `-- catalog-<game> v<a> -> v<b>` comment line: first
 `DELETE FROM <table> WHERE <key> = …;` for every row the new module lacks, then
 `INSERT INTO <table> (…) VALUES (…) ON CONFLICT (<key>) DO UPDATE SET …;` for every row that is
 new or changed, `meta` included (so `meta.version` becomes `b`). The upserts fire the FTS
-triggers; `INSERT OR REPLACE` would not. The file has no `BEGIN`/`COMMIT`: the app wraps it.
+triggers; `INSERT OR REPLACE` would not. Every statement ends with `;`, and one can span several
+lines (a text value keeps its newlines, and may contain `;` or `--`), so never split the file by
+line or by `;`. The file has no `BEGIN`/`COMMIT`: the app runs the whole file at once with
+`execAsync` inside one transaction.
 Applying the chain to module `a` gives the same rows as module `b` (tested in
 `build-catalog-module.test.ts`).
 
@@ -125,7 +135,8 @@ Applying the chain to module `a` gives the same rows as module `b` (tested in
    (never the cache directory, which the OS may clear), then rename it over the old one, so a
    crash never leaves half a module.
 5. **Apply deltas** in order on their own connection: for each, check `meta.version == from`,
-   run the file in one transaction (`withExclusiveTransactionAsync` in expo-sqlite), then check
+   run the whole file with `execAsync` inside one transaction (`withExclusiveTransactionAsync` in
+   expo-sqlite), then check
    `meta.version == to`. A failure rolls back and falls back to the full module. Close that
    connection.
 6. **Read.** Open the module as its own database or `ATTACH DATABASE '<path>' AS catalog_<game>`
