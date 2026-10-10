@@ -7,7 +7,7 @@ import yugioh from '../../../assets/backs/yugioh.webp';
 import { useT } from '../../i18n';
 
 // Bundled, so the placeholder shows offline and before the network answers (VB-120); the same
-// files are on img.voidbinder.de under images/backs/<game>/ (apps/api/scripts/fetch-card-backs.ts).
+// files are on img.voidbinder.de under images/backs/<game>/ (apps/api/scripts/render-card-backs.ts).
 const backs: Record<Game, ImageSourcePropType> = { mtg, onepiece, pokemon, yugioh };
 
 /**
