@@ -228,7 +228,14 @@ function Form({ printId, kind, edit, binderId, onClose, data }: Props & { data: 
           label={e.language}
           value={language}
           onChange={setLanguage}
-          options={[...any, ...languages.map((l) => ({ value: l, label: l.toUpperCase() }))]}
+          options={[
+            ...any,
+            ...languages.map((l) => ({
+              value: l,
+              label: l.toUpperCase(),
+              name: c.languages[l] ?? l.toUpperCase(),
+            })),
+          ]}
         />
         {finishes.length > 1 && (
           <Segmented

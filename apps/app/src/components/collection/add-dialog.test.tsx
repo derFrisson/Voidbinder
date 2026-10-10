@@ -127,6 +127,19 @@ describe('add dialog on the card page', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     await screen.findByRole('radiogroup', { name: 'Sprache' });
     expect(radios('Sprache')).toEqual(['EN', 'DE', 'FR', 'IT', 'ES', 'PT', 'JA']);
+    // The chips read as words, not as letters, to a screen reader.
+    const names = within(screen.getByRole('radiogroup', { name: 'Sprache' }))
+      .getAllByRole('radio')
+      .map((r) => r.getAttribute('aria-label'));
+    expect(names).toEqual([
+      'Englisch',
+      'Deutsch',
+      'Französisch',
+      'Italienisch',
+      'Spanisch',
+      'Portugiesisch',
+      'Japanisch',
+    ]);
     // One finish: nothing to choose.
     expect(screen.queryByRole('radiogroup', { name: 'Ausführung' })).toBeNull();
     expect(radios('Zustand')).toEqual(['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO']);
@@ -155,7 +168,7 @@ describe('add dialog on the card page', () => {
     await screen.findByRole('radiogroup', { name: 'Sprache' });
     // The UI is German and the card page has no language chip: German first.
     expect(checked('Sprache')).toBe('DE');
-    pick('Sprache', 'FR');
+    pick('Sprache', 'Französisch');
     pick('Ausführung', 'Foil');
     pick('Zustand', 'EX');
     fireEvent.click(screen.getByRole('button', { name: 'Anzahl: eins mehr' }));
@@ -254,7 +267,7 @@ describe('quick add from a tile', () => {
     await screen.findByRole('dialog', { name: 'Hinzugefügte Karte ändern' });
     await screen.findByRole('radiogroup', { name: 'Sprache' });
     expect(checked('Sprache')).toBe('DE');
-    pick('Sprache', 'JA');
+    pick('Sprache', 'Japanisch');
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const patch = calls.find((c) => c.method === 'PATCH');

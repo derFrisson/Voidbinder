@@ -754,7 +754,7 @@ describe('web build', () => {
       // Focus is in the dialog and stays there.
       await page.keyboard.press('Tab');
       expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
-      await dialog.getByRole('radio', { name: 'EN' }).click();
+      await dialog.getByRole('radio', { name: 'Englisch' }).click();
       await dialog.getByRole('radio', { name: 'Foil' }).click();
       await dialog.getByRole('radio', { name: 'EX' }).click();
       await dialog.getByRole('button', { name: 'Hinzufügen' }).click();
