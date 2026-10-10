@@ -40,6 +40,20 @@ describe('PrintTile', () => {
     expect(plain.container.querySelector('.vb-foil')).toBeNull();
   });
 
+  it('shows the game’s card back without an image, never with the sheen (VB-120)', () => {
+    const holo: SearchHit = { ...hit(null), game: 'pokemon', rarity: 'Rare Holo' };
+    const { container, unmount } = renderApp(<PrintTile hit={holo} />);
+    const back = screen.getByRole('img', { name: 'Noch kein Bild' });
+    expect(back.querySelector('img')?.getAttribute('src')).toContain('backs/pokemon');
+    expect(container.querySelector('.vb-foil')).toBeNull();
+    unmount();
+    // With an image there is no back.
+    const url = 'https://img.voidbinder.de/images/pokemon/1/en/sm.webp';
+    const shown = renderApp(<PrintTile hit={{ ...holo, imageUrl: url }} />);
+    expect(screen.queryByRole('img', { name: 'Noch kein Bild' })).toBeNull();
+    expect(shown.container.querySelector('img[src*="backs/"]')).toBeNull();
+  });
+
   it('shows the market price with its source and the day it was observed, like the set page', () => {
     renderApp(
       <PrintTile

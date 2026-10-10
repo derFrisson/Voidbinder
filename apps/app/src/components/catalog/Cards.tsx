@@ -88,7 +88,6 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
             alt={name}
             game={game}
             format={print.cardFormat}
-            number={print.displayNumber}
             foil={printFoil(game, print)}
             className={missing ? 'border-dashed opacity-50' : ''}
           />
@@ -156,7 +155,6 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
               alt={name}
               game={game}
               format={print.cardFormat}
-              number=""
               foil={printFoil(game, print)}
               className={missing ? 'border-dashed opacity-50' : ''}
             />

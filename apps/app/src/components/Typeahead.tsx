@@ -112,7 +112,6 @@ function Row({
             alt=""
             game={s.game}
             format={s.cardFormat ?? 'standard'}
-            number={s.displayNumber ?? s.number ?? ''}
             foil={isFoil(s.game, s.rarity, undefined, s.extendedArt)}
             className="rounded-md border"
           />

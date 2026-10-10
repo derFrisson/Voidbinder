@@ -163,21 +163,24 @@ describe('set page', () => {
     expect(calls.find((c) => c.path.startsWith('/catalog/sets/'))?.path).toContain('currency=USD');
   });
 
-  it('renders the picture lazily with its size and an alt text, a frame without one', async () => {
+  it('renders the picture lazily with its size and an alt text, the card back without one', async () => {
     fakeApi((c) => (c.path.startsWith('/catalog/sets/') ? json(setPage()) : undefined));
     const { container } = renderApp(
       <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
     );
     await screen.findByText('Card 1');
-    const imgs = container.querySelectorAll('img');
+    const imgs = container.querySelectorAll('img[loading]');
     expect(imgs).toHaveLength(1);
     expect(imgs[0]?.getAttribute('loading')).toBe('lazy');
     expect(imgs[0]?.getAttribute('width')).toBe('320');
     expect(imgs[0]?.getAttribute('height')).toBe('447');
     expect(imgs[0]?.getAttribute('alt')).toBe('Card 1, MID 1');
-    // Card 2 has no picture: the frame shows its number.
+    // Cards 2 and 3 have no picture: Magic's card back stands in, and for Card 1 once its picture
+    // fails (VB-120).
+    expect(container.querySelectorAll('img[src*="backs/mtg"]')).toHaveLength(2);
     fireEvent.error(imgs[0] as HTMLImageElement);
-    await waitFor(() => expect(container.querySelectorAll('img')).toHaveLength(0));
+    await waitFor(() => expect(container.querySelectorAll('img[loading]')).toHaveLength(0));
+    expect(container.querySelectorAll('img[src*="backs/mtg"]')).toHaveLength(3);
   });
 
   it('asks for the filters it is given and reports a change with the page back at 1', async () => {
@@ -319,7 +322,7 @@ describe('set page review fixes', () => {
     });
   });
 
-  it('shows only pictures from the image host, the frame for any other URL', async () => {
+  it('shows only pictures from the image host, the card back for any other URL', async () => {
     fakeApi((c) =>
       c.path.startsWith('/catalog/sets/')
         ? json(
@@ -338,8 +341,9 @@ describe('set page review fixes', () => {
       <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
     );
     await screen.findByText('Card 4');
-    const imgs = container.querySelectorAll('img');
+    const imgs = container.querySelectorAll('img[loading]');
     expect(imgs).toHaveLength(1);
+    expect(container.querySelectorAll('img[src*="backs/mtg"]')).toHaveLength(3);
     expect(imgs[0]?.getAttribute('src')).toBe('https://img.voidbinder.de/images/mtg/1/en/sm.webp');
   });
 });
@@ -376,19 +380,30 @@ describe('second review round', () => {
 
   it('shows a new picture after a failed one when the uri changes', () => {
     const uri = (n: number) => `https://img.voidbinder.de/images/mtg/${n}/en/sm.webp`;
-    const props = { alt: 'a', game: 'mtg' as const, format: 'standard' as const, number: '1' };
+    const props = { alt: 'a', game: 'mtg' as const, format: 'standard' as const };
     const { container, rerender } = renderApp(<CardImage uri={uri(1)} {...props} />);
     fireEvent.error(container.querySelector('img') as HTMLImageElement);
-    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('img[loading]')).toBeNull();
     rerender(<CardImage uri={uri(2)} {...props} />);
-    expect(container.querySelector('img')?.getAttribute('src')).toBe(uri(2));
+    expect(container.querySelector('img[loading]')?.getAttribute('src')).toBe(uri(2));
+  });
+
+  it('shows the game’s card back in the format box without a picture, without the sheen (VB-120)', () => {
+    const { container } = renderApp(
+      <CardImage uri={null} alt="a" game="yugioh" format="japanese" foil />,
+    );
+    expect(container.querySelector('img')?.getAttribute('src')).toContain('backs/yugioh');
+    expect(screen.getByRole('img', { name: 'Noch kein Bild' }).style.aspectRatio).toBe(
+      `${59 / 86} / 1`,
+    );
+    expect(container.querySelector('.vb-foil')).toBeNull();
   });
 
   it('boxes each game’s picture in its card format, contained (VB-97)', () => {
     const uri = 'https://img.voidbinder.de/images/yugioh/34950192/en/sm.webp';
     const box = (format: 'standard' | 'japanese') => {
       const { container, unmount } = renderApp(
-        <CardImage uri={uri} alt="a" game="yugioh" format={format} number="EN024" />,
+        <CardImage uri={uri} alt="a" game="yugioh" format={format} />,
       );
       const img = container.querySelector('img') as HTMLImageElement;
       const result = {
@@ -429,8 +444,8 @@ describe('second review round', () => {
         prices={undefined}
       />,
     );
-    // The number under the picture and in the frame that stands in for it.
-    expect(screen.getAllByText('DE024')).toHaveLength(2);
+    // The number under the picture (the card back stands in for the picture, VB-120).
+    expect(screen.getAllByText('DE024')).toHaveLength(1);
     expect(screen.queryByText('EN024')).toBeNull();
     expect(screen.getByLabelText('Card 24, BLGG DE024 (Nummer in DE)')).toBeTruthy();
     // The quick add under the tile names the print the same way.

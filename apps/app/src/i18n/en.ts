@@ -107,7 +107,7 @@ export const en: Dict = {
     },
   },
   card: {
-    noImage: 'No image',
+    noImage: 'No image yet',
     numberIn: 'Number in {lang}',
     imageLang: 'Image: {lang}',
     imageSibling: 'Image of another print',
