@@ -108,7 +108,12 @@ export function planSets(
 /** Our prints of `code` without a picture. */
 /** Every print of the set; `hasPicture` marks those the matcher only counts. */
 async function setPrints(db: Db, code: string): Promise<OurPrint[]> {
-  const { rows } = await db.execute<OurPrint>(sql`
+  const { rows } = await db.execute<{
+    id: string;
+    number: string;
+    name: string;
+    hasPicture: boolean;
+  }>(sql`
     select p.id, p.number, c.name, not (${NO_PICTURE}) as "hasPicture" from prints p
     join sets s on s.id = p.set_id join cards c on c.id = p.card_id
     where s.game_id = 'pokemon' and s.code = ${code}
