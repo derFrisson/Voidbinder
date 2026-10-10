@@ -297,14 +297,17 @@ export interface MirrorStats {
   /** Already in the bucket (`verify`). */
   reused: number;
   failed: number;
-  /** The source answered 404 or 410: recorded in `image_sources_gone`, skipped from then on. */
+  /**
+   * The source answered 404 or 410 (TCGplayer's CDN also 403): recorded in `image_sources_gone`,
+   * skipped from then on.
+   */
   gone: number;
   bytes: number;
 }
 
 export class SourceRateLimited extends Error {}
 
-/** The source answered 404 or 410 for the image (VB-89). */
+/** The source answered 404 or 410 for the image (VB-89; TCGplayer's CDN also 403, VB-119). */
 export class SourceGone extends Error {}
 
 /**
@@ -361,7 +364,9 @@ export async function mirrorJobs(
       // An unread body keeps the connection open (Workers allow six).
       await res.body?.cancel();
       if (res.status === 429) throw new SourceRateLimited(`${job.url} answered 429, stopping`);
-      if (res.status === 404 || res.status === 410) throw new SourceGone(`answered ${res.status}`);
+      // TCGplayer's CDN answers 403 for a product without an image (VB-119).
+      const gone = [404, 410, ...(source === 'tcgplayer' ? [403] : [])];
+      if (gone.includes(res.status)) throw new SourceGone(`answered ${res.status}`);
       throw new Error(`answered ${res.status}`);
     }
     const type = res.headers.get('content-type')?.split(';')[0]?.trim();

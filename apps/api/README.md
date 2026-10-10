@@ -1192,7 +1192,7 @@ and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are r
 source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, Yugipedia 1/s with its own
 `User-Agent`, TCGplayer's CDN 2/s); a 429 stops the run once the
 images in flight are stored, a failed image is logged and keeps its key (or none), so the next
-run retries it. A `404` or `410` from the source counts as `gone` instead (VB-89): the URL goes to
+run retries it. A `404` or `410` from the source (from TCGplayer's CDN also a `403`, VB-119) counts as `gone` instead (VB-89): the URL goes to
 `image_sources_gone` and the query skips every row with that source URL until the URL changes; the
 runs on Sundays (UTC) retry them all and delete the URLs that answer again. Every run is an `import_runs` row with source and kind `images`, and only one
 runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image
