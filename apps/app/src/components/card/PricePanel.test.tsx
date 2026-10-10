@@ -133,6 +133,7 @@ const firstEdition: PrintPricesResponse = {
     { condition: 'PO', factor: 0.3, cents: 7 },
   ],
   conditionsAreEstimates: true,
+  links: [],
 };
 
 describe('PricePanel, prices filed under a finish the print does not list', () => {
@@ -172,7 +173,7 @@ describe('PricePanel, prices filed under a finish the print does not list', () =
   });
 
   it('keeps a source that has rows for another finish, saying it has no price for this one', async () => {
-    api();
+    api({ ...printPrices, links: [] });
     renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
     await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/);
     // Cardmarket and TCGplayer both have rows: both tiles stay.
@@ -252,5 +253,45 @@ describe('PriceStrip', () => {
     fakeApi();
     renderApp(<PriceStrip printId={PRINT} lang="en" />);
     expect(screen.getAllByText('–')).toHaveLength(2);
+  });
+});
+
+describe('PricePanel, marketplace links (VB-115)', () => {
+  it('shows a "Kaufen bei" row with one link per product, opened in a new tab', async () => {
+    api();
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
+    const row = await screen.findByRole('group', { name: 'Kaufen bei' });
+    const links = within(row).getAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual([
+      'TCGplayer · Foil',
+      'TCGplayer · Normal',
+      'Cardmarket',
+      'eBay',
+    ]);
+    expect(links.map((l) => l.getAttribute('href'))).toEqual(printPrices.links.map((l) => l.url));
+    for (const l of links) {
+      expect(l.getAttribute('target')).toBe('_blank');
+      expect(l.getAttribute('rel')).toBe('noopener noreferrer');
+    }
+  });
+
+  it('keeps the links for a print without prices', async () => {
+    api({ ...noPrices, links: printPrices.links.slice(2) });
+    renderApp(<PricePanel printId={PRINT} finishes={['normal']} lang="en" />);
+    const row = await screen.findByRole('group', { name: 'Kaufen bei' });
+    expect(
+      within(row)
+        .getAllByRole('link')
+        .map((l) => l.textContent),
+    ).toEqual(['Cardmarket', 'eBay']);
+    expect(screen.getByText('Für diesen Druck gibt es noch keine Preise.')).toBeTruthy();
+  });
+
+  it('hides the row without links', async () => {
+    api({ ...printPrices, links: [] });
+    renderApp(<PricePanel printId={PRINT} finishes={['normal', 'foil']} lang="en" />);
+    await screen.findByText(/^Cardmarket \(via Scryfall\) · Normal/);
+    expect(screen.queryByRole('group', { name: 'Kaufen bei' })).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
   });
 });

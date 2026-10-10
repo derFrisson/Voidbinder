@@ -2,6 +2,7 @@ import { cardAspect, type CardFormat, type Game } from '@voidbinder/shared';
 import { useState } from 'react';
 import { Image, Platform, Text, View } from 'react-native';
 import { imageHost } from '../../security-headers';
+import { FoilSheen } from '../card/FoilSheen';
 
 const frame: Record<Game, string> = {
   pokemon: 'border-pk bg-pk-soft',
@@ -40,10 +41,12 @@ interface CardImageProps {
   /** The box's aspect (`CARD_FORMATS`); the image is contained, never cropped. */
   format: CardFormat;
   number: string;
+  /** A foil copy (`isFoil`): the picture gets the static sheen (VB-112). */
+  foil?: boolean;
   className?: string;
 }
 
-function Picture({ uri, alt, game, format, number, className = '' }: CardImageProps) {
+function Picture({ uri, alt, game, format, number, foil, className = '' }: CardImageProps) {
   const [failed, setFailed] = useState(false);
   const shown = uri && !failed && isAllowedImage(uri);
   // The R2 `sm` rendition's size (320 px wide, 466 high for Yu-Gi-Oh!): `<img>` reserves the
@@ -81,6 +84,7 @@ function Picture({ uri, alt, game, format, number, className = '' }: CardImagePr
           </Text>
         </View>
       )}
+      {shown && foil && <FoilSheen />}
     </View>
   );
 }

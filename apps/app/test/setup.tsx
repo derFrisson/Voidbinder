@@ -33,10 +33,21 @@ vi.mock('expo-router', async () => {
     useLocalSearchParams: vi.fn(() => ({})),
     usePathname: vi.fn(() => '/'),
     useGlobalSearchParams: vi.fn(() => ({})),
-    Link: ({ href, children }: { href: unknown; children?: Node }) =>
+    // `target` and `rel` reach the anchor, as the web Link passes them (hrefAttrs).
+    Link: ({
+      href,
+      target,
+      rel,
+      children,
+    }: {
+      href: unknown;
+      target?: string;
+      rel?: string;
+      children?: Node;
+    }) =>
       createElement(
         'a',
-        { href: typeof href === 'string' ? href : JSON.stringify(href) },
+        { href: typeof href === 'string' ? href : JSON.stringify(href), target, rel },
         children,
       ),
     Redirect: ({ href }: { href: unknown }) =>

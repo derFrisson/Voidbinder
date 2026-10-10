@@ -1,0 +1,147 @@
+{
+  "totalItems": 5,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 476262,
+      "name": "Harpie Lady",
+      "cleanName": "Harpie Lady",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476262_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22882,
+      "url": "https://www.tcgplayer.com/product/476262/yugioh-metal-raiders-worldwide-english-harpie-lady",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN008"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 476268,
+      "name": "Kojikocy",
+      "cleanName": "Kojikocy",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476268_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22882,
+      "url": "https://www.tcgplayer.com/product/476268/yugioh-metal-raiders-worldwide-english-kojikocy",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 0,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN010"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 476271,
+      "name": "Cocoon of Evolution",
+      "cleanName": "Cocoon of Evolution",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476271_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22882,
+      "url": "https://www.tcgplayer.com/product/476271/yugioh-metal-raiders-worldwide-english-cocoon-of-evolution",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN011"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 476288,
+      "name": "B. Skull Dragon",
+      "cleanName": "B Skull Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476288_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22882,
+      "url": "https://www.tcgplayer.com/product/476288/yugioh-metal-raiders-worldwide-english-b-skull-dragon",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN018"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    },
+    {
+      "productId": 476659,
+      "name": "Tainted Wisdom",
+      "cleanName": "Tainted Wisdom",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/476659_200w.jpg",
+      "categoryId": 2,
+      "groupId": 22882,
+      "url": "https://www.tcgplayer.com/product/476659/yugioh-metal-raiders-worldwide-english-tainted-wisdom",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN081"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    }
+  ]
+}

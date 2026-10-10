@@ -1,5 +1,6 @@
 import type {
   Currency,
+  MarketplaceLink,
   PriceSource,
   PricePoint,
   PrintPricesResponse,
@@ -47,6 +48,8 @@ export interface PrintPrices {
   failed: boolean;
   /** Asks again after a failure. */
   retry: () => void;
+  /** Where to buy the print (VB-115), also for a print without prices; empty while loading. */
+  links: MarketplaceLink[];
 }
 
 /**
@@ -82,6 +85,7 @@ export function usePrintPrices(
     prices: query.data?.prices.length ? query.data : null,
     failed,
     retry: () => void query.refetch(),
+    links: query.data?.links ?? [],
   };
 }
 

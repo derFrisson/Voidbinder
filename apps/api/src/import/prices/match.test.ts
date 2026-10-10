@@ -5,6 +5,7 @@ import {
   matchProducts,
   normName,
   normNumber,
+  rarityKey,
   type CandidatePrint,
   type CatalogSet,
 } from './match';
@@ -358,5 +359,224 @@ describe('matchProducts', () => {
       { byId: false },
     );
     expect(matches.map((m) => [m.productId, m.method])).toEqual([[1, 'number_match']]);
+  });
+
+  it('leaves a Pokémon print out that two products of its number claim', () => {
+    const p = (productId: number, name: string): TcgProduct => ({
+      productId,
+      name,
+      extendedData: [
+        { name: 'Number', value: '25/102' },
+        { name: 'Rarity', value: 'Common' },
+      ],
+    });
+    const pikachu = [print('pikachu', '25', 'Pikachu')];
+    expect(matchProducts([p(1, 'Pikachu'), p(2, 'Raichu')], pikachu, { byId: false })).toEqual([]);
+    // `(Full Art)` is no artwork suffix, not even for Yu-Gi-Oh!.
+    const fullArt = [p(1, 'Pikachu'), p(2, 'Pikachu (Full Art)')];
+    expect(matchProducts(fullArt, pikachu, { byId: false })).toEqual([]);
+    expect(matchProducts(fullArt, pikachu, { byId: false, regional: true })).toEqual([]);
+  });
+});
+
+describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
+  // TCGCSV's MRD and LOB groups as of 2026-10-10 (test/fixtures/tcgcsv/2/, a few products each):
+  // 255 / 330 the token-less North American prints, 22882 / 22881 `-EN` (Worldwide English),
+  // 23052 / 23050 `-EN` again (25th Anniversary Edition).
+  const ygo = (set: string, number: string, name: string, variant: string, artwork?: string) => ({
+    ...print(`${set}-${number}-${variant}`, number, name, variant),
+    setId: `set-${set}`,
+    setCode: set,
+    ...(artwork ? { artwork } : {}),
+  });
+  const regional = { byId: false, regional: true };
+  const rows = (matches: ReturnType<typeof matchProducts>) =>
+    matches
+      .map((m) => [m.printId, m.productId, m.method, m.confidence] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+  it('compares rarities through one alias table, both sides normalized', () => {
+    expect(rarityKey('Short Print')).toBe('common');
+    expect(rarityKey('super-short-print')).toBe(rarityKey('Common'));
+    expect(rarityKey('Ultimate Rare')).toBe(rarityKey('Prismatic Ultimate Rare'));
+    expect(rarityKey("Collector's Rare")).toBe(rarityKey('Prismatic Collector’s Rare'));
+    expect(rarityKey("Ultra Rare (Pharaoh's Rare)")).toBe(rarityKey('Ultra Pharaoh’s Rare'));
+    expect(rarityKey('Duel Terminal Normal Parallel Rare')).toBe(
+      rarityKey('Duel Terminal Technology Common'),
+    );
+    expect(rarityKey('PLatinum Secret Rare')).toBe(rarityKey('Platinum Secret Rare'));
+    // Distinct rarities stay apart.
+    expect(rarityKey('Rare')).not.toBe(rarityKey('Common'));
+    expect(rarityKey('Duel Terminal Normal Parallel Rare')).not.toBe(rarityKey('Common'));
+  });
+
+  it('prices `Short Print` and `Super Short Print` prints with TCGplayer’s `Common`', () => {
+    const prints = [
+      ygo('mrd', '011', 'Cocoon of Evolution', 'super-short-print'),
+      ygo('mrd', 'E011', 'Cocoon of Evolution', 'super-short-print'),
+      ygo('mrd', 'EN011', 'Cocoon of Evolution', 'common'),
+      ygo('mrd', 'EN011', 'Cocoon of Evolution', 'short-print'),
+      ygo('mrd', 'EN011', 'Cocoon of Evolution', 'super-short-print'),
+    ];
+    const cocoon = [...products('2/255'), ...products('2/22882')].filter(
+      (p) => p.name === 'Cocoon of Evolution',
+    );
+    expect(rows(matchProducts(cocoon, prints, regional))).toEqual([
+      ['mrd-011-super-short-print', 21835, 'number_match', 70],
+      ['mrd-E011-super-short-print', 476271, 'region_match', 60],
+      ['mrd-EN011-common', 476271, 'number_match', 70],
+      ['mrd-EN011-short-print', 476271, 'number_match', 70],
+      ['mrd-EN011-super-short-print', 476271, 'number_match', 70],
+    ]);
+  });
+
+  it('maps the original of two artwork products, the other one for a print with an alt code', () => {
+    const harpie = products('2/255').filter((p) => p.name.startsWith('Harpie Lady'));
+    expect(harpie.map((p) => p.name)).toEqual([
+      'Harpie Lady (Original Artwork)',
+      'Harpie Lady (New Artwork)',
+    ]);
+    const matches = matchProducts(harpie, [ygo('mrd', '008', 'Harpie Lady', 'common')], regional);
+    expect(matches).toEqual([
+      {
+        productId: 22062,
+        printId: 'mrd-008-common',
+        method: 'number_match',
+        confidence: 65,
+        artwork: true,
+      },
+    ]);
+    // Yugipedia names the print's artwork (VB-106): the other product.
+    const alt = ygo('mrd', '008', 'Harpie Lady', 'common', 'AA');
+    expect(rows(matchProducts(harpie, [alt], regional))).toEqual([
+      ['mrd-008-common', 173924, 'number_match', 65],
+    ]);
+  });
+
+  it('reads only alternate-art codes as another artwork, and picks none of two others', () => {
+    const harpie = products('2/255').filter((p) => p.name.startsWith('Harpie Lady'));
+    // `B` (a further scan) and `L` (a deck letter) are the print's own artwork: the original.
+    for (const code of ['B', 'L'])
+      expect(
+        rows(matchProducts(harpie, [ygo('mrd', '008', 'Harpie Lady', 'common', code)], regional)),
+      ).toEqual([['mrd-008-common', 22062, 'number_match', 65]]);
+    const alternate = { ...(harpie[0] as TcgProduct), productId: 1 };
+    const three = [...harpie, { ...alternate, name: 'Harpie Lady (Alternate Art)' }];
+    const aa = ygo('mrd', '008', 'Harpie Lady', 'common', 'AA');
+    expect(matchProducts(three, [aa], regional)).toEqual([]);
+    expect(
+      rows(matchProducts(three, [ygo('mrd', '008', 'Harpie Lady', 'common')], regional)),
+    ).toEqual([['mrd-008-common', 22062, 'number_match', 65]]);
+  });
+
+  it('takes the product with the print’s name over a misprint of the same number', () => {
+    // TCGplayer lists LOB-012 twice: Trial of Nightmare and its misprint Trial of Hell.
+    const trial = products('2/330-vb113').filter((p) => p.name.startsWith('Trial of'));
+    expect(
+      rows(matchProducts(trial, [ygo('lob', '012', 'Trial of Nightmare', 'common')], regional)),
+    ).toEqual([['lob-012-common', 22539, 'number_match', 70]]);
+  });
+
+  it('prices a regional print TCGplayer names otherwise through its card’s EN print', () => {
+    // `B. Skull Dragon` and `Red-Eyes B. Dragon`: the original names; the catalog has the new.
+    const prints = [
+      ygo('mrd', '018', 'Black Skull Dragon', 'ultra-rare'),
+      ygo('mrd', 'E018', 'Black Skull Dragon', 'ultra-rare'),
+      ygo('mrd', 'EN018', 'Black Skull Dragon', 'ultra-rare'),
+    ];
+    const skull = [...products('2/255'), ...products('2/22882')].filter((p) =>
+      p.name.includes('Skull'),
+    );
+    expect(rows(matchProducts(skull, prints, regional))).toEqual([
+      ['mrd-018-ultra-rare', 21762, 'number_match', 70],
+      ['mrd-E018-ultra-rare', 476288, 'region_match', 60],
+      ['mrd-EN018-ultra-rare', 476288, 'number_match', 70],
+    ]);
+    const lob = [
+      ygo('lob', '070', 'Red-Eyes Black Dragon', 'ultra-rare'),
+      ygo('lob', 'E056', 'Red-Eyes Black Dragon', 'ultra-rare'),
+      ygo('lob', 'EN070', 'Red-Eyes Black Dragon', 'ultra-rare'),
+    ];
+    const redEyes = [...products('2/330-vb113'), ...products('2/22881')].filter((p) =>
+      p.name.startsWith('Red-Eyes'),
+    );
+    expect(rows(matchProducts(redEyes, lob, regional))).toEqual([
+      ['lob-070-ultra-rare', 22341, 'number_match', 70],
+      ['lob-E056-ultra-rare', 476395, 'region_match', 60],
+      ['lob-EN070-ultra-rare', 476395, 'number_match', 70],
+    ]);
+  });
+
+  it('matches a product to the prints of the set its number names', () => {
+    // LC03's group holds LC03-EN001 (the box promo) and the mega pack's LCYW-EN001.
+    const product = (productId: number, number: string, name: string): TcgProduct => ({
+      productId,
+      name,
+      extendedData: [
+        { name: 'Number', value: number },
+        { name: 'Rarity', value: 'Ultra Rare' },
+      ],
+    });
+    const lc03 = [
+      product(1, 'LC03-EN001', 'The Seal of Orichalcos'),
+      product(2, 'LCYW-EN001', 'Dark Magician'),
+    ];
+    const prints = [
+      ygo('lc03', 'EN001', 'The Seal of Orichalcos', 'ultra-rare'),
+      ygo('lcyw', 'EN001', 'Dark Magician', 'ultra-rare'),
+    ];
+    expect(rows(matchProducts(lc03, prints, regional))).toEqual([
+      ['lc03-EN001-ultra-rare', 1, 'number_match', 70],
+      ['lcyw-EN001-ultra-rare', 2, 'number_match', 70],
+    ]);
+  });
+
+  it('name-matches a product without a set-naming number among its own set’s prints only', () => {
+    const prints = [
+      ygo('lc03', 'EN002', 'Dark Magician', 'ultra-rare'),
+      ygo('lcyw', 'EN001', 'Dark Magician', 'ultra-rare'),
+    ];
+    const product: TcgProduct = {
+      productId: 3,
+      name: 'Dark Magician',
+      extendedData: [{ name: 'Rarity', value: 'Ultra Rare' }],
+    };
+    expect(rows(matchProducts([product], prints, { ...regional, setId: 'set-lc03' }))).toEqual([
+      ['lc03-EN002-ultra-rare', 3, 'name_match', 40],
+    ]);
+  });
+
+  it('matches special editions, decks and Shonen Jump promos to their set (VB-113)', () => {
+    const sets = [
+      set('lob', 'Legend of Blue Eyes White Dragon'),
+      set('mrd', 'Metal Raiders'),
+      set('lc03', "Legendary Collection 3: Yugi's World"),
+      set('jump', 'Shonen Jump May 2006 subscription bonus'),
+      set('ys15', '2-Player Starter Deck: Yuya & Declan'),
+      set('mvp1', 'Yu-Gi-Oh! The Dark Side of Dimensions Movie Pack'),
+      set('lart', 'The Lost Art Promotion A'),
+    ];
+    const code = new Map(sets.map((s) => [s.id, s.code]));
+    expect(
+      matchGroups(results<TcgGroup>(tcgcsvFixture('2/groups-vb113.json'), 'groups'), sets, {
+        regional: true,
+      }).map((m) => [m.groupId, code.get(m.setId)]),
+    ).toEqual([
+      [330, 'lob'],
+      [22881, 'lob'],
+      [23050, 'lob'],
+      [255, 'mrd'],
+      [22882, 'mrd'],
+      [23052, 'mrd'],
+      [584, 'lc03'],
+      [281, 'jump'],
+      [1544, 'ys15'],
+      [1545, 'ys15'],
+      [1877, 'mvp1'],
+      [2577, 'mvp1'],
+      [2322, 'mvp1'],
+      [1820, 'mvp1'],
+      [2196, 'lart'],
+    ]);
   });
 });

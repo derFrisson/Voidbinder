@@ -24,6 +24,22 @@ const hit = (marketPrice: SearchHit['marketPrice']): SearchHit => ({
 });
 
 describe('PrintTile', () => {
+  it('puts the foil sheen on a foil print only: Pokémon Rare Holo yes, Common no (VB-112)', () => {
+    const pokemon = (rarity: string): SearchHit => ({
+      ...hit(null),
+      game: 'pokemon',
+      rarity,
+      finishes: ['normal', 'reverse'],
+      imageUrl: 'https://img.voidbinder.de/images/pokemon/1/en/sm.webp',
+    });
+    const { container, unmount } = renderApp(<PrintTile hit={pokemon('Rare Holo')} />);
+    expect(container.querySelectorAll('.vb-foil')).toHaveLength(1);
+    unmount();
+    // A catalog tile goes by its first finish: the Common's reverse copies shine in the collection.
+    const plain = renderApp(<PrintTile hit={pokemon('Common')} />);
+    expect(plain.container.querySelector('.vb-foil')).toBeNull();
+  });
+
   it('shows the market price with its source and the day it was observed, like the set page', () => {
     renderApp(
       <PrintTile

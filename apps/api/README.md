@@ -787,16 +787,25 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    sets), matched to catalog sets by Scryfall's `tcgplayer_id`; then TCGdex's official abbreviation
    (`external_ids.abbreviation.official`, `SVI`), when it and the group's are each unique and the
    group's name holds the set's (TCGplayer's `BST` is EX Battle Stadium, TCGdex's Battle Styles);
-   then abbreviation = set code (Yu-Gi-Oh!: also without a trailing region token, so `LOB` and
-   both `LOB-EN` groups map to `lob`); then the name without TCGplayer's series prefix (`SWSH03: `,
+   then abbreviation = set code (Yu-Gi-Oh!: also its code before a dash or slash, so `LOB` and
+   both `LOB-EN` groups map to `lob`, `MVP1-ENG`/`-ENS`/`-SE` to `mvp1`, `YS15-ENL` to `ys15`,
+   `RATE-SE` to `rate`, VB-113); then the name without TCGplayer's series prefix (`SWSH03: `,
    `SM - `), a trailing `Base Set` or a leading series name (`SV: Scarlet & Violet 151` → `151`);
-   last `GROUP_ALIASES` in `match.ts` (promos, McDonald's, Radiant Collections, by group id).
+   last `GROUP_ALIASES` in `match.ts` (promos, McDonald's, Radiant Collections, Shonen Jump
+   Magazine Promos, by group id).
 3. `prices <game> 000` …: products and prices of about 25 matched groups per step, mapped to
    prints (below) and written to `prices_current` and `prices_daily`. A set's groups share a step
    and are matched together (LOB: the North American prints are in `LOB`, the EN ones in
-   `LOB-EN`), so the more confident claim on a print wins across groups; a card that a lower group
-   id of the set already lists under its number and rarity (the 25th Anniversary Edition's
-   reprints, which the catalog folds into the set) is left unmapped.
+   `LOB-EN`), so the more confident claim on a print wins across groups. A card that several
+   groups of the set list under one number and rarity (the 25th Anniversary Edition's reprints,
+   which the catalog folds into the set) is one print: the lowest group id with a market price for
+   it prices it, else the lowest, and the others are left unmapped (VB-113: the Worldwide English
+   `MRD-EN010` has no market price, its 25th Anniversary reprint has). A print already mapped keeps
+   its product while that is listed with a market price, so `prices_daily` does not switch between
+   two products as their prices come and go; it falls forward only when its product has none. Yu-Gi-Oh! products whose
+   number names another set (LC03's group lists Legendary Collection 3's mega pack `LCYW-EN…`,
+   SJMP the `JMP` and `JMPS` promos) are matched to that set's prints when it has no group of its
+   own.
 4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
    with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
    have a group but no priced print, from the group list the run just kept. Logged in the step as
@@ -837,7 +846,8 @@ prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that land
 a plain run) imports the build even when the last run did: groups and products are matched anew,
 so a matching change reaches the current prices the same day instead of with the next build. It
 is a second pull of that build (about 2,500 requests, within TCGCSV's daily limit). After a
-matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN` groups) run
+matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN` groups,
+VB-113's Yu-Gi-Oh! rarity aliases, reprint families, artwork variants and set codes) run
 both steps, once for both: the forced import, then the archive backfill on the VPS with
 `--refill`, since a plain backfill skips every day that already has `tcgplayer` rows and the
 re-mapped prints' history would otherwise start with the forced run:
@@ -900,8 +910,26 @@ with its digits), so one product prices several prints (VB-110, `drizzle/0014_�
 digits: the European numbers differ (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki, both
 Super Rare). A product with the regional number itself, should TCGplayer list one, wins with 70.
 
+Yu-Gi-Oh! rarities are compared through `rarityKey` (VB-113), one alias table for both sides:
+YGOPRODeck's `Short Print` and `Super Short Print` are TCGplayer's `Common` (TCGplayer has no
+short prints, so one product prices a number's Common, SP and SSP prints), `Ultimate Rare` /
+`Collector's Rare` are `Prismatic Ultimate Rare` / `Prismatic Collector's Rare` in RA01 and RA04,
+`Ultra Rare (Pharaoh's Rare)` is `Ultra Pharaoh’s Rare`, HAC1's Duel Terminal parallels are
+`Duel Terminal Technology Common` / `Ultra Rare`, plus `Starfoil`, `Extra Secret` and the
+misspelled `Cr` and `Duel Terminal Normal Rare Parallel Rare`. Checked equal on both sides
+(2026-10-10): Quarter Century, Platinum and Prismatic Secret Rare, Starlight, Ghost, Ghost/Gold,
+Gold, Gold Secret, Premium Gold, Mosaic, Starfoil and Shatterfoil Rare, the Duel Terminal parallels
+of DT07. A product only takes prints of the set its number names, when that set is a candidate.
+
 Two products that claim one print with the same confidence are both left unmapped, and so is a
-TCGplayer id Scryfall gives more than one print. TCGCSV prices are written through the table, so
+TCGplayer id Scryfall gives more than one print. Yu-Gi-Oh! products of one number and rarity that
+differ by name are resolved per print (VB-113; Pokémon keeps the tie): the one with the print's
+name wins (LOB-012 is Trial of Nightmare and its misprint Trial of Hell); artwork variants (`Harpie Lady (Original Artwork)` and
+`(New Artwork)`, MRD-008) go to the original, or to the other one when Yugipedia gives the print an
+alternate-art code (`AA`, `AA2`, `Alt` in `external_ids.artwork.alt`, VB-106; none when several
+other artworks are listed), at confidence 65 with an INFO line `artwork variant
+picked`. A regional print whose name no product has (TCGplayer keeps `B. Skull Dragon`) takes the
+product of its card's EN print of the same rarity. TCGCSV prices are written through the table, so
 an override counts from the next run on. Only `tcgplayer` can be overridden (400 for any other
 source): the Scryfall sources come with the print and never go through `price_mappings`.
 

@@ -1,4 +1,4 @@
-import { cardAspect } from '@voidbinder/shared';
+import { cardAspect, isFoil } from '@voidbinder/shared';
 import type { SearchSuggestion } from '@voidbinder/shared/api';
 import { router } from 'expo-router';
 import { useEffect, useId, useState, type ReactNode } from 'react';
@@ -113,6 +113,7 @@ function Row({
             game={s.game}
             format={s.cardFormat ?? 'standard'}
             number={s.displayNumber ?? s.number ?? ''}
+            foil={isFoil(s.game, s.rarity, undefined, s.extendedArt)}
             className="rounded-md border"
           />
         )}
