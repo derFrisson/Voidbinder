@@ -130,8 +130,8 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
           cardId={card.id}
           game={game}
           // The full columns need the room of a 1024 px window (the 320 px image column takes it
-          // below), and in the third zone a 1760 px one, where that zone is 640 px wide.
-          wide={three ? width >= 1760 : width >= 1024}
+          // below). The third zone is 440-560 px wide at any width, which the compact table fits.
+          wide={!three && width >= 1024}
         />
       )}
       <View className={half ? 'flex-row items-start gap-4' : 'gap-4'}>

@@ -914,12 +914,25 @@ describe('web build', () => {
       const main = await rect(page.getByRole('main'));
       if (width >= 1904) expect(main.width).toBe(1760);
       // The set name keeps to one line, two where the prints table is the compact one (a phone, and
-      // the 440 px third zone below 1760 px); its full name stays the link's text.
-      const compact = width < 1024 || (width >= 1600 && width < 1760);
+      // the third zone, 440-560 px wide); its full name stays the link's text.
+      const compact = width < 1024 || width >= 1600;
       const set = page.getByRole('table', { name: 'Drucke und Varianten' }).getByRole('link', {
         name: 'Legend of Blue Eyes White Dragon: Anniversary Pack',
       });
       expect((await rect(set)).height).toBeLessThan(compact ? 44 : 24);
+      if (zones === 'three zones') {
+        // Every print is a row of one-line cells (the finish, Normal / Foil, is the one that broke).
+        const cells = page
+          .getByRole('table', { name: 'Drucke und Varianten' })
+          .getByRole('row')
+          .getByRole('cell')
+          .filter({ hasText: /Normal|Foil/ });
+        const heights = await cells.evaluateAll((els) =>
+          els.map((e) => Math.round(e.getBoundingClientRect().height)),
+        );
+        expect(heights.length).toBeGreaterThan(0);
+        expect(Math.max(...heights)).toBeLessThan(30);
+      }
       // The copies line follows the format name with a gap, or sits under it.
       for (const copies of ['2 Kopien', '1 Kopie']) {
         const line = page.getByText(copies, { exact: true });
