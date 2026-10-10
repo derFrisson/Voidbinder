@@ -16,8 +16,8 @@ import { Chip } from '../components/card/Chip';
 import { PrintTile, TileSkeleton } from '../components/card/PrintTile';
 import { QuickAdd } from '../components/collection/CollectButtons';
 import { SetPicker } from '../components/card/SetPicker';
-import { Icon } from '../components/Icon';
 import { Heading, Page, useWide } from '../components/Shell';
+import { SearchLead, useTypeahead } from '../components/Typeahead';
 import { Button, Empty, ErrorState } from '../components/ui';
 import { usePalette } from '../components/palette';
 import { fmt, useLocale, useT } from '../i18n';
@@ -261,6 +261,7 @@ export default function Search() {
   const t = useT();
   const locale = useLocale();
   const palette = usePalette();
+  const wide = useWide();
   const state = fromParams(useLocalSearchParams(), locale);
   const set = (patch: Partial<SearchState>) =>
     router.setParams(toParams(updateSearch(state, patch), locale));
@@ -289,14 +290,17 @@ export default function Search() {
     return () => clearTimeout(timer);
   }, [text]);
 
+  // Phones have no top bar, so this box carries the typeahead there (VB-79), full width.
+  const typeahead = useTypeahead({ text, onChangeText: setText, enabled: !wide });
+
   return (
     <Page title={t.search.title}>
       <Heading>{t.search.title}</Heading>
       {/* The input is the whole box, so the focus ring is the box. */}
-      <View className="relative justify-center">
+      <View className="relative z-10 justify-center">
         <TextInput
           value={text}
-          onChangeText={setText}
+          {...typeahead.inputProps}
           onSubmitEditing={() => send(text.trim())}
           autoFocus
           placeholder={t.search.placeholder}
@@ -309,8 +313,10 @@ export default function Search() {
           className="h-12 rounded-xl border border-line bg-surface pl-12 pr-4 font-body text-base text-ink"
         />
         <View className="absolute left-4" pointerEvents="none">
-          <Icon name="search" size={20} color={palette.ink3} />
+          <SearchLead busy={typeahead.busy} size={20} />
         </View>
+        {typeahead.list}
+        {typeahead.live}
       </View>
       <Filters state={state} set={set} />
       <Results

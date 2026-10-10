@@ -23,6 +23,7 @@ import { useSignOut } from '../api/queries/auth';
 import { useSession } from '../api/queries/me';
 import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
+import { SearchLead, useTypeahead } from './Typeahead';
 import { usePalette } from './palette';
 
 /**
@@ -173,12 +174,20 @@ export function Shell({ children }: { children: ReactNode }) {
 
 export type Crumb = { label: string; href?: Href };
 
-/** Global search with the `/` shortcut on the web; submitting opens /search. */
+/**
+ * Global search with the `/` shortcut on the web; submitting opens /search, typing shows the
+ * typeahead (VB-79) under the box, at least 360 px wide (it grows to the left on a narrow bar).
+ */
 function GlobalSearch() {
   const t = useT();
   const palette = usePalette();
   const [q, setQ] = useState('');
   const input = useRef<TextInput>(null);
+  const typeahead = useTypeahead({
+    text: q,
+    onChangeText: setQ,
+    listClass: 'right-0 w-full min-w-[360px]',
+  });
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
@@ -194,11 +203,11 @@ function GlobalSearch() {
   }, []);
   return (
     <View className="ml-auto h-10 w-[min(440px,36vw)] flex-row items-center gap-2.5 rounded-xl border border-line bg-surface pl-3 pr-2.5">
-      <Icon name="search" size={18} color={palette.ink3} />
+      <SearchLead busy={typeahead.busy} size={18} />
       <TextInput
         ref={input}
         value={q}
-        onChangeText={setQ}
+        {...typeahead.inputProps}
         onSubmitEditing={() =>
           router.push({ pathname: '/search', params: q.trim() ? { q: q.trim() } : {} })
         }
@@ -214,6 +223,8 @@ function GlobalSearch() {
       >
         /
       </Text>
+      {typeahead.list}
+      {typeahead.live}
     </View>
   );
 }
@@ -224,7 +235,7 @@ function TopBar({ crumbs }: { crumbs: Crumb[] }) {
   return (
     <View
       role="banner"
-      className="h-16 flex-row items-center gap-3.5 border-b border-line bg-page px-8"
+      className="z-10 h-16 flex-row items-center gap-3.5 border-b border-line bg-page px-8"
     >
       <View
         role="navigation"
