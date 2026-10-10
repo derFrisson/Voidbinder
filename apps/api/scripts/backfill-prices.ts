@@ -13,8 +13,8 @@
 // both checks and downloads every day of the range; ON CONFLICT DO NOTHING keeps it safe and adds
 // only rows that are missing (products mapped since).
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
-import { homedir, tmpdir } from 'node:os';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs, promisify } from 'node:util';
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -98,7 +98,10 @@ async function download(day: string, dir: string): Promise<string | null> {
 
 const pool = new Pool({ connectionString: databaseUrl, max: 1 });
 const pg = drizzle(pool);
-const work = await mkdtemp(join(tmpdir(), 'price-backfill-'));
+// A fixed folder, wiped at startup: a SIGKILL skips the `finally` and leaves the files behind.
+const work = join(homedir(), '.cache/voidbinder/price-backfill');
+await rm(work, { recursive: true, force: true });
+await mkdir(work, { recursive: true });
 const started = Date.now();
 const total = { days: 0, skipped: 0, missing: 0, inserted: 0 };
 try {

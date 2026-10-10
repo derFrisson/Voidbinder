@@ -2119,7 +2119,8 @@ so to add what is missing (after a mapping fix, or once more sets are imported) 
 `--refill --from X --to Y`: it downloads every day of the range regardless, and
 `ON CONFLICT DO NOTHING` inserts only the missing rows.
 
-**Disk.** One day's archive and its three unpacked games under `/tmp`, deleted after the day.
+**Disk.** One day's archive and its three unpacked games under `~/.cache/voidbinder/price-backfill`,
+deleted after the day; the folder is cleared at every start, so a killed run leaves nothing for long.
 
 **verify:**
 
