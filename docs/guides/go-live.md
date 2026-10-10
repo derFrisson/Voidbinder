@@ -56,7 +56,7 @@ checked on the day; the backup finding was read from the VPS afterwards (read-on
 6. **The workstation's resolver cached the NXDOMAIN** for `api.voidbinder.de` after the custom
    domain was created. `curl --resolve` or `dig @1.1.1.1` shows the real state (step 5).
 7. **Step 7's curl form works:** `-o /dev/stdout -w ' %{http_code}'` printed
-   `202 {"status":"started"}`.
+   `{"status":"started"} 202` (body first, then the status).
 8. **Prod figures on the day:** 9 API migrations; Magic 103,435 prints, 99,799 with an image key;
    Pokémon 21,290 / 19,663; Yu-Gi-Oh! 44,266 / 44,266; catalog modules at version 3 for every
    game; the Scryfall Workflow completed (prices ok); the first TCGCSV run and a TCGdex
@@ -619,6 +619,6 @@ About 2.5 hours from step 1 to step 12, mostly waiting. The long part is step 7:
 Yu-Gi-Oh! Workflows (about 30 min each with the prices, the purge wait and their mirror step, side
 by side) while the Pokémon copy runs on the VPS (minutes), followed by the TCGdex incremental
 (about 15 min with its purge wait and mirror step). Step 8, the VPS mirror at about 180 rows/s
-(about 10 min per big game), takes about 30 min and starts only once all three instances are
-`complete`; it gates step 11 (the site). Steps 9 (TCGCSV, about 25 min) and 10 (15 min) follow. Hands-on
+(about 10 min per big game), takes about 30 min and starts for each game once its Workflow instance
+is `complete`; it gates step 11 (the site). Steps 9 (TCGCSV, about 25 min) and 10 (15 min) follow. Hands-on
 time is about 1 hour. Not counted: Max's dashboard work (B2, N1, N2) and the VB-62 review.
