@@ -134,6 +134,13 @@
       "when": 1791661470666,
       "tag": "0018_ygo_render_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791661471666,
+      "tag": "0019_ygo_sm_keys",
+      "breakpoints": true
     }
   ]
 }
