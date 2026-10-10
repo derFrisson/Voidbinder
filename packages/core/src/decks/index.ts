@@ -94,7 +94,7 @@ export interface PricedDeckCard {
   name: string;
   label?: string;
   quantity: number;
-  print: { id: string; setCode: string; number: string; displayCode: string } | null;
+  print: { id: string; setCode: string; number: string; displayNumber: string } | null;
   price: EntryPrice | null;
 }
 
@@ -125,7 +125,7 @@ export function missingCards(
       printId: card.print?.id ?? null,
       setCode: card.print?.setCode ?? null,
       number: card.print?.number ?? null,
-      displayCode: card.print?.displayCode ?? null,
+      displayNumber: card.print?.displayNumber ?? null,
       needed,
       owned,
       unitPriceCents: card.price?.unitCents ?? null,

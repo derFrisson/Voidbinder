@@ -378,7 +378,7 @@ export class DrizzleDeckStore implements DeckStore {
                   id: print.printId,
                   setCode: print.setCode,
                   number: print.number,
-                  displayCode: print.displayCode,
+                  displayNumber: print.displayNumber,
                 }
               : null,
             price: best?.price ?? null,

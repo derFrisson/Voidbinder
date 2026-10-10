@@ -91,8 +91,8 @@ export const MissingCardSchema = z.object({
   printId: z.uuid().nullable(),
   setCode: z.string().nullable(),
   number: z.string().nullable(),
-  /** The print's code in the user's language (as on PrintSummary). */
-  displayCode: z.string().nullable(),
+  /** The print's number in the user's language (as on PrintSummary). */
+  displayNumber: z.string().nullable(),
   /** Copies the deck needs (every zone) and copies the collection holds; missing = the difference. */
   needed: z.number().int(),
   owned: z.number().int(),

@@ -550,7 +550,7 @@ describe('missingCards', () => {
     name,
     label: `${name} (de)`,
     quantity,
-    print: { id: `p-${name}`, setCode: 'lob', number: '1', displayCode: 'LOB-1' },
+    print: { id: `p-${name}`, setCode: 'lob', number: '1', displayNumber: '1' },
     price,
   });
 
@@ -570,7 +570,7 @@ describe('missingCards', () => {
         printId: 'p-A',
         setCode: 'lob',
         number: '1',
-        displayCode: 'LOB-1',
+        displayNumber: '1',
         needed: 4,
         owned: 1,
         unitPriceCents: 100,

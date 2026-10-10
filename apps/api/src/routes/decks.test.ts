@@ -454,6 +454,6 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
       ['EN025', 'BLGG-EN025'],
     ]);
     expect(d.entries.every((e) => e.print?.cardFormat === 'japanese')).toBe(true);
-    expect(d.analysis.missing.map((m) => m.displayCode)).toEqual(['BLGG-DE024', 'BLGG-EN025']);
+    expect(d.analysis.missing.map((m) => m.displayNumber)).toEqual(['DE024', 'EN025']);
   });
 });
