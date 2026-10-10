@@ -19,6 +19,7 @@ import {
   planArtworks,
   rarityAbbr,
   runGalleryImport,
+  planSets,
   setNameKey,
   type GalleryPage,
 } from './galleries';
@@ -605,5 +606,15 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
       .from(prints)
       .where(eq(prints.id, ids.dm ?? ''));
     expect(p?.key).toBe('images/yugioh/DarkMagician-RA05-EN-UR-1E/en/orig.png');
+  });
+
+  it('finds the gallery of a set the wiki names otherwise (VB-109)', async () => {
+    await db.insert(sets).values({
+      gameId: 'yugioh',
+      code: 'blvo',
+      name: 'Blazing Vortex Premiere! promotional card',
+    });
+    const title = 'Set Card Galleries:Blazing Vortex (TCG-EN-1E)';
+    expect(await planSets(db, [title], '2026-10-10')).toEqual([{ code: 'blvo', titles: [title] }]);
   });
 });
