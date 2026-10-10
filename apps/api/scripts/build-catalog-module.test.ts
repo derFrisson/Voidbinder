@@ -105,10 +105,8 @@ describe('plan', () => {
 describe('attribution (VB-93)', () => {
   it('credits Yugipedia in a Yu-Gi-Oh! manifest, which the schema keeps', () => {
     expect(attributionOf('mtg')).toBeUndefined();
-    // VB-118: the pictures TCGdex lacks come from pokemontcg.io.
-    expect(attributionOf('pokemon')).toBe(
-      'Card images: Pokémon TCG API (pokemontcg.io), https://pokemontcg.io',
-    );
+    // The Pokémon module names no image source (Max, 2026-10-11).
+    expect(attributionOf('pokemon')).toBeUndefined();
     const attribution = attributionOf('yugioh');
     expect(attribution).toMatch(/Yugipedia \(CC BY-SA 4\.0\), https:\/\/creativecommons/);
     const manifest = nextManifest(
