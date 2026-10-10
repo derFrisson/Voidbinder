@@ -15,7 +15,6 @@ const ALLOWED_HOSTS = [
   'plausible.io', // the privacy policy links Plausible's data policy
   'voidcom.app',
   'cloudflare.com', // links to Cloudflare's own pages
-  'cloudflareinsights.com', // Web Analytics beacon
 ];
 const allowed = (host: string) => ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 
