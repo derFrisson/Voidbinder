@@ -39,6 +39,68 @@ const games = {
   ],
 };
 
+const mtgSets = {
+  game: 'mtg',
+  sets: [
+    {
+      code: 'mid',
+      name: 'Innistrad: Midnight Hunt',
+      localizedName: null,
+      releasedOn: '2021-09-24',
+      cardCount: 392,
+      kind: 'expansion',
+    },
+    {
+      code: 'vow',
+      name: 'Crimson Vow',
+      localizedName: null,
+      releasedOn: '2021-11-19',
+      cardCount: 277,
+      kind: 'expansion',
+    },
+    {
+      code: 'old',
+      name: 'Old One',
+      localizedName: null,
+      releasedOn: null,
+      cardCount: null,
+      kind: null,
+    },
+  ],
+};
+const mid = (rarity: string | null) => ({
+  set: { ...mtgSets.sets[0], game: 'mtg' },
+  prints: [1, 2, 3, 4].map((n) => ({
+    id: `00000000-0000-4000-8000-00000000000${n}`,
+    cardId: `10000000-0000-4000-8000-00000000000${n}`,
+    number: String(n),
+    variant: '',
+    name: `Adeline ${n}`,
+    rarity: rarity ?? (n % 2 ? 'rare' : 'common'),
+    finishes: ['normal', 'foil'],
+    imageUrl: n === 1 ? 'https://img.voidbinder.de/images/mtg/1/en/sm.webp' : null,
+  })),
+  page: 1,
+  pageSize: 60,
+  total: 130,
+  facets: {
+    rarities: [
+      { rarity: 'common', count: 123 },
+      { rarity: 'rare', count: 130 },
+    ],
+    finishes: [
+      { finish: 'normal', count: 391 },
+      { finish: 'foil', count: 300 },
+    ],
+    languages: ['de', 'en'],
+  },
+});
+// A 1 x 1 PNG for the one card with a picture.
+const png = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+  'base64',
+);
+
 let worker: ChildProcess | undefined;
 let browser: Browser | undefined;
 let origin = '';
@@ -56,11 +118,16 @@ async function open({ width = 1440, height = 900, scheme = 'light' }: Options = 
   });
   const page = await context.newPage();
   const posts = new Map<string, unknown>();
+  /** The query string of every set page request. */
+  const queries: string[] = [];
   const csp: string[] = [];
   let signedIn = false;
   page.on('console', (m) => {
     if (m.text().includes('Content Security Policy')) csp.push(m.text());
   });
+  await page.route('https://img.voidbinder.de/**', (route) =>
+    route.fulfill({ body: png, contentType: 'image/png' }),
+  );
   await page.route('**/api/**', async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname;
@@ -78,12 +145,18 @@ async function open({ width = 1440, height = 900, scheme = 'light' }: Options = 
           });
     }
     if (path === '/api/catalog/games') return route.fulfill({ json: games });
+    if (path === '/api/catalog/games/mtg/sets') return route.fulfill({ json: mtgSets });
+    if (path === '/api/catalog/sets/mtg/mid') {
+      const url = new URL(req.url());
+      queries.push(url.search);
+      return route.fulfill({ json: mid(url.searchParams.get('rarity')) });
+    }
     return route.fulfill({
       status: 404,
       json: { error: { code: 'not_found', message: 'x', requestId: 'r' } },
     });
   });
-  return { context, page, posts, csp };
+  return { context, page, posts, csp, queries };
 }
 
 async function axe(page: Page) {
@@ -168,13 +241,58 @@ describe('web build', () => {
     }
   });
 
+  it('keeps the set page filters in the URL and survives a reload', async () => {
+    const { context, page, queries, csp } = await open();
+    try {
+      await page.goto(`${origin}/mtg/sets/mid`);
+      await page.getByRole('heading', { level: 1, name: 'Innistrad: Midnight Hunt' }).waitFor();
+      await page.getByText('130 Karten, Seite 1').waitFor();
+      expect(queries.at(-1)).toBe('?lang=de&sort=number&page=1');
+      // The card with a picture loads it from the image host without a CSP violation.
+      await page.getByRole('img', { name: 'Adeline 1, MID 1' }).waitFor();
+      await page.getByRole('button', { name: /Selten/ }).click();
+      await page.waitForURL(/\/mtg\/sets\/mid\?rarity=rare$/);
+      await page.getByRole('button', { name: /Selten/, pressed: true }).waitFor();
+      expect(queries.at(-1)).toBe('?lang=de&sort=number&page=1&rarity=rare');
+      await page.getByRole('radio', { name: 'Liste' }).click();
+      await page.waitForURL(/rarity=rare&view=list$/);
+      await page.reload();
+      await page.getByRole('button', { name: /Selten/, pressed: true }).waitFor();
+      expect(await page.getByRole('radio', { name: 'Liste', checked: true }).count()).toBe(1);
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  it('lists the sets of a game and opens one, remembering it on the home page', async () => {
+    const { context, page } = await open();
+    try {
+      await page.goto(`${origin}/mtg`);
+      await page.getByText('3 Sets').waitFor();
+      await page.getByLabel('Sets filtern').fill('crimson');
+      await page.getByText('1 von 3 Sets').waitFor();
+      await page.getByRole('link', { name: /Crimson Vow/ }).click();
+      await page.waitForURL(/\/mtg\/sets\/vow$/);
+      await page.goto(`${origin}/mtg/sets/mid`);
+      await page.getByText('130 Karten, Seite 1').waitFor();
+      await page.getByRole('link', { name: 'Voidbinder, zur Startseite' }).click();
+      const recent = page.getByRole('region', { name: 'Zuletzt angesehen' });
+      await recent.getByRole('link', { name: /Innistrad: Midnight Hunt/ }).waitFor();
+    } finally {
+      await context.close();
+    }
+  });
+
   // WCAG 2.2 AA, automated, like the site (apps/site/test/a11y.test.ts).
   const cases = (['light', 'dark'] as const).flatMap((scheme) =>
     [
       ['desktop', 1440, 900],
       ['phone', 390, 844],
     ].flatMap(([name, width, height]) =>
-      ['/', '/sign-in'].map((path) => [scheme, name, path, width, height] as const),
+      ['/', '/sign-in', '/mtg', '/mtg/sets/mid', '/mtg/sets/mid?view=list'].map(
+        (path) => [scheme, name, path, width, height] as const,
+      ),
     ),
   );
   it.each(cases)('axe: %s %s %s has no violations', async (scheme, _name, path, width, height) => {
