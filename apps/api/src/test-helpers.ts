@@ -60,6 +60,7 @@ export function testDeps(mails: MailMessage[] = []): Omit<AppDeps, 'openPlatform
     auth: {
       secret: 'test-secret-that-is-at-least-32-bytes-long',
       apiUrl: 'https://api.example.test',
+      twoFactorKey: btoa('test-two-factor-key-of-32-bytes!'),
       mail: { send: async (m) => void mails.push(m) },
     },
   };

@@ -1,13 +1,27 @@
-import { randomUUID } from 'node:crypto';
+import { createHmac, randomUUID } from 'node:crypto';
 import { ErrorResponseSchema, MeResponseSchema } from '@voidbinder/shared/api';
 import { eq, like } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
-import { rateLimit, session, user } from '../db/schema';
+import { rateLimit, session, twoFactor, user } from '../db/schema';
 import { databaseUrl, freshDatabase, testDeps } from '../test-helpers';
 import { AUTH_RATE_LIMITS } from './index';
 import type { MailMessage } from './mail';
+import { secretCipher } from './two-factor';
+
+/** RFC 6238 TOTP (SHA-1, 6 digits, 30 s) of an otpauth URI's base32 secret, like an authenticator. */
+function totp(base32: string, at = Date.now()): string {
+  const bits = [...base32.replace(/=+$/, '').toUpperCase()]
+    .map((c) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567'.indexOf(c).toString(2).padStart(5, '0'))
+    .join('');
+  const key = Buffer.from((bits.match(/.{8}/g) ?? []).map((b) => parseInt(b, 2)));
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(at / 30_000)));
+  const h = createHmac('sha1', key).update(counter).digest();
+  const offset = (h[19] ?? 0) & 0xf;
+  return String((h.readUInt32BE(offset) & 0x7fffffff) % 1_000_000).padStart(6, '0');
+}
 
 // Integration tests against a real Postgres: `docker compose up -d` at the repo root, then
 // DATABASE_URL=postgres://voidbinder:voidbinder@localhost:5434/voidbinder pnpm --filter api test
@@ -290,7 +304,7 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
     expect(await violated({})).toBe('inserted');
   });
 
-  it('answers 429 once a client IP used up its sign-up and sign-in attempts', async () => {
+  it('answers 429 once a client IP used up its sign-up, sign-in and 2FA code attempts', async () => {
     const b = browser();
     for (const [path, rule] of Object.entries(AUTH_RATE_LIMITS)) {
       const body = { name: 'Ash', email: `${randomUUID()}@example.test`, password: PASSWORD };
@@ -307,5 +321,242 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
       .from(rateLimit)
       .where(like(rateLimit.key, `%${b.ip}%`));
     expect(rows).toHaveLength(Object.keys(AUTH_RATE_LIMITS).length);
+  });
+  describe('two-factor authentication', () => {
+    /** Enables 2FA for a signed-in browser: the password, then the first code turns it on. */
+    async function enable(b: ReturnType<typeof browser>) {
+      const res = await b.request('/auth/two-factor/enable', { body: { password: PASSWORD } });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as { totpURI: string; backupCodes: string[] };
+      const secret = new URL(body.totpURI).searchParams.get('secret') ?? '';
+      const verify = await b.request('/auth/two-factor/verify-totp', {
+        body: { code: totp(secret) },
+      });
+      expect(verify.status).toBe(200);
+      return { secret, backupCodes: body.backupCodes, totpURI: body.totpURI };
+    }
+
+    async function signInStep(b: ReturnType<typeof browser>, email: string) {
+      const res = await b.request('/auth/sign-in/email', { body: { email, password: PASSWORD } });
+      expect(res.status).toBe(200);
+      return { res, body: (await res.json()) as { twoFactorRedirect?: boolean } };
+    }
+
+    async function twoFactorRow(email: string) {
+      const [row] = await db
+        .select({ enabled: user.twoFactorEnabled, tf: twoFactor })
+        .from(user)
+        .leftJoin(twoFactor, eq(twoFactor.userId, user.id))
+        .where(eq(user.email, email));
+      return row;
+    }
+
+    it('enables 2FA only after the first code, with the password, and keeps the secrets encrypted', async () => {
+      const { b, email } = await signedIn();
+      const wrong = await b.request('/auth/two-factor/enable', {
+        body: { password: 'wrong password!' },
+      });
+      expect(wrong.status).toBe(400);
+
+      const res = await b.request('/auth/two-factor/enable', { body: { password: PASSWORD } });
+      const { totpURI, backupCodes } = (await res.json()) as {
+        totpURI: string;
+        backupCodes: string[];
+      };
+      const uri = new URL(totpURI);
+      expect(uri.protocol).toBe('otpauth:');
+      expect(uri.searchParams.get('issuer')).toBe('Voidbinder');
+      expect(uri.searchParams.get('digits')).toBe('6');
+      expect(uri.searchParams.get('period')).toBe('30');
+      expect(backupCodes).toHaveLength(10);
+      expect((await twoFactorRow(email))?.enabled).toBe(false);
+
+      const secret = uri.searchParams.get('secret') ?? '';
+      expect(
+        (await b.request('/auth/two-factor/verify-totp', { body: { code: '000000' } })).status,
+      ).toBe(401);
+      expect((await twoFactorRow(email))?.enabled).toBe(false);
+      const verify = await b.request('/auth/two-factor/verify-totp', {
+        body: { code: totp(secret) },
+      });
+      expect(verify.status).toBe(200);
+      const row = await twoFactorRow(email);
+      expect(row?.enabled).toBe(true);
+      expect(row?.tf?.verified).toBe(true);
+
+      // At rest: AES-GCM with TWO_FACTOR_ENCRYPTION_KEY around Better Auth's own encryption of the
+      // secret; the backup codes with the 2FA key alone. Neither shows the plain values.
+      const cipher = secretCipher(deps.auth.twoFactorKey);
+      const stored = `${row?.tf?.secret} ${row?.tf?.backupCodes}`;
+      for (const plain of [secret, ...backupCodes]) expect(stored).not.toContain(plain);
+      expect(await cipher.decrypt(row?.tf?.secret ?? '')).toMatch(/^\$ba\$|^[0-9a-f]+$/);
+      expect(JSON.parse(await cipher.decrypt(row?.tf?.backupCodes ?? ''))).toEqual(backupCodes);
+    });
+
+    it('asks for the code after the password and signs in only with a valid one', async () => {
+      const { b, email } = await signedIn();
+      const { secret } = await enable(b);
+
+      const other = browser();
+      const { body } = await signInStep(other, email);
+      expect(body).toMatchObject({ twoFactorRedirect: true, twoFactorMethods: ['totp'] });
+      expect([...other.jar.keys()].some((k) => k.endsWith('session_token'))).toBe(false);
+      expect((await other.request('/me')).status).toBe(401);
+
+      const wrong = await other.request('/auth/two-factor/verify-totp', {
+        body: { code: '000000' },
+      });
+      expect(wrong.status).toBe(401);
+      expect((await other.request('/me')).status).toBe(401);
+
+      const ok = await other.request('/auth/two-factor/verify-totp', {
+        body: { code: totp(secret) },
+      });
+      expect(ok.status).toBe(200);
+      expect((await other.request('/me')).status).toBe(200);
+    });
+
+    it('takes a backup code once and answers a wrong one like a wrong TOTP code', async () => {
+      const { b, email } = await signedIn();
+      const { backupCodes } = await enable(b);
+      const code = backupCodes[0] ?? '';
+
+      const first = browser();
+      await signInStep(first, email);
+      const wrongTotp = await first.request('/auth/two-factor/verify-totp', {
+        body: { code: '000000' },
+      });
+      const wrongBackup = await first.request('/auth/two-factor/verify-backup-code', {
+        body: { code: 'AAAAA-BBBBB' },
+      });
+      expect(wrongBackup.status).toBe(wrongTotp.status);
+      expect(await wrongBackup.json()).toEqual(await wrongTotp.json());
+
+      const used = await first.request('/auth/two-factor/verify-backup-code', { body: { code } });
+      expect(used.status).toBe(200);
+      expect((await first.request('/me')).status).toBe(200);
+
+      const second = browser();
+      await signInStep(second, email);
+      const again = await second.request('/auth/two-factor/verify-backup-code', {
+        body: { code },
+      });
+      expect(again.status).toBe(401);
+      expect(await again.json()).toEqual({ code: 'INVALID_CODE', message: 'Invalid code' });
+      expect((await second.request('/me')).status).toBe(401);
+    });
+
+    it('skips the challenge on a device trusted for 30 days', async () => {
+      const { b, email } = await signedIn();
+      const { secret } = await enable(b);
+
+      const device = browser();
+      await signInStep(device, email);
+      const verify = await device.request('/auth/two-factor/verify-totp', {
+        body: { code: totp(secret), trustDevice: true },
+      });
+      expect(verify.status).toBe(200);
+      const trust = device.setCookies().find((c) => c.includes('trust_device='));
+      expect(trust).toMatch(/Max-Age=2592000/i);
+      expect(trust).toMatch(/; HttpOnly/i);
+      await device.request('/auth/sign-out', { body: {} });
+      expect((await device.request('/me')).status).toBe(401);
+
+      const { body } = await signInStep(device, email);
+      expect(body.twoFactorRedirect).toBeUndefined();
+      expect((await device.request('/me')).status).toBe(200);
+
+      // Another browser still gets the challenge.
+      expect((await signInStep(browser(), email)).body.twoFactorRedirect).toBe(true);
+    });
+
+    it('regenerates backup codes and disables 2FA only with the password', async () => {
+      const { b, email } = await signedIn();
+      const { backupCodes } = await enable(b);
+
+      const badRegen = await b.request('/auth/two-factor/generate-backup-codes', {
+        body: { password: 'wrong password!' },
+      });
+      expect(badRegen.status).toBe(400);
+      const regen = await b.request('/auth/two-factor/generate-backup-codes', {
+        body: { password: PASSWORD },
+      });
+      expect(regen.status).toBe(200);
+      const fresh = ((await regen.json()) as { backupCodes: string[] }).backupCodes;
+      expect(fresh).toHaveLength(10);
+      expect(fresh).not.toContain(backupCodes[0]);
+
+      expect(
+        (await b.request('/auth/two-factor/disable', { body: { password: 'wrong password!' } }))
+          .status,
+      ).toBe(400);
+      expect((await b.request('/auth/two-factor/disable', { body: {} })).status).toBe(400);
+      expect((await twoFactorRow(email))?.enabled).toBe(true);
+
+      const off = await b.request('/auth/two-factor/disable', { body: { password: PASSWORD } });
+      expect(off.status).toBe(200);
+      const row = await twoFactorRow(email);
+      expect(row?.enabled).toBe(false);
+      expect(row?.tf).toBeNull();
+      expect((await signInStep(browser(), email)).body.twoFactorRedirect).toBeUndefined();
+    });
+
+    it('gives a native (bearer) client the same challenge and its token after the code', async () => {
+      const { b, email } = await signedIn();
+      const { secret } = await enable(b);
+
+      // The native client keeps the challenge cookie (Better Auth's Expo plugin stores cookies).
+      const native = browser();
+      const { res, body } = await signInStep(native, email);
+      expect(body.twoFactorRedirect).toBe(true);
+      expect(res.headers.get('set-auth-token')).toBeNull();
+
+      const verify = await native.request('/auth/two-factor/verify-totp', {
+        body: { code: totp(secret) },
+      });
+      expect(verify.status).toBe(200);
+      const token = verify.headers.get('set-auth-token');
+      expect(token).toBeTruthy();
+
+      const app = browser();
+      app.useBearer(token ?? '');
+      expect((await app.request('/me')).status).toBe(200);
+    });
+
+    it('keeps 2FA through a password reset', async () => {
+      const { b, email } = await signedIn('en');
+      await enable(b);
+      const other = browser();
+      await other.request('/auth/request-password-reset', { body: { email } });
+      const reset = await other.request('/auth/reset-password', {
+        body: {
+          token: tokenIn(lastMailTo(email), '/reset-password'),
+          newPassword: 'a brand new password',
+        },
+      });
+      expect(reset.status).toBe(200);
+      const signIn = await other.request('/auth/sign-in/email', {
+        body: { email, password: 'a brand new password' },
+      });
+      expect(((await signIn.json()) as { twoFactorRedirect?: boolean }).twoFactorRedirect).toBe(
+        true,
+      );
+      expect((await twoFactorRow(email))?.enabled).toBe(true);
+    });
+
+    it('withdraws a deletion request only once the second factor passed', async () => {
+      const { b, email } = await signedIn();
+      const { secret } = await enable(b);
+      expect((await b.request('/me', { method: 'DELETE' })).status).toBe(202);
+
+      const again = browser();
+      await signInStep(again, email);
+      const [pending] = await db.select().from(user).where(eq(user.email, email));
+      expect(pending?.deletionRequestedAt).toBeInstanceOf(Date);
+
+      await again.request('/auth/two-factor/verify-totp', { body: { code: totp(secret) } });
+      const [withdrawn] = await db.select().from(user).where(eq(user.email, email));
+      expect(withdrawn?.deletionRequestedAt).toBeNull();
+    });
   });
 });
