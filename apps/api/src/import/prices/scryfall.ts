@@ -3,12 +3,12 @@ import { prints, sets } from '../../db/schema';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import type { ScryfallCard } from '../scryfall/types';
 import { failRun, finishRun, type Db } from '../scryfall/write';
-import { jsonLines } from '../util';
+import { chunkKey, readChunk } from '../scryfall/source';
 import { startRun, upsertMappings, writePrices, type MappingRow, type PriceRow } from './write';
 
 // Scryfall's prices (VB-30): `default_cards` carries Cardmarket EUR and TCGplayer USD per print.
-// The catalog import already stored the day's dump in R2; this reads it back, never fetching it
-// again, and writes `cardmarket` (EUR) and `tcgplayer_scryfall` (USD) rows.
+// The catalog import already stored and split the day's dump in R2; this reads its chunks back,
+// never fetching it again, and writes `cardmarket` (EUR) and `tcgplayer_scryfall` (USD) rows.
 
 const PRICES = [
   ['eur', 'cardmarket', 'EUR', 'normal'],
@@ -18,9 +18,6 @@ const PRICES = [
   ['usd_foil', 'tcgplayer_scryfall', 'USD', 'foil'],
   ['usd_etched', 'tcgplayer_scryfall', 'USD', 'etched'],
 ] as const;
-
-/** Lines per lookup and write batch. */
-const LINES = 2000;
 
 type Priced = Pick<ScryfallCard, 'set' | 'collector_number'> & {
   prices?: Record<string, string | null>;
@@ -76,41 +73,32 @@ export async function writeScryfallPrices(db: Db, lines: string[], observedAt: s
 }
 
 /**
- * Appended to the Scryfall import Workflow: three steps (run row, the prices of the whole dump,
- * finish with the catalog_version bump). The write step is idempotent, so a retry is safe.
+ * Run by the Scryfall import after its catalog run and before it deletes the chunks: one step per
+ * `default_cards` chunk (`prices 00000` …, the chunks of the `cards` steps) between a run row and
+ * its finish with the catalog_version bump. Each step is idempotent, so a retry is safe and a
+ * resumed instance continues at the failed chunk.
  */
 export async function runScryfallPrices(
   deps: ImportDeps,
   step: StepRunner,
-  opts: { env: string; date: string; observedAt: string },
+  opts: { work: string; chunks: number; observedAt: string },
 ) {
   const runId = await step('prices: start run', () =>
     deps.withDb((db) => startRun(db, 'scryfall')),
   );
   try {
-    const stats = await step('prices: write', async () => {
-      const key = `raw/${opts.env}/scryfall/${opts.date}/default_cards.jsonl.gz`;
-      const raw = await deps.raw.get(key);
-      if (!raw) throw new Error(`${key} is missing`);
-      const total = { lines: 0, prices: 0, noPrint: 0 };
-      await deps.withDb(async (db) => {
-        let batch: string[] = [];
-        const flush = async () => {
-          const r = await writeScryfallPrices(db, batch, opts.observedAt);
-          total.prices += r.prices;
-          total.noPrint += r.noPrint;
-          batch = [];
-        };
-        const body = raw.body as ReadableStream<Uint8Array>;
-        for await (const line of jsonLines(body, { gzip: true })) {
-          total.lines++;
-          batch.push(line);
-          if (batch.length === LINES) await flush();
-        }
-        if (batch.length) await flush();
+    const stats = { lines: 0, prices: 0, noPrint: 0 };
+    for (let i = 0; i < opts.chunks; i++) {
+      const key = chunkKey(`${opts.work}/default_cards`, i);
+      const r = await step(`prices ${String(i).padStart(5, '0')}`, async () => {
+        const lines = await readChunk(deps.raw, key);
+        const written = await deps.withDb((db) => writeScryfallPrices(db, lines, opts.observedAt));
+        return { lines: lines.length, ...written };
       });
-      return total;
-    });
+      stats.lines += r.lines;
+      stats.prices += r.prices;
+      stats.noPrint += r.noPrint;
+    }
     await step('prices: finish run', () =>
       deps.withDb((db) => finishRun(db, runId, { observedAt: opts.observedAt, ...stats })),
     );
