@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { appMeta, cards, importRuns, printLocalizations, prints, sets } from '../../db/schema';
 import { PrintResponseSchema, SetPageResponseSchema } from '@voidbinder/shared/api';
@@ -22,6 +22,7 @@ import {
   runGalleryImport,
   planSets,
   setNameKey,
+  writeArtworks,
   type GalleryPage,
 } from './galleries';
 import { importCardLines } from '../ygoprodeck/write';
@@ -957,6 +958,26 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import of MAMO (Postgres, VB-11
       .where(eq(printLocalizations.lang, 'de'))
       .orderBy(printLocalizations.imageKey);
     expect(keys.map((k) => k.key)).toEqual(['images/yugioh/DE-EA/de/orig.png', null]);
+  });
+
+  it("drops a localization's key when its scan is no longer shown", async () => {
+    const printId = (await of('EN001', 'new'))?.id ?? '';
+    const key = async () =>
+      (
+        await db
+          .select({ key: printLocalizations.imageKey })
+          .from(printLocalizations)
+          .where(and(eq(printLocalizations.printId, printId), eq(printLocalizations.lang, 'de')))
+      )[0]?.key;
+    const artwork = { file: 'DE-EA2.png', url: 'https://x.test/DE-EA2.png' };
+    // Another shown scan: the key stays until the mirror stores it.
+    expect(
+      await writeArtworks(db, [{ printId, lang: 'de', artwork: { ...artwork, alt: 'EA' } }]),
+    ).toBe(1);
+    expect(await key()).toBe('images/yugioh/DE-EA/de/orig.png');
+    // A scan of the standard artwork: the language shows the print's render.
+    expect(await writeArtworks(db, [{ printId, lang: 'de', artwork }])).toBe(1);
+    expect(await key()).toBeNull();
   });
 
   it('looks at a set with a print without rarity again the next day', async () => {

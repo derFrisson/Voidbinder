@@ -531,7 +531,8 @@ export async function writeRarities(db: Db, rows: RarityChoice[]): Promise<numbe
 
 /**
  * Writes each print's (and localization's) artwork; returns the rows changed. The `image_key`
- * stays until the mirror has stored the new scan (`needsWork` plans a key that does not name it).
+ * stays until the mirror has stored the new scan (`needsWork` plans a key that does not name it),
+ * except a localization's whose scan is no longer shown.
  */
 export async function writeArtworks(
   db: Db,
@@ -549,7 +550,11 @@ export async function writeArtworks(
     where prints.id = v.id and prints.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
   const locsDone = await db.execute(sql`
     update print_localizations l
-    set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork)
+    set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork),
+      -- A localization's key is always a scan: one no longer shown (\`showsScan\`) is dropped, so
+      -- the language falls back to the print's render (as drizzle/0017 step 2 did once).
+      image_key = case when coalesce(v.artwork ->> 'alt', '') <> ''
+        or v.artwork ->> 'own_art' = 'true' then l.image_key end
     from jsonb_to_recordset(${json(false)}::jsonb) as v(id uuid, lang text, artwork jsonb)
     where l.print_id = v.id and l.lang = v.lang
       and l.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
