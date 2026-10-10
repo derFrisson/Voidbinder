@@ -15,7 +15,9 @@ import {
 
 // The sync protocol (`/sync/**`, VB-32, ADR 0005): a device pushes its local changes as full rows
 // and pulls every row that changed since its cursor. The rows carry the same fields as the REST
-// routes; `updatedAt` is the edit time, `deletedAt` the tombstone.
+// routes; `updatedAt` is the edit time, `deletedAt` (pushed rows only) asks for a delete. A delete
+// removes the row at once (VB-75); only `{ table, id }` stays in the deletion log so other devices
+// learn of it, for `SYNC_DELETION_RETENTION_DAYS`.
 
 /** The synced tables, in the order a batch is applied: a row's parent before the row. */
 export const SYNC_TABLES = [
@@ -38,6 +40,12 @@ export const SYNC_DECK_ENTRIES_LIMIT = 500;
  */
 export const SYNC_DECK_ENTRIES_TOTAL = 5000;
 
+/**
+ * Days the server keeps a deletion's `{ table, id }` (never the row's content) for other devices
+ * to pull. A device whose cursor is older must pull everything again (`resync_required`).
+ */
+export const SYNC_DELETION_RETENTION_DAYS = 30;
+
 const Timestamp = z.iso.datetime({ offset: true });
 
 /** What every synced row has besides its fields. */
@@ -45,7 +53,7 @@ const Stamp = {
   id: z.uuid(),
   /** The edit time (the client's clock on a push, the stored value on a pull). */
   updatedAt: Timestamp,
-  /** Set: the row is deleted (a tombstone). */
+  /** Set on a push: delete the row. Always null on a pull (deletions come in `deletions`). */
   deletedAt: Timestamp.nullable(),
 };
 /** What a pushed row adds: the `updatedAt` the client last pulled; null for a row it created. */
@@ -94,6 +102,13 @@ export const SyncChangeSchema = z.discriminatedUnion('table', [
   z.object({ table: z.literal('deck_entries'), rows: z.array(SyncDeckEntrySchema) }),
 ]);
 export type SyncChange = z.infer<typeof SyncChangeSchema>;
+
+/** A deleted row: drop the local copy (its table is never `deck_entries`, they go with the deck). */
+export const SyncDeletionSchema = z.object({
+  table: SyncTableSchema.exclude(['deck_entries']),
+  id: z.uuid(),
+});
+export type SyncDeletion = z.infer<typeof SyncDeletionSchema>;
 
 /** Pushed rows of one table. */
 export const SyncPushChangeSchema = z.discriminatedUnion('table', [
@@ -160,6 +175,7 @@ export type SyncPushRequest = z.infer<typeof SyncPushRequestSchema>;
  * equal already; an entry filed into a deleted binder is held in no binder, which the next pull
  * brings), with the `updatedAt` to send as `baseUpdatedAt` next time. `conflicts`: the
  * server kept its row; replace the local copy with it (a deck comes with its entries).
+ * `deletions`: an edit lost to a newer delete; the row is gone, drop the local copy.
  */
 export const SyncPushResponseSchema = z.object({
   applied: z.array(
@@ -170,23 +186,31 @@ export const SyncPushResponseSchema = z.object({
     }),
   ),
   conflicts: z.array(SyncChangeSchema),
+  deletions: z.array(SyncDeletionSchema),
 });
 export type SyncPushResponse = z.infer<typeof SyncPushResponseSchema>;
 
-/** `GET /sync/pull?since=&limit=`: rows changed after the cursor `since` (0: everything). */
+/**
+ * `GET /sync/pull?since=&limit=`: rows changed after the cursor `since` (0: everything). Send the
+ * `cursor` of the last answer as it came; a full pull's pages hand it out below 0.
+ */
 export const SyncPullQuerySchema = z.object({
-  since: z.coerce.number().int().min(0).default(0),
+  since: z.coerce.number().int().default(0),
   limit: z.coerce.number().int().min(1).max(SYNC_LIMIT).default(SYNC_LIMIT),
 });
 export type SyncPullQuery = z.infer<typeof SyncPullQuerySchema>;
 
 /**
- * `GET /sync/pull` answer: up to `limit` rows (deck entries aside: every deck comes with its whole
- * list; the page ends early once rows and lists pass `SYNC_DECK_ENTRIES_TOTAL`), tombstones
- * included, in table order. `cursor` is the next `since`; `more`: pull again.
+ * `GET /sync/pull` answer: up to `limit` rows and deletions together, the lowest `sync_seq` first
+ * (deck entries aside: every deck comes with its whole list; the page ends early once rows and
+ * lists pass `SYNC_DECK_ENTRIES_TOTAL`), rows in table order. Apply `deletions` before `changes`:
+ * a row the page brings is newer than any deletion of its id. `cursor` is the next `since`, opaque
+ * (below 0 while a full pull pages); `more`: pull again. A 409 `resync_required`: the cursor is older than the deletion log reaches
+ * (`SYNC_DELETION_RETENTION_DAYS`); drop the local copy and pull from 0.
  */
 export const SyncPullResponseSchema = z.object({
   changes: z.array(SyncChangeSchema),
+  deletions: z.array(SyncDeletionSchema),
   cursor: z.number().int(),
   more: z.boolean(),
 });

@@ -17,8 +17,9 @@ export interface DeckReadOptions {
 /**
  * The signed-in user's decks (VB-34). Every method is scoped to `userId`; another user's deck, a
  * deleted one, an unknown card or print rejects with a not-found error, a format or zone the
- * game has not got with a bad-request error. A delete leaves a tombstone (`deleted_at`). Every
- * read runs the rules (`analyzeDeck`) against the user's collection and the current prices.
+ * game has not got with a bad-request error. A delete removes the deck and its list and logs its
+ * id for sync (VB-75). Every read runs the rules (`analyzeDeck`) against the user's collection
+ * and the current prices.
  */
 export interface DeckStore {
   list(userId: string, opts: DeckReadOptions): Promise<DeckSummary[]>;

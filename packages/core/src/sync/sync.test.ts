@@ -66,15 +66,24 @@ describe('resolvePush', () => {
     });
   });
 
-  it('resurrects a deleted row only with a newer edit', () => {
+  it('brings a deleted row back (an insert) only with a newer edit', () => {
+    // The deletion log's entry: the row is gone, the delete's time stands for both stamps.
     const deleted = stored({ updatedAt: t(15), deletedAt: t(15) });
-    expect(resolvePush(deleted, pushed({ updatedAt: t(20) })).action).toBe('apply');
+    expect(resolvePush(deleted, pushed({ updatedAt: t(20) }))).toEqual({
+      action: 'insert',
+      updatedAt: t(20),
+    });
     expect(resolvePush(deleted, pushed({ updatedAt: t(12) }))).toEqual({ action: 'conflict' });
     // The device saw the delete and edits again: that edit is newer by definition.
-    expect(resolvePush(deleted, pushed({ baseUpdatedAt: t(15) })).action).toBe('apply');
+    expect(resolvePush(deleted, pushed({ baseUpdatedAt: t(15) })).action).toBe('insert');
+    // A device clock behind the delete still lands after it.
+    expect(resolvePush(deleted, pushed({ updatedAt: t(5), baseUpdatedAt: t(15) }))).toEqual({
+      action: 'insert',
+      updatedAt: '2026-10-10T10:15:00.001Z',
+    });
   });
 
-  it('writes nothing for a delete of a deleted row', () => {
+  it('writes nothing for a delete of a deleted row (a retried delete)', () => {
     expect(
       resolvePush(stored({ updatedAt: t(15), deletedAt: t(15) }), pushed({ deletedAt: t(20) })),
     ).toEqual({ action: 'noop', updatedAt: t(15) });
