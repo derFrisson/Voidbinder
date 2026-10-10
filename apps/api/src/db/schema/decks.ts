@@ -10,6 +10,7 @@ import {
   uuid,
 } from 'drizzle-orm/pg-core';
 import { user } from './auth';
+import { syncSeqColumn } from './collection';
 import { cards, games, prints } from './catalog';
 
 // Decks (VB-34), shaped for the Sprint 3 sync engine like the collection (VB-31): the client
@@ -33,8 +34,10 @@ export const decks = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    syncSeq: syncSeqColumn(),
   },
   (t) => [
+    index('decks_user_id_sync_seq_idx').on(t.userId, t.syncSeq),
     index('decks_user_id_live_idx')
       .on(t.userId)
       .where(sql`${t.deletedAt} is null`),
@@ -54,6 +57,8 @@ export const deckEntries = pgTable(
     printId: uuid('print_id').references(() => prints.id),
     zone: text('zone').notNull(),
     quantity: integer('quantity').notNull(),
+    /** Stamped like the deck's; entries sync with their deck, so it has no index of its own. */
+    syncSeq: syncSeqColumn(),
   },
   (t) => [
     primaryKey({ columns: [t.deckId, t.cardId, t.zone] }),
