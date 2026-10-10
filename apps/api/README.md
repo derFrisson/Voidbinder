@@ -681,7 +681,7 @@ alt // options`. Module:Card collection/modules/Set gallery/handlers builds the 
 `png` unless `// extension::jpg`, `// file::` replaces it): the image name is the English name
 without its `(…)` disambiguation and without `#,.:'"?!&@%=[]<>/☆★・-` and spaces
 (Module:Card image name), the rarity abbreviation comes from Module:Data/static/rarity/data
-(`StR`, `UR`, `QCScR`, `PlScR`, … copied into `galleries.ts`). The alt code is a free file name
+(`StR`, `UR`, `QCScR`, `PlScR`, … copied into `@voidbinder/shared` `YUGIOH_RARITIES`). The alt code is a free file name
 suffix, not a fixed set of flags: `EA` (Extended Art), `AA`, `AA2`, `Alt` (alternate artworks),
 `B`/`C`/`D` and `ReprintB` (several scans of one number, LCKC-EN001 in four Blue-Eyes artworks),
 `L`/`S`/`K`/`J` (deck letters), `2`/`3` (copies). It is each gallery's own: RA04's English page
@@ -701,21 +701,36 @@ while a names or a gallery run is `running`, one lock for one crawl rate; `impor
 written `external_ids.artworks` on some print, so on a fresh database run the YGOPRODeck import
 first; then it lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
 gallery and not read in the last 30 days (`app_meta` map `yugipedia_galleries_checked`, set code →
-day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
+day; a set with a print without rarity changed since its last read the next day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
 languages its prints have (`revisions`, 50 titles a request), pick the prints and languages to
 resolve, and ask `imageinfo` for their candidate files (50 a request): a print is resolved when its
 card has several artworks (`external_ids.artworks`, which the YGOPRODeck import now writes) or a
 row of its number carries an alt code; the first row of its number and rarity in the best page of
-the language (`EN` before `NA`/`EU`, 1st Edition before Unlimited) names the file, and when that
-scan is missing the same alt code in another rarity of the page (RA05's Starlight Rare Dragoon
-takes the Ultra Rare `EA` scan, the same artwork); without an alt code there is no fallback
-(another rarity may be another artwork) and a print without a row or a scan keeps the passcode
-image. The result goes to `external_ids.artwork = { file, url, alt? }` of the print (English) or
-its localization; the row keeps its `image_key` until the mirror (Card images) has copied
-`artwork.url` under `images/yugioh/<file name>/<lang>/…` (one request a second): a Yu-Gi-Oh! key
-that does not name the scan's file is pending, and a key of another source id replaces it whatever
-its rank (`writeKeys`). The Workflow purges the `catalog` cache once, after its mirror step. The YGOPRODeck and
-Yugipedia name upserts keep `artwork` (`keepArtwork` on prints, `keepYugipedia` on localizations). `extendedArt: true` on the set page's prints
+the language (`EN` before `NA`/`EU`, 1st Edition before Unlimited) names the file. A print
+YGOPRODeck lists with a placeholder instead of a rarity (VB-117: `New` for MAMO's 18 Extended Art
+Ultra Rares, also `2`, `Reprint`, `European debut`; anything `yugiohRarityAbbr` does not know) has
+`rarity` null (no rarity chip, the set page's facet skips it; the variant stays the placeholder's
+slug, `new`) until its gallery names it: the one row (rarity and alt code) of its number no other
+print of the number has becomes its `rarity` and `external_ids.gallery_rarity = { rarity, alt }`
+(`resolveRarities`; two placeholders or two free rows: no guess), and its artwork follows in the
+same run; the YGOPRODeck upsert keeps both. **What is shown** (VB-117): the passcode render, unless
+the artwork is not the standard one, a row with an alt code or a rarity printed with an artwork of
+its own (`YUGIOH_RARITY_ARTWORK`: Grand Master Rare is the `EA` artwork, `own_art: true`); the
+other scans are recorded, never mirrored. A shown scan that is missing falls back to the same
+artwork (alt code) in another rarity of the page whose foil tier is the same or plainer
+(`yugiohScanBacks`, tiers in `YUGIOH_FOIL_TIERS`): RA05's Starlight Rare Dragoon takes the Ultra Rare
+`EA` scan, Kuriboh - Multiply!'s Grand Master Rare its Extended Art Ultra Rare, never the other
+way round; such an artwork has `sibling: true` and the API answers `imageFrom: 'sibling'` (D1:
+`image_sibling`). A print without a row or a scan keeps the passcode image. The result goes to
+`external_ids.artwork = { file, url, alt?, own_art?, sibling? }` of the print (English) or its
+localization; the row keeps its `image_key` until the mirror (Card images) has copied the image
+`sourceUrl` picks (`artwork.url` when shown, else YGOPRODeck's `image_url`) under
+`images/yugioh/<file name>/<lang>/…` (one request a second): a Yu-Gi-Oh! key that does not name
+that image is pending, so a print showing a scan of the standard artwork goes back to the render
+by itself, and a key of another source id replaces it whatever its rank (`writeKeys`); migration
+0017 flagged the Grand Master Rare scans written before and dropped the localizations' keys of
+standard-artwork scans. The Workflow purges the `catalog` cache once, after its mirror step (also when only rarities changed). The YGOPRODeck and
+Yugipedia name upserts keep `artwork` and `gallery_rarity` (`keepArtwork` on prints, `keepYugipedia` on localizations). `extendedArt: true` on the set page's prints
 and on `PrintDetail` marks a print whose row says `EA`; the app labels it "Extended Art". Raw
 answers: `raw/<env>/yugipedia/galleries/<date>/titles.json` and `sets-<n>.json`. A full run is
 about 15 + 96 page requests plus a few hundred `imageinfo` requests (some minutes), then the

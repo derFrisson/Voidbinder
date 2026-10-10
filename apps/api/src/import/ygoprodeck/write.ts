@@ -27,7 +27,7 @@ import {
   type MappedPrint,
 } from './map';
 import type { YgoCard, YgoSet } from './types';
-import { keepArtwork, keepYugipedia } from '../yugipedia/pipeline';
+import { GALLERY_RARITY, keepArtwork, keepYugipedia } from '../yugipedia/pipeline';
 
 // Database writes of the YGOPRODeck import. Every write is an upsert keyed on a unique constraint
 // that leaves the row (and its updated_at) alone when the source hash is unchanged. The run
@@ -266,7 +266,9 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
           .onConflictDoUpdate({
             target: [prints.setId, prints.number, prints.variant],
             set: {
-              rarity: excluded('rarity'),
+              // A placeholder rarity (null) keeps the one its set gallery named (VB-117).
+              rarity: sql`coalesce(excluded.rarity, case when ${prints.externalIds} ? ${GALLERY_RARITY}::text
+                then ${prints.rarity} end)`,
               finishes: excluded('finishes'),
               externalIds: keepArtwork(prints.externalIds),
               sourceHash: excluded('source_hash'),

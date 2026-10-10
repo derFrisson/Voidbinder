@@ -120,6 +120,13 @@
       "when": 1791656755278,
       "tag": "0016_localized_set_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791661469666,
+      "tag": "0017_ygo_render_default",
+      "breakpoints": true
     }
   ]
 }
