@@ -1,13 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { appMeta, importRuns, prints, sets } from '../../db/schema';
 import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { MemoryBlobStore } from '../scryfall/test-fixtures';
 import type { Db } from '../scryfall/write';
-import { card, testClient } from '../tcgdex/test-fixtures';
+import { card } from '../tcgdex/test-fixtures';
 import { importCardChunk } from '../tcgdex/write';
 import { runPokemontcgImport, writeImages } from './pipeline';
+import { pokemontcgClient } from './source';
 
 const fixture = (name: string) =>
   readFileSync(
@@ -15,14 +16,17 @@ const fixture = (name: string) =>
     'utf8',
   );
 
-/** pokemontcg.io from the recorded answers: the set list and two sets' cards; 404 otherwise. */
+const DATA = '/PokemonTCG/pokemon-tcg-data/master';
+/** No pacing: tests do not wait. */
+const NO_PACE = { intervalMs: 0, retryDelayMs: 0, attempts: 3 };
+
+/** The data repository from the recorded files: the set list and two sets' cards; 404 otherwise. */
 const fakePtcg = (calls: string[]) => async (url: string) => {
-  const u = new URL(url);
-  calls.push(`${u.pathname}${u.search}`);
-  if (u.pathname === '/v2/sets') return new Response(fixture('sets.json'));
-  const set = /^set\.id:(\w+)$/.exec(u.searchParams.get('q') ?? '')?.[1];
-  if (u.pathname === '/v2/cards' && (set === 'mcd21' || set === 'swsh45sv'))
-    return new Response(fixture(`cards-${set}.json`));
+  const path = new URL(url).pathname.replace(DATA, '');
+  calls.push(path);
+  if (path === '/sets/en.json') return new Response(fixture('sets.json'));
+  const set = /^\/cards\/en\/(mcd21|swsh45sv)\.json$/.exec(path)?.[1];
+  if (set) return new Response(fixture(`cards-${set}.json`));
   return new Response('not found', { status: 404 });
 };
 
@@ -36,7 +40,7 @@ describe.skipIf(!databaseUrl)('pokemontcg.io import (Postgres)', () => {
   const blobs = new MemoryBlobStore();
   const run = (date: string) =>
     runPokemontcgImport(
-      { client: testClient(fakePtcg(calls)), blobs, withDb: (fn) => fn(db) },
+      { client: pokemontcgClient(fakePtcg(calls), NO_PACE), blobs, withDb: (fn) => fn(db) },
       (_name, fn) => fn(),
       { env: 'dev', date },
     );
@@ -110,11 +114,7 @@ describe.skipIf(!databaseUrl)('pokemontcg.io import (Postgres)', () => {
     expect(mcd['99']).toEqual({ tcgdex: '99' });
     expect((await ids('swsh4.5sv')).SV001).toMatchObject({ pokemontcg: 'swsh45sv-SV001' });
 
-    expect(calls).toEqual([
-      '/v2/sets?page=1&pageSize=100',
-      '/v2/cards?q=set.id:mcd21&select=id,name,number,images&page=1&pageSize=100',
-      '/v2/cards?q=set.id:swsh45sv&select=id,name,number,images&page=1&pageSize=100',
-    ]);
+    expect(calls).toEqual(['/sets/en.json', '/cards/en/mcd21.json', '/cards/en/swsh45sv.json']);
     expect([...blobs.objects.keys()].sort()).toEqual([
       'raw/dev/pokemontcg/2026-10-12/cards/mcd21.json',
       'raw/dev/pokemontcg/2026-10-12/cards/swsh45sv.json',
@@ -131,12 +131,46 @@ describe.skipIf(!databaseUrl)('pokemontcg.io import (Postgres)', () => {
     const result = await run('2026-10-19');
     // 2021swsh still has Missingno without a picture, but was fetched a week ago.
     expect(result.stats).toMatchObject({ sets: 0, written: 0, coolingDown: 1, unmatched: ['mee'] });
-    expect(calls).toEqual(['/v2/sets?page=1&pageSize=100']);
+    expect(calls).toEqual(['/sets/en.json']);
     expect(await version()).toBe(before);
 
     calls.length = 0;
     expect((await run('2026-11-12')).stats).toMatchObject({ sets: 1, prints: 1, matched: 0 });
     expect(calls).toHaveLength(2);
+  });
+
+  it('fails the run with the status when the source keeps answering 500, every request logged', async () => {
+    const lines: string[] = [];
+    const spy = vi
+      .spyOn(console, 'log')
+      .mockImplementation((line: string) => void lines.push(line));
+    const storm = async () => new Response('{"error":"Internal Server Error"}', { status: 500 });
+    const client = pokemontcgClient(storm, NO_PACE);
+    const failed = runPokemontcgImport(
+      { client, blobs, withDb: (fn) => fn(db) },
+      (_n, fn) => fn(),
+      {
+        env: 'dev',
+        date: '2026-10-26',
+      },
+    );
+    const message =
+      'GET https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/sets/en.json answered 500';
+    await expect(failed).rejects.toThrow(message);
+    spy.mockRestore();
+    const failedRuns = await db
+      .select({ source: importRuns.source, error: importRuns.error })
+      .from(importRuns)
+      .where(eq(importRuns.status, 'failed'));
+    expect(failedRuns).toEqual([{ source: 'pokemontcg', error: `Error: ${message}` }]);
+    const logged = lines.map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(logged).toHaveLength(3);
+    expect(logged[0]).toMatchObject({
+      level: 'info',
+      message: 'pokemontcg request',
+      url: 'https://raw.githubusercontent.com/PokemonTCG/pokemon-tcg-data/master/sets/en.json',
+      status: 500,
+    });
   });
 
   it('never writes over a TCGdex picture', async () => {

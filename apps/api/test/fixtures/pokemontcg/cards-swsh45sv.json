@@ -1,35 +1,29 @@
-{
-  "data": [
-    {
-      "id": "swsh45sv-SV001",
-      "name": "Rowlet",
-      "number": "SV001",
-      "images": {
-        "small": "https://images.pokemontcg.io/swsh45sv/SV001.png",
-        "large": "https://images.pokemontcg.io/swsh45sv/SV001_hires.png"
-      }
-    },
-    {
-      "id": "swsh45sv-SV002",
-      "name": "Dartrix",
-      "number": "SV002",
-      "images": {
-        "small": "https://images.pokemontcg.io/swsh45sv/SV002.png",
-        "large": "https://images.pokemontcg.io/swsh45sv/SV002_hires.png"
-      }
-    },
-    {
-      "id": "swsh45sv-SV003",
-      "name": "Decidueye",
-      "number": "SV003",
-      "images": {
-        "small": "https://images.pokemontcg.io/swsh45sv/SV003.png",
-        "large": "https://images.pokemontcg.io/swsh45sv/SV003_hires.png"
-      }
+[
+  {
+    "id": "swsh45sv-SV001",
+    "name": "Rowlet",
+    "number": "SV001",
+    "images": {
+      "small": "https://images.pokemontcg.io/swsh45sv/SV001.png",
+      "large": "https://images.pokemontcg.io/swsh45sv/SV001_hires.png"
     }
-  ],
-  "page": 1,
-  "pageSize": 100,
-  "count": 3,
-  "totalCount": 3
-}
+  },
+  {
+    "id": "swsh45sv-SV002",
+    "name": "Dartrix",
+    "number": "SV002",
+    "images": {
+      "small": "https://images.pokemontcg.io/swsh45sv/SV002.png",
+      "large": "https://images.pokemontcg.io/swsh45sv/SV002_hires.png"
+    }
+  },
+  {
+    "id": "swsh45sv-SV003",
+    "name": "Decidueye",
+    "number": "SV003",
+    "images": {
+      "small": "https://images.pokemontcg.io/swsh45sv/SV003.png",
+      "large": "https://images.pokemontcg.io/swsh45sv/SV003_hires.png"
+    }
+  }
+]

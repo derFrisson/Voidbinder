@@ -86,9 +86,6 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   one is unset; a Worker without `ADMIN_TOKEN` answers 404 on `/admin/**`, changing
   `BETTER_AUTH_SECRET` signs every user out, and changing `TWO_FACTOR_ENCRYPTION_KEY` after users
   enrolled makes their second factor unreadable.
-  `POKEMONTCG_API_KEY` is optional (VB-118): the pokemontcg.io key for the Pokémon pictures TCGdex
-  lacks (20,000 requests a day instead of 1,000; registrations are closed, existing keys work until
-  2027-03-01), `pnpm exec wrangler secret put POKEMONTCG_API_KEY --env dev|prod` when there is one.
 - **API settings** are `vars` in `apps/api/wrangler.jsonc`: `APP_URL` (CORS and the auth mail
   links), `API_URL`, `CORS_EXTRA_ORIGINS` (the Expo web dev origin, locally and in `dev` only),
   `IMAGE_BASE_URL` (base of the R2 card images; until VB-57 fills `image_key` the catalog answers

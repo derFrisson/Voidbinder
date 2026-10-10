@@ -1,7 +1,7 @@
-The JSON files in this directory are answers of the Pokémon TCG API v2 (https://pokemontcg.io,
-https://api.pokemontcg.io/v2), recorded on 2026-10-10: `sets.json` (GET /v2/sets, only the fields
-the importer reads) and the cards of three sets (GET /v2/cards?q=set.id:<id>, reduced to id, name,
-number and images; `cards-swsh45sv.json` to three cards).
+The JSON files in this directory are files of the Pokémon TCG API's data repository
+(https://github.com/PokemonTCG/pokemon-tcg-data, branch master), recorded on 2026-10-10:
+`sets.json` (sets/en.json, only the fields the importer reads) and the cards of three sets
+(cards/en/<id>.json, reduced to id, name, number and images; `cards-swsh45sv.json` to three cards).
 
 The card names and images they describe are © The Pokémon Company, Nintendo, Game Freak and
 Creatures. Pokémon and Pokémon character names are trademarks of Nintendo. Voidbinder is not

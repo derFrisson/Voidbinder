@@ -593,14 +593,16 @@ two sets in both languages (265 cards) took 60 seconds.
 TCGdex has no picture at all for about 1,100 prints: the McDonald's collections, the Shining Fates
 Shiny Vault, Dragon Majesty, the Trainer and Galarian Galleries, `cel25cc`, `sve`, `exu`, the EX
 trainer kits, part of the SM, SWSH and SV promos (docs/research/2026-10-10-image-coverage-gaps.md).
-`src/import/pokemontcg/` (VB-118) takes those from the [Pokémon TCG API](https://pokemontcg.io)
-v2 (`https://api.pokemontcg.io/v2`, run by Scrydex now). It reads `GET /v2/sets` once per run and
+`src/import/pokemontcg/` (VB-118) takes those from the [Pokémon TCG API](https://pokemontcg.io)'s
+data repository ([PokemonTCG/pokemon-tcg-data](https://github.com/PokemonTCG/pokemon-tcg-data),
+`raw.githubusercontent.com`; the API itself, run by Scrydex now, answered every request from the
+Workers with 429 or 500). It reads `sets/en.json` once per run and
 matches our sets to its sets (`match.ts`): an alias table first (the McDonald's years `2021swsh` →
 `mcd21` …, the EX trainer kits `tk-ex-latia` → `tk1a` …, `exu` → `ex10`, `svp`), then a shared
 code (TCGdex's `abbreviation.official` or `tcgOnline` = its `ptcgoCode`) with the same name, or the
 only set with the code when no other of our sets has it, then the same name and release day. For
 each matched set with prints that have neither `tcgdex_images` (VB-85's probe included) nor a
-picture from here, it fetches the set's cards (`/v2/cards?q=set.id:<id>`, 100 a page) and matches
+picture from here, it fetches the set's cards (`cards/en/<id>.json`) and matches
 them by number and name (`SV001` = `SV001`, `001` = `1`, `%3F` = `?`), then the rest by a name only
 one print and one card of the set carry (the Classic Collection is `CC001`… at TCGdex and the
 original numbers there). A match stores `external_ids.pokemontcg` (the card id) and
@@ -619,13 +621,12 @@ health); `POST /admin/import/tcgdex?pokemontcg=true` adds them on any day. A fai
 pokemontcg.io set matches are listed in the run's `stats.unmatched`. Raw copies go to
 `raw/<env>/pokemontcg/<date>/`: `sets.json` and `cards/<pokemontcg set>.json`.
 
-Limits: without a key 1,000 requests a day and 30 a minute; the client waits 2.5 s between
-requests and retries 5xx (the API answers 500 now and then). The first run is about 40 requests,
-a weekly run one plus the sets whose 30 days are up. The optional Worker secret
-`POKEMONTCG_API_KEY` is sent as `X-Api-Key` (20,000 a day): `wrangler secret put
-POKEMONTCG_API_KEY --env dev|prod`. The API is deprecated: registrations are closed and existing
-keys work until 2027-03-01; after that the free API may stop and the sets it lacks stay on TCGdex.
-The picture files need no key. Attribution: "Card images: Pokémon TCG API (pokemontcg.io)"
+Limits: the client waits 250 ms between requests and tries each one three times (429 and 5xx);
+the pokemontcg steps retry once, so an outage fails the run in about a minute (the next Monday
+tries again). Every request is logged (`pokemontcg request`: url, status, ms) for `wrangler tail`.
+The first run is about 40 requests, a weekly run one plus the sets whose 30 days are up. The
+repository lags the API on the SV promos (75 cards, the API has 196) and stays available after the
+API goes offline (2027-03-01). The picture files need no key. Attribution: "Card images: Pokémon TCG API (pokemontcg.io)"
 (`POKEMONTCG_ATTRIBUTION` in `@voidbinder/shared/notices`), in the Pokémon module's manifest.
 
 ### YGOPRODeck (Yu-Gi-Oh!)

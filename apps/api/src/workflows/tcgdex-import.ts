@@ -18,6 +18,15 @@ const STEP = {
   timeout: '15 minutes',
 } satisfies WorkflowStepConfig;
 
+/**
+ * The pokemontcg.io steps (VB-118): one retry, so a source outage fails the run in about a minute
+ * instead of six; the next Monday tries again.
+ */
+const POKEMONTCG_STEP = {
+  retries: { limit: 1, delay: '30 seconds', backoff: 'constant' },
+  timeout: '5 minutes',
+} satisfies WorkflowStepConfig;
+
 /** `en` creates the cards, `de` adds the German names, texts and images. */
 const LANGUAGES = ['en', 'de'];
 
@@ -37,8 +46,11 @@ export interface TcgdexImportParams {
 export class TcgdexImportWorkflow extends WorkflowEntrypoint<Env, TcgdexImportParams> {
   override async run(event: WorkflowEvent<TcgdexImportParams>, step: WorkflowStep) {
     // Every step result is plain JSON (counts, ids); Workflows persists it.
-    const runner = <T>(name: string, fn: () => Promise<T>) =>
-      step.do(name, STEP, fn as () => Promise<never>) as Promise<T>;
+    const runnerWith =
+      (config: WorkflowStepConfig) =>
+      <T>(name: string, fn: () => Promise<T>) =>
+        step.do(name, config, fn as () => Promise<never>) as Promise<T>;
+    const runner = runnerWith(STEP);
     const date = event.timestamp.toISOString().slice(0, 10);
     const { runId, stats } = await runTcgdexImport(
       { ...tcgdexImportDeps(this.env), ...edgeCacheDeps(step) },
@@ -54,7 +66,7 @@ export class TcgdexImportWorkflow extends WorkflowEntrypoint<Env, TcgdexImportPa
     // search index still run.
     const pokemontcg =
       event.payload.pokemontcg || event.timestamp.getUTCDay() === 1
-        ? await runPokemontcgImport(pokemontcgImportDeps(this.env), runner, {
+        ? await runPokemontcgImport(pokemontcgImportDeps(this.env), runnerWith(POKEMONTCG_STEP), {
             env: this.env.IMPORT_ENV,
             date,
           }).catch((err: unknown) => {

@@ -6,9 +6,9 @@ import type { StepRunner } from '../tcgdex/pipeline';
 import { putJson, type TcgdexClient } from '../tcgdex/source';
 import { markChecked } from '../yugipedia/pipeline';
 import { matchCards, matchSets, type OurPrint, type OurSet, type PtcgImageIds } from './match';
-import { allPages, cardsPath, setsPath, type PtcgCard, type PtcgSet } from './source';
+import { cardsPath, list, setsPath, type PtcgCard, type PtcgSet } from './source';
 
-// The pokemontcg.io image import (VB-118): the backup picture for every Pokémon print TCGdex has
+// The pokemontcg.io image import (VB-118, from its data repository, see source.ts): the backup picture for every Pokémon print TCGdex has
 // none for (McDonald's collections, Shiny Vault, Dragon Majesty, Trainer and Galarian Galleries,
 // trainer kits, …). It matches our sets to pokemontcg.io's (match.ts), fetches the cards of each
 // matched set that has prints without `tcgdex_images` (raw copy to R2) and stores the card id and
@@ -148,17 +148,17 @@ export async function runPokemontcgImport(deps: ImportDeps, step: StepRunner, op
   const raw = `raw/${opts.env}/pokemontcg/${opts.date}`;
   try {
     const plan = await step('pokemontcg: plan', async () => {
-      const list = await allPages<PtcgSet>(deps.client, setsPath);
-      await putJson(deps.blobs, `${raw}/sets.json`, `[${list.bodies.join(',')}]`);
+      const theirs = await list<PtcgSet>(deps.client, setsPath);
+      await putJson(deps.blobs, `${raw}/sets.json`, theirs.text);
       return deps.withDb(async (db) =>
-        planSets(await ourSets(db), list.data, await checkedSince(db, opts.date)),
+        planSets(await ourSets(db), theirs.data, await checkedSince(db, opts.date)),
       );
     });
     const stats = { sets: plan.sets.length, prints: 0, matched: 0, written: 0 };
     for (const { code, ptcg } of plan.sets) {
       const r = await step(`pokemontcg: cards ${code}`, async () => {
-        const cards = await allPages<PtcgCard>(deps.client, cardsPath(ptcg));
-        await putJson(deps.blobs, `${raw}/cards/${ptcg}.json`, `[${cards.bodies.join(',')}]`);
+        const cards = await list<PtcgCard>(deps.client, cardsPath(ptcg));
+        await putJson(deps.blobs, `${raw}/cards/${ptcg}.json`, cards.text);
         return deps.withDb(async (db) => {
           const all = await setPrints(db, code);
           const prints = all.filter((p) => !p.hasPicture);

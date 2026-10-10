@@ -172,14 +172,12 @@ export function tcgdexImportDeps(env: Env): TcgdexDeps {
 }
 
 /**
- * What the pokemontcg.io pictures (VB-118) work with: its paced client, with the optional secret
- * POKEMONTCG_API_KEY (20,000 requests a day instead of 1,000), the `RAW` bucket, a pool per step.
+ * What the pokemontcg.io pictures (VB-118) work with: its paced, logging client, the `RAW` bucket,
+ * a pool per step.
  */
 export function pokemontcgImportDeps(env: Env): PokemontcgDeps {
-  // ponytail: an optional secret is not in the generated Env (only `secrets.required` is).
-  const key = (env as { POKEMONTCG_API_KEY?: string }).POKEMONTCG_API_KEY;
   return {
-    client: pokemontcgClient((input, init) => fetch(input, init), key),
+    client: pokemontcgClient((input, init) => fetch(input, init)),
     blobs: new R2BlobStore(env.RAW),
     withDb: (fn) => withDatabase(env, fn),
   };

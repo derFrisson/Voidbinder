@@ -13,6 +13,3 @@ TWO_FACTOR_ENCRYPTION_KEY=bG9jYWwtZGV2LW9ubHktdHdvLWZhY3Rvci1rZXkhISE=
 # wrangler vars) the API then skips the check entirely, so no token is needed locally. Deployed
 # environments hold the real secret: wrangler secret put TURNSTILE_SECRET --env dev|prod
 TURNSTILE_SECRET=1x0000000000000000000000000000000AA
-# Optional (VB-118): a pokemontcg.io key for the Pokémon pictures TCGdex lacks, sent as X-Api-Key
-# (20,000 requests a day instead of 1,000). Deployed: wrangler secret put POKEMONTCG_API_KEY --env dev|prod
-# POKEMONTCG_API_KEY=
