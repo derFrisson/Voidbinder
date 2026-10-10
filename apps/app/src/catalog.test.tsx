@@ -423,7 +423,7 @@ describe('second review round', () => {
         view="grid"
         game="yugioh"
         setCode="BLGG"
-        owned={undefined}
+        owned={new Map()}
         prices={undefined}
       />,
     );
@@ -431,6 +431,8 @@ describe('second review round', () => {
     expect(screen.getAllByText('DE024')).toHaveLength(2);
     expect(screen.queryByText('EN024')).toBeNull();
     expect(screen.getByLabelText('Card 24, BLGG DE024 (Nummer in DE)')).toBeTruthy();
+    // The quick add under the tile names the print the same way.
+    expect(screen.getByLabelText('In Sammlung: Card 24, BLGG DE024 (Nummer in DE)')).toBeTruthy();
   });
 
   it('labels the completion bar "Vollständigkeit" and has no owned-badge label', () => {

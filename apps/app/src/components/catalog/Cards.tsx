@@ -186,6 +186,7 @@ export function CardCollection({
   owned: ReadonlyMap<string, OwnedPrint> | undefined;
   prices: ReadonlyMap<string, PriceTag> | undefined;
 }) {
+  const t = useT();
   const columns = useColumns();
   const item = (print: PrintSummary): Item => ({
     print,
@@ -220,7 +221,7 @@ export function CardCollection({
             <QuickAdd
               printId={p.id}
               cardId={p.cardId}
-              name={`${p.name}, ${setCode} ${p.number}`}
+              name={`${p.name}, ${setCode} ${numberLabel(t.card.numberIn, p)}`}
               finish={p.finishes[0] ?? 'normal'}
             />
           )}
