@@ -9,7 +9,7 @@ import { PriceLang } from '../card/PriceLang';
 import { useWide } from '../Shell';
 import { Button, Field, Note, Segmented } from '../ui';
 import { FieldLabel, IconButton, Select, Stepper, Tag } from './Controls';
-import { CardCell, Thumb } from './Entries';
+import { CardCell, copyFoil, Thumb } from './Entries';
 import { CONDITIONS, centsText, LANGUAGES, money, parseCents } from './format';
 
 const head = 'font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3';
@@ -207,7 +207,7 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
               onPress={() => toggle(x.id)}
               className={`flex-row items-center gap-3 rounded-xl border bg-surface px-3 py-2.5 ${editing === x.id ? 'border-blue' : 'border-line'}`}
             >
-              <Thumb print={x.print} />
+              <Thumb print={x.print} foil={copyFoil(x.print, x.finish)} />
               <View className="min-w-0 flex-1 gap-0.5">
                 <Text numberOfLines={1} className="font-display text-[15px] font-semibold text-ink">
                   {x.print.name}
@@ -273,7 +273,7 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
               className={`flex-row items-center gap-3 border-b border-line px-2 py-2.5 ${open ? 'border-l-[3px] border-l-blue bg-page' : ''}`}
             >
               <View role="cell" className="min-w-0 flex-1">
-                <CardCell print={x.print} lang={x.language ?? undefined} />
+                <CardCell print={x.print} lang={x.language ?? undefined} finish={x.finish} />
               </View>
               <View role="cell" className="w-[96px]">
                 <Stepper

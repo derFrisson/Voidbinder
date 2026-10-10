@@ -354,6 +354,8 @@ export class DrizzleDeckStore implements DeckStore {
                 displayNumber: shown.displayNumber,
                 displayCode: shown.displayCode,
                 cardFormat: shown.cardFormat,
+                rarity: shown.rarity,
+                finishes: [...shown.finishes],
                 ...resolveImage(this.imageBaseUrl, shown.image, [
                   { lang: 'en', ids: shown.externalIds },
                 ]),

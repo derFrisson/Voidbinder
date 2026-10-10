@@ -6,7 +6,7 @@ import { fmt, useLocale, useT } from '../../i18n';
 import { hitHref, useBrowsingLanguage } from '../../hooks/browsing-language';
 import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { QuickAdd } from '../collection/CollectButtons';
-import { numberLabel } from '../card/game';
+import { numberLabel, printFoil } from '../card/game';
 import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
 import { PriceLang } from '../card/PriceLang';
@@ -89,6 +89,7 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
             game={game}
             format={print.cardFormat}
             number={print.displayNumber}
+            foil={printFoil(game, print)}
             className={missing ? 'border-dashed opacity-50' : ''}
           />
           {ban && (
@@ -156,6 +157,7 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
               game={game}
               format={print.cardFormat}
               number=""
+              foil={printFoil(game, print)}
               className={missing ? 'border-dashed opacity-50' : ''}
             />
           </View>

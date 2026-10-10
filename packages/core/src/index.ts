@@ -9,6 +9,7 @@ export function cardKey(game: Game, setCode: string, number: string): string {
 }
 
 export * from './prices/index.js';
+export * from './prices/links.js';
 export type * from './platform/index.js';
 export * from './collection/index.js';
 export * from './decks/index.js';
