@@ -111,7 +111,7 @@ In your profile you can also set a display name, the language of your mails and 
 
 When you sign in, we create a session. For each session we store a random ID, the time of sign-in and of expiry, your IP address and the user agent of your browser. The IP address and user agent help us detect misuse of your account. The legal basis is Art. 6 (1) (b) GDPR for the session itself and Art. 6 (1) (f) GDPR for the IP address and user agent; our legitimate interest is the security of your account.
 
-A session lasts 7 days and is extended while you use the web app. When you sign out or reset your password, the session ends at once; a reset ends it on every device.
+A session lasts 7 days and is extended while you use the web app. When you sign out, the session ends at once on this device. When you reset your password, your sessions end at once on this device, on other devices within five minutes at the latest.
 
 <!-- TODO Max: Better Auth only deletes expired sessions when they are used again; a cleanup job is missing. Either plan a job or state a period here that is actually kept. -->
 
@@ -160,7 +160,7 @@ If you use Voidbinder on several devices, the app syncs your collection, binders
 
 ### Deleting your account
 
-You can delete your account in your profile. You are then signed out on every device at once. After a period of 30 days we delete your account with all its data: profile, sessions, two-factor data, collection, wishlist and decks. If you sign in again before the period ends, this withdraws the deletion and everything is kept. The data disappears from the backups at the latest when the last backup containing it expires (see Storage periods).
+You can delete your account in your profile. You are then signed out at once on this device, on other devices within five minutes at the latest. After a period of 30 days we delete your account with all its data: profile, sessions, two-factor data, collection, wishlist and decks. If you sign in again before the period ends, this withdraws the deletion and everything is kept. The data disappears from the backups at the latest when the last backup containing it expires (see Storage periods).
 
 <!-- TODO Max: set the period (30 days assumed here). So far the code only records the deletion request and ends the sessions; the deletion run after the period comes with VB-45. Until then, requested deletions have to be carried out by hand. -->
 
