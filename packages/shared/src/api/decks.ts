@@ -123,8 +123,10 @@ export const DeckEntrySchema = z.object({
   typeLine: z.string().nullable(),
   /** List group: `monster`, `spell`, `trap`; `creature`, `land`, …; `pokemon`, `trainer`, `energy`. */
   group: z.string(),
-  /** Level, rank, link rating, mana value or HP as the list shows it ("4", "Rank 4", "Link-2"). */
-  stat: z.string().nullable(),
+  /** Level, rank, link rating (Yu-Gi-Oh!), mana value (Magic) or HP (Pokémon). */
+  stat: z
+    .object({ kind: z.enum(['level', 'rank', 'link', 'mana', 'hp']), value: z.number() })
+    .nullable(),
   /** The print shown: the preferred one, else the cheapest. */
   print: z
     .object({ id: z.uuid(), setCode: z.string(), number: z.string(), imageUrl: z.url().nullable() })

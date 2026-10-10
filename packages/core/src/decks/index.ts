@@ -130,3 +130,4 @@ export function missingCards(
   }
   return { missing, value: valueOf(priced) };
 }
+export type * from './store.js';

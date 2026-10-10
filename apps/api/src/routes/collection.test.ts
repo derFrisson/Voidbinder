@@ -44,6 +44,7 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     openPlatform: () => ({
       cardStore: new DrizzleCardStore(db),
       collectionStore: new DrizzleCollectionStore(db),
+      deckStore: {} as never,
       blobStore: {} as never,
       jobQueue: {} as never,
       db,
