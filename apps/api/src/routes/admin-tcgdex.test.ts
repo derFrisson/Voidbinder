@@ -52,3 +52,28 @@ describe('POST /admin/import/tcgdex', () => {
     expect(sent).toEqual([]);
   });
 });
+
+describe('POST /admin/import/tcgcsv', () => {
+  it('passes ?force=true on, which re-imports a build already imported (VB-110)', async () => {
+    const sent: unknown[] = [];
+    const cardStore = { importRunning: async () => false } as Partial<CardStore> as CardStore;
+    const app = testApp({
+      adminToken: 't',
+      cardStore,
+      jobQueue: { send: async (job) => void sent.push(job) },
+    });
+    for (const query of ['', '?force=true'])
+      expect(
+        (
+          await app.request(`/admin/import/tcgcsv${query}`, {
+            method: 'POST',
+            headers: { Authorization: 'Bearer t' },
+          })
+        ).status,
+      ).toBe(202);
+    expect(sent).toEqual([
+      { type: 'tcgcsv-import', payload: { force: false } },
+      { type: 'tcgcsv-import', payload: { force: true } },
+    ]);
+  });
+});

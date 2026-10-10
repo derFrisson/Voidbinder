@@ -38,7 +38,11 @@ export function adminRoutes(adminToken: string | undefined) {
           return { mode };
         }),
       )
-      .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
+      .post(
+        '/import/tcgcsv',
+        // `?force=true` imports even a build already imported: re-maps it (VB-110).
+        importRoute('tcgcsv', 'TCGCSV', (c) => ({ force: c.req.query('force') === 'true' })),
+      )
       // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
       .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))
       // VB-106: the artwork of every print from the set galleries (the Yugipedia Workflow alone).

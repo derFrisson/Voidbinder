@@ -97,19 +97,21 @@ export interface MappingRow {
 
 /**
  * Writes automatic mappings. A manual one is never touched: neither its print's row nor its
- * external id is taken over. An automatic mapping of the same product and finish to another
- * print (yesterday's guess) moves to today's.
+ * external id is taken over. One product and finish may map to several prints (VB-110: the
+ * Yu-Gi-Oh! regional prints); an automatic mapping of it to a print today's rows no longer name
+ * (yesterday's guess) is dropped.
  */
 export async function upsertMappings(db: Db, rows: MappingRow[]): Promise<number> {
-  // One row per primary key and per external id, finish and language, or the INSERT conflicts
-  // with itself.
-  const byPk = new Map(rows.map((r) => [`${r.printId}|${r.source}|${r.finish}|${r.lang}`, r]));
+  // One row per primary key, or the INSERT conflicts with itself.
   const unique = [
-    ...new Map(
-      [...byPk.values()].map((r) => [`${r.externalId}|${r.finish}|${r.lang}`, r]),
-    ).values(),
+    ...new Map(rows.map((r) => [`${r.printId}|${r.source}|${r.finish}|${r.lang}`, r])).values(),
   ];
   if (!unique.length) return 0;
+  const key = (r: { externalId: string; finish: string; lang: string }) =>
+    `${r.externalId}|${r.finish}|${r.lang}`;
+  // The prints of each external id, finish and language today, whichever batch they fall in.
+  const wanted = new Map<string, Set<string>>();
+  for (const r of unique) wanted.set(key(r), (wanted.get(key(r)) ?? new Set()).add(r.printId));
   let written = 0;
   for (const batch of batches(unique, BATCH_SIZE)) {
     await db.transaction(async (tx) => {
@@ -127,25 +129,25 @@ export async function upsertMappings(db: Db, rows: MappingRow[]): Promise<number
             ),
           ),
         );
-      const holder = new Map(held.map((h) => [`${h.externalId}|${h.finish}|${h.lang}`, h]));
-      const values: MappingRow[] = [];
-      for (const r of batch) {
-        const h = holder.get(`${r.externalId}|${r.finish}|${r.lang}`);
-        if (h && h.printId !== r.printId) {
-          if (h.method === 'manual') continue;
-          await tx
-            .delete(priceMappings)
-            .where(
-              and(
-                eq(priceMappings.printId, h.printId),
-                eq(priceMappings.source, h.source),
-                eq(priceMappings.finish, h.finish),
-                eq(priceMappings.lang, h.lang),
-              ),
-            );
-        }
-        values.push(r);
+      // An external id an admin gave a print stays that print's alone.
+      const manual = new Map(
+        held.flatMap((h) => (h.method === 'manual' ? [[key(h), h.printId] as const] : [])),
+      );
+      for (const h of held) {
+        const today = wanted.get(key(h));
+        if (h.method === 'manual' || !today || today.has(h.printId)) continue;
+        await tx
+          .delete(priceMappings)
+          .where(
+            and(
+              eq(priceMappings.printId, h.printId),
+              eq(priceMappings.source, h.source),
+              eq(priceMappings.finish, h.finish),
+              eq(priceMappings.lang, h.lang),
+            ),
+          );
       }
+      const values = batch.filter((r) => (manual.get(key(r)) ?? r.printId) === r.printId);
       if (!values.length) return;
       const returned = await tx
         .insert(priceMappings)
@@ -179,8 +181,8 @@ export async function resolveMappings(
   db: Db,
   source: string,
   externalIds: string[],
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
+): Promise<Map<string, string[]>> {
+  const out = new Map<string, string[]>();
   for (const batch of batches([...new Set(externalIds)], 5000)) {
     const rows = await db
       .select({
@@ -190,7 +192,10 @@ export async function resolveMappings(
       })
       .from(priceMappings)
       .where(and(eq(priceMappings.source, source), inArray(priceMappings.externalId, batch)));
-    for (const r of rows) out.set(`${r.externalId}|${r.finish}`, r.printId);
+    for (const r of rows) {
+      const k = `${r.externalId}|${r.finish}`;
+      out.set(k, [...(out.get(k) ?? []), r.printId]);
+    }
   }
   return out;
 }

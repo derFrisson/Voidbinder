@@ -27,8 +27,9 @@ export function days(from: string, to: string): string[] {
   return out;
 }
 
-/** The `tcgplayer` mappings keyed `${externalId}|${finish}`, manual ones included. */
-export async function loadMappings(db: Db): Promise<Map<string, string>> {
+/** The `tcgplayer` mappings keyed `${externalId}|${finish}`, manual ones included; one product
+ * may price several prints (VB-110). */
+export async function loadMappings(db: Db): Promise<Map<string, string[]>> {
   const rows = await db
     .select({
       printId: priceMappings.printId,
@@ -37,7 +38,12 @@ export async function loadMappings(db: Db): Promise<Map<string, string>> {
     })
     .from(priceMappings)
     .where(eq(priceMappings.source, SOURCE));
-  return new Map(rows.map((r) => [`${r.externalId}|${r.finish}`, r.printId]));
+  const out = new Map<string, string[]>();
+  for (const r of rows) {
+    const k = `${r.externalId}|${r.finish}`;
+    out.set(k, [...(out.get(k) ?? []), r.printId]);
+  }
+  return out;
 }
 
 /**
@@ -45,19 +51,19 @@ export async function loadMappings(db: Db): Promise<Map<string, string>> {
  * product mapped as `etched` (Scryfall's etched product, whatever TCGplayer calls its printing),
  * as in the daily import. Rows without a market price are counted, never written.
  */
-export function mapPrices(prices: readonly TcgPrice[], mappings: ReadonlyMap<string, string>) {
+export function mapPrices(prices: readonly TcgPrice[], mappings: ReadonlyMap<string, string[]>) {
   const rows: PriceRow[] = [];
   let unmapped = 0;
   let noMarket = 0;
   for (const p of prices) {
     // `etched` first: the daily import uses the matched finish before the printing's own.
     let finish = 'etched';
-    let printId = mappings.get(`${p.productId}|etched`);
-    if (!printId) {
+    let printIds = mappings.get(`${p.productId}|etched`);
+    if (!printIds) {
       finish = finishOf(p.subTypeName);
-      printId = mappings.get(`${p.productId}|${finish}`);
+      printIds = mappings.get(`${p.productId}|${finish}`);
     }
-    if (!printId) {
+    if (!printIds) {
       unmapped++;
       continue;
     }
@@ -66,16 +72,17 @@ export function mapPrices(prices: readonly TcgPrice[], mappings: ReadonlyMap<str
       noMarket++;
       continue;
     }
-    rows.push({
-      printId,
-      finish,
-      source: SOURCE,
-      lang: 'en',
-      currency: 'USD',
-      market,
-      low: cents(p.lowPrice),
-      high: cents(p.highPrice),
-    });
+    for (const printId of printIds)
+      rows.push({
+        printId,
+        finish,
+        source: SOURCE,
+        lang: 'en',
+        currency: 'USD',
+        market,
+        low: cents(p.lowPrice),
+        high: cents(p.highPrice),
+      });
   }
   // The last of a print and finish wins, as in the daily import's writePrices.
   const unique = [...new Map(rows.map((r) => [`${r.printId}|${r.finish}`, r])).values()];
@@ -86,7 +93,7 @@ export function mapPrices(prices: readonly TcgPrice[], mappings: ReadonlyMap<str
 export async function readDay(
   dir: string,
   day: string,
-  mappings: ReadonlyMap<string, string>,
+  mappings: ReadonlyMap<string, string[]>,
   games: readonly PricedGame[],
 ) {
   const out: Partial<Record<PricedGame, ReturnType<typeof mapPrices> & { groups: number }>> = {};

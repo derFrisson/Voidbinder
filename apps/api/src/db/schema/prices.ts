@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
+  index,
   integer,
   numeric,
   pgTable,
@@ -8,7 +9,6 @@ import {
   smallint,
   text,
   timestamp,
-  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { games, prints } from './catalog';
@@ -26,8 +26,10 @@ export const priceSources = pgTable('price_sources', {
 
 /**
  * Which external product (and finish) is which print. `method`: 'scryfall_id' (the source's own
- * id, confidence 100), 'number_match' (set + number, 70), 'name_match' (set + name, 40),
- * 'manual' (an admin override, 100; the importers never overwrite it).
+ * id, confidence 100), 'number_match' (set + number, 70), 'region_match' (a Yu-Gi-Oh! regional
+ * print priced by the EN product, 60), 'name_match' (set + name, 40), 'manual' (an admin
+ * override, 100; the importers never overwrite it). One product may price several prints
+ * (VB-110: `LOB-001`, `LOB-E001` and `LOB-EN001` all take TCGplayer's `LOB-EN001`).
  */
 export const priceMappings = pgTable(
   'price_mappings',
@@ -52,7 +54,7 @@ export const priceMappings = pgTable(
   },
   (t) => [
     primaryKey({ columns: [t.printId, t.source, t.finish, t.lang] }),
-    unique('price_mappings_source_external_id_finish_lang_key').on(
+    index('price_mappings_source_external_id_finish_lang_idx').on(
       t.source,
       t.externalId,
       t.finish,
@@ -61,7 +63,7 @@ export const priceMappings = pgTable(
     check('price_mappings_confidence_check', sql`${t.confidence} between 0 and 100`),
     check(
       'price_mappings_method_check',
-      sql`${t.method} in ('scryfall_id', 'number_match', 'name_match', 'manual')`,
+      sql`${t.method} in ('scryfall_id', 'number_match', 'region_match', 'name_match', 'manual')`,
     ),
   ],
 );
