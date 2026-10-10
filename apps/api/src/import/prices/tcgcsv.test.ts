@@ -3,6 +3,7 @@ import { MemoryBlobStore } from '../scryfall/test-fixtures';
 import { USER_AGENT } from '../scryfall/source';
 import {
   cents,
+  EMPTY,
   extended,
   fetchRaw,
   finishOf,
@@ -49,6 +50,14 @@ describe('TCGCSV parsing', () => {
   it('reads last-updated.txt as an ISO timestamp', async () => {
     expect(await lastUpdated(fakeTcgcsv(), 0)).toBe('2026-10-09T20:05:19.000Z');
     await expect(lastUpdated(fakeTcgcsv({ lastUpdated: 'soon' }), 0)).rejects.toThrow();
+  });
+
+  it('reads a missing group file as empty only where that is allowed', async () => {
+    const blobs = new MemoryBlobStore();
+    const path = '/tcgplayer/1/1/products';
+    expect(await fetchRaw(fakeTcgcsv(), blobs, path, 'k', 0, true)).toBe(EMPTY);
+    expect(blobs.objects.size).toBe(0);
+    await expect(fetchRaw(fakeTcgcsv(), blobs, path, 'k', 0)).rejects.toThrow('answered 404');
   });
 
   it('keeps the raw answer gzip-compressed and sends the User-Agent', async () => {

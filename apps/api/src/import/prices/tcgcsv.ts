@@ -40,19 +40,31 @@ export interface TcgPrice {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** One GET with the User-Agent TCGCSV asks for, after `delayMs` (their 100 ms between requests). */
-export async function get(fetchFn: Fetch, path: string, delayMs: number): Promise<string> {
+/** A group without products: TCGCSV publishes no file for it (404). */
+export const EMPTY = '{"success":true,"errors":[],"results":[]}';
+
+/**
+ * One GET with the User-Agent TCGCSV asks for, after `delayMs` (their 100 ms between requests).
+ * null for a 404 when `missingOk`; any other failure throws.
+ */
+export async function get(
+  fetchFn: Fetch,
+  path: string,
+  delayMs: number,
+  missingOk = false,
+): Promise<string | null> {
   if (delayMs) await sleep(delayMs);
   const res = await fetchFn(`${BASE}${path}`, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
   });
+  if (missingOk && res.status === 404) return null;
   if (!res.ok) throw new Error(`GET ${BASE}${path} answered ${res.status}`);
   return res.text();
 }
 
 /** The time of TCGCSV's last build (`2026-10-09T20:05:19+0000`) as an ISO timestamp. */
 export async function lastUpdated(fetchFn: Fetch, delayMs: number): Promise<string> {
-  const text = (await get(fetchFn, '/last-updated.txt', delayMs)).trim();
+  const text = ((await get(fetchFn, '/last-updated.txt', delayMs)) ?? '').trim();
   const time = Date.parse(text.replace(/([+-]\d\d)(\d\d)$/, '$1:$2'));
   if (Number.isNaN(time)) throw new Error(`last-updated.txt holds no time: ${text.slice(0, 40)}`);
   return new Date(time).toISOString();
@@ -66,15 +78,20 @@ export function results<T>(text: string, what: string): T[] {
   return body.results;
 }
 
-/** Fetches a file and keeps the answer gzip-compressed in the raw bucket (ADR 0003). */
+/**
+ * Fetches a file and keeps the answer gzip-compressed in the raw bucket (ADR 0003). With
+ * `missingOk`, a 404 reads as an empty answer and stores nothing.
+ */
 export async function fetchRaw(
   fetchFn: Fetch,
   blobs: BlobStore,
   path: string,
   key: string,
   delayMs: number,
+  missingOk = false,
 ): Promise<string> {
-  const text = await get(fetchFn, path, delayMs);
+  const text = await get(fetchFn, path, delayMs, missingOk);
+  if (text === null) return EMPTY;
   const gz = await new Response(
     new Blob([text]).stream().pipeThrough(new CompressionStream('gzip')),
   ).arrayBuffer();

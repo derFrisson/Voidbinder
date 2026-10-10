@@ -76,6 +76,8 @@ export async function importGroups(
         `/tcgplayer/${category}/${groupId}/${file}`,
         `${opts.raw}/${category}/${groupId}.${file}.json.gz`,
         opts.delayMs,
+        // A group without products has no files.
+        true,
       );
     const products = results<TcgProduct>(await fetchFile('products'), `products ${groupId}`);
     const prices = results<TcgPrice>(await fetchFile('prices'), `prices ${groupId}`);
