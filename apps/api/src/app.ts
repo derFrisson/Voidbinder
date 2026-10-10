@@ -55,7 +55,10 @@ export interface AppDeps {
   turnstile: TurnstileConfig;
   /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
   adminToken?: string | undefined;
-  /** `IMPORT_ENV` (`local`, `dev`, `prod`): the R2 prefix of the catalog modules; default `local`. */
+  /**
+   * `IMPORT_ENV` (`local`, `dev`, `prod`): the R2 prefix of the catalog modules and the schedule
+   * the import health expects (VB-83); default `local`.
+   */
   importEnv?: string | undefined;
   /** Called once per request; the platform is closed after the response. */
   openPlatform(): Platform;
@@ -124,7 +127,7 @@ export function createApp(deps: AppDeps) {
       .route('/collection', collectionRoutes())
       .route('/decks', deckRoutes())
       .route('/sync', syncRoutes())
-      .route('/admin', adminRoutes(deps.adminToken))
+      .route('/admin', adminRoutes(deps.adminToken, deps.importEnv))
       .notFound(notFound)
       .onError(onError)
   );
