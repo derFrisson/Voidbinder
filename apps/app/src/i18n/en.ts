@@ -82,6 +82,8 @@ export const en: Dict = {
     prev: 'Previous page',
     next: 'Next page',
     missing: 'missing',
+    /** A Yu-Gi-Oh! print with the artwork across the whole card (VB-106). */
+    extendedArt: 'Extended Art',
     completion: 'Completion',
     valueOwned: 'Your {count} cards',
     valueMissing: 'Missing {count}',

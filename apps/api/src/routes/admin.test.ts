@@ -1,4 +1,4 @@
-import { sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { importRuns } from '../db/schema';
 import { startRun, type Db } from '../import/scryfall/write';
@@ -58,7 +58,19 @@ describe.skipIf(!databaseUrl)('POST /admin/import/<source> (Postgres)', () => {
     // VB-93: Yugipedia's translations, single-flight like the others.
     expect((await post('yugipedia')).status).toBe(202);
     expect((await post('yugipedia')).status).toBe(409);
-    expect(sent).toEqual(['scryfall-import', 'ygoprodeck-import', 'yugipedia-import']);
+    // VB-106: the galleries alone, on the Yugipedia Workflow (index.ts maps the job to it); the
+    // names run above holds the lock they share.
+    expect((await post('yugipedia-galleries')).status).toBe(409);
+    await db.delete(importRuns).where(eq(importRuns.source, 'yugipedia'));
+    expect((await post('yugipedia-galleries')).status).toBe(202);
+    expect((await post('yugipedia-galleries')).status).toBe(409);
+    expect((await post('yugipedia')).status).toBe(409);
+    expect(sent).toEqual([
+      'scryfall-import',
+      'ygoprodeck-import',
+      'yugipedia-import',
+      'yugipedia-galleries-import',
+    ]);
     expect((await app.request('/admin/import/ygoprodeck', { method: 'POST' })).status).toBe(401);
   });
 });

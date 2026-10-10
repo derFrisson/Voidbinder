@@ -297,6 +297,26 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(row?.updatedAt.getTime()).toBeGreaterThan(old?.updatedAt.getTime() ?? Infinity);
   });
 
+  it("keeps a print's Yugipedia artwork when YGOPRODeck rewrites the row (VB-106)", async () => {
+    const lob = await print('LOB', 'EN001');
+    const artwork = { file: 'BlueEyesWhiteDragon-LOB-EN-UR-UE.png', url: 'https://x.test/a.png' };
+    await db.execute(sql`update prints set source_hash = 'stale',
+      external_ids = external_ids || ${JSON.stringify({ artwork })}::jsonb where id = ${lob.id}`);
+    await db.execute(sql`update print_localizations set
+      external_ids = external_ids || ${JSON.stringify({ artwork })}::jsonb
+      where print_id = ${lob.id} and lang = 'de'`);
+    const { stats } = await run();
+    expect(stats.prints.updated).toBe(1);
+    // The German row is otherwise unchanged: not rewritten for the artwork alone.
+    expect(stats.otherLanguages.de?.written).toBe(0);
+    expect((await print('LOB', 'EN001')).ids).toMatchObject({ artwork, artworks: 2 });
+    const [de] = await db
+      .select({ ids: printLocalizations.externalIds })
+      .from(printLocalizations)
+      .where(sql`${printLocalizations.printId} = ${lob.id} and ${printLocalizations.lang} = 'de'`);
+    expect(de?.ids).toMatchObject({ artwork });
+  });
+
   it('marks a failed run and leaves catalog_version alone', async () => {
     const before = await version();
     await expect(run({ setsStatus: 500 })).rejects.toThrow(/answered 500/);

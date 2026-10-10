@@ -27,6 +27,7 @@ import {
   type MappedPrint,
 } from './map';
 import type { YgoCard, YgoSet } from './types';
+import { keepArtwork, withoutArtwork } from '../yugipedia/pipeline';
 
 // Database writes of the YGOPRODeck import. Every write is an upsert keyed on a unique constraint
 // that leaves the row (and its updated_at) alone when the source hash is unchanged. The run
@@ -95,9 +96,10 @@ async function upsertLocalizations(tx: Tx, rows: (LocalizationRow & { printId: s
         set: {
           name: excluded('name'),
           text: excluded('text'),
-          externalIds: excluded('external_ids'),
+          // The Yugipedia gallery's scan (VB-106) is not YGOPRODeck's to drop.
+          externalIds: keepArtwork(printLocalizations.externalIds),
         },
-        setWhere: sql`(${printLocalizations.name}, ${printLocalizations.text}, ${printLocalizations.externalIds})
+        setWhere: sql`(${printLocalizations.name}, ${printLocalizations.text}, ${withoutArtwork(printLocalizations.externalIds)})
           is distinct from (excluded.name, excluded.text, excluded.external_ids)`,
       })
       .returning({ printId: printLocalizations.printId });
@@ -266,7 +268,7 @@ export async function importCardLines(db: Db, lines: string[]): Promise<CardChun
             set: {
               rarity: excluded('rarity'),
               finishes: excluded('finishes'),
-              externalIds: excluded('external_ids'),
+              externalIds: keepArtwork(prints.externalIds),
               sourceHash: excluded('source_hash'),
               ...touched,
             },

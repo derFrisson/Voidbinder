@@ -29,6 +29,8 @@ const SAME_IN_BOTH = new Set([
   'Code',
   'Set',
   'Normal',
+  // The trade name of a Yu-Gi-Oh! print, as Konami and Cardmarket write it in German too (VB-106).
+  'Extended Art',
   'Foil',
   'Holo',
   'Reverse',
@@ -41,6 +43,8 @@ const SAME_IN_BOTH = new Set([
   // Card page and search (VB-35): terms the German card trade uses as they are.
   'Set',
   'Normal',
+  // The trade name of a Yu-Gi-Oh! print, as Konami and Cardmarket write it in German too (VB-106).
+  'Extended Art',
   'Foil',
   'Holo',
   'legal',

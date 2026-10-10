@@ -26,9 +26,11 @@ export async function purgeEdgeCache(
   deps: EdgeCacheDeps,
   step: <T>(name: string, fn: () => Promise<T>) => Promise<T>,
   tags: string[],
+  /** Prefixes the step names, for a second purge in one Workflow instance (names are unique). */
+  prefix = '',
 ): Promise<void> {
-  await deps.sleep?.('wait for the Hyperdrive cache', PURGE_WAIT_SECONDS);
-  await step('purge cache', async () => deps.purgeCache?.(tags));
+  await deps.sleep?.(`${prefix}wait for the Hyperdrive cache`, PURGE_WAIT_SECONDS);
+  await step(`${prefix}purge cache`, async () => deps.purgeCache?.(tags));
 }
 
 /** Splits `items` into consecutive slices of at most `size`. */

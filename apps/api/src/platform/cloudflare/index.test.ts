@@ -104,13 +104,13 @@ describe('startTcgcsvCron', () => {
 });
 
 describe('startYugipediaCron', () => {
-  it('starts the weekly instance unless a Yugipedia run is going', async () => {
-    for (const running of [false, true]) {
+  it('starts the weekly instance unless a Yugipedia names or gallery run is going', async () => {
+    for (const running of [null, 'yugipedia', 'yugipedia-galleries']) {
       const create = vi.fn(async () => ({ id: 'i1' }));
       const asked: string[] = [];
       const platform = {
         cardStore: {
-          importRunning: async (source: string) => (asked.push(source), running),
+          importRunning: async (source: string) => (asked.push(source), source === running),
         } as Partial<CardStore> as CardStore,
         close: async () => {},
       };
@@ -121,7 +121,7 @@ describe('startYugipediaCron', () => {
         platform,
       );
       info.mockRestore();
-      expect(asked).toEqual(['yugipedia']);
+      expect(asked[0]).toBe('yugipedia');
       if (running) expect(create).not.toHaveBeenCalled();
       else expect(create).toHaveBeenCalledWith({ id: 'yugipedia-2026-10-12' });
     }

@@ -1,0 +1,288 @@
+{
+  "batchcomplete": "",
+  "limits": { "allpages": 500 },
+  "query": {
+    "allpages": [
+      {
+        "pageid": 1124561,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Stampede (TCG-DE-1E)"
+      },
+      {
+        "pageid": 1121902,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Stampede (TCG-EN-1E)"
+      },
+      {
+        "pageid": 1124559,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Stampede (TCG-FR-1E)"
+      },
+      {
+        "pageid": 1124562,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Stampede (TCG-IT-1E)"
+      },
+      {
+        "pageid": 1124563,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Stampede (TCG-PT-1E)"
+      },
+      {
+        "pageid": 1124564,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Stampede (TCG-SP-1E)"
+      },
+      {
+        "pageid": 1103510,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Trinity Box (OCG-JP)"
+      },
+      {
+        "pageid": 1102274,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Unity & Pride Campaign side:Pride (OCG-JA)"
+      },
+      {
+        "pageid": 1064568,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Unity & Pride Campaign side:Pride (OCG-JP)"
+      },
+      {
+        "pageid": 1058881,
+        "ns": 3024,
+        "title": "Set Card Galleries:Quarter Century Unity & Pride Campaign side:Unity (OCG-JP)"
+      },
+      {
+        "pageid": 221719,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack: Special Edition (TCG-EN-LE)"
+      },
+      {
+        "pageid": 204255,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-DE-1E)"
+      },
+      {
+        "pageid": 215418,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-EN-1E)"
+      },
+      {
+        "pageid": 215428,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-EN-UE)"
+      },
+      {
+        "pageid": 215402,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-FR-1E)"
+      },
+      {
+        "pageid": 204283,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-IT-1E)"
+      },
+      {
+        "pageid": 204315,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-IT-UE)"
+      },
+      {
+        "pageid": 204338,
+        "ns": 3024,
+        "title": "Set Card Galleries:Ra Yellow Mega Pack (TCG-SP-1E)"
+      },
+      { "pageid": 1130530, "ns": 3024, "title": "Set Card Galleries:Rage of the Abyss (OCG-AE)" },
+      { "pageid": 1072944, "ns": 3024, "title": "Set Card Galleries:Rage of the Abyss (OCG-JP)" },
+      {
+        "pageid": 1085594,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rage of the Abyss (TCG-EN-1E)"
+      },
+      {
+        "pageid": 1126367,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rage of the Abyss (TCG-FR-1E)"
+      },
+      {
+        "pageid": 1113421,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rage of the Abyss (TCG-IT-1E)"
+      },
+      {
+        "pageid": 1087059,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rage of the Abyss (TCG-SP-1E)"
+      },
+      {
+        "pageid": 1179707,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rage of the Abyss +1 Bonus Pack (OCG-JP)"
+      },
+      {
+        "pageid": 101286,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle: Special Edition (TCG-DE-LE)"
+      },
+      {
+        "pageid": 101281,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle: Special Edition (TCG-EN-LE)"
+      },
+      {
+        "pageid": 101285,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle: Special Edition (TCG-FR-LE)"
+      },
+      {
+        "pageid": 101293,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle: Special Edition (TCG-IT-LE)"
+      },
+      {
+        "pageid": 101298,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle: Special Edition (TCG-SP-LE)"
+      },
+      { "pageid": 466820, "ns": 3024, "title": "Set Card Galleries:Raging Battle (OCG-AE-1E)" },
+      { "pageid": 59728, "ns": 3024, "title": "Set Card Galleries:Raging Battle (OCG-JP)" },
+      { "pageid": 392914, "ns": 3024, "title": "Set Card Galleries:Raging Battle (OCG-KR-1E)" },
+      { "pageid": 392935, "ns": 3024, "title": "Set Card Galleries:Raging Battle (OCG-KR-UE)" },
+      { "pageid": 104797, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-DE-1E)" },
+      { "pageid": 104805, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-DE-UE)" },
+      { "pageid": 102980, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-EN-1E)" },
+      { "pageid": 103072, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-EN-UE)" },
+      { "pageid": 164597, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-FR-1E)" },
+      { "pageid": 164615, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-FR-UE)" },
+      { "pageid": 105521, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-IT-1E)" },
+      { "pageid": 393049, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-IT-UE)" },
+      { "pageid": 137709, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-SP-1E)" },
+      { "pageid": 139280, "ns": 3024, "title": "Set Card Galleries:Raging Battle (TCG-SP-UE)" },
+      {
+        "pageid": 199055,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle 2-Pack Set (OCG-JP)"
+      },
+      {
+        "pageid": 426203,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle Sneak Peek Participation Card (TCG-DE-LE)"
+      },
+      {
+        "pageid": 407320,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle Sneak Peek Participation Card (TCG-EU-LE)"
+      },
+      {
+        "pageid": 426200,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle Sneak Peek Participation Card (TCG-FR-LE)"
+      },
+      {
+        "pageid": 426204,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle Sneak Peek Participation Card (TCG-IT-LE)"
+      },
+      {
+        "pageid": 288410,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle Sneak Peek Participation Card (TCG-NA-LE)"
+      },
+      {
+        "pageid": 407300,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Battle Sneak Peek Participation Card (TCG-SP-LE)"
+      },
+      { "pageid": 464895, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (OCG-JP)" },
+      { "pageid": 480025, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (OCG-KR-1E)" },
+      { "pageid": 492181, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-DE-1E)" },
+      { "pageid": 480654, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-DE-UE)" },
+      { "pageid": 492014, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-EN-1E)" },
+      { "pageid": 480779, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-EN-UE)" },
+      { "pageid": 492182, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-FR-1E)" },
+      { "pageid": 490257, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-FR-UE)" },
+      { "pageid": 492179, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-IT-1E)" },
+      { "pageid": 490261, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-IT-UE)" },
+      { "pageid": 492178, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-PT-1E)" },
+      { "pageid": 587843, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-PT-UE)" },
+      { "pageid": 492177, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-SP-1E)" },
+      { "pageid": 491733, "ns": 3024, "title": "Set Card Galleries:Raging Tempest (TCG-SP-UE)" },
+      {
+        "pageid": 492323,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Sneak Peek Participation Card (TCG-DE-LE)"
+      },
+      {
+        "pageid": 492321,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Sneak Peek Participation Card (TCG-EN-LE)"
+      },
+      {
+        "pageid": 492322,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Sneak Peek Participation Card (TCG-FR-LE)"
+      },
+      {
+        "pageid": 492326,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Sneak Peek Participation Card (TCG-IT-LE)"
+      },
+      {
+        "pageid": 492325,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Sneak Peek Participation Card (TCG-PT-LE)"
+      },
+      {
+        "pageid": 492328,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Sneak Peek Participation Card (TCG-SP-LE)"
+      },
+      {
+        "pageid": 479727,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Special Edition (TCG-DE-LE)"
+      },
+      {
+        "pageid": 479352,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Special Edition (TCG-EN-LE)"
+      },
+      {
+        "pageid": 497782,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Special Edition (TCG-FR-LE)"
+      },
+      {
+        "pageid": 499259,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Special Edition (TCG-IT-LE)"
+      },
+      {
+        "pageid": 499245,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Special Edition (TCG-PT-LE)"
+      },
+      {
+        "pageid": 482464,
+        "ns": 3024,
+        "title": "Set Card Galleries:Raging Tempest Special Edition (TCG-SP-LE)"
+      },
+      {
+        "pageid": 551785,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rarity Collection 20th Anniversary Edition (OCG-JP)"
+      },
+      {
+        "pageid": 561062,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rarity Collection 20th Anniversary Edition (OCG-KR-UE)"
+      },
+      {
+        "pageid": 1185769,
+        "ns": 3024,
+        "title": "Set Card Galleries:Rarity Collection 5 (TCG-EN-1E)"
+      }
+    ]
+  }
+}

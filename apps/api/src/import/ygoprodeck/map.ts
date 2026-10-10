@@ -167,6 +167,9 @@ export function mapPrints(card: YgoCard): MappedPrint[] {
       set_code: g.code,
       image_url: image?.image_url,
       image_url_small: image?.image_url_small,
+      // A card with several artworks: the first is a guess for this print, the Yugipedia
+      // galleries say which one it has (VB-106).
+      artworks: (card.card_images?.length ?? 0) > 1 ? card.card_images?.length : undefined,
       variants: g.variants.length ? g.variants : undefined,
       language: g.language ?? undefined,
     };

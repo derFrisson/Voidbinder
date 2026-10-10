@@ -1,0 +1,107 @@
+{
+  "batchcomplete": "",
+  "query": {
+    "pages": {
+      "-1": {
+        "ns": 6,
+        "title": "File:RedEyesDarkDragoon-RA05-EN-StR-1E-EA.png",
+        "missing": "",
+        "imagerepository": ""
+      },
+      "-2": {
+        "ns": 6,
+        "title": "File:AleistertheInvoker-RA04-EN-QCScR-1E-AA.png",
+        "missing": "",
+        "imagerepository": ""
+      },
+      "-3": {
+        "ns": 6,
+        "title": "File:AleistertheInvoker-RA04-DE-PlScR-1E.png",
+        "missing": "",
+        "imagerepository": ""
+      },
+      "-4": {
+        "ns": 6,
+        "title": "File:DarkMagician-RA04-DE-QCScR-1E-AA.png",
+        "missing": "",
+        "imagerepository": ""
+      },
+      "-5": {
+        "ns": 6,
+        "title": "File:DarkMagician-RA04-DE-PlScR-1E-AA.png",
+        "missing": "",
+        "imagerepository": ""
+      },
+      "1126232": {
+        "pageid": 1126232,
+        "ns": 6,
+        "title": "File:AleistertheInvoker-RA04-EN-PlScR-1E-AA.png",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "url": "https://ms.yugipedia.com//d/de/AleistertheInvoker-RA04-EN-PlScR-1E-AA.png",
+            "descriptionurl": "https://yugipedia.com/wiki/File:AleistertheInvoker-RA04-EN-PlScR-1E-AA.png",
+            "descriptionshorturl": "https://yugipedia.com/index.php?curid=1126232",
+            "mime": "image/png"
+          }
+        ]
+      },
+      "1122521": {
+        "pageid": 1122521,
+        "ns": 6,
+        "title": "File:DarkMagician-RA04-EN-PlScR-1E-AA.png",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "url": "https://ms.yugipedia.com//7/77/DarkMagician-RA04-EN-PlScR-1E-AA.png",
+            "descriptionurl": "https://yugipedia.com/wiki/File:DarkMagician-RA04-EN-PlScR-1E-AA.png",
+            "descriptionshorturl": "https://yugipedia.com/index.php?curid=1122521",
+            "mime": "image/png"
+          }
+        ]
+      },
+      "1122231": {
+        "pageid": 1122231,
+        "ns": 6,
+        "title": "File:DarkMagician-RA04-EN-QCScR-1E-AA.png",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "url": "https://ms.yugipedia.com//1/1f/DarkMagician-RA04-EN-QCScR-1E-AA.png",
+            "descriptionurl": "https://yugipedia.com/wiki/File:DarkMagician-RA04-EN-QCScR-1E-AA.png",
+            "descriptionshorturl": "https://yugipedia.com/index.php?curid=1122231",
+            "mime": "image/png"
+          }
+        ]
+      },
+      "1185771": {
+        "pageid": 1185771,
+        "ns": 6,
+        "title": "File:DarkMagician-RA05-EN-UR-1E.png",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "url": "https://ms.yugipedia.com//c/c4/DarkMagician-RA05-EN-UR-1E.png",
+            "descriptionurl": "https://yugipedia.com/wiki/File:DarkMagician-RA05-EN-UR-1E.png",
+            "descriptionshorturl": "https://yugipedia.com/index.php?curid=1185771",
+            "mime": "image/png"
+          }
+        ]
+      },
+      "1185034": {
+        "pageid": 1185034,
+        "ns": 6,
+        "title": "File:RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png",
+        "imagerepository": "local",
+        "imageinfo": [
+          {
+            "url": "https://ms.yugipedia.com//b/bf/RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png",
+            "descriptionurl": "https://yugipedia.com/wiki/File:RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png",
+            "descriptionshorturl": "https://yugipedia.com/index.php?curid=1185034",
+            "mime": "image/png"
+          }
+        ]
+      }
+    }
+  }
+}

@@ -102,6 +102,10 @@ const finishRank = (finish: SQLWrapper, finishes: SQLWrapper) =>
   sql`case when ${finish} = case when 'normal' = any(${finishes}) or cardinality(${finishes}) = 0 then 'normal' else (${finishes})[1] end then 0 else coalesce(array_position(${finishes}, ${finish}), 98) + 1 end`;
 const DAY_MS = 86_400_000;
 
+/** `{ extendedArt: true }` for a print whose Yugipedia gallery row says `EA` (VB-106). */
+const extendedArt = (ids: Record<string, unknown>) =>
+  (ids.artwork as { alt?: string } | undefined)?.alt === 'EA' ? { extendedArt: true as const } : {};
+
 /**
  * core's `langRank` as an ORDER BY term (smallest first): a price in `wanted` (the language of
  * the card shown, VB-103), then `en`, then any; `lang` last breaks the tie as core does.
@@ -520,6 +524,7 @@ export class DrizzleCardStore implements CardStore {
           { lang: query.lang, ids: r.localizedIds },
           { lang: 'en', ids: r.externalIds },
         ]),
+        ...extendedArt(r.externalIds),
         marketPrice: r.market ? displayPrice(r.market) : null,
       })),
       page: query.page,
@@ -591,6 +596,8 @@ export class DrizzleCardStore implements CardStore {
       delete externalIds.tcgdex_marketplace;
       delete externalIds.image_url;
       delete externalIds.image_url_small;
+      // The Yugipedia scan (VB-106) is served as imageUrl, its alt code as extendedArt.
+      delete externalIds.artwork;
       return {
         id: p.id,
         cardId: p.cardId,
@@ -604,6 +611,7 @@ export class DrizzleCardStore implements CardStore {
         artist: p.artist,
         releasedOn: p.releasedOn,
         ...resolveImage(this.imageBaseUrl, image, [{ lang: 'en', ids: p.externalIds }]),
+        ...extendedArt(p.externalIds),
         externalIds,
         localizations: localizations
           .filter((l) => l.printId === p.id)

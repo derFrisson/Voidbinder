@@ -41,6 +41,11 @@ export function adminRoutes(adminToken: string | undefined) {
       .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
       // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
       .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))
+      // VB-106: the artwork of every print from the set galleries (the Yugipedia Workflow alone).
+      .post(
+        '/import/yugipedia-galleries',
+        importRoute('yugipedia-galleries', 'Yugipedia gallery', () => ({ galleries: 'only' })),
+      )
       // Rewrites the whole search index from Postgres (VB-98); waits for a running refresh.
       .post('/search-index/rebuild', async (c) => {
         await c.var.platform.jobQueue.send({
@@ -90,9 +95,22 @@ export function adminRoutes(adminToken: string | undefined) {
   );
 }
 
+/** `import_runs` sources that crawl one site and so share its rate (VB-106: Yugipedia, 1 req/s). */
+const SHARED_LOCKS = [['yugipedia', 'yugipedia-galleries']];
+
+/** Whether an import of `source`, or of a source it shares a lock with, is running. */
+export async function importBlocked(
+  store: { importRunning(source: string): Promise<boolean> },
+  source: string,
+): Promise<boolean> {
+  for (const s of SHARED_LOCKS.find((l) => l.includes(source)) ?? [source])
+    if (await store.importRunning(s)) return true;
+  return false;
+}
+
 /**
  * Starts the import of `source` (the `import_runs.source`, also the Workflow job `<source>-import`)
- * unless one is running.
+ * unless one of it, or of a source sharing its lock (`importBlocked`), is running.
  */
 function importRoute(
   source: string,
@@ -103,7 +121,7 @@ function importRoute(
     const params = payload(c);
     // ponytail: the check and the Workflow's own `import_runs` row are not atomic; two calls
     // within the seconds before its first step can both start (the cron's daily id is unique).
-    if (await c.var.platform.cardStore.importRunning(source)) {
+    if (await importBlocked(c.var.platform.cardStore, source)) {
       const error: ErrorResponse = {
         error: {
           code: 'import_running',
