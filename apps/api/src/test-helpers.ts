@@ -1,4 +1,4 @@
-import type { BlobStore, CardStore, CollectionStore, JobQueue } from '@voidbinder/core';
+import type { BlobStore, CardStore, CollectionStore, DeckStore, JobQueue } from '@voidbinder/core';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
@@ -73,6 +73,7 @@ export interface TestAppOptions {
   cardStore?: CardStore;
   jobQueue?: JobQueue;
   collectionStore?: CollectionStore;
+  deckStore?: DeckStore;
   /** The cache-disabled database (admin writes); unavailable otherwise. */
   db?: NodePgDatabase;
   adminToken?: string;
@@ -88,6 +89,7 @@ export function testApp(opts: TestAppOptions = {}) {
         ping: () => (opts.dbUp === false ? Promise.reject(new Error('down')) : Promise.resolve()),
       }),
     collectionStore: opts.collectionStore ?? unavailable<CollectionStore>('collection store'),
+    deckStore: opts.deckStore ?? unavailable<DeckStore>('deck store'),
     blobStore: unavailable<BlobStore>('blob store'),
     jobQueue: opts.jobQueue ?? unavailable<JobQueue>('job queue'),
     db: opts.db ?? unavailable<NodePgDatabase>('database'),
