@@ -654,7 +654,7 @@ A create under a deleted id (a retried `POST`, or a sync edit that wins) writes 
 removes its log entry in the same transaction.
 The daily Scryfall cron of every environment also sweeps the log (`sweepSyncDeletions`): rows
 with `logged_at` older than `SYNC_DELETION_RETENTION_DAYS` (30, `packages/shared/src/api/sync.ts`)
-less one day, so that no entry outlives 30 days, go in batches of 1000, logged as `sync deletions swept` with the count, and the highest `sync_seq`
+less two days, so that no entry outlives 30 days even when one daily run fails, go in batches of 1000, logged as `sync deletions swept` with the count, and the highest `sync_seq`
 removed becomes the horizon in `app_meta` (`sync_deletions_horizon`).
 
 **Pull.** `GET /sync/pull?since=<cursor>&limit=` (`since` 0 = everything, `limit` 1 to 500, default

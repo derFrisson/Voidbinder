@@ -40,7 +40,7 @@ native client runs the same code.
   for a pushed delete) and `logged_at` (when the server wrote it).
 - **Retention and resync.** A daily sweep (the Scryfall cron of each environment) removes log
   rows whose `logged_at` is older than `SYNC_DELETION_RETENTION_DAYS` (30, in
-  `@voidbinder/shared/api`) less one day, so that with a daily run none outlives 30 days, in batches, and keeps the highest `sync_seq` it removed as the
+  `@voidbinder/shared/api`) less two days, so that with a daily run none outlives 30 days even when one run fails, in batches, and keeps the highest `sync_seq` it removed as the
   horizon (`app_meta.sync_deletions_horizon`). A pull whose cursor is below the horizon may have
   missed a deletion that is gone: it answers 409 `resync_required`, and the device drops its
   local copy and pulls from 0. So that a device that is up to date is never sent there, the last
@@ -88,7 +88,7 @@ native client runs the same code.
 - The REST routes need no change for the cursor (the trigger stamps their writes too); their
   deletes write the log row themselves (VB-75).
 - A deleted row's content is gone at once; only its id and table stay, at most 30 days (the sweep
-  removes entries older than 29 days, daily), which keeps the privacy policy's promise about deletion markers. A
+  removes entries older than 28 days, daily, two days of slack for a failed run), which keeps the privacy policy's promise about deletion markers. A
   device that did not sync for longer than that pulls everything again.
 - The `deleted_at` columns of the five tables stay for one release (every row has it null,
   nothing reads it) and are dropped in a later one.
