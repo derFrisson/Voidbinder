@@ -13,8 +13,7 @@
       "env": [
         "CLOUDFLARE_ENV",
         "PUBLIC_CF_ANALYTICS_TOKEN",
-        "EXPO_PUBLIC_TURNSTILE_SITE_KEY",
-        "PUBLIC_TURNSTILE_SITE_KEY"
+        "EXPO_PUBLIC_TURNSTILE_SITE_KEY"
       ],
       "outputs": ["dist/**", ".wrangler/deploy/**"]
     },
