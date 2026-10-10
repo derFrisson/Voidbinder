@@ -35,6 +35,11 @@ export function useSetPage(game: Game, code: string, query: Partial<SetPageQuery
     queryFn: () =>
       read(api.catalog.sets[':game'][':code'].$get({ param: { game, code }, query: q })),
     staleTime,
+    // Paging and filtering of one set keep its grid on screen until the next page arrives.
+    placeholderData: (previous, previousQuery) =>
+      previousQuery?.queryKey[2] === game && previousQuery.queryKey[3] === code
+        ? previous
+        : undefined,
   });
 }
 
