@@ -8,6 +8,7 @@ import {
 import { alreadyListedMail, confirmationMail, type MailSender } from './mail';
 import type { PurgeCounts, WaitlistRepository } from './repository';
 import type { WaitlistSignupRow } from './schema';
+import { verifyTurnstile, type TurnstileDeps } from './turnstile';
 
 export interface WaitlistDeps {
   repo: WaitlistRepository;
@@ -16,6 +17,8 @@ export interface WaitlistDeps {
   siteUrl: string;
   /** HMAC key for unsubscribe tokens (Worker secret UNSUBSCRIBE_SECRET). */
   unsubscribeSecret: string;
+  /** Turnstile on the sign-up form (VB-72). */
+  turnstile: TurnstileDeps;
   /** False when the caller is over the limit. */
   rateLimit(key: string): Promise<boolean>;
   now?(): Date;
@@ -173,6 +176,17 @@ export async function handleSignup(request: Request, deps: WaitlistDeps): Promis
   if (!parsed.success) {
     const email = parsed.error.issues.some((i) => i.path[0] === 'email');
     return answer({ ok: false, status: 400, error: email ? 'email' : 'consent' });
+  }
+
+  // After the cheap checks, so a malformed request costs no Siteverify call.
+  const human = await verifyTurnstile(
+    deps.turnstile,
+    body['cf-turnstile-response'],
+    request.headers.get('cf-connecting-ip'),
+  );
+  if (human === 'failed') return answer({ ok: false, status: 400, error: 'turnstile' });
+  if (human === 'unavailable') {
+    return answer({ ok: false, status: 503, error: 'turnstile_unavailable' });
   }
 
   try {

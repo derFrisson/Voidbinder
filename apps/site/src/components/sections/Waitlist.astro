@@ -1,4 +1,5 @@
 ---
+import { env } from 'cloudflare:workers';
 import { legalPath, t, type Locale } from '../../i18n';
 import Card from '../art/Card.astro';
 
@@ -9,6 +10,8 @@ const { locale } = Astro.props;
 const d = t(locale).waitlist;
 const e = d.errors;
 const done = t(locale).status.pending;
+// The public sitekey of the one Turnstile widget (wrangler var, per environment, read at build).
+const siteKey = env.TURNSTILE_SITE_KEY;
 // Contract with VB-17 (docs/site/waitlist.md): POST /api/waitlist, form-encoded (no JavaScript:
 // a 303 to the status pages) or JSON (the script below: answers shown inline).
 ---
@@ -46,12 +49,24 @@ const done = t(locale).status.pending;
                 {d.consentBefore}<a href={legalPath(locale, 'privacy')}>{d.consentLink}</a>{d.consentAfter}
               </label>
             </div>
+            <div
+              class="turnstile"
+              role="group"
+              aria-label={d.turnstileLabel}
+              data-sitekey={siteKey}
+              data-language={locale}
+            >
+              <noscript>{d.turnstileNoscript}</noscript>
+            </div>
             <p
               class="error"
               role="alert"
               data-email={e.email}
               data-consent={e.consent}
               data-rate={e.rate}
+              data-turnstile={e.turnstile}
+              data-turnstile-wait={e.turnstileWait}
+              data-turnstile-load={e.turnstileLoad}
               data-server={e.server}
             >
             </p>
@@ -72,21 +87,86 @@ const done = t(locale).status.pending;
 </section>
 
 <script>
-  // Progressive enhancement: without JavaScript the form posts natively and lands on a status page.
+  // Progressive enhancement: without JavaScript the form posts natively and lands on a status page
+  // (the Turnstile check then fails there: the widget needs JavaScript).
   const form = document.querySelector<HTMLFormElement>('#waitlist-form');
   const fields = form?.querySelector<HTMLElement>('.fields');
   const error = form?.querySelector<HTMLElement>('.error');
   const done = form?.querySelector<HTMLElement>('.done');
   const button = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+  const box = form?.querySelector<HTMLElement>('.turnstile');
 
-  if (form && fields && error && done && button) {
+  interface TurnstileApi {
+    render(container: HTMLElement, options: Record<string, unknown>): string;
+    reset(widgetId: string): void;
+  }
+  const turnstileWindow = window as unknown as { turnstile?: TurnstileApi };
+
+  if (form && fields && error && done && button && box) {
     const label = button.textContent;
+    // Cloudflare Turnstile: the script loads when the form is about to scroll into view, so it
+    // costs the rest of the page nothing. `token` is empty until the challenge is solved.
+    let token = '';
+    let widgetId: string | undefined;
+    let loadFailed = false;
+    let requested = false;
+
+    const loadWidget = () => {
+      if (requested) return;
+      requested = true;
+      const script = document.createElement('script');
+      script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+      script.async = true;
+      script.onload = () => {
+        widgetId = turnstileWindow.turnstile?.render(box, {
+          sitekey: box.dataset.sitekey,
+          size: 'normal',
+          theme: 'auto',
+          language: box.dataset.language,
+          callback: (value: string) => {
+            token = value;
+          },
+          'expired-callback': () => {
+            token = '';
+          },
+          'error-callback': () => {
+            token = '';
+          },
+        });
+      };
+      script.onerror = () => {
+        loadFailed = true;
+        error.textContent = error.dataset.turnstileLoad ?? '';
+      };
+      document.head.appendChild(script);
+    };
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) return;
+          observer.disconnect();
+          loadWidget();
+        },
+        { rootMargin: '400px' },
+      );
+      observer.observe(form);
+    } else {
+      loadWidget();
+    }
+
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       // aria-disabled, not disabled: a disabled button drops keyboard focus to <body>.
       if (button.getAttribute('aria-disabled') === 'true') return;
-      const data = new FormData(form);
       error.textContent = '';
+      if (!token) {
+        // Not solved yet (or expired): say so instead of posting a request that cannot pass.
+        loadWidget();
+        error.textContent =
+          (loadFailed ? error.dataset.turnstileLoad : error.dataset.turnstileWait) ?? '';
+        return;
+      }
+      const data = new FormData(form);
       button.setAttribute('aria-disabled', 'true');
       button.textContent = form.dataset.sending ?? label;
       let message = error.dataset.server;
@@ -99,6 +179,7 @@ const done = t(locale).status.pending;
             locale: data.get('locale'),
             consent: data.get('consent') === 'on',
             website: data.get('website') ?? '',
+            'cf-turnstile-response': token,
           }),
         });
         if (res.ok) {
@@ -109,13 +190,21 @@ const done = t(locale).status.pending;
         }
         if (res.status === 400) {
           const body = (await res.json().catch(() => ({}))) as { error?: string };
-          message = body.error === 'consent' ? error.dataset.consent : error.dataset.email;
+          message =
+            body.error === 'consent'
+              ? error.dataset.consent
+              : body.error === 'turnstile'
+                ? error.dataset.turnstile
+                : error.dataset.email;
         } else if (res.status === 429) {
           message = error.dataset.rate;
         }
       } catch {
         // Network failure: the server message below.
       }
+      // A token works once: the next attempt needs a new challenge.
+      token = '';
+      if (widgetId) turnstileWindow.turnstile?.reset(widgetId);
       // The alert region is always in the DOM and only its text changes, so screen readers announce it.
       error.textContent = message ?? '';
       button.removeAttribute('aria-disabled');
@@ -209,6 +298,14 @@ const done = t(locale).status.pending;
 
   .field-row .btn:hover {
     background: #000;
+  }
+
+  /* Room for the `normal` widget (300 x 65) before it loads, so the form does not jump. */
+  .turnstile {
+    min-height: 65px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 14px;
+    line-height: 1.5;
   }
 
   .consent {

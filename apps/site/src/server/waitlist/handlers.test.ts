@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   handleConfirm,
   handleSignup,
@@ -12,6 +12,7 @@ import {
 import type { MailMessage } from './mail';
 import type { ExpiryCutoffs, WaitlistPatch, WaitlistRepository } from './repository';
 import type { NewWaitlistSignupRow, WaitlistSignupRow } from './schema';
+import { skipsTurnstile, TURNSTILE_TEST_SECRET } from './turnstile';
 
 class FakeRepo implements WaitlistRepository {
   rows: WaitlistSignupRow[] = [];
@@ -77,6 +78,8 @@ beforeEach(() => {
     repo,
     siteUrl: SITE,
     unsubscribeSecret: 'test-unsubscribe-secret',
+    // Like local development: no token needed. The Turnstile tests switch the check on.
+    turnstile: { secret: 'test-turnstile-secret', skip: true },
     now: () => now,
     rateLimit: async () => allowed,
     mail: {
@@ -649,5 +652,115 @@ describe('purgeExpired', () => {
     const logged: unknown[][] = [];
     await run({ log: (...a) => logged.push(a) });
     expect(logged).toEqual([['[waitlist] retention purge', { pending: 1, unsubscribed: 0 }]]);
+  });
+});
+
+describe('Turnstile on POST /api/waitlist', () => {
+  let siteverify: ReturnType<typeof vi.fn<typeof fetch>>;
+  beforeEach(() => {
+    siteverify = vi.fn<typeof fetch>(async () => Response.json({ success: true }));
+    deps.turnstile = { secret: 'secret-1', skip: false, fetch: siteverify };
+  });
+  const body = { email: 'ash@example.com', locale: 'en', consent: true, website: '' };
+  const withToken = { ...body, 'cf-turnstile-response': 'tok-1' };
+
+  it('refuses a request without a token and stores nothing, without asking Cloudflare', async () => {
+    const json = await handleSignup(jsonReq(body), deps);
+    expect(json.status).toBe(400);
+    expect(await json.json()).toEqual({ error: 'turnstile' });
+    const native = await signupForm();
+    expect(native.status).toBe(303);
+    expect(native.headers.get('location')).toBe('/de/waitlist/error?reason=turnstile');
+    expect(repo.rows).toHaveLength(0);
+    expect(sent).toHaveLength(0);
+    expect(siteverify).not.toHaveBeenCalled();
+  });
+
+  it('signs up with a token from the JSON body and sends secret, token and client IP', async () => {
+    const req = new Request(`${SITE}/api/waitlist`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'cf-connecting-ip': '203.0.113.7' },
+      body: JSON.stringify(withToken),
+    });
+    expect((await handleSignup(req, deps)).status).toBe(200);
+    expect(repo.rows).toHaveLength(1);
+    const [url, init] = siteverify.mock.calls[0] ?? [];
+    expect(url).toBe('https://challenges.cloudflare.com/turnstile/v0/siteverify');
+    expect(Object.fromEntries(init?.body as URLSearchParams)).toEqual({
+      secret: 'secret-1',
+      response: 'tok-1',
+      remoteip: '203.0.113.7',
+    });
+  });
+
+  it('takes the token from the form field the widget adds, for the post without JavaScript', async () => {
+    const res = await handleSignup(
+      form({
+        email: 'ash@example.com',
+        locale: 'de',
+        consent: 'on',
+        'cf-turnstile-response': 'tok-2',
+      }),
+      deps,
+    );
+    expect(res.headers.get('location')).toBe('/de/waitlist/pending');
+    expect(repo.rows).toHaveLength(1);
+  });
+
+  it('refuses a token Cloudflare rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    siteverify.mockResolvedValue(
+      Response.json({ success: false, 'error-codes': ['timeout-or-duplicate'] }),
+    );
+    const res = await handleSignup(jsonReq(withToken), deps);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'turnstile' });
+    expect(repo.rows).toHaveLength(0);
+    expect(warn).toHaveBeenCalledWith(expect.any(String), ['timeout-or-duplicate']);
+    warn.mockRestore();
+  });
+
+  it('answers 503 when Siteverify cannot be reached or understood, never a pass', async () => {
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const down of [
+      () => Promise.reject(new TypeError('network down')),
+      async () => new Response('bad gateway', { status: 502 }),
+      async () => new Response('<html>'),
+    ]) {
+      siteverify.mockImplementation(down);
+      const json = await handleSignup(jsonReq(withToken), deps);
+      expect(json.status).toBe(503);
+      expect(await json.json()).toEqual({ error: 'turnstile_unavailable' });
+    }
+    const native = await handleSignup(
+      form({ email: 'a@b.de', locale: 'en', consent: 'on', 'cf-turnstile-response': 't' }),
+      deps,
+    );
+    expect(native.headers.get('location')).toBe('/en/waitlist/error?reason=turnstile_unavailable');
+    expect(repo.rows).toHaveLength(0);
+    error.mockRestore();
+  });
+
+  it('does not ask Cloudflare about a honeypot hit or an invalid request', async () => {
+    await handleSignup(jsonReq({ ...withToken, website: 'http://spam.example' }), deps);
+    await handleSignup(jsonReq({ ...withToken, email: 'nope' }), deps);
+    await handleSignup(jsonReq({ ...withToken, consent: false }), deps);
+    expect(siteverify).not.toHaveBeenCalled();
+  });
+
+  it('skips the check when configured (local development)', async () => {
+    deps.turnstile = { secret: TURNSTILE_TEST_SECRET, skip: true, fetch: siteverify };
+    expect((await handleSignup(jsonReq(body), deps)).status).toBe(200);
+    expect(siteverify).not.toHaveBeenCalled();
+  });
+
+  it("skips only Cloudflare's test secret on a localhost SITE_URL", () => {
+    expect(skipsTurnstile(TURNSTILE_TEST_SECRET, 'http://localhost:4321')).toBe(true);
+    expect(skipsTurnstile(TURNSTILE_TEST_SECRET, 'https://voidbinder.de')).toBe(false);
+    expect(
+      skipsTurnstile(TURNSTILE_TEST_SECRET, 'https://voidbinder-site-dev.frisson.workers.dev'),
+    ).toBe(false);
+    expect(skipsTurnstile('0x4AAAAAAreal', 'http://localhost:4321')).toBe(false);
+    expect(skipsTurnstile(undefined, 'http://localhost:4321')).toBe(false);
   });
 });
