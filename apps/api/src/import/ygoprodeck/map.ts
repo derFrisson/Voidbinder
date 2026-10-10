@@ -190,9 +190,46 @@ export function mapPrints(card: YgoCard): MappedPrint[] {
   });
 }
 
-/** The print's name and text in `lang`; images exist in English only and are on the print. */
-export function mapLocalization(card: YgoCard, lang: string): LocalizationRow {
-  return { lang, name: card.name, text: card.desc, externalIds: {} };
+/** Language → its region token in a set code (`es` → `SP`), English left out. */
+const LANG_TOKEN: Record<string, string> = Object.fromEntries(
+  Object.entries(REGION_LANG)
+    .filter(([region]) => region !== 'EN')
+    .map(([region, lang]) => [lang, region]),
+);
+
+/**
+ * The code of the print with English code `code` in `lang` by rule (VB-94): the `EN` token swapped
+ * (`BLGG-EN024` → `BLGG-DE024`), or the token inserted where the number has none (`LON-065` →
+ * `LON-DE065`); null for English, a language without a token and any other number (`LON-E006`, a
+ * German-only `DE001`). About 84 % (PT 62 %) of them are right; the Yugipedia set lists confirm,
+ * replace or drop them (`set_code_source: 'yugipedia'`, yugipedia/set-lists.ts).
+ */
+export function ruleCode(code: string | null | undefined, lang: string): string | null {
+  const token = LANG_TOKEN[lang];
+  const dash = code?.indexOf('-') ?? -1;
+  if (!code || !token || dash < 0) return null;
+  const number = code.slice(dash + 1);
+  const prefix = code.slice(0, dash + 1);
+  if (/^EN(?=[A-Z0-9])/.test(number)) return `${prefix}${token}${number.slice(2)}`;
+  return /^\d/.test(number) ? `${prefix}${token}${number}` : null;
+}
+
+/** `external_ids` of a localization in `lang` of the print with English code `code`: its rule code. */
+export function ruleCodeIds(code: string | null | undefined, lang: string) {
+  const setCode = ruleCode(code, lang);
+  return setCode ? { set_code: setCode, set_code_source: 'rule' } : {};
+}
+
+/**
+ * The print's name and text in `lang`, with its code in `lang` by rule (`ruleCodeIds`) for the
+ * print's English code `code`; images exist in English only and are on the print.
+ */
+export function mapLocalization(
+  card: YgoCard,
+  lang: string,
+  code: string | null = null,
+): LocalizationRow {
+  return { lang, name: card.name, text: card.desc, externalIds: ruleCodeIds(code, lang) };
 }
 
 /**
