@@ -86,6 +86,23 @@ describe('matchProducts', () => {
     ]);
   });
 
+  it('drops a TCGplayer id that Scryfall gives two prints, like a tie', () => {
+    const prints: CandidatePrint[] = [
+      { ...print('adeline', '1', 'Adeline, Resplendent Cathar'), tcgplayer: '248137' },
+      { ...print('adeline-promo', '1p', 'Adeline, Resplendent Cathar'), tcgplayer: '248137' },
+      { ...print('champion', '385', 'Champion'), tcgplayerEtched: '249991' },
+    ];
+    expect(matchProducts(products('1/2864'), prints, { byId: true })).toEqual([
+      {
+        productId: 249991,
+        printId: 'champion',
+        finish: 'etched',
+        method: 'scryfall_id',
+        confidence: 100,
+      },
+    ]);
+  });
+
   it('maps Yu-Gi-Oh! products by number and rarity', () => {
     const prints = [
       print('bewd-ur', 'EN001', 'Blue-Eyes White Dragon', 'ultra-rare'),

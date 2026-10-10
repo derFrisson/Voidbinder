@@ -108,12 +108,20 @@ export function matchProducts(
   const found: ProductMatch[] = [];
   if (byId) {
     const ids = new Map<string, { printId: string; finish?: string }>();
+    // A product id Scryfall gives more than one print is a tie: none of them gets it.
+    const shared = new Set<string>();
+    const claim = (id: string, hit: { printId: string; finish?: string }) => {
+      const had = ids.get(id);
+      if (had && had.printId !== hit.printId) shared.add(id);
+      ids.set(id, hit);
+    };
     for (const p of prints) {
-      if (p.tcgplayer) ids.set(p.tcgplayer, { printId: p.id });
-      if (p.tcgplayerEtched) ids.set(p.tcgplayerEtched, { printId: p.id, finish: 'etched' });
+      if (p.tcgplayer) claim(p.tcgplayer, { printId: p.id });
+      if (p.tcgplayerEtched) claim(p.tcgplayerEtched, { printId: p.id, finish: 'etched' });
     }
     for (const product of products) {
-      const hit = ids.get(String(product.productId));
+      const id = String(product.productId);
+      const hit = shared.has(id) ? undefined : ids.get(id);
       if (hit)
         found.push({
           productId: product.productId,
