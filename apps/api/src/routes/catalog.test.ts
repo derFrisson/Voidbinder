@@ -356,7 +356,12 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
   });
 
   it('answers with cache headers, an ETag per catalog_version and 304 on a match', async () => {
-    const first = await app.request('/catalog/sets/mtg/mid');
+    const first = await app.request('/catalog/sets/mtg/mid', {
+      headers: { Origin: 'https://app.example.test' },
+    });
+    // The edge keys on Vary: an entry filled without Origin (curl, SSR) has no ACAO for the app.
+    expect(first.headers.get('Access-Control-Allow-Origin')).toBe('https://app.example.test');
+    expect(first.headers.get('Vary')).toMatch(/\bOrigin\b/);
     expect(first.headers.get('Cache-Control')).toBe(
       'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
     );

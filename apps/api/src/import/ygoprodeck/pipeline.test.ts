@@ -30,7 +30,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
 
   const steps: string[] = [];
   const purged: string[][] = [];
-  const run = (fake: FakeYgoprodeck = {}, blobs = new MemoryBlobStore()) =>
+  const run = (fake: FakeYgoprodeck = {}, blobs = new MemoryBlobStore(), failAt?: string) =>
     runYgoprodeckImport(
       {
         fetch: fakeYgoprodeck(fake),
@@ -38,7 +38,10 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
         withDb: (fn) => fn(db),
         purgeCache: async (tags) => void purged.push(tags),
       } satisfies ImportDeps,
-      (name, fn) => (steps.push(name), fn()),
+      (name, fn) => (
+        steps.push(name),
+        name === failAt ? Promise.reject(new Error('step failed')) : fn()
+      ),
       { env: 'dev', date: '2026-10-10', languages: ['en', 'de'] },
     );
   const version = async () =>
@@ -233,6 +236,16 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
       .limit(1);
     expect(last).toMatchObject({ status: 'failed', error: expect.stringContaining('500') });
     expect(steps.at(-1)).toBe('fail run');
+  });
+
+  it('purges nothing when a step fails after a partial write', async () => {
+    purged.length = 0;
+    steps.length = 0;
+    await expect(run({}, undefined, 'localizations de 00000')).rejects.toThrow('step failed');
+    // The English cards were written, the run failed: the edge keeps its entries until the TTL.
+    expect(steps).toContain('cards 00000');
+    expect(steps.at(-1)).toBe('fail run');
+    expect(purged).toEqual([]);
   });
 
   it('fails the run on an answer without cards instead of finishing an empty one', async () => {
