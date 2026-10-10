@@ -391,10 +391,10 @@ const imageIds = (column: SQLWrapper) =>
   )})`;
 
 /**
- * Rows `sourceUrl` can mirror (the same conditions in SQL, `lowres` for prints only), or that
- * already have a key (`sm` reads `orig` back from the bucket). Filtered before the limit, so rows
- * without a source image never fill a capped run and block the rows behind them. A `-lowres` key
- * is work again once the high-res scan is there.
+ * Rows `sourceUrl` can mirror (the same conditions in SQL, `lowres` for prints only). Filtered
+ * before the limit, so rows without a source image never fill a capped run and block the rows
+ * behind them; that includes a keyed row whose scan Scryfall has since downgraded (`planJobs`
+ * could not plan it). A `-lowres` key is work again once the high-res scan is there.
  */
 const needsWork = (
   table: ImageTarget['table'],
@@ -405,8 +405,7 @@ const needsWork = (
   const highres = sql`coalesce(${ids} -> 'scryfall_images' ->> 'highres_image', 'false') = 'true'`;
   const lowres =
     table === 'prints' ? sql` or ${ids} -> 'scryfall_images' ->> 'image_status' = 'lowres'` : sql``;
-  const mirrorable = sql`(${key} is not null
-    or (${sets.gameId} = 'mtg' and (${highres}${lowres}))
+  const mirrorable = sql`((${sets.gameId} = 'mtg' and (${highres}${lowres}))
     or (${sets.gameId} = 'yugioh' and ${ids} ->> 'image_url' is not null)
     or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
   const todo = sql`(${key} is null

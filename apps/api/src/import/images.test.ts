@@ -600,6 +600,12 @@ describe.skipIf(!databaseUrl)('image mirror low-res scans (Postgres)', () => {
     expect(de?.key).toBeNull();
   });
 
+  it('skips a keyed row whose scan went back to low-res, so it never fills a capped run', async () => {
+    await db.execute(sql`update print_localizations
+      set image_key = 'images/mtg/card-1/de/orig.jpg'`);
+    expect(await pendingRows(db, { game: 'mtg', sm: true })).toEqual([]);
+  });
+
   it('never replaces a high-res key with a low-res one', async () => {
     const [p3] = (await db.execute<{ id: string }>(sql`select id from prints where number = '3'`))
       .rows;
