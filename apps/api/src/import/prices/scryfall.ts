@@ -5,6 +5,7 @@ import type { ScryfallCard } from '../scryfall/types';
 import { batches } from '../util';
 import { BATCH_SIZE, failRun, finishRun, type Db } from '../scryfall/write';
 import { chunkKey, readChunk } from '../scryfall/source';
+import { runFreshness } from './coverage';
 import { startRun, upsertMappings, writePrices, type MappingRow, type PriceRow } from './write';
 
 // Scryfall's prices (VB-30): `default_cards` carries Cardmarket EUR and TCGplayer USD per print.
@@ -135,8 +136,16 @@ export async function runScryfallPrices(
       stats.prices += r.prices;
       stats.noPrint += r.noPrint;
     }
+    // VB-116: how many Magic prints the two sources refreshed, kept with the run.
+    const freshness = await step('prices: freshness', () =>
+      deps.withDb((db) =>
+        runFreshness(db, { source: 'scryfall', runId }, ['cardmarket', 'tcgplayer_scryfall']),
+      ),
+    );
     await step('prices: finish run', () =>
-      deps.withDb((db) => finishRun(db, runId, { observedAt: opts.observedAt, ...stats })),
+      deps.withDb((db) =>
+        finishRun(db, runId, { observedAt: opts.observedAt, ...stats, freshness }),
+      ),
     );
     return stats;
   } catch (err) {

@@ -2,7 +2,14 @@ import { failRun, finishRun } from '../scryfall/write';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
-import { coverageCounts, groupsKey, priceCoverage, readGroups } from './coverage';
+import {
+  coverageCounts,
+  groupsKey,
+  priceCoverage,
+  readGroups,
+  runFreshness,
+  type FailedGroups,
+} from './coverage';
 import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
 import {
   CATEGORIES,
@@ -216,8 +223,17 @@ export async function runTcgcsvImport(
         fresh: opts.force === true || at !== (await deps.withDb(lastImportedUpdate)),
       };
     });
+    // VB-116: after every run, a skipped one too (a build that stops coming shows as stale).
+    const freshness = () =>
+      step('freshness', () =>
+        deps.withDb((db) => runFreshness(db, { source: 'tcgcsv', runId }, ['tcgplayer'])),
+      );
     if (!fresh) {
-      const stats = { lastUpdated: observedAt, skipped: 'TCGCSV has not been updated since' };
+      const stats = {
+        lastUpdated: observedAt,
+        skipped: 'TCGCSV has not been updated since',
+        freshness: await freshness(),
+      };
       // Nothing changed: no catalog_version bump, so the cached reads stay valid.
       await step('finish run', () =>
         deps.withDb((db) => finishRun(db, runId, stats, { bump: false })),
@@ -226,6 +242,7 @@ export async function runTcgcsvImport(
     }
 
     const games: Partial<Record<PricedGame, GameStats>> = {};
+    const failedGroups: FailedGroups[] = [];
     for (const game of opts.games ?? GAMES) {
       const category = CATEGORIES[game];
       const { total, matched } = await step(`groups ${game}`, async () => {
@@ -254,9 +271,26 @@ export async function runTcgcsvImport(
       };
       for (const [i, groups] of groupSteps(matched).entries()) {
         const name = `prices ${game} ${String(i).padStart(3, '0')}`;
-        const r = await step(name, () =>
-          importGroups(deps, game, groups, { raw, delayMs, observedAt }),
-        );
+        let r;
+        try {
+          r = await step(name, () =>
+            importGroups(deps, game, groups, { raw, delayMs, observedAt }),
+          );
+        } catch (err) {
+          // VB-116: still failing after the Workflow's retries. The other groups go on; the run
+          // lists these, and a run that lists any never counts as the build imported, so the
+          // next run pulls the build again.
+          const groupIds = [...new Set(groups.map((g) => g.groupId))];
+          failedGroups.push({ game, groupIds, error: String(err).slice(0, 500) });
+          log('warn', {
+            message: 'price groups failed',
+            runId,
+            game,
+            groupIds,
+            error: String(err),
+          });
+          continue;
+        }
         for (const k of ['cards', 'mapped', 'unmapped', 'prices', 'noMarket'] as const)
           g[k] += r[k];
       }
@@ -281,7 +315,13 @@ export async function runTcgcsvImport(
     }
 
     // `raw`: where the run kept its answers, the group lists of the coverage route among them.
-    const stats = { lastUpdated: observedAt, raw, games };
+    const stats = {
+      lastUpdated: observedAt,
+      raw,
+      games,
+      ...(failedGroups.length ? { failedGroups } : {}),
+      freshness: await freshness(),
+    };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
     await purgeEdgeCache(deps, step, ['prices']);
     return { runId, stats };

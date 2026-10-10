@@ -307,6 +307,12 @@ const changeFilter = (since: string) => [
 ];
 
 /**
+ * Hours after which a `running` import run is taken as dead (6 by default). TCGCSV: a run takes
+ * minutes, and a run that died at 20:30 must not block the 22:30 one (VB-116).
+ */
+const RUN_TAKEN_DEAD_HOURS: Record<string, number> = { tcgcsv: 1 };
+
+/**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
  * and other non-immutable functions, otherwise Hyperdrive does not cache them.
  */
@@ -1178,6 +1184,7 @@ export class DrizzleCardStore implements CardStore {
   }
 
   async importRunning(source: string): Promise<boolean> {
+    const hours = RUN_TAKEN_DEAD_HOURS[source] ?? 6;
     const [run] = await this.db
       .select({ id: importRuns.id })
       .from(importRuns)
@@ -1185,7 +1192,7 @@ export class DrizzleCardStore implements CardStore {
         and(
           eq(importRuns.source, source),
           eq(importRuns.status, 'running'),
-          sql`${importRuns.startedAt} > now() - interval '6 hours'`,
+          sql`${importRuns.startedAt} > now() - make_interval(hours => ${hours})`,
         ),
       )
       .limit(1);
