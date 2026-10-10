@@ -196,7 +196,8 @@ describe('Turnstile', () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  // jsdom has no layout: the window width is what the component goes by for its first guess.
+  // jsdom has no layout: `test/setup.tsx` reports `turnstileFake.boxWidth` as the box's width; the
+  // window width only guesses the reserved height before that.
   const windowWidth = (width: number) =>
     vi.spyOn(Dimensions, 'get').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
 
@@ -214,11 +215,24 @@ describe('Turnstile', () => {
     expect(screen.getByRole('group', { name: 'Sicherheitsprüfung' })).toBeTruthy();
   });
 
-  it('asks for the compact widget on a narrow phone, where 300 px do not fit', () => {
+  it('asks for the compact widget in a box narrower than 300 px', () => {
     windowWidth(360);
+    turnstileFake.boxWidth = 296;
     fakeApi();
     renderApp(<SignUp />);
     expect(turnstileFake.renders[0]?.options.size).toBe('compact');
+  });
+
+  // The window says "wide" (guess: 65 px) but the panel measures under 300: one compact widget,
+  // drawn once, never a normal one first and then a second challenge.
+  it('draws the widget once in the size the first layout decides, even if the window guess differs', () => {
+    windowWidth(1024);
+    turnstileFake.boxWidth = 280;
+    fakeApi();
+    renderApp(<SignUp />);
+    expect(turnstileFake.renders).toHaveLength(1);
+    expect(turnstileFake.renders[0]?.options.size).toBe('compact');
+    expect(turnstileFake.remove).not.toHaveBeenCalled();
   });
 
   it('sends the sign-up with the token in cf-turnstile-response', async () => {

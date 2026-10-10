@@ -11,7 +11,10 @@ export const turnstileFake = {
   reset: vi.fn<(id: string) => void>(),
   remove: vi.fn<(id: string) => void>(),
   tokenN: 0,
+  /** The width jsdom's missing layout reports for the widget's box (`onLayout`). */
+  boxWidth: 400,
   install() {
+    this.boxWidth = 400;
     this.auto = true;
     this.renders = [];
     this.reset.mockClear();

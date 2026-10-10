@@ -64,15 +64,16 @@ export function Turnstile({
   const widget = useRef<{ api: TurnstileApi; id: string }>(undefined);
   const [failed, setFailed] = useState(false);
   // The `normal` widget is 300 px wide; in a narrower box (phones under ~375 px) it would spill out
-  // of the panel, so those get the `compact` one (150 x 140). The window width is the first guess,
-  // so the reserved height is right before the first layout; the box's own width settles it.
+  // of the panel, so those get the `compact` one (150 x 140). The box's own width decides, once:
+  // the first layout fixes the size for good (a later flip would draw a second challenge) and the
+  // widget is not drawn before it. Until then the window width only guesses the reserved height.
   const windowWidth = useWindowDimensions().width;
-  const [compact, setCompact] = useState(windowWidth < 380);
+  const [compact, setCompact] = useState<boolean>();
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
 
   useEffect(() => {
-    if (Platform.OS !== 'web') return;
+    if (Platform.OS !== 'web' || compact === undefined) return;
     let cancelled = false;
     const start = (api: TurnstileApi) => {
       const element = box.current as unknown as HTMLElement | null;
@@ -116,8 +117,12 @@ export function Turnstile({
           ref={box}
           role="group"
           aria-label={t.turnstile.label}
-          onLayout={(e) => setCompact(e.nativeEvent.layout.width < 300)}
-          className={compact ? 'h-[140px]' : 'h-[65px]'}
+          onLayout={(e) => {
+            const { width } = e.nativeEvent.layout;
+            // Width 0: not laid out yet (hidden), no basis for a decision.
+            if (width > 0) setCompact((decided) => decided ?? width < 300);
+          }}
+          className={(compact ?? windowWidth < 380) ? 'h-[140px]' : 'h-[65px]'}
         />
       )}
       {showRequired && !failed && (
