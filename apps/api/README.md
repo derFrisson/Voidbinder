@@ -56,7 +56,13 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | `GET /catalog/modules`                                                 | Manifests of the offline catalog modules, one per game (see Offline catalog modules)   |
 | `GET /catalog/banlist/yugioh?format=&lang=`                            | Yu-Gi-Oh! ban list (`format` `tcg`, `ocg`): groups, 90 days of changes (see Ban lists) |
 
-Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
+Schemas: `packages/shared/src/api/catalog.ts`. Every print (set page, search, typeahead, card
+page per localization, collection, wish list and deck entries) carries `displayNumber` and
+`displayCode` in the language shown (VB-97, `printNumbers` in `@voidbinder/core`): a Yu-Gi-Oh!
+print with a localization in that language swaps its token (`EN024` → `DE024`, Spanish `SP`,
+Japanese `JP`), a collection entry uses its copy's language; Pokémon and Magic numbers stay.
+`cardFormat` (`games.card_format`, migration `0012_card_format.sql`) is the card size for the
+image box (`CARD_FORMATS` in `@voidbinder/shared`). Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then; which key a print shows, with `imageLang`
 and `imageFrom`, is in Card images. Every 200 carries
 `Cache-Control: public, max-age=60, s-maxage=600, stale-while-revalidate=60` and an `ETag` of
@@ -164,7 +170,9 @@ PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010
   (`catalog_number_key`: `LDS3-121`, `sv1 1`), then numbers starting with it (`lds3en12` →
   EN120…EN129). Yu-Gi-Oh! language codes (`DE`, `FR`, `IT`, `PT`, `SP`, `ES`, `JP`, `JA`) find
   the English print: other languages are localizations of it, not prints of their own
-  (`BLGG-DE024` → BLGG-EN024). A set code alone (`lds3`, `mid`, `sv1`) lists the set.
+  (`BLGG-DE024` → BLGG-EN024), and the hit shows the number typed: `displayNumber` `DE024`,
+  `matchedCode` `BLGG-DE024`, whatever `lang` is. A set code alone (`lds3`, `mid`, `sv1`) lists
+  the set.
 - **Numbers:** `121` matches that number in every set, `001/128` in the sets of 128 cards
   (`prints_number_key_idx`), newest first, at most 50.
 - **Typos:** when neither finds anything, names with a trigram similarity of 0.3 or more

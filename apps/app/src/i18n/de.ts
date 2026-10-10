@@ -109,6 +109,7 @@ export const de = {
   },
   card: {
     noImage: 'Kein Bild',
+    numberIn: 'Nummer in {lang}',
     imageLang: 'Bild: {lang}',
     imageSibling: 'Bild eines anderen Drucks',
     views: 'Druck wählen',

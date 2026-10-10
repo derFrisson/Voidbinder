@@ -35,7 +35,16 @@ const line = (n: number, extra: Partial<DeckEntry>): DeckEntry => ({
   typeLine: 'Effect Monster',
   group: 'monster',
   stat: { kind: 'level', value: 4 },
-  print: { id: pid(n), setCode: 'lob', number: `EN00${n}`, imageUrl: null },
+  print: {
+    id: pid(n),
+    setCode: 'lob',
+    number: `EN00${n}`,
+    // The user reads German: the deck shows the German code.
+    displayNumber: `DE00${n}`,
+    displayCode: `LOB-DE00${n}`,
+    cardFormat: 'japanese',
+    imageUrl: null,
+  },
   owned: 3,
   limit: 3,
   price: eur(100),
@@ -87,6 +96,7 @@ const deck: DeckDetail = {
         printId: pid(2),
         setCode: 'lob',
         number: 'EN002',
+        displayNumber: 'DE002',
         needed: 3,
         owned: 2,
         unitPriceCents: 890,
@@ -101,6 +111,7 @@ const deck: DeckDetail = {
         printId: pid(4),
         setCode: 'lob',
         number: 'EN004',
+        displayNumber: 'EN004',
         needed: 1,
         owned: 0,
         unitPriceCents: 980,
@@ -131,6 +142,9 @@ const search = {
       id: pid(5),
       cardId: id(5),
       number: 'EN005',
+      displayNumber: 'EN005',
+      displayCode: 'LOB-EN005',
+      cardFormat: 'japanese',
       variant: '',
       name: 'Nebelschwinge',
       rarity: 'Common',
@@ -145,6 +159,9 @@ const search = {
       id: pid(1),
       cardId: id(1),
       number: 'EN001',
+      displayNumber: 'EN001',
+      displayCode: 'LOB-EN001',
+      cardFormat: 'japanese',
       variant: '',
       name: 'Nebelwächter',
       rarity: 'Common',
@@ -159,6 +176,9 @@ const search = {
       id: pid(6),
       cardId: id(6),
       number: 'EN006',
+      displayNumber: 'EN006',
+      displayCode: 'LOB-EN006',
+      cardFormat: 'japanese',
       variant: '',
       name: 'Nebeldrache',
       rarity: 'Ultra Rare',
@@ -312,12 +332,12 @@ describe('deck screen', () => {
     expect(screen.getByRole('group', { name: 'Zauber' })).toBeTruthy();
     expect(screen.getAllByText('habe 3').length).toBe(2);
     expect(screen.getByText('fehlt 1')).toBeTruthy();
-    expect(screen.getByText(/Stufe 4 · Effect Monster · LOB-EN001/)).toBeTruthy();
+    expect(screen.getByText(/Stufe 4 · Effect Monster · LOB-DE001/)).toBeTruthy();
 
     const need = screen.getByRole('region', { name: 'Was fehlt mir' });
     expect(within(need).getByText('2 Karten')).toBeTruthy();
     expect(within(need).getByText(/Abgeglichen mit allen 612 Karten/)).toBeTruthy();
-    expect(within(need).getByText(/LOB-EN002 · je 8,90\s€/)).toBeTruthy();
+    expect(within(need).getByText(/LOB-DE002 · je 8,90\s€/)).toBeTruthy();
     expect(within(need).getByText(/nach Cardmarket, Stand 09\.10\.2026/)).toBeTruthy();
     expect(within(need).getByText(/18,70\s€/)).toBeTruthy();
     expect(screen.getByRole('img', { name: /4: 6/ })).toBeTruthy();

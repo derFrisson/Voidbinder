@@ -1,4 +1,4 @@
-import type { DeckDetail, DeckZone, EntryPrint, SearchHit } from '@voidbinder/shared/api';
+import type { DeckDetail, DeckZone, SearchHit } from '@voidbinder/shared/api';
 import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { searchable, useSearch } from '../../api/queries/search';
@@ -66,7 +66,7 @@ export function AddCards({
             // The format's limit of a card already in the deck (Yu-Gi-Oh!'s ban list too).
             const limit = deck.entries.find((e) => e.cardId === hit.cardId)?.limit ?? null;
             const full = limit !== null && n >= limit;
-            const thumb = { imageUrl: hit.imageUrl, game: deck.game } as EntryPrint;
+            const thumb = { imageUrl: hit.imageUrl, game: deck.game, cardFormat: hit.cardFormat };
             return (
               <View
                 key={hit.id}
@@ -83,7 +83,7 @@ export function AddCards({
                   </Text>
                   <Text numberOfLines={1} className="font-body text-xs text-ink-2">
                     <Text className="font-mono">
-                      {hit.setCode.toUpperCase()}-{hit.number}
+                      {hit.setCode.toUpperCase()}-{hit.displayNumber}
                     </Text>
                     {hit.rarity ? ` · ${hit.rarity}` : ''}
                   </Text>

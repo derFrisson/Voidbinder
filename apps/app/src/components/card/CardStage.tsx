@@ -1,4 +1,4 @@
-import type { Game } from '@voidbinder/shared';
+import type { CardFormat, Game } from '@voidbinder/shared';
 import type { PrintDetail } from '@voidbinder/shared/api';
 import { NOTICES, SCRYFALL_ATTRIBUTION } from '@voidbinder/shared/notices';
 import { Pressable, Text, View } from 'react-native';
@@ -32,12 +32,14 @@ function FieldShape({ game }: { game: Game }) {
  */
 export function CardStage({
   game,
+  format,
   uri,
   label,
   wide,
   note,
 }: {
   game: Game;
+  format: CardFormat | undefined;
   uri: string | null;
   label: string;
   wide: boolean;
@@ -49,7 +51,7 @@ export function CardStage({
     >
       <FieldShape game={game} />
       <View className="-rotate-2 rounded-lg shadow-lg">
-        <CardImage uri={uri} label={label} />
+        <CardImage uri={uri} label={label} format={format} />
       </View>
       {note && (
         <Text className="mt-3 text-center font-body text-[12.5px] leading-5 text-ink-3">
@@ -87,11 +89,11 @@ export function PrintThumbs({
           key={p.id}
           role="button"
           aria-pressed={p.id === current}
-          aria-label={`${p.set.name} ${p.number}`}
+          aria-label={`${p.set.name} ${p.displayNumber}`}
           onPress={() => onPick(p.id)}
           className={`w-12 rounded-[10px] p-1 ${p.id === current ? 'border-2 border-blue' : 'border-2 border-transparent'}`}
         >
-          <CardImage uri={p.imageUrl} className="rounded" />
+          <CardImage uri={p.imageUrl} format={p.cardFormat} className="rounded" />
         </Pressable>
       ))}
     </View>

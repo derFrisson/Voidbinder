@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { Game } from '../index.js';
+import { CardFormatSchema, type Game } from '../index.js';
 import { ImageInfoSchema } from './catalog.js';
 import { EntryPriceSchema, ValueGroupSchema } from './collection.js';
 import { CurrencySchema } from './me.js';
@@ -92,6 +92,8 @@ export const MissingCardSchema = z.object({
   printId: z.uuid().nullable(),
   setCode: z.string().nullable(),
   number: z.string().nullable(),
+  /** The print's number in the user's language (as on PrintSummary). */
+  displayNumber: z.string().nullable(),
   /** Copies the deck needs (every zone) and copies the collection holds; missing = the difference. */
   needed: z.number().int(),
   owned: z.number().int(),
@@ -148,6 +150,10 @@ export const DeckEntrySchema = z.object({
       id: z.uuid(),
       setCode: z.string(),
       number: z.string(),
+      /** In the user's language, as on PrintSummary. */
+      displayNumber: z.string(),
+      displayCode: z.string(),
+      cardFormat: CardFormatSchema,
       imageUrl: z.url().nullable(),
       ...ImageInfoSchema.shape,
     })

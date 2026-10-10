@@ -1,4 +1,4 @@
-import type { Game } from '@voidbinder/shared';
+import { cardAspect, type CardFormat, type Game } from '@voidbinder/shared';
 import { useState } from 'react';
 import { Image, Platform, Text, View } from 'react-native';
 import { imageHost } from '../../security-headers';
@@ -10,9 +10,8 @@ const frame: Record<Game, string> = {
   onepiece: 'border-op bg-op-soft',
 };
 
-/** Card art is 5:7; the R2 `sm` renditions are 250 x 350. */
-const WIDTH = 250;
-const HEIGHT = 350;
+/** Width of the R2 `sm` renditions. */
+const SM_WIDTH = 320;
 
 /** Only our own image host: any other URL would be a CSP violation per tile, so it gets the frame. */
 function isAllowedImage(uri: string): boolean {
@@ -38,35 +37,42 @@ interface CardImageProps {
   uri: string | null;
   alt: string;
   game: Game;
+  /** The box's aspect (`CARD_FORMATS`); the image is contained, never cropped. */
+  format: CardFormat;
   number: string;
   className?: string;
 }
 
-function Picture({ uri, alt, game, number, className = '' }: CardImageProps) {
+function Picture({ uri, alt, game, format, number, className = '' }: CardImageProps) {
   const [failed, setFailed] = useState(false);
   const shown = uri && !failed && isAllowedImage(uri);
+  // The R2 `sm` rendition's size (320 px wide, 466 high for Yu-Gi-Oh!): `<img>` reserves the
+  // box before it loads.
+  const width = SM_WIDTH;
+  const height = Math.round(SM_WIDTH / cardAspect(format));
   return (
     <View
-      className={`aspect-[5/7] w-full overflow-hidden rounded-lg border-2 ${frame[game]} ${className}`}
+      style={{ aspectRatio: cardAspect(format) }}
+      className={`w-full overflow-hidden rounded-lg border-2 ${frame[game]} ${className}`}
     >
       {shown && Platform.OS === 'web' ? (
         <img
           src={uri}
           alt={alt}
-          width={WIDTH}
-          height={HEIGHT}
+          width={width}
+          height={height}
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
         />
       ) : shown ? (
         <Image
-          source={{ uri, width: WIDTH, height: HEIGHT }}
+          source={{ uri, width, height }}
           accessibilityLabel={alt}
           onError={() => setFailed(true)}
           className="h-full w-full"
-          resizeMode="cover"
+          resizeMode="contain"
         />
       ) : (
         <View className="flex-1 items-center justify-center p-1">

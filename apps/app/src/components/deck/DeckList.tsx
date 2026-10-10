@@ -1,10 +1,4 @@
-import type {
-  DeckAnalysis,
-  DeckDetail,
-  DeckEntry,
-  DeckZone,
-  EntryPrint,
-} from '@voidbinder/shared/api';
+import type { DeckAnalysis, DeckDetail, DeckEntry, DeckZone } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
@@ -99,14 +93,15 @@ function Row({
   const sub = [
     statText(t, entry.stat),
     entry.typeLine,
-    entry.print && `${entry.print.setCode.toUpperCase()}-${entry.print.number}`,
+    entry.print && `${entry.print.setCode.toUpperCase()}-${entry.print.displayNumber}`,
   ].filter(Boolean);
   // The ban list status the deck's format reads (Yu-Gi-Oh!: the TCG list), VB-81.
   const ban = deck.game === 'yugioh' ? statusFromLimit(entry.limit) : null;
   const thumb = {
     imageUrl: entry.print?.imageUrl ?? null,
     game: deck.game,
-  } as EntryPrint;
+    cardFormat: entry.print?.cardFormat ?? 'standard',
+  } as const;
   const price = entry.price ? (
     <Text className="w-[84px] text-right font-mono text-[13px] font-semibold text-ink">
       {money(entry.price.unitCents * entry.quantity, entry.price.currency, locale)}

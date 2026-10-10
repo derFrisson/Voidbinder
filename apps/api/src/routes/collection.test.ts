@@ -16,6 +16,7 @@ import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
 import {
   binders,
+  cards,
   collectionEntries,
   prints,
   sets,
@@ -503,5 +504,53 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     const empty = await (await misty('/export.csv')).text();
     expect(empty.trimEnd().split('\r\n')).toHaveLength(1);
     await ash(`/entries/${entries[0]?.id}`, { method: 'DELETE' });
+  });
+
+  it('shows the number in the copy’s language (VB-97)', async () => {
+    const brock = as(await signUp());
+    // A Yu-Gi-Oh! print without any localization row: the copy's language alone decides.
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'yugioh', code: 'blgg', name: 'Battles of Legend', cardCount: 100 })
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'yugioh', name: 'Ghostrick Angel', oracleKey: 'ygo-ghostrick-angel' })
+      .returning({ id: cards.id });
+    const [print] = await db
+      .insert(prints)
+      .values({ cardId: card?.id ?? '', setId: set?.id ?? '', number: 'EN024' })
+      .returning({ id: prints.id });
+    const ghostrick = print?.id ?? '';
+    const adeline = await printId('mid', '1');
+    const { entries } = CreateEntriesResponseSchema.parse(
+      await json(
+        brock('/entries', {
+          body: [
+            { printId: ghostrick, language: 'de' },
+            { printId: ghostrick, language: 'es', condition: 'EX' },
+            { printId: ghostrick },
+            { printId: adeline, language: 'de' },
+          ],
+        }),
+      ),
+    );
+    expect(entries.map((e) => [e.language, e.print.displayNumber, e.print.displayCode])).toEqual([
+      ['de', 'DE024', 'BLGG-DE024'],
+      ['es', 'SP024', 'BLGG-SP024'],
+      ['en', 'EN024', 'BLGG-EN024'],
+      ['de', '1', 'MID 1'],
+    ]);
+    expect(entries.map((e) => e.print.cardFormat)).toEqual([
+      'japanese',
+      'japanese',
+      'japanese',
+      'standard',
+    ]);
+    // A wish for any language shows the English number.
+    await brock('/wishlist', { body: { printId: ghostrick } });
+    await brock('/wishlist', { body: { printId: ghostrick, language: 'fr' } });
+    const wishes = WishlistResponseSchema.parse(await json(brock('/wishlist'))).entries;
+    expect(wishes.map((w) => w.print.displayNumber).sort()).toEqual(['EN024', 'FR024']);
   });
 });

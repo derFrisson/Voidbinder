@@ -30,13 +30,22 @@ const statusWord = (t: Dict, status: string | null) =>
 
 /** One card: thumbnail, name, set code; opens the card page with that print. */
 function CardLine({ card, children }: { card: BanlistCard; children?: ReactNode }) {
-  const code = card.setCode && card.number ? `${card.setCode.toUpperCase()} ${card.number}` : null;
+  const code =
+    card.setCode && card.displayNumber
+      ? `${card.setCode.toUpperCase()} ${card.displayNumber}`
+      : null;
   return (
     <View role="listitem" className="flex-row items-center gap-3 border-t border-line py-2">
       <Link href={`/cards/${card.id}${card.printId ? `?print=${card.printId}` : ''}`} asChild>
         <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
           <View className="w-[30px]">
-            <CardImage uri={card.imageUrl} alt="" game="yugioh" number={card.number ?? ''} />
+            <CardImage
+              uri={card.imageUrl}
+              alt=""
+              game="yugioh"
+              format={card.cardFormat}
+              number={card.displayNumber ?? ''}
+            />
           </View>
           <View className="min-w-0 flex-1">
             <Text

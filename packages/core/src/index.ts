@@ -13,3 +13,4 @@ export type * from './platform/index.js';
 export * from './collection/index.js';
 export * from './decks/index.js';
 export * from './sync/index.js';
+export * from './catalog/index.js';

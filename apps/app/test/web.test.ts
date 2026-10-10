@@ -74,6 +74,9 @@ const mid = (rarity: string | null) => ({
     id: `00000000-0000-4000-8000-00000000000${n}`,
     cardId: `10000000-0000-4000-8000-00000000000${n}`,
     number: String(n),
+    displayNumber: String(n),
+    displayCode: `MID ${n}`,
+    cardFormat: 'standard',
     variant: '',
     name: `Adeline ${n}`,
     rarity: rarity ?? (n % 2 ? 'rare' : 'common'),
@@ -109,6 +112,9 @@ const search = {
       id: PRINT,
       cardId: CARD,
       number: '1',
+      displayNumber: '1',
+      displayCode: 'MID 1',
+      cardFormat: 'standard',
       variant: '',
       name: 'Adeline, strahlende Katharerin',
       rarity: 'rare',
@@ -131,6 +137,9 @@ const banCard = (n: number, name: string) => ({
   imageUrl: 'https://img.voidbinder.de/x.png',
   setCode: 'lob',
   number: `EN00${n}`,
+  // German UI: the German code (VB-97).
+  displayNumber: `DE00${n}`,
+  cardFormat: 'japanese',
 });
 const banlist = (format: string) => ({
   format,
@@ -211,6 +220,9 @@ const card = {
       cardId: CARD,
       set: { game: 'mtg', code: 'mid', name: 'Innistrad: Midnight Hunt' },
       number: '1',
+      displayNumber: '1',
+      displayCode: 'MID 1',
+      cardFormat: 'standard',
       variant: '',
       rarity: 'rare',
       finishes: ['normal', 'foil'],
@@ -219,8 +231,22 @@ const card = {
       imageUrl: null,
       externalIds: {},
       localizations: [
-        { lang: 'de', name: 'Adeline, strahlende Katharerin', text: 'Wachsamkeit', imageUrl: null },
-        { lang: 'en', name: 'Adeline, Resplendent Cathar', text: 'Vigilance', imageUrl: null },
+        {
+          lang: 'de',
+          name: 'Adeline, strahlende Katharerin',
+          text: 'Wachsamkeit',
+          imageUrl: null,
+          displayNumber: '1',
+          displayCode: 'MID 1',
+        },
+        {
+          lang: 'en',
+          name: 'Adeline, Resplendent Cathar',
+          text: 'Vigilance',
+          imageUrl: null,
+          displayNumber: '1',
+          displayCode: 'MID 1',
+        },
       ],
     },
   ],
@@ -276,6 +302,9 @@ const collectionApi: Record<string, unknown> = {
           setCode: 'mid',
           setName: 'Innistrad: Midnight Hunt',
           number: '1',
+          displayNumber: '1',
+          displayCode: 'MID 1',
+          cardFormat: 'standard',
           name: 'Adeline, strahlende Katharerin',
           rarity: 'rare',
           finishes: ['normal', 'foil'],
@@ -329,6 +358,9 @@ const deckLine = (n: number, name: string, extra: object) => ({
     id: `p0000000-0000-4000-8000-00000000000${n}`,
     setCode: 'lob',
     number: `EN00${n}`,
+    displayNumber: `EN00${n}`,
+    displayCode: `LOB-EN00${n}`,
+    cardFormat: 'japanese',
     imageUrl: null,
   },
   owned: 3,
@@ -370,6 +402,7 @@ const deck = {
         printId: 'p0000000-0000-4000-8000-000000000002',
         setCode: 'lob',
         number: 'EN002',
+        displayNumber: 'EN002',
         needed: 3,
         owned: 2,
         unitPriceCents: 890,
@@ -1013,6 +1046,7 @@ describe('web build', () => {
       await page.getByRole('heading', { level: 2, name: 'Deine betroffenen Karten' }).waitFor();
       await page.getByText('Exodia: 1× im Deck, erlaubt 0').waitFor();
       await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('Raigeki').waitFor();
+      await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('LOB DE003').waitFor();
       await page.waitForLoadState('networkidle');
       expect(await axe(page)).toEqual([]);
       // The OCG list has no date: the import's "as of" stands in.

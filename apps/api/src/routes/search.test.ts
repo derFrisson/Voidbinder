@@ -231,6 +231,9 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       game: 'yugioh',
       set: { code: 'lds3', name: 'Legendary Duelists: Season 3' },
       number: 'EN121',
+      displayNumber: 'EN121',
+      displayCode: 'LDS3-EN121',
+      cardFormat: 'japanese',
       variant: '',
       rarity: 'common',
       imageUrl: null,
@@ -239,6 +242,44 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     expect((await suggest('blgg de024')).map((s) => s.name)).toEqual([
       'Ghostrick Angel of Mischief',
     ]);
+    expect(await suggest('blgg de024')).toMatchObject([
+      { number: 'EN024', displayNumber: 'DE024', displayCode: 'BLGG-DE024' },
+    ]);
+  });
+
+  it('shows a typed language code, else the number in ?lang= where a localization has it (VB-97)', async () => {
+    const first = async (q: string, extra = '') => (await search(q, extra)).prints[0];
+    // The token typed wins over ?lang=, with or without a localization in that language.
+    for (const extra of ['', '&lang=en', '&lang=fr'])
+      expect(await first('BLGG-DE024', extra), extra).toMatchObject({
+        number: 'EN024',
+        displayNumber: 'DE024',
+        displayCode: 'BLGG-DE024',
+        matchedCode: 'BLGG-DE024',
+        cardFormat: 'japanese',
+      });
+    expect(await first('blgg es024')).toMatchObject({
+      displayNumber: 'SP024',
+      matchedCode: 'BLGG-SP024',
+    });
+    expect(await first('BLGG-JP024')).toMatchObject({ displayNumber: 'JP024' });
+    // A name search: DE only where the print has a German localization.
+    const satellite = await first('satellite warrior', '&lang=de');
+    expect(satellite).toMatchObject({ displayNumber: 'DE121', displayCode: 'LDS3-DE121' });
+    expect(satellite).not.toHaveProperty('matchedCode');
+    expect(await first('ghostrick', '&lang=de')).toMatchObject({ displayNumber: 'EN024' });
+    expect(await first('satellite warrior')).toMatchObject({ displayNumber: 'EN121' });
+    // Pokémon and Magic numbers stay; the code is printed per game.
+    expect(await first('sv1 001', '&lang=de')).toMatchObject({
+      displayNumber: '001',
+      displayCode: '001/198',
+      cardFormat: 'standard',
+    });
+    expect(await first('mid 123', '&lang=de')).toMatchObject({
+      displayNumber: '123',
+      displayCode: 'MID 123',
+      cardFormat: 'standard',
+    });
   });
 
   it.each([

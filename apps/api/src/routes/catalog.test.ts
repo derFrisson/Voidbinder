@@ -42,13 +42,13 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
   const cardId = async (name: string) =>
     (await db.select({ id: cards.id }).from(cards).where(eq(cards.name, name)))[0]?.id ?? '';
 
-  it('lists the games with their set counts', async () => {
+  it('lists the games with their set counts and card formats (migration 0012)', async () => {
     const { body } = await get('/games');
     expect(GamesResponseSchema.parse(body).games).toEqual([
-      { id: 'mtg', name: 'Magic: The Gathering', setCount: 2 },
-      { id: 'pokemon', name: 'Pokémon', setCount: 0 },
-      { id: 'yugioh', name: 'Yu-Gi-Oh!', setCount: 0 },
-      { id: 'onepiece', name: 'One Piece Card Game', setCount: 0 },
+      { id: 'mtg', name: 'Magic: The Gathering', setCount: 2, cardFormat: 'standard' },
+      { id: 'pokemon', name: 'Pokémon', setCount: 0, cardFormat: 'standard' },
+      { id: 'yugioh', name: 'Yu-Gi-Oh!', setCount: 0, cardFormat: 'japanese' },
+      { id: 'onepiece', name: 'One Piece Card Game', setCount: 0, cardFormat: 'standard' },
     ]);
   });
 
@@ -228,6 +228,55 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       expect(body.print.externalIds).not.toHaveProperty(key);
     expect(body.card.name).toBe('Champion of the Perished');
     expect(body.copyright).toBe('©Wizards of the Coast LLC');
+  });
+
+  it('shows numbers in the language shown and the card format (VB-97)', async () => {
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'yugioh', code: 'blgg', name: 'Battles of Legend', cardCount: 100 })
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'yugioh', name: 'Ghostrick Angel', oracleKey: 'ygo-ghostrick-angel' })
+      .returning({ id: cards.id });
+    const [print] = await db
+      .insert(prints)
+      .values({ cardId: card?.id ?? '', setId: set?.id ?? '', number: 'EN024' })
+      .returning({ id: prints.id });
+    await db.insert(printLocalizations).values([
+      { printId: print?.id ?? '', lang: 'en', name: 'Ghostrick Angel' },
+      { printId: print?.id ?? '', lang: 'de', name: 'Geistertrick-Engel' },
+    ]);
+
+    // The card page: the print as stored, each localization in its own language.
+    const { prints: list } = CardResponseSchema.parse((await get(`/cards/${card?.id}`)).body);
+    expect(list[0]).toMatchObject({
+      number: 'EN024',
+      displayNumber: 'EN024',
+      displayCode: 'BLGG-EN024',
+      cardFormat: 'japanese',
+    });
+    expect(list[0]?.localizations.map((l) => [l.lang, l.displayNumber, l.displayCode])).toEqual([
+      ['de', 'DE024', 'BLGG-DE024'],
+      ['en', 'EN024', 'BLGG-EN024'],
+    ]);
+    // The set page: German where a German localization exists, English otherwise.
+    const shown = async (query: string) =>
+      SetPageResponseSchema.parse((await get(`/sets/yugioh/blgg${query}`)).body).prints[0];
+    expect(await shown('?lang=de')).toMatchObject({
+      displayNumber: 'DE024',
+      displayCode: 'BLGG-DE024',
+      cardFormat: 'japanese',
+    });
+    expect(await shown('?lang=fr')).toMatchObject({ displayNumber: 'EN024' });
+    // Magic keeps its number in every language.
+    const adeline = CardResponseSchema.parse(
+      (await get(`/cards/${await cardId('Adeline, Resplendent Cathar')}`)).body,
+    ).prints[0];
+    expect(adeline).toMatchObject({ displayCode: 'MID 1', cardFormat: 'standard' });
+    expect(adeline?.localizations.map((l) => l.displayNumber)).toEqual(['1', '1']);
+    const mid = SetPageResponseSchema.parse((await get('/sets/mtg/mid?lang=de')).body).prints[0];
+    expect(mid).toMatchObject({ number: '1', displayNumber: '1', displayCode: 'MID 1' });
   });
 
   describe('GET /catalog/search', () => {

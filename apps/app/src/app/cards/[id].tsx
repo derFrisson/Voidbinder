@@ -7,7 +7,7 @@ import { CardBanBadges } from '../../components/banlist/BanBadge';
 import { attributeChips } from '../../components/card/attributes';
 import { CardText, Legality, PrintsTable } from '../../components/card/CardPanels';
 import { CardStage, PrintThumbs, RightsNotice } from '../../components/card/CardStage';
-import { fieldClass } from '../../components/card/game';
+import { fieldClass, inLanguage } from '../../components/card/game';
 import { CollectButtons } from '../../components/collection/CollectButtons';
 import { PricePanel, PriceStrip } from '../../components/card/PricePanel';
 import { Page, useWide, type Crumb } from '../../components/Shell';
@@ -64,9 +64,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
           {print && (
             <Text className="font-display text-[13px] font-semibold text-ink-2">
               {print.set.name} ·{' '}
-              <Text className="font-mono">
-                {print.set.code.toUpperCase()} {print.number}
-              </Text>
+              <Text className="font-mono">{inLanguage(print, locale).displayCode}</Text>
             </Text>
           )}
         </View>
@@ -107,7 +105,14 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
     .filter(Boolean)
     .join(' · ');
   const stage = (
-    <CardStage game={game} uri={view.image} label={view.name} wide={wide} note={note} />
+    <CardStage
+      game={game}
+      format={print?.cardFormat}
+      uri={view.image}
+      label={view.name}
+      wide={wide}
+      note={note}
+    />
   );
   const notice = <RightsNotice game={game} artist={print?.artist} copyright={data.copyright} />;
   const panels = (

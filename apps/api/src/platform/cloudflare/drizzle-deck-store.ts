@@ -6,6 +6,7 @@ import {
   deckStat,
   missingCards,
   priceEntry,
+  printNumbers,
   valueOf,
   type DeckCard,
   type DeckReadOptions,
@@ -13,6 +14,7 @@ import {
   type DeckStat,
   type PrintPrices,
 } from '@voidbinder/core';
+import type { CardFormat, Game } from '@voidbinder/shared';
 import {
   DECK_FORMATS,
   DECK_ZONES,
@@ -36,6 +38,7 @@ import {
   collectionEntries,
   deckEntries,
   decks,
+  games as catalogGames,
   pricesCurrent,
   printLocalizations,
   prints,
@@ -57,6 +60,9 @@ type PrintRow = PrintPrices & {
   cardId: string;
   setCode: string;
   number: string;
+  displayNumber: string;
+  displayCode: string;
+  cardFormat: CardFormat;
   rarity: string | null;
   image: ImagePick | null;
   externalIds: Ids;
@@ -162,6 +168,10 @@ export class DrizzleDeckStore implements DeckStore {
               cardId: prints.cardId,
               setCode: sets.code,
               number: prints.number,
+              game: sets.gameId,
+              cardCount: sets.cardCount,
+              cardFormat: catalogGames.cardFormat,
+              localized: sql<boolean>`exists (select 1 from ${printLocalizations} where ${printLocalizations.printId} = ${prints.id} and ${printLocalizations.lang} = ${opts.lang})`,
               rarity: prints.rarity,
               finishes: prints.finishes,
               image: imagePick(prints, opts.lang),
@@ -169,6 +179,7 @@ export class DrizzleDeckStore implements DeckStore {
             })
             .from(prints)
             .innerJoin(sets, eq(sets.id, prints.setId))
+            .innerJoin(catalogGames, eq(catalogGames.id, sets.gameId))
             .where(inArray(prints.cardId, cardIds))
             .orderBy(desc(sets.releasedOn), asc(prints.number))
         : [],
@@ -247,7 +258,12 @@ export class DrizzleDeckStore implements DeckStore {
     const printsByCard = new Map<string, PrintRow[]>();
     const printById = new Map<string, PrintRow>();
     for (const p of printRows) {
-      const row: PrintRow = { ...p, prices: pricesByPrint.get(p.printId) ?? [] };
+      const row: PrintRow = {
+        ...p,
+        ...printNumbers({ ...p, game: p.game as Game }, opts.lang, p.localized),
+        cardFormat: p.cardFormat as CardFormat,
+        prices: pricesByPrint.get(p.printId) ?? [],
+      };
       printById.set(p.printId, row);
       const list = printsByCard.get(p.cardId) ?? [];
       list.push(row);
@@ -324,6 +340,9 @@ export class DrizzleDeckStore implements DeckStore {
                 id: shown.printId,
                 setCode: shown.setCode,
                 number: shown.number,
+                displayNumber: shown.displayNumber,
+                displayCode: shown.displayCode,
+                cardFormat: shown.cardFormat,
                 ...resolveImage(this.imageBaseUrl, shown.image, [
                   { lang: 'en', ids: shown.externalIds },
                 ]),
@@ -349,7 +368,12 @@ export class DrizzleDeckStore implements DeckStore {
             label: c.label ?? c.name,
             quantity: c.quantity,
             print: print
-              ? { id: print.printId, setCode: print.setCode, number: print.number }
+              ? {
+                  id: print.printId,
+                  setCode: print.setCode,
+                  number: print.number,
+                  displayNumber: print.displayNumber,
+                }
               : null,
             price: best?.price ?? null,
           };

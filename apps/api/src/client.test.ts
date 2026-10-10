@@ -17,7 +17,7 @@ describe('createApiClient', () => {
 
   it('types the catalog routes', async () => {
     const games: GamesResponse['games'] = [
-      { id: 'mtg', name: 'Magic: The Gathering', setCount: 1 },
+      { id: 'mtg', name: 'Magic: The Gathering', setCount: 1, cardFormat: 'standard' },
     ];
     const app = testApp({
       cardStore: { listGames: async () => games, catalogVersion: async () => '1' } as never,

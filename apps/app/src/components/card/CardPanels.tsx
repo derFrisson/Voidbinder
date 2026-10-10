@@ -3,11 +3,11 @@ import { banLimit, type CardPrint, type PrintDetail } from '@voidbinder/shared/a
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
-import { fmt, useT } from '../../i18n';
+import { fmt, useLocale, useT } from '../../i18n';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
 import { label } from './attributes';
-import { fieldClass } from './game';
+import { fieldClass, inLanguage } from './game';
 import { Section } from './PricePanel';
 
 /** The prints table; on a phone Nr. and languages fold into the set cell. */
@@ -25,6 +25,7 @@ export function PrintsTable({
   wide: boolean;
 }) {
   const t = useT();
+  const locale = useLocale();
   const [all, setAll] = useState(false);
   // ponytail: the first 12 rows, then all on request (basic lands have hundreds of prints).
   const shown = all ? prints : prints.slice(0, 12);
@@ -57,6 +58,7 @@ export function PrintsTable({
         </View>
         {shown.map((p) => {
           const on = p.id === current;
+          const { displayNumber } = inLanguage(p, locale);
           const langs = p.localizations.map((l) => l.lang.toUpperCase()).join(' · ');
           const finishes = p.finishes.map((f) => label(t.card.finishes, f)).join(', ');
           const rarity = p.rarity ? label(t.card.rarities, p.rarity) : '';
@@ -75,7 +77,7 @@ export function PrintsTable({
                   {p.set.name}
                 </Link>
                 <Text className="font-mono text-xs text-ink-2">
-                  {wide ? p.set.code.toUpperCase() : `${p.set.code.toUpperCase()} ${p.number}`}
+                  {wide ? p.set.code.toUpperCase() : `${p.set.code.toUpperCase()} ${displayNumber}`}
                   {!wide && langs ? ` · ${langs}` : ''}
                   {!wide && rarity ? ` · ${rarity}` : ''}
                 </Text>
@@ -83,7 +85,7 @@ export function PrintsTable({
               {wide && (
                 <>
                   <Text role="cell" className={`flex-[0.8] font-mono text-sm text-ink`}>
-                    {p.number}
+                    {displayNumber}
                   </Text>
                   <Text role="cell" className={`flex-[0.8] ${cell}`}>
                     {langs}
@@ -212,10 +214,11 @@ export function CardText({
   className?: string | undefined;
 }) {
   const t = useT();
+  const locale = useLocale();
   const meta: [string, string | null | undefined][] = [
     [t.card.meta.artist, print?.artist],
     [t.card.meta.set, print && `${print.set.name} (${print.set.code.toUpperCase()})`],
-    [t.card.meta.number, print?.number],
+    [t.card.meta.number, print && inLanguage(print, locale).displayNumber],
   ];
   return (
     <Section
