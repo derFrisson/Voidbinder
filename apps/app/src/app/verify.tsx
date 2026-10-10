@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Text } from 'react-native';
 import { useResendVerification, useVerifyEmail } from '../api/queries/auth';
 import { AuthPage, FormError } from '../components/AuthForm';
+import { useTurnstile } from '../components/auth/Turnstile';
 import { Button, Field, Note, TextLink } from '../components/ui';
 import { useT } from '../i18n';
 
@@ -11,13 +12,16 @@ import { useT } from '../i18n';
 function Resend() {
   const t = useT();
   const resend = useResendVerification();
+  const check = useTurnstile();
   const [email, setEmail] = useState('');
   const [invalid, setInvalid] = useState<string>();
   if (resend.isSuccess) return <Note>{t.verify.resent}</Note>;
   const submit = () => {
     const parsed = EmailSchema.safeParse(email);
     setInvalid(parsed.success ? undefined : t.errors.email);
-    if (parsed.success) resend.mutate(parsed.data);
+    if (!parsed.success) return;
+    const { token, ok } = check.take();
+    if (ok) resend.mutate({ email: parsed.data, turnstileToken: token }, { onError: check.renew });
   };
   return (
     <>
@@ -31,6 +35,7 @@ function Resend() {
         autoCapitalize="none"
         onSubmitEditing={submit}
       />
+      {check.widget}
       <FormError error={resend.error} />
       <Button variant="ghost" label={t.verify.resend} onPress={submit} busy={resend.isPending} />
     </>

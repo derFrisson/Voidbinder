@@ -520,6 +520,11 @@ export const en: Dict = {
     done: 'Your password is changed and every session has ended. Sign in again.',
     toSignIn: 'Go to sign in',
   },
+  turnstile: {
+    label: 'Security check',
+    unavailable:
+      'The security check could not be loaded. Check your connection, allow challenges.cloudflare.com in your blocker and reload the page.',
+  },
   errors: {
     invalid: 'Email address or password is wrong.',
     unverified: 'Please confirm your email address first. The link is in your inbox.',
@@ -534,6 +539,8 @@ export const en: Dict = {
     displayName: 'The display name needs 2 to 40 characters.',
     wrongPassword: 'The password is wrong.',
     codeInvalid: 'The code is wrong or the sign-in has expired. Try again or sign in once more.',
+    turnstileRequired: 'Complete the security check first.',
+    turnstile: 'The security check failed or has expired. Try again.',
   },
   twoFactor: {
     title: 'Verification code',

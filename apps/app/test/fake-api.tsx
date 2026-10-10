@@ -8,6 +8,7 @@ export type Call = {
   method: string;
   path: string;
   body: unknown;
+  headers: Headers;
   credentials: RequestCredentials | undefined;
 };
 type Route = (call: Call) => Response | undefined;
@@ -42,6 +43,7 @@ export function fakeApi(...routes: Route[]): Call[] {
       method: request.method,
       path: url.pathname.replace(/^\/api/, '') + url.search,
       body: text ? JSON.parse(text) : undefined,
+      headers: request.headers,
       credentials: init?.credentials ?? (input instanceof Request ? input.credentials : undefined),
     };
     calls.push(call);

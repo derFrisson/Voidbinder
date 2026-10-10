@@ -20,11 +20,14 @@
     "SITE_URL": "http://localhost:4321",
     "WAITLIST_PENDING_RETENTION_DAYS": 30,
     "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
+    // Turnstile on the waitlist form (VB-72): the widget's public sitekey, one widget for every
+    // hostname; locally Cloudflare's always-passes test key. The secret is TURNSTILE_SECRET.
+    "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
   },
   // Daily retention purge of the waitlist (docs/site/waitlist.md). UTC.
   "triggers": { "crons": ["17 3 * * *"] },
   // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
-  "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
+  "secrets": { "required": ["UNSUBSCRIBE_SECRET", "TURNSTILE_SECRET"] },
   // Local Postgres from the root docker-compose.yml.
   "hyperdrive": [
     {
@@ -45,9 +48,10 @@
         "SITE_URL": "https://voidbinder-site-dev.frisson.workers.dev",
         "WAITLIST_PENDING_RETENTION_DAYS": 30,
         "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAFS5R7qPne3TN2Nz",
       },
       "triggers": { "crons": ["17 3 * * *"] },
-      "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
+      "secrets": { "required": ["UNSUBSCRIBE_SECRET", "TURNSTILE_SECRET"] },
       "hyperdrive": [
         {
           "binding": "HYPERDRIVE",
@@ -71,9 +75,10 @@
         "SITE_URL": "https://voidbinder.de",
         "WAITLIST_PENDING_RETENTION_DAYS": 30,
         "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
+        "TURNSTILE_SITE_KEY": "0x4AAAAAAFS5R7qPne3TN2Nz",
       },
       "triggers": { "crons": ["17 3 * * *"] },
-      "secrets": { "required": ["UNSUBSCRIBE_SECRET"] },
+      "secrets": { "required": ["UNSUBSCRIBE_SECRET", "TURNSTILE_SECRET"] },
       // Hyperdrive config "voidbinder-prod" (VPC service voidbinder-psql via the Voidbinder DB tunnel).
       "hyperdrive": [
         {

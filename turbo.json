@@ -10,7 +10,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "env": ["CLOUDFLARE_ENV", "PUBLIC_CF_ANALYTICS_TOKEN"],
+      "env": ["CLOUDFLARE_ENV", "PUBLIC_CF_ANALYTICS_TOKEN", "EXPO_PUBLIC_TURNSTILE_SITE_KEY"],
       "outputs": ["dist/**", ".wrangler/deploy/**"]
     },
     "typecheck": {
