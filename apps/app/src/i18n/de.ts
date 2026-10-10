@@ -21,6 +21,10 @@ export const de = {
     search: 'Karte, Set oder Nummer suchen',
     scanPile: 'Scan-Stapel',
     scanPileHint: 'Der Scan-Stapel kommt mit der Handy-App.',
+    suggestions: 'Vorschläge',
+    suggestOne: '1 Vorschlag',
+    suggestCount: '{count} Vorschläge',
+    suggestNone: 'Keine Treffer',
   },
   state: {
     loading: 'Lädt …',
@@ -200,6 +204,7 @@ export const de = {
     rarity: 'Seltenheit',
     finish: 'Ausführung',
     language: 'Sprache',
+    allLanguages: 'Alle',
     start:
       'Gib mindestens zwei Zeichen ein. Gesucht wird in Namen und Kartentexten, auf Deutsch und Englisch.',
     examples: 'Zum Beispiel',
