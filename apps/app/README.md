@@ -20,16 +20,17 @@ and the mockups next to it. Architecture: [ADR 0001](../../docs/adr/0001-stack.m
 
 Routes: `/` (games), `/[game]` (sets), `/[game]/sets/[code]`, `/cards/[id]`, `/search`,
 `/collection`, `/decks`, `/profile`, `/sign-in`, `/sign-up`, `/verify`, `/reset-password`. The
-collection and deck screens are placeholders with their data hooks (markers `VB-31`,
-`VB-34`).
+deck screen is a placeholder with its data hook (marker `VB-34`).
 
 **Catalog browsing** (`src/components/catalog/`): home, the sets of a game and the set page. The set
 page's filters (`lang`, `rarity`, `finish`, `sort`, `page`, `view`) live in the URL; the pure logic
 (parsing, the reducer that resets the page, completion, grouping) is `model.ts`. The filter rows
 come from the `facets` of `GET /catalog/sets/:game/:code` (rarity and finish counts, languages of the
 whole set). What needs the collection (owned badge, "fehlt", completion, value strip) or the prices
-renders only when `seams.ts` returns data; both hooks answer nothing until VB-31 and VB-30 exist, so
-a signed-out visitor and today's app see no numbers, never invented ones. "Recently viewed" is
+renders only when `seams.ts` returns data: `useOwnedPrints` reads the signed-in user's copies of
+the whole set (`GET /collection/owned?game=&set=`), `useSetPrices` still answers nothing (the set
+page's `marketPrice` has no observation date), so a signed-out visitor sees no numbers, never
+invented ones. "Recently viewed" is
 `src/storage/recent.ts`: localStorage on the web behind a small `KeyValueStorage` seam, in memory
 natively until Sprint 3.
 
@@ -40,7 +41,19 @@ pages by 30. `/cards/[id]?print=` shows the print from the URL, else the newest 
 names and text in the user's language; its parts are in `src/components/card/`. Prices are absent
 until VB-30 merges: `usePrintPrices` and `usePriceHistory` (`src/api/queries/cards.ts`) answer
 `null`, the panel says there are no prices and shows no number (marker `VB-30`). "In Sammlung" and
-"Auf Wunschliste" are disabled until VB-31 (marker `VB-31`).
+"Auf Wunschliste" add the print (VB-31), signed out they lead to sign-in.
+
+**Collection (VB-31).** `/collection` (`src/components/collection/`, hooks in
+`src/api/queries/collection.ts`) has the Habe and Will tabs with their counts, the binder sidebar
+(drag to reorder on the web, the sort button's arrows by keyboard and on phones, chips on phones),
+the value panel from `GET /collection/summary` (the largest sum per source and currency, its date,
+the split per game, the estimate note, "Noch keine Preise" without one), filters (game, condition,
+language, search), the table (a list on phones) with a quantity stepper and the inline edit form
+under the row, the wish list with wish price against the current one, the empty binder's pocket
+page and the Cardmarket CSV download (a plain link to `/api/collection/export.csv`). Every edit
+shows at once and rolls back when the API refuses (`useUpdateEntry`, `useUpdateWish`); new rows
+carry a client-generated id, so a retried request adds nothing twice. "Karten hinzufügen" opens
+`/search` (`?binder=` from a binder), where signed-in users get "+ In Sammlung" under each result.
 
 ## Local development
 
