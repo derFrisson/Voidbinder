@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { searchable, useSearch } from '../../api/queries/search';
 import { fmt, useLocale, useT } from '../../i18n';
+import { PriceLang } from '../card/PriceLang';
 import { Thumb } from '../collection/Entries';
 import { money } from '../collection/format';
 import { Icon } from '../Icon';
@@ -87,15 +88,18 @@ export function AddCards({
                     </Text>
                     {hit.rarity ? ` · ${hit.rarity}` : ''}
                   </Text>
-                  <Text numberOfLines={1} className="font-body text-xs text-ink-2">
-                    {[
-                      hit.marketPrice &&
-                        money(hit.marketPrice.cents, hit.marketPrice.currency, locale),
-                      n > 0 && fmt(a.inDeck, { count: n }),
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
+                  <View className="flex-row items-center gap-1">
+                    <PriceLang lang={hit.marketPrice?.lang} shown={locale} />
+                    <Text numberOfLines={1} className="flex-1 font-body text-xs text-ink-2">
+                      {[
+                        hit.marketPrice &&
+                          money(hit.marketPrice.cents, hit.marketPrice.currency, locale),
+                        n > 0 && fmt(a.inDeck, { count: n }),
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                  </View>
                 </View>
                 <Pressable
                   role="button"

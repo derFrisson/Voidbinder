@@ -151,7 +151,14 @@ const search = {
       rarity: 'Common',
       finishes: ['normal'],
       imageUrl: null,
-      marketPrice: { source: 'tcgplayer', finish: 'normal', currency: 'USD', cents: 40 },
+      marketPrice: {
+        source: 'tcgplayer',
+        finish: 'normal',
+        lang: 'en',
+        currency: 'USD',
+        cents: 40,
+        observedAt: '2026-10-09T03:00:00.000Z',
+      },
       game: 'yugioh',
       setCode: 'lob',
       setName: 'Legend of Blue Eyes',
@@ -168,7 +175,14 @@ const search = {
       rarity: 'Common',
       finishes: ['normal'],
       imageUrl: null,
-      marketPrice: null,
+      marketPrice: {
+        source: 'cardmarket',
+        finish: 'normal',
+        lang: 'de',
+        currency: 'EUR',
+        cents: 55,
+        observedAt: '2026-10-09T03:00:00.000Z',
+      },
       game: 'yugioh',
       setCode: 'lob',
       setName: 'Legend of Blue Eyes',
@@ -391,6 +405,20 @@ describe('deck screen', () => {
         .getByRole('button', { name: /^Nebelwächter hinzufügen/ })
         .getAttribute('aria-disabled'),
     ).toBe('true');
+  });
+
+  // VB-103: a hit's price for copies in another language than the search's carries the chip.
+  it('marks a search hit’s price only when it is for another language', async () => {
+    deckApi();
+    renderApp(<DeckPage />);
+    fireEvent.change(await screen.findByLabelText('Karte suchen'), {
+      target: { value: 'nebel' },
+    });
+    const hit = (name: RegExp) =>
+      within(screen.getByRole('button', { name }).closest('[role="listitem"]') as HTMLElement);
+    await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' });
+    expect(hit(/^Nebelschwinge hinzufügen/).getByLabelText('Preis für EN-Karten')).toBeTruthy();
+    expect(hit(/^Nebelwächter hinzufügen/).queryByLabelText(/^Preis für/)).toBeNull();
   });
 
   it('lands two quick adds, and an Extra Deck monster in the extra deck', async () => {

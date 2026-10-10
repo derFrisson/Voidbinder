@@ -230,18 +230,21 @@ function EditEntry({
       <View
         className={`border-t border-line pt-4 ${wide ? 'flex-row items-center justify-between gap-4' : 'gap-4'}`}
       >
-        <Text className="flex-1 font-body text-[13px] leading-5 text-ink-2">
-          {price
-            ? fmt(e.value, {
-                calc: `${entry.quantity} × ${money(price.unitCents, price.currency, locale)} = ${money(price.unitCents * entry.quantity, price.currency, locale)}`,
-                source: SOURCE_NAMES[price.source],
-                date: day(price.observedAt, locale),
-              })
-            : t.collection.table.noPrice}
-          {gain !== null && price
-            ? ` ${fmt(e.gain, { amount: signedMoney(gain, price.currency, locale) })}`
-            : ''}
-        </Text>
+        <View className="flex-1 flex-row items-start gap-1.5">
+          <PriceLang lang={price?.lang} shown={entry.language} />
+          <Text className="flex-1 font-body text-[13px] leading-5 text-ink-2">
+            {price
+              ? fmt(e.value, {
+                  calc: `${entry.quantity} × ${money(price.unitCents, price.currency, locale)} = ${money(price.unitCents * entry.quantity, price.currency, locale)}`,
+                  source: SOURCE_NAMES[price.source],
+                  date: day(price.observedAt, locale),
+                })
+              : t.collection.table.noPrice}
+            {gain !== null && price
+              ? ` ${fmt(e.gain, { amount: signedMoney(gain, price.currency, locale) })}`
+              : ''}
+          </Text>
+        </View>
         {confirming ? (
           <View className="flex-row flex-wrap items-center gap-2">
             <Text className="font-body text-sm text-ink">{e.confirmDelete}</Text>

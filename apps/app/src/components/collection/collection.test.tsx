@@ -5,6 +5,7 @@ import type {
   CollectionEntry,
   CollectionSummary,
   EntriesResponse,
+  WishlistEntry,
 } from '@voidbinder/shared/api';
 import { useLocalSearchParams } from 'expo-router';
 import { useState, type ReactNode } from 'react';
@@ -329,6 +330,65 @@ describe('collection screen', () => {
     fireEvent.click(await screen.findByRole('button', { name: /Neue Mappe Oktober/ }));
     expect(await screen.findByText('„Neue Mappe Oktober“ ist noch leer')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Aus Sammlung verschieben' })).toBeTruthy();
+  });
+
+  // VB-103: the language chip says a price is for copies in another language than the entry's.
+  it('marks the edit form’s price line only when the price is for another language', async () => {
+    const english: CollectionEntry = {
+      ...entry,
+      id: 'e0000000-0000-4000-8000-000000000002',
+      print: { ...entry.print, name: 'Gavony Township' },
+      price: entry.price && { ...entry.price, lang: 'en' },
+    };
+    fakeApi(signedIn, (c) => {
+      if (c.path === '/collection/summary') return json(summary);
+      if (c.path === '/collection/binders') return json({ binders: [] });
+      if (c.path.startsWith('/collection/entries')) return json(page([entry, english]));
+      return undefined;
+    });
+    renderApp(<Collection />);
+    fireEvent.click(await screen.findByRole('button', { name: /Adeline.*bearbeiten/ }));
+    expect(within(await screen.findByRole('form')).queryByLabelText(/^Preis für/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /Gavony.*bearbeiten/ }));
+    await waitFor(() =>
+      expect(within(screen.getByRole('form')).getByLabelText('Preis für EN-Karten')).toBeTruthy(),
+    );
+  });
+
+  it('marks a wish’s price only when it is for another language than the wished one', async () => {
+    const wish = (n: number, language: string | null, lang: string): WishlistEntry => ({
+      id: `w0000000-0000-4000-8000-00000000000${n}`,
+      printId: entry.printId,
+      quantity: 1,
+      language,
+      finish: null,
+      minCondition: null,
+      maxPriceCents: null,
+      currency: null,
+      note: null,
+      createdAt: at,
+      updatedAt: at,
+      print: { ...entry.print, name: `Wish ${n}` },
+      price: entry.price && { ...entry.price, lang },
+    });
+    fakeApi(signedIn, (c) => {
+      if (c.path === '/collection/summary') return json(summary);
+      if (c.path === '/collection/binders') return json({ binders: [] });
+      if (c.path.startsWith('/collection/entries')) return json(page([]));
+      if (c.path.startsWith('/collection/wishlist'))
+        return json({
+          // Wanted in German, priced in English; in German; any language, priced in Japanese.
+          entries: [wish(1, 'de', 'en'), wish(2, 'de', 'de'), wish(3, null, 'ja')],
+          page: 1,
+          pageSize: 50,
+          total: 3,
+        });
+      return undefined;
+    });
+    renderApp(<Collection />);
+    fireEvent.click(await screen.findByRole('button', { name: /Will/ }));
+    expect(await screen.findByText('Wish 3')).toBeTruthy();
+    expect(screen.getAllByLabelText(/^Preis für/).map((c) => c.textContent)).toEqual(['EN']);
   });
 
   it('switches to the wish list tab', async () => {
