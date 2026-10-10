@@ -1777,7 +1777,9 @@ keeps it up and a missing push turns it down; Retries 0) and copy its push URL w
 query. The script reads the prod admin token as `ADMIN_TOKEN_prod` from
 `~/.config/voidbinder/api-secrets.env` (step 2 of `docs/guides/go-live.md`; the file is sourced,
 so one `NAME=value` per line) and the push URL from `~/.config/voidbinder/kuma.env`. It needs
-`curl` and `jq` (section 2).
+`curl` and `jq` (section 2). The check expects a daily `image-mirror` run on prod, so the
+`Environment="DBS=prod dev"` drop-in of `image-mirror.service` (section 11) must be active: with the
+unit's own `DBS=dev`, prod reports `missing: image-mirror` every day.
 
 ```sh
 umask 077; mkdir -p ~/.config/voidbinder
