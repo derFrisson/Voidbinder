@@ -875,10 +875,9 @@ while groups keep failing, not just for the day they first did. Steps when it fi
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
 of the `cards` steps, read back from `RAW`, never a second download), `prices: freshness`
-(VB-116: the `cardmarket` and `tcgplayer_scryfall` counts of Magic, as above) and `prices: finish
-run`; each
-writes `cardmarket` and `tcgplayer_scryfall` rows per finish and is idempotent, so a retried step
-is safe. A failure there is logged and leaves the catalog import `ok`.
+(VB-116: the `cardmarket` and `tcgplayer_scryfall` counts of Magic, as above) and
+`prices: finish run`; each writes `cardmarket` and `tcgplayer_scryfall` rows per finish and is
+idempotent, so a retried step is safe. A failure there is logged and leaves the catalog import `ok`.
 
 **Mapping** (`price_mappings`, `src/import/prices/match.ts`): which external product and finish
 is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`Normal` and

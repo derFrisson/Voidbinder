@@ -605,7 +605,8 @@ go, but before the URL is shared widely.
   by more than 25 or 0.5 % of the priced prints, and `failed groups: tcgplayer/<game> <ids>` while
   the newest TCGCSV run left groups out.
 - **Re-running a failed import by hand.** See what failed first, then start the source again
-  (202 `started`; 409 `import_running` while a run of it, younger than 6 hours, is `running`):
+  (202 `started`; 409 `import_running` while a run of it, younger than 6 hours (TCGCSV: 1 hour), is
+  `running`):
 
   ```sh
   read -rs TOKEN   # paste ADMIN_TOKEN_prod
@@ -624,7 +625,11 @@ go, but before the URL is shared widely.
   ```
 
   TCGCSV asks for one pull a day: a plain re-run after a failed run is fine (the build was not
-  imported), `force=true` only when an imported build must be mapped again.
+  imported), `force=true` only when an imported build must be mapped again. Yugipedia's names and
+  galleries share one lock (1 request/s): either answers 409 while the other runs. The image mirror and the
+  catalog modules run on the VPS: `systemctl --user start image-mirror` (then `catalog-modules`),
+  logs with `journalctl --user -u image-mirror -n 50`. The next morning's check (or a
+  `systemctl --user start import-health`) turns the Kuma monitor green again.
 
 - **When the health says `stale`** (VB-116). The message names source and game, for example
   `stale: tcgplayer/pokemon 81.2% refreshed in 24 h` or `tcgplayer/mtg 1412 stale (was 380)`.
@@ -653,11 +658,7 @@ go, but before the URL is shared widely.
     prices come from the same dump).
 
   Confirm with the coverage route (`stale` back to 0 for the sets) and `GET /admin/imports/health`
-  (the run stores its freshness, so the health turns green after the re-run, not before). Yugipedia's names and
-  galleries share one lock (1 request/s): either answers 409 while the other runs. The image mirror and the
-  catalog modules run on the VPS: `systemctl --user start image-mirror` (then `catalog-modules`),
-  logs with `journalctl --user -u image-mirror -n 50`. The next morning's check (or a
-  `systemctl --user start import-health`) turns the Kuma monitor green again.
+  (the run stores its freshness, so the health turns green after the re-run, not before).
 
 - Disk: the prod catalog roughly doubles the database size (dev today is most of the 8.2 GB on
   `/var/lib/postgresql`, 39 GB free), and the price history grows by about 0.5 million rows a day
