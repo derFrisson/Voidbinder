@@ -341,21 +341,6 @@
         }
       },
       "indexes": {
-        "twoFactor_secret_idx": {
-          "name": "twoFactor_secret_idx",
-          "columns": [
-            {
-              "expression": "secret",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "twoFactor_userId_idx": {
           "name": "twoFactor_userId_idx",
           "columns": [

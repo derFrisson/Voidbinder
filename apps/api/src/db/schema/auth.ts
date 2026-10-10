@@ -117,7 +117,7 @@ export const twoFactor = pgTable(
     lockedUntil: timestamp('locked_until', { withTimezone: true }),
   },
   (table) => [
-    index('twoFactor_secret_idx').on(table.secret),
+    // The CLI also generates an index on `secret`; nothing looks a row up by it, so it is left out.
     index('twoFactor_userId_idx').on(table.userId),
   ],
 );
