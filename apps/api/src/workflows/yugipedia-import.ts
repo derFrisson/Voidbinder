@@ -29,7 +29,7 @@ export class YugipediaImportWorkflow extends WorkflowEntrypoint<Env> {
       { env: this.env.IMPORT_ENV, date: event.timestamp.toISOString().slice(0, 10) },
     );
     // The names this run wrote reach the D1 typeahead (VB-98) now, not with the next daily import.
-    const searchIndex = await refreshSearchIndexStep(this.env, step);
+    const searchIndex = result.stats.written ? await refreshSearchIndexStep(this.env, step) : null;
     return { ...result, searchIndex };
   }
 }
