@@ -135,15 +135,16 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 cd ~/Documents/Git/Voidbinder && git checkout main && git pull --ff-only && git status --short
 pnpm install --frozen-lockfile
 pnpm lint && pnpm typecheck && pnpm test && pnpm build
-pnpm turbo run build --filter=@voidbinder/shared --filter=@voidbinder/core --filter=@voidbinder/tokens
 export CLOUDFLARE_ACCOUNT_ID=152a1fcd0eebb96d1bc30d14b5a6af58
 (cd apps/api && pnpm exec wrangler deploy --dry-run --env prod --outdir /tmp/vb-api-dry)
+(cd apps/app && pnpm run build && pnpm exec wrangler deploy --dry-run --env prod --outdir /tmp/vb-app-dry)
+(cd apps/site && CLOUDFLARE_ENV=prod pnpm exec astro build && pnpm exec wrangler deploy --dry-run --env prod --outdir /tmp/vb-site-dry)
 (cd apps/api && pnpm exec wrangler secret list --env prod)
 (cd apps/site && pnpm exec wrangler secret list --env prod)
 for h in api app; do dig +short $h.voidbinder.de A; dig +short $h.voidbinder.de CNAME; done
 ```
 
-**Expect:** a clean tree, all four checks green, the dry run lists the bindings above, four API
+**Expect:** a clean tree, all four checks green, the three dry runs (api, app, site) bundle and list the bindings above, four API
 secrets and two site secrets, and no DNS answer for `api.` / `app.`.
 **If not:** stop. A DNS record on `api.` or `app.` must be deleted in the dashboard first,
 otherwise the custom domain cannot be created.
