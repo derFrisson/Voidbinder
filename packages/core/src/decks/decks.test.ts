@@ -1,7 +1,14 @@
 import type { DeckZone, EntryPrice } from '@voidbinder/shared/api';
 import { describe, expect, it } from 'vitest';
 import type { DeckCard } from './common.js';
-import { analyzeDeck, cheapestPrice, deckGroup, deckStat, missingCards } from './index.js';
+import {
+  analyzeDeck,
+  cheapestPrice,
+  deckGroup,
+  deckLimit,
+  deckStat,
+  missingCards,
+} from './index.js';
 
 let n = 0;
 /** A deck line: a fresh card id, main zone, one copy, unless overridden. */
@@ -90,6 +97,23 @@ describe('Magic', () => {
       }),
     ]);
     expect(r.problems).toEqual([]);
+  });
+
+  it('takes the copies a card allows itself ("up to seven cards named …")', () => {
+    const dwarves = mtg({
+      typeLine: 'Creature — Dwarf',
+      text: 'A deck can have up to seven cards named Seven Dwarves.',
+    });
+    const deck = (quantity: number) => [
+      ...many(53, 4, () => mtg()),
+      card('Seven Dwarves', { ...dwarves, quantity }),
+    ];
+    expect(analyzeDeck('mtg', 'modern', deck(7)).problems).toEqual([]);
+    expect(analyzeDeck('mtg', 'modern', deck(8)).problems).toMatchObject([
+      { code: 'too_many_copies', params: { name: 'Seven Dwarves', count: 8, limit: 7 } },
+    ]);
+    expect(deckLimit('mtg', card('Seven Dwarves', dwarves), 'modern')).toBe(7);
+    expect(deckLimit('mtg', card('Bolt', mtg()), 'modern')).toBe(4);
   });
 
   it('reports banned and not legal cards per format', () => {
@@ -277,6 +301,43 @@ describe('Pokémon', () => {
     expect(analyzeDeck('pokemon', 'expanded', deck).problems).toEqual([]);
   });
 
+  it('allows one ACE SPEC card per deck', () => {
+    const ace = (name: string) =>
+      card(name, { ...trainer(), attributes: { category: 'Trainer', rarity: 'ACE SPEC Rare' } });
+    const base = [...pk60().slice(0, -1), energy(18)];
+    expect(
+      analyzeDeck('pokemon', 'standard', [...base, energy(1), ace('Prime Catcher')]).problems,
+    ).toEqual([]);
+    expect(
+      analyzeDeck('pokemon', 'standard', [...base, ace('Prime Catcher'), ace('Master Ball')])
+        .problems,
+    ).toEqual([{ code: 'too_many_ace_spec', params: { count: 2 } }]);
+  });
+
+  it('allows one Radiant Pokémon per deck', () => {
+    const base = [...pk60().slice(0, -1), energy(18)];
+    expect(
+      analyzeDeck('pokemon', 'standard', [
+        ...base,
+        card('Radiant Charizard', basic()),
+        card('Radiant Greninja', basic()),
+      ]).problems,
+    ).toEqual([{ code: 'too_many_radiant', params: { count: 2 } }]);
+  });
+
+  it('allows one copy of a Prism Star card', () => {
+    const base = [...pk60().slice(0, -1), energy(18)];
+    expect(
+      analyzeDeck('pokemon', 'expanded', [...base, card('Lunala ◇', basic({ quantity: 2 }))])
+        .problems,
+    ).toMatchObject([{ code: 'too_many_copies', params: { name: 'Lunala ◇', limit: 1 } }]);
+    const byRarity = card('Super Boost Energy', {
+      ...trainer(),
+      attributes: { category: 'Energy', rarity: 'Rare Prism Star' },
+    });
+    expect(deckLimit('pokemon', byRarity, 'expanded')).toBe(1);
+  });
+
   it('has no other zone than the deck', () => {
     const r = analyzeDeck('pokemon', 'standard', [
       ...pk60(),
@@ -394,6 +455,14 @@ describe('Yu-Gi-Oh!', () => {
     ]);
   });
 
+  it('gives the ban list limit per card for the stepper', () => {
+    const at = (tcg: string) =>
+      deckLimit('yugioh', card('x', ygo({ legalities: { tcg } })), 'advanced');
+    expect([at('Unlimited'), at('Semi-Limited'), at('Limited'), at('Forbidden')]).toEqual([
+      3, 2, 1, 0,
+    ]);
+  });
+
   it('treats a card without a TCG status as not legal (OCG only)', () => {
     const r = analyzeDeck('yugioh', 'advanced', [
       ...main40(),
@@ -497,6 +566,7 @@ describe('missingCards', () => {
       {
         cardId: 'id-A',
         name: 'A (de)',
+        englishName: 'A',
         printId: 'p-A',
         setCode: 'lob',
         number: '1',

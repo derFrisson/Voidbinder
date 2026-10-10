@@ -29,6 +29,10 @@ export const deckRules = (game: DeckGame, format: string): DeckRules => GAMES[ga
 
 export const deckGroup = (game: DeckGame, card: DeckCard): string => GAMES[game].group(card);
 
+/** Copies of the card's name the format allows; Infinity: any number. */
+export const deckLimit = (game: DeckGame, card: DeckCard, format: string): number =>
+  GAMES[game].limit(card, format);
+
 export const deckStat = (game: DeckGame, card: DeckCard): DeckStat | null => GAMES[game].stat(card);
 
 /** The rules' verdict on a deck: problems, limits, copies per zone and the curve. */
@@ -117,6 +121,7 @@ export function missingCards(
     missing.push({
       cardId: card.cardId,
       name: card.label ?? name,
+      englishName: name,
       printId: card.print?.id ?? null,
       setCode: card.print?.setCode ?? null,
       number: card.print?.number ?? null,

@@ -11,8 +11,10 @@ import {
   type GameRules,
 } from './common.js';
 
-// Pokémon TCG: 60 cards exactly, four of a name, at least one Basic Pokémon. Legality is TCGdex's
-// `legal.standard` / `legal.expanded` (`cards.legalities`); without it, the regulation mark.
+// Pokémon TCG: 60 cards exactly, four of a name, at least one Basic Pokémon, one ACE SPEC card,
+// one Radiant Pokémon, one copy of a Prism Star card. Legality is TCGdex's `legal.standard` /
+// `legal.expanded` (`cards.legalities`); without it, the regulation mark. The rarity is the
+// print's (`attributes.rarity`, set by the deck store).
 
 /**
  * Regulation marks legal in Standard, for a card TCGdex gives no flag. ponytail: the marks after
@@ -29,6 +31,26 @@ const isBasicEnergy = (card: DeckCard) =>
 
 const isBasicPokemon = (card: DeckCard) =>
   category(card) === 'pokemon' && card.attributes.stage === 'Basic';
+
+const rarity = (card: DeckCard) => String(card.attributes.rarity ?? '');
+
+const isAceSpec = (card: DeckCard) => /ACE SPEC/i.test(rarity(card));
+
+const isRadiant = (card: DeckCard) => card.name.startsWith('Radiant ');
+
+const isPrismStar = (card: DeckCard) => card.name.endsWith('◇') || /Prism Star/i.test(rarity(card));
+
+const limit = (card: DeckCard) => (isBasicEnergy(card) ? Infinity : isPrismStar(card) ? 1 : 4);
+
+/** "One per deck" rules: a problem when the deck holds more than one card of the kind. */
+function onePerDeck(
+  cards: readonly DeckCard[],
+  is: (card: DeckCard) => boolean,
+  code: 'too_many_ace_spec' | 'too_many_radiant',
+): DeckProblem[] {
+  const count = cards.filter(is).reduce((n, c) => n + c.quantity, 0);
+  return count > 1 ? [{ code, params: { count } }] : [];
+}
 
 function legal(card: DeckCard, format: string): boolean {
   if (isBasicEnergy(card)) return true;
@@ -53,7 +75,9 @@ function problems(cards: readonly DeckCard[], format: string): DeckProblem[] {
     ...perName(cards, (c) =>
       legal(c, format) ? null : { code: 'not_legal', cardId: c.cardId, params: { name: label(c) } },
     ),
-    ...copyProblems(cards, (c) => (isBasicEnergy(c) ? Infinity : r.copies)),
+    ...onePerDeck(cards, isAceSpec, 'too_many_ace_spec'),
+    ...onePerDeck(cards, isRadiant, 'too_many_radiant'),
+    ...copyProblems(cards, limit),
   ];
 }
 
@@ -69,6 +93,7 @@ function attackCost(card: DeckCard): number | null {
 export const pokemon: GameRules = {
   rules,
   problems,
+  limit,
   group: (card) => category(card) || 'other',
   stat: (card) => {
     const hp = num(card.attributes.hp);

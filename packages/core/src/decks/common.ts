@@ -32,6 +32,8 @@ export interface Curve {
 export interface GameRules {
   rules(format: string): DeckRules;
   problems(cards: readonly DeckCard[], format: string): DeckProblem[];
+  /** Copies of the card's name the format allows (Infinity: any number, 0: banned). */
+  limit(card: DeckCard, format: string): number;
   group(card: DeckCard): string;
   stat(card: DeckCard): DeckStat | null;
   curve(cards: readonly DeckCard[]): Curve;

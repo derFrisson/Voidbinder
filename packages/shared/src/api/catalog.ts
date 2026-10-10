@@ -170,6 +170,8 @@ export type SearchQuery = z.infer<typeof SearchQuerySchema>;
 
 export const SearchHitSchema = PrintSummarySchema.extend({
   game: GameSchema,
+  /** The card's English type line (the deck builder puts Extra Deck monsters into the extra). */
+  typeLine: z.string().nullable().optional(),
   setCode: z.string(),
   /** Set name in `?lang=`, falling back to English. */
   setName: z.string(),

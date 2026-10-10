@@ -15,7 +15,7 @@ import {
 // fewer by the ban list (`cards.legalities.tcg`, YGOPRODeck's `ban_tcg`).
 
 /** Fusion, Synchro, Xyz and Link monsters (Pendulum ones too) live in the Extra Deck. */
-export const isExtraDeck = (card: DeckCard) =>
+export const isExtraDeck = (card: { typeLine: string | null }) =>
   /\b(Fusion|Synchro|XYZ|Link)\b/i.test(card.typeLine ?? '');
 
 /** Copies the TCG list allows; null: not on the TCG list at all (an OCG-only card). */
@@ -68,6 +68,8 @@ function group(card: DeckCard): string {
 export const yugioh: GameRules = {
   rules,
   problems,
+  // A card off the TCG list is said as not legal; the stepper still stops at three.
+  limit: (card) => allowed(card) ?? 3,
   group,
   stat: (card) => {
     const a = card.attributes;

@@ -19,9 +19,28 @@ const frontType = (card: DeckCard) => (card.typeLine ?? '').split(' // ')[0] ?? 
 
 const isBasicLand = (card: DeckCard) => /\bBasic\b.*\bLand\b/.test(frontType(card));
 
-/** Relentless Rats, Persistent Petitioners, …: "A deck can have any number of cards named …". */
-const anyNumber = (card: DeckCard) =>
-  /A deck can have any number of cards named/i.test(card.text ?? '');
+const NUMBER_WORDS: Record<string, number> = {
+  two: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+  seven: 7,
+  eight: 8,
+  nine: 9,
+  ten: 10,
+};
+
+/**
+ * The copies the card's own text allows: "A deck can have any number of cards named …"
+ * (Relentless Rats) is Infinity, "… up to seven cards named …" (Seven Dwarves, Nazgûl's nine) the
+ * number; null without such a line.
+ */
+function printedLimit(card: DeckCard): number | null {
+  const m = /A deck can have (any number of|up to (\w+)) cards named/i.exec(card.text ?? '');
+  if (!m) return null;
+  return m[2] ? (NUMBER_WORDS[m[2].toLowerCase()] ?? null) : Infinity;
+}
 
 const canCommand = (card: DeckCard) =>
   /\bLegendary\b.*\bCreature\b/.test(frontType(card)) ||
@@ -80,15 +99,16 @@ function problems(cards: readonly DeckCard[], format: string): DeckProblem[] {
         params: { name: label(c) },
       };
     }),
-    ...copyProblems(cards, (c) =>
-      isBasicLand(c) || anyNumber(c)
-        ? Infinity
-        : c.legalities[format] === 'restricted'
-          ? 1
-          : r.copies,
-    ),
+    ...copyProblems(cards, (c) => limit(c, format)),
   );
   return out;
+}
+
+function limit(card: DeckCard, format: string): number {
+  if (isBasicLand(card)) return Infinity;
+  return (
+    printedLimit(card) ?? (card.legalities[format] === 'restricted' ? 1 : rules(format).copies)
+  );
 }
 
 const GROUPS = [
@@ -110,6 +130,7 @@ function group(card: DeckCard): string {
 export const magic: GameRules = {
   rules,
   problems,
+  limit,
   group,
   stat: (card) => {
     const cmc = num(card.attributes.cmc);

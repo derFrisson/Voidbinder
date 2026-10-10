@@ -48,6 +48,8 @@ export const DeckProblemSchema = z.object({
     'commander_invalid',
     'colour_identity',
     'no_basic_pokemon',
+    'too_many_ace_spec',
+    'too_many_radiant',
   ]),
   cardId: z.uuid().optional(),
   params: z.record(z.string(), z.union([z.string(), z.number()])),
@@ -81,8 +83,11 @@ export type DeckRules = z.infer<typeof DeckRulesSchema>;
 /** One missing card: the deck needs more copies (by name, any print) than the collection holds. */
 export const MissingCardSchema = z.object({
   cardId: z.uuid(),
+  /** Name in the user's language, else English. */
   name: z.string(),
-  /** The print the price is from (the cheapest), else the deck's preferred print. */
+  /** The English name, for the text export (Cardmarket's wants import reads English). */
+  englishName: z.string(),
+  /** The print the price is from (the cheapest), else the preferred print, else the first. */
   printId: z.uuid().nullable(),
   setCode: z.string().nullable(),
   number: z.string().nullable(),
@@ -142,6 +147,8 @@ export const DeckEntrySchema = z.object({
     .nullable(),
   /** Copies of this card's name in the collection (any print). */
   owned: z.number().int(),
+  /** Copies of this card's name the format allows (0: banned); null: any number. */
+  limit: z.number().int().nullable(),
   /** One copy, from the print shown; null without a price. */
   price: EntryPriceSchema.nullable(),
 });
