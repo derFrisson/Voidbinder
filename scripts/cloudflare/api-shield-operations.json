@@ -1,0 +1,542 @@
+[
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/health"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/me"
+  },
+  {
+    "method": "PATCH",
+    "host": "api.voidbinder.de",
+    "endpoint": "/me"
+  },
+  {
+    "method": "DELETE",
+    "host": "api.voidbinder.de",
+    "endpoint": "/me"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/games"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/games/{game}/sets"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/sets/{game}/{code}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/cards/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/prints/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/prints/{id}/prices"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/prints/{id}/prices/history"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/search"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/catalog/modules"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/binders"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/binders"
+  },
+  {
+    "method": "PUT",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/binders/order"
+  },
+  {
+    "method": "PATCH",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/binders/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/binders/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/entries"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/entries"
+  },
+  {
+    "method": "PATCH",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/entries/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/entries/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/wishlist"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/wishlist"
+  },
+  {
+    "method": "PATCH",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/wishlist/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/wishlist/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/summary"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/owned"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/collection/export.csv"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/decks"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/decks"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/decks/{id}"
+  },
+  {
+    "method": "PATCH",
+    "host": "api.voidbinder.de",
+    "endpoint": "/decks/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "api.voidbinder.de",
+    "endpoint": "/decks/{id}"
+  },
+  {
+    "method": "PUT",
+    "host": "api.voidbinder.de",
+    "endpoint": "/decks/{id}/entries"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/admin/import/scryfall"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/admin/import/ygoprodeck"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/admin/import/tcgdex"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/admin/import/tcgcsv"
+  },
+  {
+    "method": "PUT",
+    "host": "api.voidbinder.de",
+    "endpoint": "/admin/price-mappings/{printId}/{source}/{finish}"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/ok"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/get-session"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/sign-up/email"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/sign-in/email"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/sign-out"
+  },
+  {
+    "method": "GET",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/verify-email"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/send-verification-email"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/forget-password"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/reset-password"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/two-factor/enable"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/two-factor/disable"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/two-factor/verify-totp"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/two-factor/verify-backup-code"
+  },
+  {
+    "method": "POST",
+    "host": "api.voidbinder.de",
+    "endpoint": "/auth/two-factor/generate-backup-codes"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/health"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/me"
+  },
+  {
+    "method": "PATCH",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/me"
+  },
+  {
+    "method": "DELETE",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/me"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/games"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/games/{game}/sets"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/sets/{game}/{code}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/cards/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/prints/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/prints/{id}/prices"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/prints/{id}/prices/history"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/search"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/catalog/modules"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/binders"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/binders"
+  },
+  {
+    "method": "PUT",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/binders/order"
+  },
+  {
+    "method": "PATCH",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/binders/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/binders/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/entries"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/entries"
+  },
+  {
+    "method": "PATCH",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/entries/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/entries/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/wishlist"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/wishlist"
+  },
+  {
+    "method": "PATCH",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/wishlist/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/wishlist/{id}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/summary"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/owned"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/collection/export.csv"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/decks"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/decks"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/decks/{id}"
+  },
+  {
+    "method": "PATCH",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/decks/{id}"
+  },
+  {
+    "method": "DELETE",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/decks/{id}"
+  },
+  {
+    "method": "PUT",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/decks/{id}/entries"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/admin/import/scryfall"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/admin/import/ygoprodeck"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/admin/import/tcgdex"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/admin/import/tcgcsv"
+  },
+  {
+    "method": "PUT",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/admin/price-mappings/{printId}/{source}/{finish}"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/ok"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/get-session"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/sign-up/email"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/sign-in/email"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/sign-out"
+  },
+  {
+    "method": "GET",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/verify-email"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/send-verification-email"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/forget-password"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/reset-password"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/two-factor/enable"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/two-factor/disable"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/two-factor/verify-totp"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/two-factor/verify-backup-code"
+  },
+  {
+    "method": "POST",
+    "host": "app.voidbinder.de",
+    "endpoint": "/api/auth/two-factor/generate-backup-codes"
+  }
+]
