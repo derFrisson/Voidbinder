@@ -9,6 +9,8 @@ import type { MarketplaceLink } from '@voidbinder/shared/api';
 //   `cardmarket_id` the price importer maps; `…/Products/Search?searchString=<name>` is the
 //   site's own search form. Both answer a scripted GET with 403 (bot wall), so not verified by
 //   request.
+// - Card Nexus `https://cardnexus.com/en/search?q=<name> <set code>`: the site's search (the bare
+//   /search redirects 307 to /en/search).
 // - eBay `https://www.ebay.com/sch/i.html?_nkw=<name> <set code>`: the site's search form, also
 //   403 to a script. Plain, no affiliate parameters.
 
@@ -28,39 +30,46 @@ export interface ProductMapping {
 }
 
 /**
- * One link per distinct product (finishes sharing a product get one link without `finish`);
- * Cardmarket without a product falls back to a search by name, eBay is always a search by name
- * and set code.
+ * Games Card Nexus has offers for. Yu-Gi-Oh! is "coming soon" there, so it gets no link.
+ * VB-121 replaces this constant with the live per-product offer check.
+ */
+export const CARDNEXUS_GAMES: readonly Game[] = ['mtg', 'pokemon', 'onepiece'];
+
+/**
+ * Card Nexus (search by name and set code; a product link follows with VB-121), TCGplayer (one
+ * product: the one mapped to the print's listed finish, normal else the first, else the first
+ * product), Cardmarket (product, else a search by name) and eBay (a search by name and set code).
  */
 export function marketplaceLinks(print: {
   game: Game;
   name: string;
   setCode: string;
+  finishes?: readonly string[];
   mappings: readonly ProductMapping[];
 }): MarketplaceLink[] {
-  const products = (source: string) => {
-    const finishes = new Map<string, Set<string>>();
-    for (const m of print.mappings)
-      if (m.source === source)
-        finishes.set(m.externalId, (finishes.get(m.externalId) ?? new Set()).add(m.finish));
-    return [...finishes].map(([id, f]) => ({
-      id: encodeURIComponent(id),
-      ...(f.size === 1 ? { finish: [...f][0] } : {}),
-    }));
-  };
+  const search = encodeURIComponent(`${print.name} ${print.setCode.toUpperCase()}`);
+  const own = (source: string) => print.mappings.filter((m) => m.source === source);
+  const listed = print.finishes?.includes('normal') ? 'normal' : print.finishes?.[0];
+  const tcgplayer = own('tcgplayer');
+  const tcgplayerProduct = (tcgplayer.find((m) => m.finish === listed) ?? tcgplayer[0])?.externalId;
   const cardmarket = `https://www.cardmarket.com/en/${CARDMARKET_GAME[print.game]}/Products`;
-  const cardmarketProducts = products('cardmarket');
+  const cardmarketIds = [...new Set(own('cardmarket').map((m) => m.externalId))];
   return [
-    ...products('tcgplayer').map(({ id, ...f }) => ({
-      portal: 'tcgplayer' as const,
-      url: `https://www.tcgplayer.com/product/${id}`,
-      ...f,
-    })),
-    ...(cardmarketProducts.length
-      ? cardmarketProducts.map(({ id, ...f }) => ({
+    ...(CARDNEXUS_GAMES.includes(print.game)
+      ? [{ portal: 'cardnexus' as const, url: `https://cardnexus.com/en/search?q=${search}` }]
+      : []),
+    ...(tcgplayerProduct
+      ? [
+          {
+            portal: 'tcgplayer' as const,
+            url: `https://www.tcgplayer.com/product/${encodeURIComponent(tcgplayerProduct)}`,
+          },
+        ]
+      : []),
+    ...(cardmarketIds.length
+      ? cardmarketIds.map((id) => ({
           portal: 'cardmarket' as const,
-          url: `${cardmarket}?idProduct=${id}`,
-          ...f,
+          url: `${cardmarket}?idProduct=${encodeURIComponent(id)}`,
         }))
       : [
           {
@@ -68,9 +77,6 @@ export function marketplaceLinks(print: {
             url: `${cardmarket}/Search?searchString=${encodeURIComponent(print.name)}`,
           },
         ]),
-    {
-      portal: 'ebay',
-      url: `https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(`${print.name} ${print.setCode.toUpperCase()}`)}`,
-    },
+    { portal: 'ebay' as const, url: `https://www.ebay.com/sch/i.html?_nkw=${search}` },
   ];
 }

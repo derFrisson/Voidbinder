@@ -263,8 +263,8 @@ describe('PricePanel, marketplace links (VB-115)', () => {
     const row = await screen.findByRole('group', { name: 'Kaufen bei' });
     const links = within(row).getAllByRole('link');
     expect(links.map((l) => l.textContent)).toEqual([
-      'TCGplayer · Foil',
-      'TCGplayer · Normal',
+      'CardNexus',
+      'TCGplayer',
       'Cardmarket',
       'eBay',
     ]);

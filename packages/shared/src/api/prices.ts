@@ -63,17 +63,16 @@ export const PricesQuerySchema = z.object({
 export type PricesQuery = z.infer<typeof PricesQuerySchema>;
 
 /** The marketplaces the card page links to (VB-115). */
-export const MarketplaceSchema = z.enum(['tcgplayer', 'cardmarket', 'ebay']);
+export const MarketplaceSchema = z.enum(['cardnexus', 'tcgplayer', 'cardmarket', 'ebay']);
 export type Marketplace = z.infer<typeof MarketplaceSchema>;
 
 /**
  * A link to the print at a marketplace, built by the API: a product page where a mapping knows
- * the product, else a search by name. `finish` when the product is that finish's alone.
+ * the product, else a search by name.
  */
 export const MarketplaceLinkSchema = z.object({
   portal: MarketplaceSchema,
   url: z.url(),
-  finish: z.string().optional(),
 });
 export type MarketplaceLink = z.infer<typeof MarketplaceLinkSchema>;
 

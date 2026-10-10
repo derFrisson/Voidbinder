@@ -175,14 +175,14 @@ function History({ printId, finish, lang }: { printId: string; finish: string; l
 
 // Proper names, the same in both languages.
 const PORTAL_NAME: Record<Marketplace, string> = {
+  cardnexus: 'CardNexus',
   tcgplayer: 'TCGplayer',
   cardmarket: 'Cardmarket',
   ebay: 'eBay',
 };
 
 /**
- * "Buy at": a text chip per marketplace link (VB-115), the finish in its name when the portal
- * links one product per finish. A new tab on the web, the browser on a phone (expo-router opens
+ * "Buy at": a text chip per marketplace link (VB-115). A new tab on the web, the browser on a phone (expo-router opens
  * an external href with `Linking.openURL`). Nothing without links.
  */
 function BuyLinks({ links }: { links: MarketplaceLink[] }) {
@@ -205,9 +205,7 @@ function BuyLinks({ links }: { links: MarketplaceLink[] }) {
           rel="noopener noreferrer"
           className="rounded-lg border border-line bg-surface px-2.5 py-1.5 font-body text-[13.5px] font-semibold text-blue-ink underline"
         >
-          {[PORTAL_NAME[l.portal], l.finish && label(t.card.finishes, l.finish)]
-            .filter(Boolean)
-            .join(' · ')}
+          {PORTAL_NAME[l.portal]}
         </Link>
       ))}
     </View>
