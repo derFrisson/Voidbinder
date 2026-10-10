@@ -46,6 +46,7 @@ import {
   or,
   sql,
   type SQL,
+  type SQLWrapper,
 } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { alias } from 'drizzle-orm/pg-core';
@@ -62,6 +63,7 @@ import {
   syncDeletions,
   wishlistEntries,
 } from '../../db/schema';
+import { imagePick, resolveImage, type ImagePick } from './image';
 
 type Ids = Record<string, unknown>;
 type Factors = Map<string, { condition: Condition; factor: number }[]>;
@@ -142,8 +144,8 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   // ---- prints and prices ----
 
-  /** The columns `toPrint` reads, joined in `withPrint`. */
-  private readonly printColumns = {
+  /** The columns `toPrint` reads, joined in `withPrint`; the image in the row's `lang`. */
+  private printColumns = (lang: SQLWrapper) => ({
     printId: prints.id,
     cardId: prints.cardId,
     game: sets.gameId,
@@ -152,34 +154,14 @@ export class DrizzleCollectionStore implements CollectionStore {
     number: prints.number,
     rarity: prints.rarity,
     finishes: prints.finishes,
-    printImageKey: prints.imageKey,
+    image: imagePick(prints, lang),
     printIds: prints.externalIds,
     localizedName: localized.name,
-    localizedImageKey: localized.imageKey,
+    localizedLang: localized.lang,
     localizedIds: localized.externalIds,
     englishName: english.name,
     cardName: cards.name,
-  };
-
-  /**
-   * Image like the catalog's (DrizzleCardStore.imageUrl): the R2 copy in the language, then the
-   * print's, then the source's URL. ponytail: a copy of that private method, so this file does
-   * not touch the card store while VB-35 and VB-56 change it; share it in a follow-up.
-   */
-  private imageUrl(r: {
-    localizedImageKey: string | null;
-    printImageKey: string | null;
-    localizedIds: Ids | null;
-    printIds: Ids | null;
-  }): string | null {
-    const r2 = (key: string | null) =>
-      key && this.imageBaseUrl ? `${this.imageBaseUrl}/${key}` : null;
-    const source = (ids: Ids | null) =>
-      (ids?.scryfall_images as { normal?: string } | undefined)?.normal ?? null;
-    return (
-      r2(r.localizedImageKey) ?? r2(r.printImageKey) ?? source(r.localizedIds) ?? source(r.printIds)
-    );
-  }
+  });
 
   private toPrint(r: {
     printId: string;
@@ -190,10 +172,10 @@ export class DrizzleCollectionStore implements CollectionStore {
     number: string;
     rarity: string | null;
     finishes: string[];
-    printImageKey: string | null;
+    image: ImagePick | null;
     printIds: Ids;
     localizedName: string | null;
-    localizedImageKey: string | null;
+    localizedLang: string | null;
     localizedIds: Ids | null;
     englishName: string | null;
     cardName: string;
@@ -208,7 +190,11 @@ export class DrizzleCollectionStore implements CollectionStore {
       name: r.localizedName ?? r.englishName ?? r.cardName,
       rarity: r.rarity,
       finishes: r.finishes,
-      imageUrl: this.imageUrl(r),
+      // The catalog's image rule (./image), with the sources as its fallback.
+      ...resolveImage(this.imageBaseUrl, r.image, [
+        { lang: r.localizedLang ?? 'en', ids: r.localizedIds },
+        { lang: 'en', ids: r.printIds },
+      ]),
     };
   }
 
@@ -418,7 +404,7 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   private entryQuery(where: SQL | undefined) {
     return this.db
-      .select({ entry: collectionEntries, ...this.printColumns })
+      .select({ entry: collectionEntries, ...this.printColumns(collectionEntries.language) })
       .from(collectionEntries)
       .innerJoin(prints, eq(prints.id, collectionEntries.printId))
       .innerJoin(cards, eq(cards.id, prints.cardId))
@@ -591,7 +577,7 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   private wishQuery(where: SQL | undefined) {
     return this.db
-      .select({ wish: wishlistEntries, ...this.printColumns })
+      .select({ wish: wishlistEntries, ...this.printColumns(wishlistEntries.language) })
       .from(wishlistEntries)
       .innerJoin(prints, eq(prints.id, wishlistEntries.printId))
       .innerJoin(cards, eq(cards.id, prints.cardId))

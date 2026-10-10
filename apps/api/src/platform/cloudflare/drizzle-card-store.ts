@@ -45,12 +45,9 @@ import {
   setLocalizations,
   sets,
 } from '../../db/schema';
+import { imagePick, resolveImage, type ImagePick } from './image';
 
 type Ids = Record<string, unknown>;
-interface Image {
-  imageKey: string | null;
-  externalIds: Ids | null;
-}
 
 export interface DrizzleCardStoreOptions {
   /** Pool for the catalog reads, the cached Hyperdrive config in production (ADR 0004). */
@@ -137,28 +134,6 @@ export class DrizzleCardStore implements CardStore {
 
   async ping(): Promise<void> {
     await this.db.execute(sql`select 1`);
-  }
-
-  /**
-   * Image of a print in `lang`: the localized R2 image, then the print's R2 image (English; the
-   * app only renders our image host, so a mirrored English scan beats a German source URL it
-   * cannot show), then the localized source URL, then the print's source URL.
-   */
-  private imageUrl(
-    _lang: string,
-    localized: Image | null | undefined,
-    print: Image,
-  ): string | null {
-    const r2 = (key: string | null) =>
-      key && this.imageBaseUrl ? `${this.imageBaseUrl}/${key}` : null;
-    const source = (ids: Ids | null | undefined) =>
-      (ids?.scryfall_images as { normal?: string } | undefined)?.normal ?? null;
-    return (
-      r2(localized?.imageKey ?? null) ??
-      r2(print.imageKey) ??
-      source(localized?.externalIds) ??
-      source(print.externalIds)
-    );
   }
 
   async catalogVersion(): Promise<string> {
@@ -313,9 +288,8 @@ export class DrizzleCardStore implements CardStore {
           name,
           rarity: prints.rarity,
           finishes: prints.finishes,
-          imageKey: prints.imageKey,
+          image: imagePick(prints, query.lang),
           externalIds: prints.externalIds,
-          localizedImageKey: localized.imageKey,
           localizedIds: localized.externalIds,
           market: {
             cents: market.cents,
@@ -361,11 +335,10 @@ export class DrizzleCardStore implements CardStore {
         name: r.name,
         rarity: r.rarity,
         finishes: r.finishes,
-        imageUrl: this.imageUrl(
-          query.lang,
-          { imageKey: r.localizedImageKey, externalIds: r.localizedIds },
-          r,
-        ),
+        ...resolveImage(this.imageBaseUrl, r.image, [
+          { lang: query.lang, ids: r.localizedIds },
+          { lang: 'en', ids: r.externalIds },
+        ]),
         marketPrice: r.market ? displayPrice(r.market) : null,
       })),
       page: query.page,
@@ -382,7 +355,11 @@ export class DrizzleCardStore implements CardStore {
   /** Prints with set and localizations, newest first. */
   private async printDetails(where: SQL): Promise<PrintDetail[]> {
     const rows = await this.catalog
-      .select({ print: prints, set: { game: sets.gameId, code: sets.code, name: sets.name } })
+      .select({
+        print: prints,
+        set: { game: sets.gameId, code: sets.code, name: sets.name },
+        image: imagePick(prints, 'en'),
+      })
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
       .where(where)
@@ -395,8 +372,16 @@ export class DrizzleCardStore implements CardStore {
       );
     if (!rows.length) return [];
     const localizations = await this.catalog
-      .select()
+      .select({
+        printId: printLocalizations.printId,
+        lang: printLocalizations.lang,
+        name: printLocalizations.name,
+        text: printLocalizations.text,
+        externalIds: printLocalizations.externalIds,
+        image: imagePick(prints, printLocalizations.lang),
+      })
       .from(printLocalizations)
+      .innerJoin(prints, eq(prints.id, printLocalizations.printId))
       .where(
         inArray(
           printLocalizations.printId,
@@ -405,7 +390,7 @@ export class DrizzleCardStore implements CardStore {
       )
       .orderBy(printLocalizations.lang);
 
-    return rows.map(({ print: p, set }) => {
+    return rows.map(({ print: p, set, image }) => {
       // The image URLs are served as imageUrl.
       const externalIds = { ...p.externalIds };
       delete externalIds.scryfall_images;
@@ -426,7 +411,7 @@ export class DrizzleCardStore implements CardStore {
         finishes: p.finishes,
         artist: p.artist,
         releasedOn: p.releasedOn,
-        imageUrl: this.imageUrl('en', null, p),
+        ...resolveImage(this.imageBaseUrl, image, [{ lang: 'en', ids: p.externalIds }]),
         externalIds,
         localizations: localizations
           .filter((l) => l.printId === p.id)
@@ -434,7 +419,10 @@ export class DrizzleCardStore implements CardStore {
             lang: l.lang,
             name: l.name,
             text: l.text,
-            imageUrl: this.imageUrl(l.lang, l, p),
+            ...resolveImage(this.imageBaseUrl, l.image, [
+              { lang: l.lang, ids: l.externalIds },
+              { lang: 'en', ids: p.externalIds },
+            ]),
           })),
       };
     });
@@ -510,9 +498,8 @@ export class DrizzleCardStore implements CardStore {
       name: string;
       rarity: string | null;
       finishes: string[];
-      image_key: string | null;
+      image: ImagePick | null;
       external_ids: Ids;
-      localized_image_key: string | null;
       localized_ids: Ids | null;
       price_cents: number | null;
       price_currency: Currency | null;
@@ -547,8 +534,16 @@ export class DrizzleCardStore implements CardStore {
         )
         select page.id, page.card_id, page.number, page.variant,
           coalesce(localized.name, english.name, page.card_name) as name, page.rarity,
-          page.finishes, page.image_key, page.external_ids,
-          localized.image_key as localized_image_key, localized.external_ids as localized_ids,
+          page.finishes, page.external_ids, localized.external_ids as localized_ids,
+          ${imagePick(
+            {
+              id: sql`page.id`,
+              cardId: sql`page.card_id`,
+              setId: sql`page.set_id`,
+              imageKey: sql`page.image_key`,
+            },
+            query.lang,
+          )} as image,
           market.cents as price_cents, market.currency as price_currency,
           market.source as price_source, market.finish as price_finish,
           market.observed_at as price_observed_at, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
@@ -581,11 +576,10 @@ export class DrizzleCardStore implements CardStore {
         name: r.name,
         rarity: r.rarity,
         finishes: r.finishes,
-        imageUrl: this.imageUrl(
-          query.lang,
-          { imageKey: r.localized_image_key, externalIds: r.localized_ids },
-          { imageKey: r.image_key, externalIds: r.external_ids },
-        ),
+        ...resolveImage(this.imageBaseUrl, r.image, [
+          { lang: query.lang, ids: r.localized_ids },
+          { lang: 'en', ids: r.external_ids },
+        ]),
         marketPrice: displayPrice({
           cents: r.price_cents,
           currency: r.price_currency,

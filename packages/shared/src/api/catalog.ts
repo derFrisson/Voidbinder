@@ -54,6 +54,18 @@ export const SetPageQuerySchema = z.object({
 });
 export type SetPageQuery = z.infer<typeof SetPageQuerySchema>;
 
+/**
+ * The fields next to every `imageUrl` (VB-86/VB-87): the language the image is in and whose image it
+ * is. A print without an image of its own, or without one in the requested language, shows what
+ * exists (the requested language, then en, ja, the rest; then another print of the card). Absent
+ * without an image, and from servers before VB-86.
+ */
+export const ImageInfoSchema = z.object({
+  imageLang: z.string().optional(),
+  imageFrom: z.enum(['print', 'sibling']).optional(),
+});
+export type ImageInfo = z.infer<typeof ImageInfoSchema>;
+
 export const PrintSummarySchema = z.object({
   id: z.uuid(),
   cardId: z.uuid(),
@@ -65,6 +77,7 @@ export const PrintSummarySchema = z.object({
   rarity: z.string().nullable(),
   finishes: z.array(z.string()),
   imageUrl: z.url().nullable(),
+  ...ImageInfoSchema.shape,
   /**
    * Market price of the `normal` finish (the first finish without one); a print without a price
    * for it falls back to a finish it has one for (Yu-Gi-Oh!: `first_edition`). null without any.
@@ -113,6 +126,7 @@ export const PrintLocalizationSchema = z.object({
   name: z.string(),
   text: z.string().nullable(),
   imageUrl: z.url().nullable(),
+  ...ImageInfoSchema.shape,
 });
 export type PrintLocalization = z.infer<typeof PrintLocalizationSchema>;
 
@@ -128,6 +142,7 @@ export const PrintDetailSchema = z.object({
   artist: z.string().nullable(),
   releasedOn: z.iso.date().nullable(),
   imageUrl: z.url().nullable(),
+  ...ImageInfoSchema.shape,
   /** Ids at other sources: `scryfall`, `tcgplayer`, `cardmarket`, `mtgo`, `arena`, … */
   externalIds: z.record(z.string(), z.unknown()),
   localizations: z.array(PrintLocalizationSchema),
