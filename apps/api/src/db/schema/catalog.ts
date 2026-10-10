@@ -55,6 +55,8 @@ export const sets = pgTable(
   (t) => [
     unique('sets_game_id_code_key').on(t.gameId, t.code),
     index('sets_game_id_idx').on(t.gameId),
+    // The search's code lookup (VB-79, catalog_code_key in drizzle/0010_search.sql).
+    index('sets_code_key_idx').on(sql`catalog_code_key(${t.code})`),
   ],
 );
 
@@ -97,6 +99,8 @@ export const cards = pgTable(
     unique('cards_game_id_oracle_key_key').on(t.gameId, t.oracleKey),
     index('cards_game_id_idx').on(t.gameId),
     index('cards_search_idx').using('gin', t.search),
+    // Name prefixes and typos (VB-79, pg_trgm).
+    index('cards_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops')),
   ],
 );
 
@@ -138,6 +142,8 @@ export const prints = pgTable(
     index('prints_set_id_idx').on(t.setId),
     // Price mapping (VB-30) looks prints up by TCGplayer product id.
     index('prints_tcgplayer_idx').on(sql`(${t.externalIds}->>'tcgplayer')`),
+    // The search's number lookup (`121`, `001/128`; VB-79, drizzle/0010_search.sql).
+    index('prints_number_key_idx').on(sql`catalog_number_key(${t.number})`),
   ],
 );
 
@@ -159,6 +165,7 @@ export const printLocalizations = pgTable(
   (t) => [
     primaryKey({ columns: [t.printId, t.lang] }),
     index('print_localizations_search_idx').using('gin', t.search),
+    index('print_localizations_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops')),
   ],
 );
 
