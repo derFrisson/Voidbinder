@@ -1433,6 +1433,10 @@ when B2 is unreachable for long, pgBackRest drops the queued WAL once 4 GiB are 
 ends point-in-time recovery until the next full backup, instead of letting `pg_wal` fill the data
 disk and stop Postgres; the WAL archive check in section 8 alerts long before that.
 
+Expect an `archive-push-queue-max` warning about dropped WAL on the first archive-push after the
+fix: the backlog (11 GB on 2026-10-10) is far above 4 GiB. It is harmless here, because the first
+full backup follows and is the starting point of any restore.
+
 `tee` keeps the existing file, so owner and mode stay as created in section 4; the `chown` line
 makes sure. The file stays in `/opt/voidbinder-db/pgbackrest` and belongs to the database user's mapped ID: the
 host never runs pgBackRest itself, only the container does, and `ubuntu` edits the file with
