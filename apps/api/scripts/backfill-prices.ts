@@ -4,7 +4,7 @@
 // lives in src/import/prices/backfill.ts.
 //
 //   pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db dev
-//     [--from 2024-02-08] [--to <yesterday>] [--game mtg] [--delay-ms 2000] [--dry-run]
+//     [--from 2024-02-08] [--to <yesterday>] [--delay-ms 2000] [--dry-run]
 //
 // Env: PG_MIRROR_URL_DEV / PG_MIRROR_URL_PROD for `--db` (or `DBS=dev|prod`), else DATABASE_URL.
 // Resumable: a day that already has `tcgplayer` rows (the daily import, or this script, which
@@ -36,7 +36,6 @@ const { values: args } = parseArgs({
     db: { type: 'string', default: process.env.DBS },
     from: { type: 'string', default: ARCHIVE_START },
     to: { type: 'string' },
-    game: { type: 'string', multiple: true },
     'delay-ms': { type: 'string', default: '2000' },
     'dry-run': { type: 'boolean', default: false },
   },
@@ -57,10 +56,8 @@ const from = args.from;
 if (!DAY.test(from) || !DAY.test(to) || from > to)
   throw new Error('--from and --to must be YYYY-MM-DD, from <= to');
 if (from < ARCHIVE_START) throw new Error(`the archive starts on ${ARCHIVE_START}`);
-const games = (args.game ?? Object.keys(CATEGORIES)) as PricedGame[];
-for (const g of games)
-  if (!(g in CATEGORIES))
-    throw new Error(`--game must be one of ${Object.keys(CATEGORIES).join(', ')}`);
+// Always all games: a day is all or nothing, so a partial run would leave the rest skipped.
+const games = Object.keys(CATEGORIES) as PricedGame[];
 const delayMs = Number(args['delay-ms']);
 if (!Number.isInteger(delayMs) || delayMs < 0) throw new Error('--delay-ms must be a whole number');
 const db = args.db;

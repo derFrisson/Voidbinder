@@ -2080,8 +2080,7 @@ done
 
 **Run.** `--db dev|prod` (or `DBS=dev|prod`) takes `PG_MIRROR_URL_DEV` / `PG_MIRROR_URL_PROD`
 from `pg.env`, never the migrate or superuser URL. `--from` / `--to` (default 2024-02-08 to
-yesterday, both included), `--game mtg|yugioh|pokemon` (repeatable, default all three),
-`--delay-ms` (pause between days, default 2000), `--dry-run` (downloads and maps, writes nothing).
+yesterday, both included), `--delay-ms` (pause between days, default 2000), `--dry-run` (downloads and maps, writes nothing).
 A short range first, then the full range in `tmux` or a transient user unit so it survives a
 dropped SSH session:
 
