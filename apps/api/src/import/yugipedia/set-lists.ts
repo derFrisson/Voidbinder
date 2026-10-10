@@ -85,12 +85,17 @@ export interface CodeChoice {
  * language's rows with our set code count, or all of them where it has none and the English rows
  * are all ours (early French and Italian sets have their own: `LDC-F065`, `LDI-I065` for
  * `LON-065`). A number in no list, and a print of one language only (`DE001`), are left alone.
+ * A page without rows (unread, a stub) is unknown: its language is left alone, and an unknown
+ * English page leaves the set alone; only a language without any page drops.
  */
 export function planCodes(
   setCode: string,
   prints: Pick<PrintArtworks, 'id' | 'number' | 'langs' | 'language'>[],
   pages: { page: GalleryPage; codes: string[] }[],
 ): CodeChoice[] {
+  const unknown = new Set(pages.filter((p) => !p.codes.length).map((p) => p.page.lang));
+  for (const p of pages) if (p.codes.length) unknown.delete(p.page.lang);
+  if (unknown.has('en')) return [];
   const all = [...pages]
     .sort((a, b) => pageRank(a.page) - pageRank(b.page))
     .flatMap(({ page, codes }) =>
@@ -114,11 +119,13 @@ export function planCodes(
   return prints.flatMap((p) => {
     const own = rows.filter((r) => r.number === numberKey(p.number));
     if (p.language || !own.length) return [];
-    return p.langs.map((lang) => ({
-      printId: p.id,
-      lang,
-      code: own.find((r) => r.lang === lang)?.code ?? null,
-    }));
+    return p.langs
+      .filter((lang) => !unknown.has(lang))
+      .map((lang) => ({
+        printId: p.id,
+        lang,
+        code: own.find((r) => r.lang === lang)?.code ?? null,
+      }));
   });
 }
 

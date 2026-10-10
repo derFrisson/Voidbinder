@@ -96,6 +96,17 @@ describe('Yugipedia set lists', () => {
     ]);
   });
 
+  it('leaves a language alone whose page has no rows', () => {
+    const stub = (region: string) => ({ ...list(region), codes: [] });
+    const necrofear = { id: 'necrofear', number: '065', langs: ['de', 'es'], language: null };
+    // A German page without text (moved since the plan) or rows: German stays as it was.
+    expect(planCodes('lon', [necrofear], [list('EN'), stub('DE')])).toEqual([
+      { printId: 'necrofear', lang: 'es', code: null },
+    ]);
+    // An unknown English page decides nothing.
+    expect(planCodes('lon', [necrofear], [stub('EN'), list('DE')])).toEqual([]);
+  });
+
   it('takes no other set code from a page several sets share', () => {
     const page = (region: string) =>
       parseGalleryTitle(`Set Card Lists:Pharaoh Tour (TCG-${region})`) as GalleryPage;
