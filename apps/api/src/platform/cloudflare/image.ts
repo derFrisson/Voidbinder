@@ -15,7 +15,8 @@ export interface ResolvedImage {
 }
 
 /** The languages after the requested one, in this order; the rest alphabetically after them. */
-const LANG_ORDER = sql.raw(`array['en','ja','de','fr','it','es','pt']`);
+export const IMAGE_LANGS = ['en', 'ja', 'de', 'fr', 'it', 'es', 'pt'];
+const LANG_ORDER = sql.raw(`array[${IMAGE_LANGS.map((l) => `'${l}'`).join(',')}]`);
 
 /**
  * Order of the candidates `c` (lang, key, own) of one print: the requested language (and, for the

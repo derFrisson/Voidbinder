@@ -1,6 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { SearchSuggestQuerySchema, type SearchSuggestion } from '@voidbinder/shared/api';
-import { eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { getPlatformProxy } from 'wrangler';
@@ -67,6 +67,28 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
   beforeAll(async () => {
     ({ db, drop } = await freshDatabase());
     await seedSearchCatalog(db);
+    // Images for the pick (image.ts): own and localized keys, a lowres scan, a keyless print
+    // whose sibling has one.
+    const key = async (set: string, number: string, imageKey: string, de?: string) => {
+      const [p] = await db
+        .update(prints)
+        .set({ imageKey })
+        .where(
+          and(
+            eq(prints.number, number),
+            inArray(prints.setId, db.select({ id: sets.id }).from(sets).where(eq(sets.code, set))),
+          ),
+        )
+        .returning({ id: prints.id });
+      if (de && p)
+        await db
+          .update(printLocalizations)
+          .set({ imageKey: de })
+          .where(and(eq(printLocalizations.printId, p.id), eq(printLocalizations.lang, 'de')));
+    };
+    await key('lds3', 'EN121', 'images/lds3-en121.webp', 'images/lds3-en121-de.webp');
+    await key('sv01', '001', 'images/sv01-001-lowres.webp', 'images/sv01-001-de.webp');
+    await key('mid', '123', 'images/mid-123-lowres.webp');
     const proxy = await getPlatformProxy<{ SEARCH: D1Database }>({
       configPath: new URL('../../../test/fixtures/search-index.wrangler.jsonc', import.meta.url)
         .pathname,
@@ -76,8 +98,8 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     d1 = proxy.env.SEARCH;
     dispose = proxy.dispose;
     await migrate(d1);
-    store = new DrizzleCardStore(db);
-    index = new D1SearchIndex(d1);
+    store = new DrizzleCardStore(db, { imageBaseUrl: 'https://img.test' });
+    index = new D1SearchIndex(d1, { imageBaseUrl: 'https://img.test' });
   }, 60_000);
   afterAll(async () => {
     await dispose?.();
@@ -119,7 +141,8 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     }
   });
 
-  const label = (s: SearchSuggestion) => `${s.kind} ${s.set.code} ${s.number ?? ''} ${s.name}`;
+  const label = (s: SearchSuggestion) =>
+    `${s.kind} ${s.set.code} ${s.number ?? ''} ${s.name} ${s.imageUrl ?? ''}`;
 
   // Every tier: exact codes, language codes, typed splits, partial numbers, a set named alone,
   // pure numbers, set names, name prefixes in every language and in one, typos.
@@ -143,6 +166,9 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     ['sat', '&game=pokemon'],
     ['Satelite'],
     ['pineco'],
+    ['pineco', '&lang=de'],
+    ['satel', '&lang=de'],
+    ['midnight', '&lang=de'],
     ['satelliten', '&lang=de'],
     ['satellitenk', '&names=de'],
     ['tannza'],
@@ -164,8 +190,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
       .select({ id: prints.id, setId: prints.setId })
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
-      .where(eq(sets.code, 'sv01'))
-      .limit(1);
+      .where(and(eq(sets.code, 'sv01'), eq(prints.number, '001')));
     await db
       .update(printLocalizations)
       .set({ name: 'Tannzadeluxe' })

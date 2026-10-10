@@ -87,7 +87,7 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
           (select string_agg(l.lang || '=' || l.name, ',' order by l.lang)
             from set_localizations l where l.set_id = s.id),
           (select md5(string_agg(concat_ws('|', p.id, p.card_id, c.name, p.number, p.variant,
-              p.rarity, p.image_key,
+              p.rarity, p.released_on, p.image_key,
               p.external_ids #>> '{scryfall_images,normal}',
               (select string_agg(concat_ws('=', pl.lang, pl.name, pl.image_key,
                   pl.external_ids #>> '{scryfall_images,normal}'), ',' order by pl.lang)
@@ -147,13 +147,16 @@ function inserts(
   table: string,
   columns: string[],
   rows: unknown[][],
+  verb = 'insert',
 ): D1PreparedStatement[] {
   const select = columns.map((_, i) => `value ->> ${i}`).join(', ');
   const out: D1PreparedStatement[] = [];
   for (let i = 0; i < rows.length; i += INSERT_ROWS)
     out.push(
       d1
-        .prepare(`insert into ${table} (${columns.join(', ')}) select ${select} from json_each(?1)`)
+        .prepare(
+          `${verb} into ${table} (${columns.join(', ')}) select ${select} from json_each(?1)`,
+        )
         .bind(JSON.stringify(rows.slice(i, i + INSERT_ROWS))),
     );
   return out;
@@ -191,12 +194,14 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         number_key: string | null;
         variant: string;
         rarity: string | null;
+        released_on: string | null;
         image_key: string | null;
         image_src: string | null;
       }>(sql`select p.id, p.card_id, p.set_id, c.name as card_name, p.number,
           nullif(regexp_replace(p.number, '[^0-9].*$', ''), '')::int as number_value,
           regexp_replace(lower(p.number), '[^a-z0-9]+', '', 'g') as number_alnum,
-          catalog_number_key(p.number) as number_key, p.variant, p.rarity, p.image_key,
+          catalog_number_key(p.number) as number_key, p.variant, p.rarity,
+          p.released_on::text as released_on, p.image_key,
           p.external_ids #>> '{scryfall_images,normal}' as image_src
         from prints p join cards c on c.id = p.card_id where p.set_id = any(${list}::uuid[])`),
       db.execute<{
@@ -226,22 +231,14 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
     n.lang,
     n.name,
     n.name.toLowerCase(),
-    grams(n.name),
     n.image_key,
     n.image_src,
   ]);
   // The card's English name, matched by `?names=all`, where no `en` name equals it.
   for (const p of data.prints)
     if (!english.has(`${p.id}|${p.card_name}`))
-      nameRows.push([
-        p.id,
-        '',
-        p.card_name,
-        p.card_name.toLowerCase(),
-        grams(p.card_name),
-        null,
-        null,
-      ]);
+      nameRows.push([p.id, '', p.card_name, p.card_name.toLowerCase(), null, null]);
+  const keys = [...new Set(nameRows.map((n) => n[3] as string))];
 
   const d1 = deps.d1;
   const results = await d1.batch([
@@ -282,6 +279,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         'number_key',
         'variant',
         'rarity',
+        'released_on',
         'image_key',
         'image_src',
       ],
@@ -296,6 +294,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         p.number_key,
         p.variant,
         p.rarity,
+        p.released_on,
         p.image_key,
         p.image_src,
       ]),
@@ -303,8 +302,16 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
     ...inserts(
       d1,
       'names',
-      ['print_id', 'lang', 'name', 'name_key', 'grams', 'image_key', 'image_src'],
+      ['print_id', 'lang', 'name', 'name_key', 'image_key', 'image_src'],
       nameRows,
+    ),
+    // New names only; one no print has any more is deleted by the refresh's last step.
+    ...inserts(
+      d1,
+      'name_keys',
+      ['name_key', 'grams'],
+      keys.map((k) => [k, grams(k)]),
+      'insert or ignore',
     ),
   ]);
   return results.reduce((n, r) => n + (r.meta.rows_written ?? 0), 0);
@@ -348,6 +355,11 @@ export async function refreshSearchIndex(
           on conflict (key) do update set value = excluded.value`,
         )
         .bind(p.catalogVersion, new Date().toISOString()),
+      // Names no print has any more (shared by sets, so kept until here).
+      deps.d1.prepare(
+        `delete from name_keys
+        where not exists (select 1 from names n where n.name_key = name_keys.name_key)`,
+      ),
       deps.d1.prepare(`delete from meta where key = 'lock'`),
     ]);
     const done: RefreshStats = {

@@ -798,7 +798,8 @@ export class DrizzleCardStore implements CardStore {
       from ${sql.raw(cte)} cross join lateral (
         select ${prints.id} as id from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
         where ${prints.cardId} = ${sql.raw(cte)}.card_id ${hasName}
-        order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+        order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant},
+          ${prints.id}
         limit 1
       ) np`;
     type Row = {
@@ -830,13 +831,14 @@ export class DrizzleCardStore implements CardStore {
           case when rank >= 300 then 0 when rank >= 200 then 1 when rank > 0 then 2 else 4 end as tier,
           row_number() over (
             partition by rank > 0
-            order by rank desc, released_on desc nulls last, number_value nulls last, number
+            order by rank desc, released_on desc nulls last, number_value nulls last, number,
+              print_id
           ) as ord
         from code_ranked
       ),
       set_cands as (
         select 'set' as kind, ${sets.id} as id, 3 as tier,
-          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}) as ord
+          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}, ${sets.id}) as ord
         from ${sets}
         where (${key ? sql`catalog_code_key(${sets.code}) = catalog_code_key(${key}) or` : sql``}
           ${sets.name} ilike ${pattern}
@@ -848,12 +850,12 @@ export class DrizzleCardStore implements CardStore {
         order by ord limit ${limit}
       ),
       prefix as (
-        select card_id, row_number() over (order by min(length(name)), min(name)) as ord
+        select card_id, row_number() over (order by min(length(name)), min(name), card_id) as ord
         from (${named((name) => sql`${name} ilike ${pattern}`)}) n
         group by card_id order by ord limit ${limit}
       ),
       fuzzy as (
-        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name)) as ord
+        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name), card_id) as ord
         from (${named((name) => sql`${name} % ${query.q}`)}) n
         where ${fuzzyQuery(query.q)} and (select count(*) from prefix) < ${limit}
         group by card_id order by ord limit ${limit}

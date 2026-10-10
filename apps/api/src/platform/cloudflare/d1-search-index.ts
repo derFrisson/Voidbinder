@@ -2,6 +2,7 @@ import type { IndexedSuggestions, SearchIndex } from '@voidbinder/core';
 import type { Game } from '@voidbinder/shared';
 import type { SearchSuggestion, SearchSuggestQuery } from '@voidbinder/shared/api';
 import { fuzzyQuery, NUMBER_HITS, parseCodeQuery } from './drizzle-card-store';
+import { IMAGE_LANGS, resolveImage, type ImagePick } from './image';
 
 /**
  * How old the index may be before reads go to Postgres: the refresh runs after every daily
@@ -36,7 +37,7 @@ export const numberKey = (number: string) =>
 /** The words of `s` in lower case, as pg_trgm splits them (letters and digits). */
 const words = (s: string) => s.toLowerCase().match(/[\p{L}\p{N}]+/gu) ?? [];
 
-/** The `grams` column of the index: each word padded as pg_trgm pads it, two spaces before, one after. */
+/** The `grams` of a name_key: each word padded as pg_trgm pads it, two spaces before, one after. */
 export const grams = (s: string) =>
   words(s)
     .map((w) => `  ${w} `)
@@ -64,11 +65,12 @@ export function similarity(a: string, b: string): number {
 
 /**
  * The trigram index's candidates for names similar to `q`: names sharing a pg_trgm trigram of it,
- * leaving out a word's first letter alone (`  d`): shared by a huge share of all names, it would
- * make the index rank them all, and a name sharing nothing else is never similar enough.
+ * leaving out a word's first letter alone (`  d`) and its last two letters (`er `): shared by a
+ * large share of all names, they would make the index rank most of them (82,000 of 250,000 names
+ * for `dunkler magier`), and a name sharing nothing else is never similar enough.
  */
 function trigramQuery(q: string): string | null {
-  const grams = [...trigrams(q)].filter((g) => !g.startsWith('  '));
+  const grams = [...trigrams(q)].filter((g) => !g.startsWith('  ') && !g.endsWith(' '));
   return grams.length ? grams.map((g) => `"${g}"`).join(' OR ') : null;
 }
 
@@ -144,7 +146,7 @@ function newestPrint(params: Params, cardId: string, names: string): string {
       : `and exists (select 1 from names n2 where n2.print_id = p2.id and n2.lang = ${params.p(names)})`;
   return `(select p2.id from prints p2 join sets s2 on s2.id = p2.set_id
     where p2.card_id = ${cardId} ${hasName}
-    order by s2.released_on desc nulls last, p2.number_value nulls last, p2.number, p2.variant
+    order by s2.released_on desc nulls last, p2.number_value nulls last, p2.number, p2.variant, p2.id
     limit 1)`;
 }
 
@@ -160,9 +162,7 @@ interface PrintRow {
   variant: string;
   rarity: string | null;
   name: string;
-  image_key: string | null;
   image_src: string | null;
-  localized_image_key: string | null;
   localized_image_src: string | null;
   game: Game;
   set_code: string;
@@ -174,6 +174,60 @@ interface SetRow {
   name: string;
   game: Game;
   code: string;
+}
+
+/** A keyed image of a print (`image.ts` candidates): its own key (English) or a localization's. */
+interface ImageCandidate {
+  target: string;
+  print_id: string;
+  same_set: number;
+  released: string | null;
+  lang: string;
+  key: string;
+  own: number;
+}
+
+const cmp = (x: number | string, y: number | string) => (x < y ? -1 : x > y ? 1 : 0);
+
+/**
+ * `imagePick` of image.ts over the candidates of `target`: its own chain, else the same chain on
+ * another print of its card (same set first, then the newest, then by id).
+ */
+function pickImage(lang: string, target: string, rows: ImageCandidate[]): ImagePick | null {
+  const rank = (c: ImageCandidate, ownIsRequested: boolean) =>
+    c.lang === lang || (ownIsRequested && c.own) ? 0 : IMAGE_LANGS.indexOf(c.lang) + 1 || 8;
+  const lowres = (c: ImageCandidate) => (c.key.includes('-lowres.') ? 1 : 0);
+  const mine = rows.filter((c) => c.target === target);
+  const [own] = mine
+    .filter((c) => c.print_id === target)
+    .sort(
+      (a, b) =>
+        cmp(rank(a, true), rank(b, true)) ||
+        cmp(lowres(a), lowres(b)) ||
+        cmp(a.own, b.own) ||
+        cmp(a.lang, b.lang),
+    );
+  if (own) return { key: own.key, lang: own.lang, sibling: false };
+  const [sibling] = mine
+    .filter((c) => c.print_id !== target)
+    .sort(
+      (a, b) =>
+        cmp(rank(a, false), rank(b, false)) ||
+        cmp(lowres(a), lowres(b)) ||
+        cmp(b.same_set, a.same_set) ||
+        // Newest first, undated last.
+        (a.released === b.released
+          ? 0
+          : !a.released
+            ? 1
+            : !b.released
+              ? -1
+              : cmp(b.released, a.released)) ||
+        cmp(a.print_id, b.print_id) ||
+        cmp(a.own, b.own) ||
+        cmp(a.lang, b.lang),
+    );
+  return sibling ? { key: sibling.key, lang: sibling.lang, sibling: true } : null;
 }
 
 export interface D1SearchIndexOptions {
@@ -208,15 +262,6 @@ export class D1SearchIndex implements SearchIndex {
     return this.now() - Date.parse(meta.synced_at) > MAX_INDEX_AGE_MS ? null : meta.catalog_version;
   }
 
-  /** Main's image chain (DrizzleCardStore.imageUrl): localized R2, print R2, localized source, print source. */
-  private imageUrl(r: PrintRow): string | null {
-    const r2 = (key: string | null) =>
-      key && this.imageBaseUrl ? `${this.imageBaseUrl}/${key}` : null;
-    return (
-      r2(r.localized_image_key) ?? r2(r.image_key) ?? r.localized_image_src ?? r.image_src ?? null
-    );
-  }
-
   async suggest(query: SearchSuggestQuery, limit: number): Promise<IndexedSuggestions | null> {
     const session = this.db.withSession('first-unconstrained');
     const lo = query.q.toLowerCase();
@@ -234,7 +279,7 @@ export class D1SearchIndex implements SearchIndex {
       ordered as (
         select print_id, rank, row_number() over (
           partition by rank > 0
-          order by rank desc, released_on desc nulls last, number_value nulls last, number
+          order by rank desc, released_on desc nulls last, number_value nulls last, number, print_id
         ) as ord
         from ranked
       )
@@ -245,7 +290,7 @@ export class D1SearchIndex implements SearchIndex {
     const set = new Params();
     const { code: key } = parseCodeQuery(query.q);
     const range = (col: string) => `${col} >= ${set.p(lo)} and ${col} < ${set.p(prefixEnd(lo))}`;
-    const setSql = `select id, row_number() over (order by released_on desc nulls last, code) as ord
+    const setSql = `select id, row_number() over (order by released_on desc nulls last, code, id) as ord
       from sets s
       where (${key ? `s.code_key = ${set.p(codeKey(key))} or` : ''} ${range('s.name_key')}
         or exists (
@@ -260,9 +305,9 @@ export class D1SearchIndex implements SearchIndex {
         from names n join prints p on p.id = n.print_id join sets s on s.id = p.set_id
         where n.name_key >= ${prefix.p(lo)} and n.name_key < ${prefix.p(prefixEnd(lo))}
           ${langFilter(prefix, query.names)} ${query.game ? `and s.game = ${prefix.p(query.game)}` : ''}
-        group by p.card_id order by len, name limit ${prefix.p(limit)}
+        group by p.card_id order by len, name, p.card_id limit ${prefix.p(limit)}
       )
-      select ${newestPrint(prefix, 'm.card_id', query.names)} as print_id from m order by len, name`;
+      select ${newestPrint(prefix, 'm.card_id', query.names)} as print_id from m order by len, name, card_id`;
 
     const [meta, codeRows, setRows, prefixRows] = await session.batch<Record<string, unknown>>([
       session.prepare(`select key, value from meta where key in ('catalog_version', 'synced_at')`),
@@ -302,7 +347,7 @@ export class D1SearchIndex implements SearchIndex {
     const top = [...cands.values()]
       .sort((a, b) => a.tier - b.tier || a.ord - b.ord)
       .slice(0, limit);
-    const { prints, sets } = await this.hydrate(
+    const { prints, sets, images } = await this.hydrate(
       session,
       top.filter((c) => c.kind === 'print').map((c) => c.id),
       top.filter((c) => c.kind === 'set').map((c) => c.id),
@@ -335,7 +380,10 @@ export class D1SearchIndex implements SearchIndex {
               number: r.number,
               variant: r.variant,
               rarity: r.rarity,
-              imageUrl: this.imageUrl(r),
+              ...resolveImage(this.imageBaseUrl, pickImage(query.lang, r.id, images), [
+                { lang: query.lang, ids: { scryfall_images: { normal: r.localized_image_src } } },
+                { lang: 'en', ids: { scryfall_images: { normal: r.image_src } } },
+              ]),
               cardId: r.card_id,
             },
           ]
@@ -358,15 +406,24 @@ export class D1SearchIndex implements SearchIndex {
     const match = trigramQuery(q);
     if (!match) return [];
     const params = new Params();
-    const sql = `with m as (
-        select n.id, p.card_id, n.name from names_trigrams
-        join names n on n.id = names_trigrams.rowid
+    const filters = () =>
+      `${langFilter(params, names)} ${game ? `and s.game = ${params.p(game)}` : ''}`;
+    const sql = `with k as (
+        select k.name_key from name_trigrams join name_keys k on k.id = name_trigrams.rowid
+        where name_trigrams match ${params.p(match)} ${
+          names !== 'all' || game
+            ? `and exists (select 1 from names n join prints p on p.id = n.print_id
+                join sets s on s.id = p.set_id where n.name_key = k.name_key ${filters()})`
+            : ''
+        }
+        order by name_trigrams.rank limit ${FUZZY_CANDIDATES}
+      ),
+      m as (
+        select p.card_id, n.name from k join names n on n.name_key = k.name_key
         join prints p on p.id = n.print_id join sets s on s.id = p.set_id
-        where names_trigrams match ${params.p(match)} ${langFilter(params, names)}
-          ${game ? `and s.game = ${params.p(game)}` : ''}
-        order by names_trigrams.rank limit ${FUZZY_CANDIDATES}
+        where true ${filters()}
       )
-      select card_id, json_group_array(name) as names,
+      select card_id, json_group_array(distinct name) as names,
         ${newestPrint(params, 'm.card_id', names)} as print_id
       from m group by card_id`;
     const rows = await session
@@ -381,13 +438,14 @@ export class D1SearchIndex implements SearchIndex {
         if (!similar.length || !r.print_id) return [];
         return [
           {
+            cardId: r.card_id,
             printId: r.print_id,
             sml: Math.max(...similar.map((n) => n.sml)),
             name: similar.map((n) => n.name).sort()[0] ?? '',
           },
         ];
       })
-      .sort((a, b) => b.sml - a.sml || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+      .sort((a, b) => b.sml - a.sml || cmp(a.name, b.name) || cmp(a.cardId, b.cardId))
       .slice(0, limit)
       .map((c) => c.printId);
   }
@@ -398,14 +456,27 @@ export class D1SearchIndex implements SearchIndex {
     printIds: string[],
     setIds: string[],
     lang: string,
-  ): Promise<{ prints: Map<string, PrintRow>; sets: Map<string, SetRow> }> {
-    if (!printIds.length && !setIds.length) return { prints: new Map(), sets: new Map() };
-    const [printRows, setRows] = await session.batch<Record<string, unknown>>([
+  ): Promise<{
+    prints: Map<string, PrintRow>;
+    sets: Map<string, SetRow>;
+    images: ImageCandidate[];
+  }> {
+    if (!printIds.length && !setIds.length)
+      return { prints: new Map(), sets: new Map(), images: [] };
+    // Siblings only for a print without a key of its own, as imagePick's COALESCE.
+    const candidates = (own: string, lang: string, key: string, join: string, keyed: string) => `
+      select t.id as target, sp.id as print_id, sp.set_id = t.set_id as same_set,
+        coalesce(sp.released_on, s.released_on) as released, ${lang} as lang, ${key} as key,
+        ${own} as own
+      from prints t join prints sp on sp.card_id = t.card_id join sets s on s.id = sp.set_id ${join}
+      where t.id in (select value from json_each(?1)) and ${keyed} and (sp.id = t.id or (
+        t.image_key is null and not exists (
+          select 1 from names tn where tn.print_id = t.id and tn.lang <> '' and tn.image_key is not null)))`;
+    const [printRows, setRows, imageRows] = await session.batch<Record<string, unknown>>([
       session
         .prepare(
-          `select p.id, p.card_id, p.number, p.variant, p.rarity, p.image_key, p.image_src,
-            coalesce(nl.name, ne.name, p.card_name) as name,
-            nl.image_key as localized_image_key, nl.image_src as localized_image_src,
+          `select p.id, p.card_id, p.number, p.variant, p.rarity, p.image_src,
+            coalesce(nl.name, ne.name, p.card_name) as name, nl.image_src as localized_image_src,
             s.game, s.code as set_code, coalesce(sl.name, s.name) as set_name
           from prints p join sets s on s.id = p.set_id
           left join set_names sl on sl.set_id = s.id and sl.lang = ?2
@@ -421,10 +492,18 @@ export class D1SearchIndex implements SearchIndex {
           where s.id in (select value from json_each(?1))`,
         )
         .bind(JSON.stringify(setIds), lang),
+      session
+        .prepare(
+          `${candidates('1', `'en'`, 'sp.image_key', '', 'sp.image_key is not null')}
+          union all
+          ${candidates('0', 'n.lang', 'n.image_key', 'join names n on n.print_id = sp.id', `n.image_key is not null and n.lang <> ''`)}`,
+        )
+        .bind(JSON.stringify(printIds)),
     ]);
     return {
       prints: new Map(((printRows?.results ?? []) as unknown as PrintRow[]).map((r) => [r.id, r])),
       sets: new Map(((setRows?.results ?? []) as unknown as SetRow[]).map((r) => [r.id, r])),
+      images: (imageRows?.results ?? []) as unknown as ImageCandidate[],
     };
   }
 }
