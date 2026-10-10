@@ -765,7 +765,7 @@ prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that land
 a plain run) imports the build even when the last run did: groups and products are matched anew,
 so a matching change reaches the current prices the same day instead of with the next build. It
 is a second pull of that build (about 2,500 requests, within TCGCSV's daily limit). After a
-matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon groups) run
+matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN` groups) run
 both steps, once for both: the forced import, then the archive backfill on the VPS with
 `--refill`, since a plain backfill skips every day that already has `tcgplayer` rows and the
 re-mapped prints' history would otherwise start with the forced run:
@@ -773,8 +773,15 @@ re-mapped prints' history would otherwise start with the forced run:
 ```sh
 curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$API_URL/admin/import/tcgcsv?force=true"
 # on the VPS, once the import is `ok` (History backfill, below):
-pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db <dev|prod> --refill
+pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db <dev|prod> \
+  --refill --from 2024-02-08
 ```
+
+`--refill` downloads every day of the range and `ON CONFLICT DO NOTHING` adds only the missing
+rows. `--from 2024-02-08` (the archive's first day, also the default) covers the whole history; a
+later `--from` limits it. The full range is about 975 days, each a download, an unpack and an
+insert plus the 2 s pause, so expect several hours (not measured yet: the archive answers 403
+since 2026-10-10); run it under `systemd-run` as in the runbook.
 
 `GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
 the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced`, `groups`),
