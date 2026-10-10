@@ -442,6 +442,31 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(a.body.applied).toHaveLength(100);
   });
 
+  it('names the pushed row that runs into a unique rule', async () => {
+    const gary = as(await signUp());
+    const plains = await print('mid', '268');
+    const taken = binder();
+    const w = wish(plains.printId);
+    await push(gary, [
+      { table: 'binders', rows: [taken] },
+      { table: 'wishlist_entries', rows: [w] },
+    ]);
+    const message = async (changes: unknown[]) => {
+      const res = await gary('/sync/push', { body: { changes } });
+      expect(res.status).toBe(409);
+      return ((await res.json()) as { error: { message: string } }).error.message;
+    };
+
+    const twin = binder({ name: taken.name });
+    expect(await message([{ table: 'binders', rows: [binder(), twin, binder()] }])).toBe(
+      `binders ${twin.id}: a live binder of that name exists already`,
+    );
+    const again = wish(plains.printId);
+    expect(await message([{ table: 'wishlist_entries', rows: [again] }])).toBe(
+      `wishlist_entries ${again.id}: a live wish for that print, language and finish exists already`,
+    );
+  });
+
   it('isolates users: no foreign rows pulled, a foreign id is a 404 and writes nothing', async () => {
     const b = binder();
     await push(ash, [{ table: 'binders', rows: [b] }]);

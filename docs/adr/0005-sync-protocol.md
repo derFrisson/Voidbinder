@@ -68,8 +68,9 @@ native client runs the same code.
   - "Newer" for deletes and resurrections compares clocks of different devices; a device with a
     wrong clock can win or lose such a race it should not have.
   - The unique rules (a binder name, one wish per print, language and finish) answer 409 for the
-    whole push when two devices created the same thing offline; the client has to rename or
-    merge and push again.
+    whole push when two devices created the same thing offline; the message names the first
+    pushed row that ran into one (`binders <id>: …`, `wishlist_entries <id>: …`), and the client
+    renames or merges that row and pushes again.
   - A pull page holds at most 500 rows plus the full lists of the decks among them, and ends
     early once rows and lists pass 5000 (one row always fits, so a full deck still pages).
 - The native client half (local SQLite mirror of these rows, the outbox of pushes, applying pull

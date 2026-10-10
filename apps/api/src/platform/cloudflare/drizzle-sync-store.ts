@@ -40,11 +40,12 @@ function pgError(err: unknown): { code?: string; constraint?: string } {
   return e.cause?.code ? e.cause : e;
 }
 
-/** The unique rules a push can run into: a live binder name, one live wish per print. */
-const UNIQUE_RULES = [
-  'binders_user_id_name_live_key',
-  'wishlist_entries_user_print_lang_finish_live_key',
-];
+/** The unique rules a push can run into (a live binder name, one live wish per print), worded. */
+const UNIQUE_RULES: Record<string, string> = {
+  binders_user_id_name_live_key: 'a live binder of that name exists already',
+  wishlist_entries_user_print_lang_finish_live_key:
+    'a live wish for that print, language and finish exists already',
+};
 
 const iso = (d: Date | null) => d?.toISOString() ?? null;
 const lockKey = (userId: string, name = 'sync') =>
@@ -200,7 +201,8 @@ function grouped(rows: Map<SyncTable, unknown[]>): SyncChange[] {
 /**
  * `POST /sync/push` in one transaction: every row resolved by core's `resolvePush` against the
  * stored one (locked), in table order. A row id of another user, an unknown print, card or binder
- * answers 404 and writes nothing; a refused deck list 400; a taken binder name or wish 409.
+ * answers 404 and writes nothing; a refused deck list 400; a taken binder name or wish 409, its
+ * message starting with the pushed row (`<table> <id>: …`).
  */
 export async function syncPush(
   db: NodePgDatabase,
@@ -222,6 +224,8 @@ export async function syncPush(
   if ([...pushedEntries.keys()].some((id) => !pushedDecks.has(id)))
     throw new HTTPException(400, { message: 'Deck entries need their deck row in the same push' });
 
+  // The row being written, to name it in a 409.
+  let writing = '';
   try {
     return await db.transaction(async (tx) => {
       // One push per user at a time: a retry running alongside its original waits for it and
@@ -296,6 +300,7 @@ export async function syncPush(
             updatedAt: new Date(r.updatedAt),
             deletedAt: row.deletedAt ? new Date(row.deletedAt) : null,
           };
+          writing = `${change.table} ${row.id}`;
           if (r.action === 'insert')
             await tx.insert(table).values({ ...set, id: row.id, userId } as never);
           else
@@ -323,10 +328,9 @@ export async function syncPush(
   } catch (err) {
     const pg = pgError(err);
     if (pg.code === '23503') throw notFound('Print');
-    if (pg.code === '23505' && UNIQUE_RULES.includes(pg.constraint ?? ''))
-      throw new HTTPException(409, {
-        message: 'A live binder of that name or a wish for that card exists already',
-      });
+    const rule = UNIQUE_RULES[pg.constraint ?? ''];
+    if (pg.code === '23505' && rule)
+      throw new HTTPException(409, { message: `${writing}: ${rule}` });
     throw err;
   }
 }

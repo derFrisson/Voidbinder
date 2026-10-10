@@ -555,7 +555,9 @@ routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` for a 
 entries, wishes, decks; a user's pushes run one at a time, so a retry that overlaps its original
 answers like it. A deck's entries are its whole list and need the deck row in the same push (400
 otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown
-print, card or binder answers 404 and nothing is written; a taken binder name or wish 409. An entry filed into a
+print, card or binder answers 404 and nothing is written; a taken binder name or wish 409 with a
+message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>: …`), for the
+device to rename or merge before it pushes again. An entry filed into a
 deleted binder lands in no binder, and a pushed binder delete moves its entries out, as the REST
 delete does.
 
