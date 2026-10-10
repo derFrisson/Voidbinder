@@ -41,6 +41,8 @@ export interface SourceSummary {
   lastSuccessAt: Date | null;
   /** Status of the newest finished (not `running`) run. */
   lastStatus: string | null;
+  /** `started_at` of the newest run when it is still `running`. */
+  runningSince?: Date | null;
 }
 
 /** The health of the scheduled sources of `env` at `now`, from each source's summary. */
@@ -54,12 +56,14 @@ export function importHealth(
     .map(([source, cadence]) => {
       const s = summaries.get(source);
       const last = s?.lastSuccessAt ?? null;
+      // A run in progress younger than the cadence is not missing yet (a weekly crawl takes hours).
+      const running = !!s?.runningSince && now - s.runningSince.getTime() < PERIOD[cadence];
       return {
         source,
         cadence,
         lastSuccessAt: last?.toISOString() ?? null,
         lastStatus: s?.lastStatus ?? null,
-        missing: !last || now - last.getTime() > PERIOD[cadence] + GRACE,
+        missing: !running && (!last || now - last.getTime() > PERIOD[cadence] + GRACE),
         failed: s?.lastStatus === 'failed',
       };
     });
@@ -131,6 +135,7 @@ export async function importOverview(
       summaries.set(r.source, {
         lastSuccessAt: toDate(r.last_ok),
         lastStatus: r.last_status === 'running' ? null : r.last_status,
+        runningSince: r.status === 'running' ? startedAt : null,
       });
   }
   return { runs, health: importHealth(summaries, env, now) };

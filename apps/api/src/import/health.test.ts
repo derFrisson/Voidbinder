@@ -46,6 +46,23 @@ describe('importHealth', () => {
     });
   });
 
+  it('does not count a source as missing while its run is in progress within the cadence', () => {
+    const summaries = all({ lastSuccessAt: hoursAgo(3), lastStatus: 'ok' });
+    summaries.set('yugipedia', {
+      lastSuccessAt: hoursAgo(7 * 24 + 5),
+      lastStatus: 'ok',
+      runningSince: hoursAgo(4),
+    });
+    // Stuck longer than the cadence: missing again.
+    summaries.set('scryfall', {
+      lastSuccessAt: hoursAgo(30),
+      lastStatus: 'ok',
+      runningSince: hoursAgo(25),
+    });
+    const health = importHealth(summaries, 'prod', now);
+    expect(health.message).toBe('missing: scryfall');
+  });
+
   it('leaves out what dev does not schedule (TCGCSV)', () => {
     const health = importHealth(new Map(), 'dev', now);
     expect(health.sources.map((s) => s.source)).not.toContain('tcgcsv');
