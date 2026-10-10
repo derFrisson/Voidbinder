@@ -1,12 +1,13 @@
 import type { Game } from '@voidbinder/shared';
 import type { CardResponse } from '@voidbinder/shared/api';
 import { router, useLocalSearchParams } from 'expo-router';
-import { Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Text, View, useWindowDimensions } from 'react-native';
 import { useCard } from '../../api/queries/catalog';
 import { attributeChips } from '../../components/card/attributes';
 import { CardText, Legality, PrintsTable } from '../../components/card/CardPanels';
 import { CardStage, PrintThumbs, RightsNotice } from '../../components/card/CardStage';
 import { fieldClass } from '../../components/card/game';
+import { CollectButtons } from '../../components/collection/CollectButtons';
 import { PricePanel, PriceStrip } from '../../components/card/PricePanel';
 import { Page, useWide, type Crumb } from '../../components/Shell';
 import { QueryState } from '../../components/ui';
@@ -29,43 +30,6 @@ function useView(data: CardResponse | undefined, printId: string | undefined) {
     textLang: withText ? locale : 'en',
     image: own?.imageUrl ?? print?.imageUrl ?? null,
   };
-}
-
-function Actions({ wide }: { wide: boolean }) {
-  const t = useT();
-  // VB-31: wire both to the collection and wish list endpoints once they merge; until then they
-  // are disabled and say why. The owned / deck usage line ("Du hast 2× …") comes with them.
-  // flex-1 only side by side (phone); in the desktop column it would collapse the height.
-  const button = `h-11 flex-row items-center justify-center rounded-xl px-4 opacity-60 ${wide ? '' : 'flex-1'}`;
-  return (
-    <View className={wide ? 'w-full max-w-[250px] gap-2.5' : 'gap-2'}>
-      <View className={wide ? 'gap-2.5' : 'flex-row gap-2'}>
-        <Pressable
-          role="button"
-          disabled
-          aria-disabled
-          aria-label={`${t.card.addToCollection}. ${t.card.soonHint}`}
-          className={`${button} bg-blue`}
-        >
-          <Text className="font-display text-[15px] font-semibold text-on-blue">
-            + {t.card.addToCollection}
-          </Text>
-        </Pressable>
-        <Pressable
-          role="button"
-          disabled
-          aria-disabled
-          aria-label={`${t.card.addToWishlist}. ${t.card.soonHint}`}
-          className={`${button} border border-line bg-surface`}
-        >
-          <Text className="font-display text-[15px] font-semibold text-ink">
-            {t.card.addToWishlist}
-          </Text>
-        </Pressable>
-      </View>
-      <Text className="font-body text-[12.5px] text-ink-3">{t.card.soonHint}</Text>
-    </View>
-  );
 }
 
 function CardView({ data, printId }: { data: CardResponse; printId: string | undefined }) {
@@ -121,7 +85,16 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
         )}
       </View>
       {!wide && print && <PriceStrip printId={print.id} finish={print.finishes[0] ?? 'normal'} />}
-      <Actions wide={wide} />
+      {print && (
+        <CollectButtons
+          wide={wide}
+          print={{
+            id: print.id,
+            finishes: print.finishes,
+            langs: print.localizations.map((l) => l.lang),
+          }}
+        />
+      )}
     </View>
   );
 

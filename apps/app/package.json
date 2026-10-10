@@ -17,6 +17,7 @@
     "@expo/metro-runtime": "~57.0.16",
     "@tanstack/react-query": "^5.104.1",
     "@voidbinder/api": "workspace:*",
+    "@voidbinder/core": "workspace:*",
     "@voidbinder/shared": "workspace:*",
     "@voidbinder/tokens": "workspace:*",
     "expo": "^57.0.27",

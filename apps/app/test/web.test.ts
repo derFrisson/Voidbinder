@@ -94,14 +94,94 @@ const card = {
   copyright: '©Wizards of the Coast LLC',
 };
 
+// The collection (VB-31): one binder, one priced entry, an empty wish list.
+const at = '2026-10-09T03:00:00.000Z';
+const total = { source: 'cardmarket', currency: 'EUR', cents: 640, observedAt: at };
+const group = { cards: 2, entries: 1, unpriced: 0, totals: [total] };
+const binder = {
+  id: 'b0000000-0000-4000-8000-000000000001',
+  name: 'Magic Foils',
+  game: 'mtg',
+  position: 0,
+  colour: null,
+  createdAt: at,
+  updatedAt: at,
+};
+const collectionApi: Record<string, unknown> = {
+  summary: {
+    collection: {
+      ...group,
+      estimate: true,
+      games: [{ ...group, game: 'mtg' }],
+      binders: [{ ...group, binderId: binder.id }],
+    },
+    wishlist: { cards: 0, entries: 0, unpriced: 0, totals: [], games: [], inBudget: 0 },
+  },
+  binders: { binders: [binder] },
+  entries: {
+    page: 1,
+    pageSize: 50,
+    total: 1,
+    entries: [
+      {
+        id: 'e0000000-0000-4000-8000-000000000001',
+        printId: 'p0000000-0000-4000-8000-000000000001',
+        binderId: binder.id,
+        quantity: 2,
+        language: 'de',
+        condition: 'EX',
+        finish: 'foil',
+        purchasePriceCents: null,
+        purchaseCurrency: null,
+        note: null,
+        createdAt: at,
+        updatedAt: at,
+        print: {
+          id: 'p0000000-0000-4000-8000-000000000001',
+          cardId: 'c0000000-0000-4000-8000-000000000001',
+          game: 'mtg',
+          setCode: 'mid',
+          setName: 'Innistrad: Midnight Hunt',
+          number: '1',
+          name: 'Adeline, strahlende Katharerin',
+          rarity: 'rare',
+          finishes: ['normal', 'foil'],
+          imageUrl: null,
+        },
+        price: {
+          source: 'cardmarket',
+          finish: 'foil',
+          currency: 'EUR',
+          marketCents: 376,
+          factor: 0.85,
+          unitCents: 320,
+          observedAt: at,
+        },
+      },
+    ],
+  },
+  wishlist: { entries: [], page: 1, pageSize: 50, total: 0 },
+};
+
 let worker: ChildProcess | undefined;
 let browser: Browser | undefined;
 let origin = '';
 
-type Options = { width?: number; height?: number; scheme?: 'light' | 'dark' };
+type Options = {
+  width?: number;
+  height?: number;
+  scheme?: 'light' | 'dark';
+  /** Start signed in (the protected screens). */
+  session?: boolean;
+};
 
 /** A page with the fake API; `posts` collects every POST body by path, `csp` every CSP violation. */
-async function open({ width = 1440, height = 900, scheme = 'light' }: Options = {}) {
+async function open({
+  width = 1440,
+  height = 900,
+  scheme = 'light',
+  session = false,
+}: Options = {}) {
   if (!browser) throw new Error('browser did not start');
   const context = await browser.newContext({
     viewport: { width, height },
@@ -112,7 +192,7 @@ async function open({ width = 1440, height = 900, scheme = 'light' }: Options = 
   const page = await context.newPage();
   const posts = new Map<string, unknown>();
   const csp: string[] = [];
-  let signedIn = false;
+  let signedIn = session;
   page.on('console', (m) => {
     if (m.text().includes('Content Security Policy')) csp.push(m.text());
   });
@@ -133,6 +213,8 @@ async function open({ width = 1440, height = 900, scheme = 'light' }: Options = 
           });
     }
     if (path === '/api/catalog/games') return route.fulfill({ json: games });
+    const collection = collectionApi[path.replace('/api/collection/', '')];
+    if (collection) return route.fulfill({ json: collection });
     if (path === '/api/catalog/search') return route.fulfill({ json: search });
     if (path === `/api/catalog/cards/${CARD}`) return route.fulfill({ json: card });
     return route.fulfill({
@@ -264,6 +346,28 @@ describe('web build', () => {
       await page.getByRole('navigation').first().waitFor();
       await page.waitForLoadState('networkidle');
       expect(await axe(page)).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          [1440, 900],
+          [390, 844],
+        ] as const
+      ).map(([width, height]) => [scheme, width, height] as const),
+    ),
+  )('axe: %s /collection at %i px has no violations', async (scheme, width, height) => {
+    const { context, page, csp } = await open({ width, height, scheme, session: true });
+    try {
+      await page.goto(`${origin}/collection`);
+      await page.getByText('Adeline, strahlende Katharerin').first().waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      expect(csp).toEqual([]);
     } finally {
       await context.close();
     }

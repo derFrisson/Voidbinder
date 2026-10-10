@@ -263,6 +263,9 @@ importers:
       '@voidbinder/api':
         specifier: workspace:*
         version: link:../api
+      '@voidbinder/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@voidbinder/shared':
         specifier: workspace:*
         version: link:../../packages/shared

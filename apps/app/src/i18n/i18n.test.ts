@@ -27,6 +27,8 @@ const SAME_IN_BOTH = new Set([
   'Deutsch',
   'English',
   'Euro (€)',
+  // The collection's short game names (VB-31).
+  'Magic',
   // Card page and search (VB-35): terms the German card trade uses as they are.
   'Set',
   'Normal',
