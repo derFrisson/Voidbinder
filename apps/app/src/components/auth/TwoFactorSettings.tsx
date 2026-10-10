@@ -25,7 +25,8 @@ function downloadText(text: string, filename: string) {
   link.href = url;
   link.download = filename;
   link.click();
-  URL.revokeObjectURL(url);
+  // Some browsers start the download after click() returns; revoking at once can cancel it.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /** The secret of an otpauth URL in groups of four, for typing it into an app by hand. */
