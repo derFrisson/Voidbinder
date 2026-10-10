@@ -146,6 +146,17 @@ builds render no widget (the component returns `null`): the API refuses their si
 react-native-web inserts its styles into a `<style>` element at runtime and expo-font registers the
 fonts the same way, and neither can carry a nonce. Images: self, `data:` and `img.voidbinder.de`.
 
+**Analytics (VB-74):** the web build reports pageviews to the self-hosted Plausible
+(`@plausible-analytics/tracker`, `src/analytics.ts`, started once from the root layout). It is
+configured at build time by `EXPO_PUBLIC_PLAUSIBLE_HOST` (`https://plausible.voidbinder.de`) and
+`EXPO_PUBLIC_PLAUSIBLE_DOMAIN` (`app.voidbinder.de`); with either unset, and on native, the tracker is
+never loaded. `deploy:prod` sets both, `deploy:dev` neither. Expo Router navigates with
+`history.pushState`, which the tracker hooks, so each route change is a pageview. The tracker sends
+the page's origin and path only (`transformRequest` drops the query and hash, where filters and
+search terms sit, from the URL and the referrer), no cookie, no storage, no user id, nothing else.
+CSP `connect-src` admits the host when it is configured (`security-headers.ts`, written into
+`dist/_headers` by `scripts/write-headers.ts`) and nothing else.
+
 ## Tests
 
 ```sh

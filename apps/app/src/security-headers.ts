@@ -14,22 +14,31 @@ export const imageHost = 'img.voidbinder.de';
 /** Cloudflare Turnstile (VB-72): its script and the iframe it draws (CSP `script-src`, `frame-src`). */
 const turnstileHost = 'https://challenges.cloudflare.com';
 
-export const contentSecurityPolicy = [
-  "default-src 'self'",
-  `script-src 'self' ${turnstileHost}`,
-  `frame-src ${turnstileHost}`,
-  "style-src 'self' 'unsafe-inline'",
-  `img-src 'self' data: https://${imageHost}`,
-  "font-src 'self'",
-  "connect-src 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-].join('; ');
+/**
+ * The CSP; `plausibleHost` (the build's EXPO_PUBLIC_PLAUSIBLE_HOST, VB-74) is the one extra
+ * `connect-src` origin, for the tracker's POST to `${host}/api/event`. Unset adds nothing.
+ */
+export function contentSecurityPolicyFor(plausibleHost?: string) {
+  return [
+    "default-src 'self'",
+    `script-src 'self' ${turnstileHost}`,
+    `frame-src ${turnstileHost}`,
+    "style-src 'self' 'unsafe-inline'",
+    `img-src 'self' data: https://${imageHost}`,
+    "font-src 'self'",
+    `connect-src 'self'${plausibleHost ? ` ${new URL(plausibleHost).origin}` : ''}`,
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+  ].join('; ');
+}
 
-export const securityHeaders: Record<string, string> = {
-  'Content-Security-Policy': contentSecurityPolicy,
+export const contentSecurityPolicy = contentSecurityPolicyFor();
+
+/** The header list; `write-headers.ts` passes the build's Plausible host, the Worker needs none. */
+export const securityHeadersFor = (plausibleHost?: string): Record<string, string> => ({
+  'Content-Security-Policy': contentSecurityPolicyFor(plausibleHost),
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
   'X-Content-Type-Options': 'nosniff',
@@ -37,4 +46,6 @@ export const securityHeaders: Record<string, string> = {
   // Ignored on plain http (local) and harmless on workers.dev, so one list serves every environment.
   // ponytail: no includeSubDomains/preload until every voidbinder.de subdomain is known to be HTTPS.
   'Strict-Transport-Security': 'max-age=63072000',
-};
+});
+
+export const securityHeaders = securityHeadersFor();
