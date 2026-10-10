@@ -731,7 +731,7 @@ by itself, and a key of another source id replaces it whatever its rank (`writeK
 0017 flagged the Grand Master Rare scans written before and dropped the localizations' keys of
 standard-artwork scans. The Workflow purges the `catalog` cache once, after its mirror step (also when only rarities changed). The YGOPRODeck and
 Yugipedia name upserts keep `artwork` and `gallery_rarity` (`keepArtwork` on prints, `keepYugipedia` on localizations). `extendedArt: true` on the set page's prints
-and on `PrintDetail` marks a print whose row says `EA`; the app labels it "Extended Art". Raw
+and on `PrintDetail` marks a print whose row (or TCGplayer product, VB-119, Prices) says `EA`; the app labels it "Extended Art". Raw
 answers: `raw/<env>/yugipedia/galleries/<date>/titles.json` and `sets-<n>.json`. A full run is
 about 15 + 96 page requests plus a few hundred `imageinfo` requests (some minutes), then the
 mirror's downloads at one a second (the Workflow's `mirror images` step after it, at most 500,
@@ -819,7 +819,16 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    two products as their prices come and go; it falls forward only when its product has none. Yu-Gi-Oh! products whose
    number names another set (LC03's group lists Legendary Collection 3's mega pack `LCYW-EN…`,
    SJMP the `JMP` and `JMPS` promos) are matched to that set's prints when it has no group of its
-   own.
+   own. A Yu-Gi-Oh! product named `… (Extended Art)` or `… (Alternate Art)` / `(Alternate Artwork)`
+   flags the prints it prices (VB-119, `artworkFlag`): `external_ids.artwork.alt` `EA` / `AA` with
+   `alt_source: 'tcgplayer'` and `tcgplayer_product`, on a print without a gallery alt code
+   (Yugipedia's galleries lag new sets; BETB's has no code on BETB-EN027's Starlight Rare row), and,
+   when the gallery gave no scan (`artwork.file`, its own or a sibling's) and the product has an
+   image (`imageCount` > 0, else the CDN answers 403), `artwork.url` =
+   `https://tcgplayer-cdn.tcgplayer.com/product/<id>_in_1000x1000.jpg` (a 703×1000 JPEG of the
+   card). The label (`extendedArt`) and the shown scan (`showsScan`) follow the flag as they
+   follow a gallery's; a gallery write replaces it and keeps the code when its row has none.
+   `(Original Artwork)` / `(New Artwork)` pairs stay VB-113's artwork variants.
 4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
    with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
    have a group but no priced print, from the group list the run just kept. Logged in the step as
@@ -828,8 +837,11 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
 price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
    on (the prices are written by then).
 5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
-   (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
-   run's `RAW` prefix) and `catalog_version` + 1.
+   (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`, `artworks`),
+   `raw` (the run's `RAW` prefix) and `catalog_version` + 1. When `artworks` (Yu-Gi-Oh! prints
+   flagged or changed in step 3) is more than 0, the Workflow runs the Yu-Gi-Oh! image mirror
+   (at most 500), purges the `catalog` cache and refreshes the search index, as after the
+   galleries.
 
 A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
 groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
@@ -1112,8 +1124,8 @@ before), so the server kept its row; the binder was new and is stored.
 `src/import/images.ts` (VB-57) copies every print's source image into the `CATALOG` bucket, which
 is public through `img.voidbinder.de` (`IMAGE_BASE_URL`): Scryfall `large` for Magic (then
 `normal`, `png`; only once Scryfall has the high-res scan, `highres_image`, and never its
-missing-image placeholder), the print's Yugipedia scan (`artwork.url`, VB-106) else YGOPRODeck
-`image_url`, TCGdex `tcgdex_images.high` (the keys of
+missing-image placeholder), the print's Yugipedia scan (`artwork.url`, VB-106; TCGplayer's
+product image until the gallery has one, VB-119) else YGOPRODeck `image_url`, TCGdex `tcgdex_images.high` (the keys of
 `external_ids` the importers fill). A low-res Magic image stays unmirrored and the API serves
 Scryfall's URL until a later run finds the scan.
 
@@ -1125,7 +1137,8 @@ Scryfall's URL until a later run finds the scan.
 `<sourceId>` is the source's stable id, never a database id, so `dev` and `prod` share the
 objects and a re-import never changes a key: the Scryfall card id (`mtg`), the YGOPRODeck image
 id from `image_url` (`yugioh`, one artwork shared by its set prints) or the Yugipedia file name
-(`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`), the TCGdex card id
+(`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`) or the TCGplayer file name (`719866_in_1000x1000`), the
+TCGdex card id
 (`pokemon`, e.g. `swsh3-136`). Both carry `Cache-Control: public, max-age=31536000, immutable`.
 
 `prints.image_key` (English) and `print_localizations.image_key` hold the `sm` key once that copy
@@ -1133,7 +1146,7 @@ exists and the `orig` key until then, so `imageUrl` is the small copy whenever t
 without a request to R2 (`hasSm`). Rows that share a source URL share one object pair (a print
 and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are rate limited per
 source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, Yugipedia 1/s with its own
-`User-Agent`); a 429 stops the run once the
+`User-Agent`, TCGplayer's CDN 2/s); a 429 stops the run once the
 images in flight are stored, a failed image is logged and keeps its key (or none), so the next
 run retries it. A `404` or `410` from the source counts as `gone` instead (VB-89): the URL goes to
 `image_sources_gone` and the query skips every row with that source URL until the URL changes; the

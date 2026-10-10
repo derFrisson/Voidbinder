@@ -74,7 +74,9 @@ apply to you too:
   images. Do not hotlink them, and stay under 20 requests per second. The names and texts
   YGOPRODeck lacks in German, French, Italian, Spanish and Portuguese come from
   [Yugipedia](https://yugipedia.com) under CC BY-SA 4.0: keep the attribution (source and licence
-  linked) and wait one second between requests.
+  linked) and wait one second between requests. Scans of Extended Art and other alternate artworks come
+  from Yugipedia's set galleries and, until a gallery has one, from TCGplayer's product images
+  (the product ids TCGCSV lists); both are re-hosted by the image mirror, never hotlinked.
 - **Pokémon:** card data comes from [TCGdex](https://tcgdex.dev) (MIT licence). Voidbinder is not
   endorsed by TCGdex. The image mirror re-hosts the card images instead of hotlinking them. Pokémon
   offers no fan-content licence; show its notice: "Pokémon and Pokémon character names are
