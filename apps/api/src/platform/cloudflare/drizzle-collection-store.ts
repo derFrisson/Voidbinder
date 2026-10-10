@@ -25,6 +25,7 @@ import type {
   OwnedQuery,
   OwnedResponse,
   PriceSource,
+  SyncDeletion,
   UpdateBinderRequest,
   UpdateEntryRequest,
   UpdateWishRequest,
@@ -58,6 +59,7 @@ import {
   printLocalizations,
   prints,
   sets,
+  syncDeletions,
   wishlistEntries,
 } from '../../db/schema';
 
@@ -79,17 +81,39 @@ function pgCode(err: unknown): string | undefined {
   return e.cause?.code ?? e.code;
 }
 
-const live = <T extends { deletedAt: unknown }>(t: T) => isNull(t.deletedAt as never);
 const localized = alias(printLocalizations, 'localized');
 const english = alias(printLocalizations, 'english');
+
+/**
+ * Logs deleted rows in `sync_deletions` (VB-75) in the delete's transaction, so other devices
+ * learn of them on their next pull; a repeat refreshes the entry. `deletedAt`: the delete's time
+ * (a pushed delete's device clock), now() when left out.
+ */
+export async function logDeletions(
+  db: Pick<NodePgDatabase, 'insert'>,
+  userId: string,
+  table: SyncDeletion['table'],
+  rows: { id: string; deletedAt?: Date }[],
+): Promise<void> {
+  if (!rows.length) return;
+  await db
+    .insert(syncDeletions)
+    .values(
+      rows.map(({ id, deletedAt }) => ({ userId, table, id, ...(deletedAt && { deletedAt }) })),
+    )
+    .onConflictDoUpdate({
+      target: [syncDeletions.userId, syncDeletions.table, syncDeletions.id],
+      set: { deletedAt: sql`excluded.deleted_at`, loggedAt: sql`now()` },
+    });
+}
 
 /** `%q%` for ILIKE with the user's `%`, `_` and `\` taken literally. */
 const contains = (q: string) => `%${q.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 
 /**
  * The collection in PostgreSQL (VB-31), always on the cache-disabled pool: a user reads their
- * own writes. Throws 404 (unknown, deleted or another user's row, unknown print or binder) and
- * 409 (a binder name taken) as HTTPExceptions.
+ * own writes. A delete removes the row and logs it (`logDeletions`). Throws 404 (unknown or
+ * another user's row, unknown print or binder) and 409 (a binder name taken) as HTTPExceptions.
  */
 export class DrizzleCollectionStore implements CollectionStore {
   constructor(
@@ -227,14 +251,14 @@ export class DrizzleCollectionStore implements CollectionStore {
     });
   }
 
-  /** Every live binder id in `ids` must be the user's; 404 otherwise. */
+  /** Every binder id in `ids` must be the user's; 404 otherwise. */
   private async checkBinders(userId: string, ids: (string | null | undefined)[]) {
     const wanted = [...new Set(ids.filter((id): id is string => !!id))];
     if (!wanted.length) return;
     const [row] = await this.db
       .select({ n: count() })
       .from(binders)
-      .where(and(eq(binders.userId, userId), live(binders), inArray(binders.id, wanted)));
+      .where(and(eq(binders.userId, userId), inArray(binders.id, wanted)));
     if (row?.n !== wanted.length) throw notFound('Binder');
   }
 
@@ -266,7 +290,7 @@ export class DrizzleCollectionStore implements CollectionStore {
     const rows = await this.db
       .select()
       .from(binders)
-      .where(and(eq(binders.userId, userId), live(binders)))
+      .where(eq(binders.userId, userId))
       .orderBy(asc(binders.position), asc(binders.createdAt));
     return rows.map((r) => this.toBinder(r));
   }
@@ -292,15 +316,15 @@ export class DrizzleCollectionStore implements CollectionStore {
           name: req.name,
           gameId: req.game ?? null,
           colour: req.colour ?? null,
-          position: sql`(select coalesce(max(${binders.position}) + 1, 0) from ${binders} where ${binders.userId} = ${userId} and ${binders.deletedAt} is null)`,
+          position: sql`(select coalesce(max(${binders.position}) + 1, 0) from ${binders} where ${binders.userId} = ${userId})`,
         })
         .onConflictDoNothing({ target: binders.id }),
     );
     const [row] = await this.db
       .select()
       .from(binders)
-      .where(and(eq(binders.id, id), eq(binders.userId, userId), live(binders)));
-    // The id is another user's (or a deleted binder's): nothing was written.
+      .where(and(eq(binders.id, id), eq(binders.userId, userId)));
+    // The id is another user's: nothing was written.
     if (!row) throw new HTTPException(409, { message: 'Binder id taken' });
     return this.toBinder(row);
   }
@@ -311,7 +335,7 @@ export class DrizzleCollectionStore implements CollectionStore {
       this.db
         .update(binders)
         .set({ ...rest, ...(game !== undefined && { gameId: game }), updatedAt: sql`now()` })
-        .where(and(eq(binders.id, id), eq(binders.userId, userId), live(binders)))
+        .where(and(eq(binders.id, id), eq(binders.userId, userId)))
         .returning(),
     );
     if (!row) throw notFound('Binder');
@@ -320,16 +344,20 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   async deleteBinder(userId: string, id: string): Promise<void> {
     await this.db.transaction(async (tx) => {
-      const [row] = await tx
-        .update(binders)
-        .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })
-        .where(and(eq(binders.id, id), eq(binders.userId, userId), live(binders)))
-        .returning({ id: binders.id });
-      if (!row) throw notFound('Binder');
+      // Locked first: an entry filed into it meanwhile waits, then finds it gone (404).
+      const rows = await tx
+        .select({ id: binders.id })
+        .from(binders)
+        .where(and(eq(binders.id, id), eq(binders.userId, userId)))
+        .for('update');
+      if (!rows.length) throw notFound('Binder');
+      // Its entries stay, in no binder.
       await tx
         .update(collectionEntries)
         .set({ binderId: null, updatedAt: sql`now()` })
         .where(and(eq(collectionEntries.binderId, id), eq(collectionEntries.userId, userId)));
+      await tx.delete(binders).where(eq(binders.id, id));
+      await logDeletions(tx, userId, 'binders', rows);
     });
   }
 
@@ -339,7 +367,7 @@ export class DrizzleCollectionStore implements CollectionStore {
       const rows = await tx
         .select({ id: binders.id })
         .from(binders)
-        .where(and(eq(binders.userId, userId), live(binders)))
+        .where(eq(binders.userId, userId))
         .orderBy(asc(binders.position), asc(binders.createdAt));
       const known = new Set(rows.map((r) => r.id));
       if (ids.some((id) => !known.has(id))) throw notFound('Binder');
@@ -353,7 +381,7 @@ export class DrizzleCollectionStore implements CollectionStore {
           updatedAt: sql`now()`,
         })
         // Only the binders this request read: one created meanwhile keeps its default position.
-        .where(and(eq(binders.userId, userId), live(binders), inArray(binders.id, all)));
+        .where(and(eq(binders.userId, userId), inArray(binders.id, all)));
     });
     return this.listBinders(userId);
   }
@@ -418,7 +446,6 @@ export class DrizzleCollectionStore implements CollectionStore {
   ): Promise<EntriesResponse> {
     const where = and(
       eq(collectionEntries.userId, userId),
-      live(collectionEntries),
       query.binder === 'none'
         ? isNull(collectionEntries.binderId)
         : query.binder
@@ -453,11 +480,7 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   private async entriesById(userId: string, ids: string[], currency: Currency) {
     const rows = await this.entryQuery(
-      and(
-        eq(collectionEntries.userId, userId),
-        live(collectionEntries),
-        inArray(collectionEntries.id, ids),
-      ),
+      and(eq(collectionEntries.userId, userId), inArray(collectionEntries.id, ids)),
     );
     const entries = await this.pricedEntries(rows, currency);
     const byId = new Map(entries.map((e) => [e.id, e]));
@@ -508,13 +531,7 @@ export class DrizzleCollectionStore implements CollectionStore {
     const [row] = await this.db
       .update(collectionEntries)
       .set({ ...patch, updatedAt: sql`now()` })
-      .where(
-        and(
-          eq(collectionEntries.id, id),
-          eq(collectionEntries.userId, userId),
-          live(collectionEntries),
-        ),
-      )
+      .where(and(eq(collectionEntries.id, id), eq(collectionEntries.userId, userId)))
       .returning({ id: collectionEntries.id });
     if (!row) throw notFound('Entry');
     const [entry] = await this.entriesById(userId, [id], currency);
@@ -523,18 +540,14 @@ export class DrizzleCollectionStore implements CollectionStore {
   }
 
   async deleteEntry(userId: string, id: string): Promise<void> {
-    const [row] = await this.db
-      .update(collectionEntries)
-      .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })
-      .where(
-        and(
-          eq(collectionEntries.id, id),
-          eq(collectionEntries.userId, userId),
-          live(collectionEntries),
-        ),
-      )
-      .returning({ id: collectionEntries.id });
-    if (!row) throw notFound('Entry');
+    await this.db.transaction(async (tx) => {
+      const rows = await tx
+        .delete(collectionEntries)
+        .where(and(eq(collectionEntries.id, id), eq(collectionEntries.userId, userId)))
+        .returning({ id: collectionEntries.id });
+      if (!rows.length) throw notFound('Entry');
+      await logDeletions(tx, userId, 'collection_entries', rows);
+    });
   }
 
   // ---- wish list ----
@@ -593,7 +606,6 @@ export class DrizzleCollectionStore implements CollectionStore {
   ): Promise<WishlistResponse> {
     const where = and(
       eq(wishlistEntries.userId, userId),
-      live(wishlistEntries),
       query.game ? eq(sets.gameId, query.game) : undefined,
       query.set ? sql`lower(${sets.code}) = lower(${query.set})` : undefined,
       query.q ? this.search(query.q) : undefined,
@@ -621,11 +633,7 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   private async wishesById(userId: string, ids: string[], currency: Currency) {
     const rows = await this.wishQuery(
-      and(
-        eq(wishlistEntries.userId, userId),
-        live(wishlistEntries),
-        inArray(wishlistEntries.id, ids),
-      ),
+      and(eq(wishlistEntries.userId, userId), inArray(wishlistEntries.id, ids)),
     );
     const wishes = await this.pricedWishes(rows, currency);
     const byId = new Map(wishes.map((w) => [w.id, w]));
@@ -681,13 +689,7 @@ export class DrizzleCollectionStore implements CollectionStore {
       this.db
         .update(wishlistEntries)
         .set({ ...patch, updatedAt: sql`now()` })
-        .where(
-          and(
-            eq(wishlistEntries.id, id),
-            eq(wishlistEntries.userId, userId),
-            live(wishlistEntries),
-          ),
-        )
+        .where(and(eq(wishlistEntries.id, id), eq(wishlistEntries.userId, userId)))
         .returning({ id: wishlistEntries.id }),
     );
     if (!row) throw notFound('Wish');
@@ -697,26 +699,26 @@ export class DrizzleCollectionStore implements CollectionStore {
   }
 
   async deleteWish(userId: string, id: string): Promise<void> {
-    const [row] = await this.db
-      .update(wishlistEntries)
-      .set({ deletedAt: sql`now()`, updatedAt: sql`now()` })
-      .where(
-        and(eq(wishlistEntries.id, id), eq(wishlistEntries.userId, userId), live(wishlistEntries)),
-      )
-      .returning({ id: wishlistEntries.id });
-    if (!row) throw notFound('Wish');
+    await this.db.transaction(async (tx) => {
+      const rows = await tx
+        .delete(wishlistEntries)
+        .where(and(eq(wishlistEntries.id, id), eq(wishlistEntries.userId, userId)))
+        .returning({ id: wishlistEntries.id });
+      if (!rows.length) throw notFound('Wish');
+      await logDeletions(tx, userId, 'wishlist_entries', rows);
+    });
   }
 
   // ---- summary, owned, export ----
 
   /**
-   * Every live entry and wish with its price, summed in core (`valueOf`). ponytail: one pass in
+   * Every entry and wish with its price, summed in core (`valueOf`). ponytail: one pass in
    * memory over the whole collection, fine to tens of thousands of entries; aggregate in SQL
    * (or keep running totals) when collections grow past that.
    */
   async summary(userId: string, currency: Currency): Promise<CollectionSummary> {
     const userPrints = (table: typeof collectionEntries | typeof wishlistEntries) =>
-      sql`select ${table.printId} from ${table} where ${table.userId} = ${userId} and ${table.deletedAt} is null`;
+      sql`select ${table.printId} from ${table} where ${table.userId} = ${userId}`;
     const [entries, wishes, ctxEntries, ctxWishes] = await Promise.all([
       this.db
         .select({
@@ -731,7 +733,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         .from(collectionEntries)
         .innerJoin(prints, eq(prints.id, collectionEntries.printId))
         .innerJoin(sets, eq(sets.id, prints.setId))
-        .where(and(eq(collectionEntries.userId, userId), live(collectionEntries))),
+        .where(eq(collectionEntries.userId, userId)),
       this.db
         .select({
           printId: wishlistEntries.printId,
@@ -746,7 +748,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         .from(wishlistEntries)
         .innerJoin(prints, eq(prints.id, wishlistEntries.printId))
         .innerJoin(sets, eq(sets.id, prints.setId))
-        .where(and(eq(wishlistEntries.userId, userId), live(wishlistEntries))),
+        .where(eq(wishlistEntries.userId, userId)),
       this.prices(userPrints(collectionEntries)),
       this.prices(userPrints(wishlistEntries)),
     ]);
@@ -797,11 +799,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         ? sql`${sql.param(query.printIds)}::uuid[]`
         : sql`array(select ${prints.id} from ${prints} join ${sets} on ${sets.id} = ${prints.setId} where ${sets.gameId} = ${query.game} and lower(${sets.code}) = lower(${query.set}))`;
     const where = (table: typeof collectionEntries | typeof wishlistEntries) =>
-      and(
-        eq(table.userId, userId),
-        isNull(table.deletedAt),
-        sql`${table.printId} = any(${prints_})`,
-      );
+      and(eq(table.userId, userId), sql`${table.printId} = any(${prints_})`);
     const n = (table: typeof collectionEntries | typeof wishlistEntries) =>
       sql<number>`sum(${table.quantity})::int`;
     const [owned, wished] = await Promise.all([
@@ -854,7 +852,6 @@ export class DrizzleCollectionStore implements CollectionStore {
         .where(
           and(
             eq(collectionEntries.userId, userId),
-            live(collectionEntries),
             after ? gt(collectionEntries.id, after) : undefined,
           ),
         )

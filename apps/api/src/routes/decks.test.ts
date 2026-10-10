@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
-import { cards, decks, prints, sets } from '../db/schema';
+import { cards, deckEntries, decks, prints, sets, syncDeletions } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -354,7 +354,7 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
     expect(d.analysis.problems.map((p) => p.code)).toEqual(['wrong_size', 'colour_identity']);
   });
 
-  it('answers 404 for another user’s deck and keeps a tombstone on delete', async () => {
+  it('answers 404 for another user’s deck and deletes a deck with its list, logging the deck only', async () => {
     const deck = await newDeck({ game: 'pokemon', name: 'Pika' });
     expect(deck.format).toBe('standard');
     expect((await misty(`/decks/${deck.id}`)).status).toBe(404);
@@ -375,12 +375,30 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
     expect(Date.parse(renamed.updatedAt)).toBeGreaterThanOrEqual(Date.parse(deck.updatedAt));
 
     expect((await ash(`/decks/${deck.id}`, { method: 'DELETE' })).status).toBe(204);
-    const [row] = await db.select().from(decks).where(eq(decks.id, deck.id));
-    expect(row?.deletedAt).toBeInstanceOf(Date);
+    expect(await db.select().from(decks).where(eq(decks.id, deck.id))).toEqual([]);
     expect((await ash(`/decks/${deck.id}`)).status).toBe(404);
     expect((await ash(`/decks/${deck.id}`, { method: 'DELETE' })).status).toBe(404);
     const mine = DecksResponseSchema.parse(await (await ash('/decks')).json());
     expect(mine.decks.map((d) => d.id)).not.toContain(deck.id);
     expect((await ash('/decks/not-a-uuid')).status).toBe(400);
+
+    // A deck with a list: the list goes with it, only the deck is logged.
+    const adeline = await print('mid', '1');
+    const full = await newDeck({ game: 'mtg', name: 'Gone' });
+    await ash(`/decks/${full.id}/entries`, {
+      method: 'PUT',
+      body: { entries: [{ cardId: adeline.cardId, zone: 'main', quantity: 4 }] },
+    });
+    expect(await db.select().from(deckEntries).where(eq(deckEntries.deckId, full.id))).toHaveLength(
+      1,
+    );
+    expect((await ash(`/decks/${full.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect(await db.select().from(deckEntries).where(eq(deckEntries.deckId, full.id))).toEqual([]);
+    expect(
+      await db
+        .select({ table: syncDeletions.table, id: syncDeletions.id })
+        .from(syncDeletions)
+        .where(eq(syncDeletions.id, full.id)),
+    ).toEqual([{ table: 'decks', id: full.id }]);
   });
 });

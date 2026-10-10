@@ -1,25 +1,45 @@
 import { randomUUID } from 'node:crypto';
+import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import {
   DeckDetailSchema,
+  ErrorResponseSchema,
+  SYNC_DELETION_RETENTION_DAYS,
   SyncPullResponseSchema,
   SyncPushResponseSchema,
   type SyncPullResponse,
   type SyncPushResponse,
 } from '@voidbinder/shared/api';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import type { Pool } from 'pg';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import type { MailMessage } from '../auth/mail';
-import { binders, cards, collectionEntries, deckEntries, decks, prints, sets } from '../db/schema';
+import {
+  appMeta,
+  binders,
+  cards,
+  collectionEntries,
+  deckEntries,
+  decks,
+  prints,
+  sets,
+  syncDeletions,
+} from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
 import { DrizzleCardStore } from '../platform/cloudflare/drizzle-card-store';
 import { DrizzleCollectionStore } from '../platform/cloudflare/drizzle-collection-store';
 import { DrizzleDeckStore } from '../platform/cloudflare/drizzle-deck-store';
-import { SYNC_CLOCK_ALLOWANCE_MS } from '../platform/cloudflare/drizzle-sync-store';
-import { databaseUrl, freshDatabase, testApp, testDeps } from '../test-helpers';
+import {
+  SYNC_CLOCK_ALLOWANCE_MS,
+  SYNC_DELETIONS_HORIZON_KEY,
+  sweepSyncDeletions,
+} from '../platform/cloudflare/drizzle-sync-store';
+import { databaseUrl, freshDatabase, migrationConfig, testApp, testDeps } from '../test-helpers';
 
 it('needs a session', async () => {
   expect((await testApp().request('/sync/pull')).status).toBe(401);
@@ -197,6 +217,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
         { table: 'decks', id: d.id, updatedAt: at(0) },
       ],
       conflicts: [],
+      deletions: [],
     });
 
     const page = await pull(ash, start);
@@ -223,6 +244,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(again.body).toEqual(first.body);
     expect(await lastSeq()).toBe(seq);
     expect((await pull(ash, page.cursor)).changes).toEqual([]);
+    expect(page.deletions).toEqual([]);
   });
 
   it('applies an edit made on the latest row and stamps REST writes too', async () => {
@@ -236,6 +258,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(res.body).toEqual({
       applied: [{ table: 'binders', id: b.id, updatedAt: at(5) }],
       conflicts: [],
+      deletions: [],
     });
 
     // A REST write advances sync_seq as well (the trigger path).
@@ -267,6 +290,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
           rows: [{ ...stored, name: 'Server wins', updatedAt: server.updatedAt }],
         },
       ],
+      deletions: [],
     });
     const [row] = await db.select().from(binders).where(eq(binders.id, b.id));
     expect(row?.name).toBe('Server wins');
@@ -307,12 +331,11 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
 
     const del = { ...b, updatedAt: year, deletedAt: year, baseUpdatedAt: stamped };
     expect((await push(ash, [{ table: 'binders', rows: [del] }])).status).toBe(200);
-    const [gone] = await db.select().from(binders).where(eq(binders.id, b.id));
-    expect(gone?.deletedAt?.getTime()).toBeLessThanOrEqual(Date.now() + SYNC_CLOCK_ALLOWANCE_MS);
-    expect(gone?.updatedAt.getTime()).toBeLessThanOrEqual(Date.now() + SYNC_CLOCK_ALLOWANCE_MS);
+    const [gone] = await db.select().from(syncDeletions).where(eq(syncDeletions.id, b.id));
+    expect(gone?.deletedAt.getTime()).toBeLessThanOrEqual(Date.now() + SYNC_CLOCK_ALLOWANCE_MS);
   });
 
-  it('lets a newer delete win, a newer edit resurrect, and keeps a deck’s list on conflict', async () => {
+  it('lets a newer delete win, a newer edit bring the row back, and keeps a deck’s list on conflict', async () => {
     const adeline = await print('mid', '1');
     const e = entry(adeline.printId);
     await push(ash, [{ table: 'collection_entries', rows: [e] }]);
@@ -330,19 +353,32 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(
       (await push(ash, [{ table: 'collection_entries', rows: [newer] }])).body.applied,
     ).toHaveLength(1);
-    const [gone] = await db.select().from(collectionEntries).where(eq(collectionEntries.id, e.id));
-    expect(gone?.deletedAt?.toISOString()).toBe(at(20));
+    // The row is gone; only the log keeps its id and the delete's time.
+    expect(await db.select().from(collectionEntries).where(eq(collectionEntries.id, e.id))).toEqual(
+      [],
+    );
+    const log = () => db.select().from(syncDeletions).where(eq(syncDeletions.id, e.id));
+    expect((await log())[0]).toMatchObject({
+      table: 'collection_entries',
+      deletedAt: new Date(at(20)),
+    });
 
-    // An edit at :15 from a device that missed the delete loses; one at :25 resurrects the row.
+    // An edit at :15 from a device that missed the delete loses: answered as a deletion.
     const lost = { ...edited, quantity: 7, updatedAt: at(15) };
     const conflict = await push(ash, [{ table: 'collection_entries', rows: [lost] }]);
-    expect(conflict.body.conflicts[0]?.rows[0]).toMatchObject({ id: e.id, deletedAt: at(20) });
+    expect(conflict.body).toEqual({
+      applied: [],
+      conflicts: [],
+      deletions: [{ table: 'collection_entries', id: e.id }],
+    });
+    // One at :25 brings it back (an insert) and clears the log entry.
     const back = { ...edited, quantity: 9, updatedAt: at(25) };
-    expect(
-      (await push(ash, [{ table: 'collection_entries', rows: [back] }])).body.applied,
-    ).toHaveLength(1);
+    expect((await push(ash, [{ table: 'collection_entries', rows: [back] }])).body.applied).toEqual(
+      [{ table: 'collection_entries', id: e.id, updatedAt: at(25) }],
+    );
     const [alive] = await db.select().from(collectionEntries).where(eq(collectionEntries.id, e.id));
-    expect(alive).toMatchObject({ deletedAt: null, quantity: 9 });
+    expect(alive).toMatchObject({ quantity: 9 });
+    expect(await log()).toEqual([]);
 
     // A deck changed elsewhere: the conflict carries its stored list.
     const d = deck();
@@ -382,6 +418,16 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     ]);
     const [moved] = await db.select().from(collectionEntries).where(eq(collectionEntries.id, e.id));
     expect(moved?.binderId).toBeNull();
+    expect(await db.select().from(binders).where(eq(binders.id, b.id))).toEqual([]);
+    // Only the binder is logged; its entry moved and stays.
+    expect(
+      (
+        await db
+          .select()
+          .from(syncDeletions)
+          .where(inArray(syncDeletions.id, [b.id, e.id]))
+      ).map((r) => r.id),
+    ).toEqual([b.id]);
     // An offline device files a new entry into the deleted binder: it lands in no binder.
     const late = entry(adeline.printId, { binderId: b.id });
     expect((await push(ash, [{ table: 'collection_entries', rows: [late] }])).status).toBe(200);
@@ -442,7 +488,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
       expect(page.more).toBe(i < 2);
     }
     expect(seen.sort()).toEqual([...ids].sort());
-    expect(await pull(ash, cursor)).toEqual({ changes: [], cursor, more: false });
+    expect(await pull(ash, cursor)).toEqual({ changes: [], deletions: [], cursor, more: false });
   });
 
   it('waits for a write in flight, so a lower sync_seq never commits behind the cursor', async () => {
@@ -506,11 +552,11 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
 
     const twin = binder({ name: taken.name });
     expect(await message([{ table: 'binders', rows: [binder(), twin, binder()] }])).toBe(
-      `binders ${twin.id}: a live binder of that name exists already`,
+      `binders ${twin.id}: a binder of that name exists already`,
     );
     const again = wish(plains.printId);
     expect(await message([{ table: 'wishlist_entries', rows: [again] }])).toBe(
-      `wishlist_entries ${again.id}: a live wish for that print, language and finish exists already`,
+      `wishlist_entries ${again.id}: a wish for that print, language and finish exists already`,
     );
   });
 
@@ -625,9 +671,193 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(new Set(seen)).toEqual(new Set(ds.map((d) => d.id)));
   });
 
+  it('tells other devices of every delete, REST and pushed, and takes a repeated delete as applied', async () => {
+    const adeline = await print('mid', '1');
+    const [b, e, w, d] = [binder(), entry(adeline.printId), wish(adeline.printId), deck()];
+    await push(ash, [
+      { table: 'binders', rows: [b] },
+      { table: 'collection_entries', rows: [e] },
+      { table: 'wishlist_entries', rows: [w] },
+      { table: 'decks', rows: [d] },
+    ]);
+    const start = (await pull(ash)).cursor;
+
+    expect((await ash(`/collection/wishlist/${w.id}`, { method: 'DELETE' })).status).toBe(204);
+    expect((await ash(`/decks/${d.id}`, { method: 'DELETE' })).status).toBe(204);
+    const del = { ...e, deletedAt: at(3), updatedAt: at(3), baseUpdatedAt: at(0) };
+    const first = await push(ash, [{ table: 'collection_entries', rows: [del] }]);
+    expect(first.body.applied).toEqual([
+      { table: 'collection_entries', id: e.id, updatedAt: at(3) },
+    ]);
+    // A retry, or another device that deleted it too: applied, nothing written.
+    const seq = await lastSeq();
+    const again = await push(ash, [
+      { table: 'collection_entries', rows: [{ ...del, deletedAt: at(4), updatedAt: at(4) }] },
+    ]);
+    expect(again.body).toEqual(first.body);
+    expect(await lastSeq()).toBe(seq);
+    // A delete of a row the server never had is applied and not logged.
+    const never = entry(adeline.printId, { deletedAt: at(5), updatedAt: at(5) });
+    expect(
+      (await push(ash, [{ table: 'collection_entries', rows: [never] }])).body.applied,
+    ).toHaveLength(1);
+    expect(await db.select().from(syncDeletions).where(eq(syncDeletions.id, never.id))).toEqual([]);
+    await ash(`/collection/binders/${b.id}`, { method: 'DELETE' });
+
+    // The deletions come in the order they happened, without content, within the page budget.
+    const page = await pull(ash, start);
+    expect(page.changes).toEqual([]);
+    expect(page.deletions).toEqual([
+      { table: 'wishlist_entries', id: w.id },
+      { table: 'decks', id: d.id },
+      { table: 'collection_entries', id: e.id },
+      { table: 'binders', id: b.id },
+    ]);
+    const firstTwo = await pull(ash, start, 2);
+    expect(firstTwo.deletions).toHaveLength(2);
+    expect(firstTwo.more).toBe(true);
+    expect((await pull(ash, firstTwo.cursor)).deletions).toEqual(page.deletions.slice(2));
+  });
+
+  it('frees a deleted binder’s name at once, in the same push too', async () => {
+    const b = binder();
+    await push(ash, [{ table: 'binders', rows: [b] }]);
+    const twin = binder({ name: b.name });
+    const res = await push(ash, [
+      {
+        table: 'binders',
+        rows: [{ ...b, deletedAt: at(1), updatedAt: at(1), baseUpdatedAt: at(0) }, twin],
+      },
+    ]);
+    expect(res.status).toBe(200);
+    expect(res.body.applied.map((a) => a.id)).toEqual([b.id, twin.id]);
+  });
+
   it('caps a push at 500 rows', async () => {
     const rows = Array.from({ length: 501 }, () => binder());
     expect((await push(ash, [{ table: 'binders', rows }])).status).toBe(400);
     expect((await push(ash, [{ table: 'binders', rows: rows.slice(0, 500) }])).status).toBe(200);
+  });
+
+  // Last in this describe: the horizon it raises is global (app_meta), and it removes it after.
+  it('sweeps log entries older than 30 days and asks a device behind them to pull everything again', async () => {
+    const brock = as(await signUp());
+    const [b1, b2, b3] = [binder(), binder(), binder()];
+    await push(brock, [{ table: 'binders', rows: [b1, b2, b3] }]);
+    const behind = (await pull(brock)).cursor;
+    for (const b of [b1, b2, b3])
+      expect((await brock(`/collection/binders/${b.id}`, { method: 'DELETE' })).status).toBe(204);
+    const day = 86_400_000;
+    const age = async (id: string, days: number) =>
+      db
+        .update(syncDeletions)
+        .set({ loggedAt: new Date(Date.now() - days * day) })
+        .where(eq(syncDeletions.id, id));
+    await age(b1.id, SYNC_DELETION_RETENTION_DAYS + 1);
+    await age(b2.id, SYNC_DELETION_RETENTION_DAYS - 1);
+    const left = async () =>
+      (
+        await db
+          .select({ id: syncDeletions.id })
+          .from(syncDeletions)
+          .where(inArray(syncDeletions.id, [b1.id, b2.id, b3.id]))
+      ).map((r) => r.id);
+    try {
+      expect(await sweepSyncDeletions(db)).toBe(1);
+      expect(new Set(await left())).toEqual(new Set([b2.id, b3.id]));
+      // Two days on, b2 is older than 30 days too (the injectable now).
+      expect(await sweepSyncDeletions(db, new Date(Date.now() + 2 * day))).toBe(1);
+      expect(await left()).toEqual([b3.id]);
+
+      // The cursor from before the deletes may have missed b1 and b2: pull everything again.
+      const res = await brock(`/sync/pull?since=${behind}`);
+      expect(res.status).toBe(409);
+      expect(ErrorResponseSchema.parse(await res.json()).error.code).toBe('resync_required');
+      // A full pull pages past the horizon, and its last cursor is clear of it.
+      let cursor = 0;
+      const deletions: unknown[] = [];
+      for (let more = true; more;) {
+        const page = await pull(brock, cursor, 1);
+        deletions.push(...page.deletions);
+        ({ cursor, more } = page);
+      }
+      expect(deletions).toEqual([{ table: 'binders', id: b3.id }]);
+      expect(await pull(brock, cursor)).toMatchObject({ deletions: [], more: false });
+    } finally {
+      await db.delete(appMeta).where(eq(appMeta.key, SYNC_DELETIONS_HORIZON_KEY));
+    }
+  });
+});
+
+// Migration 0009 on a database that still holds deleted rows (tombstones of VB-31/VB-34).
+describe.skipIf(!databaseUrl)('migration 0009 (Postgres)', () => {
+  it('removes deleted rows into the deletion log and makes the unique rules plain', async () => {
+    // The migrations up to 0008 only.
+    const dir = mkdtempSync(join(tmpdir(), 'voidbinder-0008-'));
+    cpSync(migrationConfig.migrationsFolder, dir, { recursive: true });
+    const journalPath = join(dir, 'meta', '_journal.json');
+    const journal = JSON.parse(readFileSync(journalPath, 'utf8')) as {
+      entries: { idx: number }[];
+    };
+    journal.entries = journal.entries.filter((e) => e.idx <= 8);
+    writeFileSync(journalPath, JSON.stringify(journal));
+    const { db, drop } = await freshDatabase(dir);
+    try {
+      const id = () => randomUUID();
+      const [set, card, print, b1, b2, e1, e2, w1, w2, d1, d2] = Array.from({ length: 11 }, id);
+      const old = '2026-09-01T10:00:00.000Z';
+      for (const statement of [
+        sql`insert into "user" (id, name, email) values ('u1', 'Ash', 'ash@example.test')`,
+        sql`insert into sets (id, game_id, code, name) values (${set}, 'mtg', 'tst', 'Test')`,
+        sql`insert into cards (id, game_id, name, oracle_key) values (${card}, 'mtg', 'Card', 'card')`,
+        sql`insert into prints (id, card_id, set_id, number) values (${print}, ${card}, ${set}, '1')`,
+        sql`insert into binders (id, user_id, name, deleted_at)
+          values (${b1}, 'u1', 'Trades', ${old}), (${b2}, 'u1', 'Trades', null)`,
+        sql`insert into collection_entries
+          (id, user_id, print_id, binder_id, quantity, language, condition, finish, deleted_at)
+          values (${e1}, 'u1', ${print}, ${b1}, 1, 'en', 'NM', 'nonfoil', null),
+                 (${e2}, 'u1', ${print}, null, 1, 'en', 'NM', 'nonfoil', ${old})`,
+        sql`insert into wishlist_entries (id, user_id, print_id, quantity, deleted_at)
+          values (${w1}, 'u1', ${print}, 1, ${old}), (${w2}, 'u1', ${print}, 1, null)`,
+        sql`insert into decks (id, user_id, game_id, name, format, deleted_at)
+          values (${d1}, 'u1', 'mtg', 'Old', 'modern', ${old}),
+                 (${d2}, 'u1', 'mtg', 'Live', 'modern', null)`,
+        sql`insert into deck_entries (deck_id, card_id, zone, quantity)
+          values (${d1}, ${card}, 'main', 4)`,
+      ])
+        await db.execute(statement);
+
+      await migrate(db, migrationConfig);
+
+      const ids = async (table: string) =>
+        (await db.execute<{ id: string }>(sql.raw(`select id from ${table}`))).rows.map(
+          (r) => r.id,
+        );
+      expect(await ids('binders')).toEqual([b2]);
+      expect(await ids('collection_entries')).toEqual([e1]);
+      expect(await ids('wishlist_entries')).toEqual([w2]);
+      expect(await ids('decks')).toEqual([d2]);
+      expect(await db.select().from(deckEntries)).toEqual([]);
+      const [moved] = await db.select().from(collectionEntries);
+      expect(moved?.binderId).toBeNull();
+      const log = await db
+        .select({ table: syncDeletions.table, id: syncDeletions.id, at: syncDeletions.deletedAt })
+        .from(syncDeletions);
+      expect(new Set(log.map((l) => `${l.table} ${l.id} ${l.at.toISOString()}`))).toEqual(
+        new Set([
+          `binders ${b1} ${old}`,
+          `collection_entries ${e2} ${old}`,
+          `wishlist_entries ${w1} ${old}`,
+          `decks ${d1} ${old}`,
+        ]),
+      );
+      // The unique rules now hold for every row.
+      await expect(
+        db.execute(sql`insert into binders (user_id, name) values ('u1', 'Trades')`),
+      ).rejects.toMatchObject({ cause: { constraint: 'binders_user_id_name_key' } });
+    } finally {
+      await drop();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

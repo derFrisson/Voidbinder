@@ -1,34 +1,47 @@
 import { orderChanges, resolvePush, type SyncResolution } from '@voidbinder/core';
 import {
   SYNC_DECK_ENTRIES_TOTAL,
+  SYNC_DELETION_RETENTION_DAYS,
   SYNC_TABLES,
   type DeckGame,
   type SyncChange,
   type SyncDeckEntry,
+  type SyncDeletion,
   type SyncPullQuery,
   type SyncPullResponse,
   type SyncPushRequest,
   type SyncPushResponse,
   type SyncTable,
 } from '@voidbinder/shared/api';
-import { and, asc, count, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, eq, gt, inArray, lt, sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { HTTPException } from 'hono/http-exception';
-import { binders, collectionEntries, deckEntries, decks, wishlistEntries } from '../../db/schema';
+import {
+  appMeta,
+  binders,
+  collectionEntries,
+  deckEntries,
+  decks,
+  syncDeletions,
+  wishlistEntries,
+} from '../../db/schema';
+import { log } from '../../middleware/log';
+import { logDeletions } from './drizzle-collection-store';
 import { checkDeckEntries } from './drizzle-deck-store';
 
 // The sync protocol (VB-32, ADR 0005) on PostgreSQL, on the cache-disabled pool. `sync_seq` is
-// stamped by the trigger of drizzle/0008_sync.sql on every write, REST or sync alike.
+// stamped by the trigger of drizzle/0008_sync.sql on every write, REST or sync alike, and on
+// every entry of the deletion log `sync_deletions` (VB-75: a delete removes the row at once).
 
 type Tx = Parameters<Parameters<NodePgDatabase['transaction']>[0]>[0];
 type RowTable = Exclude<SyncTable, 'deck_entries'>;
 type Row = Record<string, unknown> & { id: string; updatedAt: string; deletedAt: string | null };
+type Logged = typeof syncDeletions.$inferSelect;
 type PushedRow = Row & { baseUpdatedAt: string | null };
 type Stored = Record<string, unknown> & {
   id: string;
   userId: string;
   updatedAt: Date;
-  deletedAt: Date | null;
   syncSeq: number;
 };
 
@@ -40,14 +53,15 @@ function pgError(err: unknown): { code?: string; constraint?: string } {
   return e.cause?.code ? e.cause : e;
 }
 
-/** The unique rules a push can run into (a live binder name, one live wish per print), worded. */
+/** The unique rules a push can run into (a binder name, one wish per print), worded. */
 const UNIQUE_RULES: Record<string, string> = {
-  binders_user_id_name_live_key: 'a live binder of that name exists already',
-  wishlist_entries_user_print_lang_finish_live_key:
-    'a live wish for that print, language and finish exists already',
+  binders_user_id_name_key: 'a binder of that name exists already',
+  wishlist_entries_user_print_lang_finish_key:
+    'a wish for that print, language and finish exists already',
 };
 
-const iso = (d: Date | null) => d?.toISOString() ?? null;
+/** `app_meta` key: the highest `sync_seq` the sweep removed from the deletion log. */
+export const SYNC_DELETIONS_HORIZON_KEY = 'sync_deletions_horizon';
 
 /** How far ahead of the server a device clock may stamp a row; a later stamp is cut to that. */
 export const SYNC_CLOCK_ALLOWANCE_MS = 5 * 60_000;
@@ -66,7 +80,7 @@ const TABLES = {
       position: r.position,
       colour: r.colour,
       updatedAt: r.updatedAt.toISOString(),
-      deletedAt: iso(r.deletedAt),
+      deletedAt: null,
     }),
     values: (r: Row) => ({
       name: r.name as string,
@@ -90,7 +104,7 @@ const TABLES = {
       purchaseCurrency: r.purchaseCurrency,
       note: r.note,
       updatedAt: r.updatedAt.toISOString(),
-      deletedAt: iso(r.deletedAt),
+      deletedAt: null,
     }),
     values: (r: Row) => ({
       printId: r.printId as string,
@@ -118,7 +132,7 @@ const TABLES = {
       currency: r.currency,
       note: r.note,
       updatedAt: r.updatedAt.toISOString(),
-      deletedAt: iso(r.deletedAt),
+      deletedAt: null,
     }),
     values: (r: Row) => ({
       printId: r.printId as string,
@@ -141,7 +155,7 @@ const TABLES = {
       format: r.format,
       description: r.description,
       updatedAt: r.updatedAt.toISOString(),
-      deletedAt: iso(r.deletedAt),
+      deletedAt: null,
     }),
     values: (r: Row) => ({
       gameId: r.game as string,
@@ -203,7 +217,9 @@ function grouped(rows: Map<SyncTable, unknown[]>): SyncChange[] {
 
 /**
  * `POST /sync/push` in one transaction: every row resolved by core's `resolvePush` against the
- * stored one (locked), in table order. A row id of another user, an unknown print, card or binder
+ * stored one (locked) or its entry in the deletion log, in table order. A pushed delete removes
+ * the row and logs it; an edit that wins over a logged delete inserts the row again and clears
+ * the log entry, one that loses is answered in `deletions`. A row id of another user, an unknown print, card or binder
  * answers 404 and writes nothing; a refused deck list 400; a taken binder name or wish 409, its
  * message starting with the pushed row (`<table> <id>: …`).
  */
@@ -246,8 +262,12 @@ export async function syncPush(
       await tx.execute(sql`select pg_advisory_xact_lock(${lockKey(userId, 'push')})`);
       // The lock the trigger takes, taken before any row lock (a pull waits on it).
       await tx.execute(sql`select pg_advisory_xact_lock_shared(${lockKey(userId)})`);
+      // A binder this push deletes goes where it comes, so its name is free for a row after it;
+      // the entries still in it move out at the end, so the binder's foreign key waits.
+      await tx.execute(sql`set constraints collection_entries_binder_id_binders_id_fk deferred`);
       const applied: SyncPushResponse['applied'] = [];
       const conflicts = new Map<SyncTable, unknown[]>();
+      const deletions: SyncDeletion[] = [];
       const deletedBinders: string[] = [];
       const conflict = (table: SyncTable, row: unknown) =>
         conflicts.set(table, [...(conflicts.get(table) ?? []), row]);
@@ -268,6 +288,16 @@ export async function syncPush(
           ).map((r) => [r.id, r]),
         );
         if ([...stored.values()].some((r) => r.userId !== userId)) throw notFound(what);
+        // A row that is gone may be in the deletion log: its delete still counts against edits.
+        const missing = ids.filter((id) => !stored.has(id));
+        const loggedRows: Logged[] = missing.length
+          ? await tx
+              .select()
+              .from(syncDeletions)
+              .where(and(eq(syncDeletions.table, change.table), inArray(syncDeletions.id, missing)))
+          : [];
+        if (loggedRows.some((r) => r.userId !== userId)) throw notFound(what);
+        const logged = new Map(loggedRows.map((r) => [r.id, r]));
 
         // An entry in a deleted binder lands in no binder, as `DELETE /binders/:id` does.
         if (change.table === 'collection_entries') {
@@ -276,14 +306,27 @@ export async function syncPush(
           ];
           const owned = binderIds.length
             ? await tx
-                .select({ id: binders.id, deletedAt: binders.deletedAt })
+                .select({ id: binders.id })
                 .from(binders)
                 .where(and(eq(binders.userId, userId), inArray(binders.id, binderIds)))
             : [];
-          if (owned.length !== binderIds.length) throw notFound('Binder');
-          const gone = new Set(owned.filter((b) => b.deletedAt).map((b) => b.id));
+          const absent = binderIds.filter((id) => !owned.some((b) => b.id === id));
+          const gone = absent.length
+            ? await tx
+                .select({ id: syncDeletions.id })
+                .from(syncDeletions)
+                .where(
+                  and(
+                    eq(syncDeletions.userId, userId),
+                    eq(syncDeletions.table, 'binders'),
+                    inArray(syncDeletions.id, absent),
+                  ),
+                )
+            : [];
+          if (gone.length !== absent.length) throw notFound('Binder');
+          const goneIds = new Set(gone.map((b) => b.id));
           for (const r of pushed)
-            if (r.binderId && gone.has(r.binderId as string)) r.binderId = null;
+            if (r.binderId && goneIds.has(r.binderId as string)) r.binderId = null;
         }
 
         const isDecks = change.table === 'decks';
@@ -291,16 +334,29 @@ export async function syncPush(
 
         for (const row of pushed) {
           const before = stored.get(row.id);
+          const deletion = logged.get(row.id);
           const list = pushedEntries.get(row.id) ?? [];
           const old = before ? toRow(before) : null;
           const same =
             !!old &&
-            !!old.deletedAt === !!row.deletedAt &&
+            !row.deletedAt &&
             JSON.stringify(values(old)) === JSON.stringify(values(row)) &&
             (!isDecks || listKey(storedEntries.get(row.id) ?? []) === listKey(list));
-          const r: SyncResolution = resolvePush(old && { ...old, same }, row);
+          const deletedAt = deletion?.deletedAt.toISOString();
+          const r: SyncResolution = resolvePush(
+            old
+              ? { ...old, same }
+              : deletedAt
+                ? { updatedAt: deletedAt, deletedAt, same: false }
+                : null,
+            row,
+          );
 
           if (r.action === 'conflict') {
+            if (!old) {
+              deletions.push({ table: change.table, id: row.id });
+              continue;
+            }
             conflict(change.table, old);
             if (isDecks)
               for (const e of storedEntries.get(row.id) ?? []) conflict('deck_entries', e);
@@ -309,22 +365,37 @@ export async function syncPush(
           applied.push({ table: change.table, id: row.id, updatedAt: r.updatedAt });
           if (r.action === 'noop' || r.action === 'skip') continue;
 
-          const set = {
-            ...values(row),
-            updatedAt: new Date(r.updatedAt),
-            deletedAt: row.deletedAt ? new Date(row.deletedAt) : null,
-          };
           writing = `${change.table} ${row.id}`;
-          if (r.action === 'insert')
+          if (row.deletedAt) {
+            // Gone at once (a deck with its list), only the id stays in the log.
+            await tx.delete(table).where(eq(table.id, row.id));
+            await logDeletions(tx, userId, change.table, [
+              { id: row.id, deletedAt: new Date(row.deletedAt) },
+            ]);
+            if (change.table === 'binders') deletedBinders.push(row.id);
+            continue;
+          }
+          const set = { ...values(row), updatedAt: new Date(r.updatedAt) };
+          if (r.action === 'insert') {
             await tx.insert(table).values({ ...set, id: row.id, userId } as never);
-          else
+            // Brought back: the delete no longer stands.
+            if (deletion)
+              await tx
+                .delete(syncDeletions)
+                .where(
+                  and(
+                    eq(syncDeletions.userId, userId),
+                    eq(syncDeletions.table, change.table),
+                    eq(syncDeletions.id, row.id),
+                  ),
+                );
+          } else
             await tx
               .update(table)
               .set(set as never)
               .where(eq(table.id, row.id));
 
-          if (change.table === 'binders' && row.deletedAt) deletedBinders.push(row.id);
-          if (isDecks && !row.deletedAt) {
+          if (isDecks) {
             await checkDeckEntries(tx, row.game as DeckGame, list);
             await tx.delete(deckEntries).where(eq(deckEntries.deckId, row.id));
             if (list.length) await tx.insert(deckEntries).values(list);
@@ -343,7 +414,7 @@ export async function syncPush(
               eq(collectionEntries.userId, userId),
             ),
           );
-      return { applied, conflicts: grouped(conflicts) };
+      return { applied, conflicts: grouped(conflicts), deletions };
     });
   } catch (err) {
     const pg = pgError(err);
@@ -356,34 +427,53 @@ export async function syncPush(
 }
 
 /**
- * `GET /sync/pull`: the user's rows with `sync_seq > since`, tombstones included, the lowest
- * first across the tables, `limit` of them (each deck with its whole list, fewer rows once the
+ * `GET /sync/pull`: the user's rows and logged deletions with `sync_seq` above the cursor, the
+ * lowest first across the tables, `limit` of them (each deck with its whole list, fewer once the
  * lists pass `SYNC_DECK_ENTRIES_TOTAL`). Holds the per-user lock exclusively, so every write of
- * the user in flight has committed: no row can appear later with a `sync_seq` below the cursor.
+ * the user in flight has committed: nothing can appear later with a `sync_seq` below the cursor.
+ *
+ * A cursor below the sweep's horizon may have missed a deletion that is gone: 409
+ * `resync_required`. Two things keep a device that is up to date clear of it: the last page's
+ * cursor is the sequence's current value (no write of the user is in flight, so whatever they
+ * write next numbers above it), and the pages of a full pull (`since` 0) hand out the cursor
+ * negated, which skips the check: they walk through old rows, but the device has nothing older.
  */
 export async function syncPull(
   db: NodePgDatabase,
   userId: string,
   { since, limit }: SyncPullQuery,
 ): Promise<SyncPullResponse> {
+  const full = since <= 0;
+  const from = Math.abs(since);
   return db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(${lockKey(userId)})`);
     const tables = SYNC_TABLES.filter((t): t is RowTable => t !== 'deck_entries');
-    const found: { table: RowTable; seq: number; row: Row }[] = [];
+    type Found =
+      | { table: RowTable; seq: number; row: Row }
+      | { table: RowTable; seq: number; deleted: string };
+    const found: Found[] = [];
     for (const name of tables) {
       const { table, toRow } = tableOf(name);
       const rows = (await tx
         .select()
         .from(table)
-        .where(and(eq(table.userId, userId), gt(table.syncSeq, since)))
+        .where(and(eq(table.userId, userId), gt(table.syncSeq, from)))
         .orderBy(asc(table.syncSeq))
         .limit(limit + 1)) as Stored[];
       for (const r of rows) found.push({ table: name, seq: r.syncSeq, row: toRow(r) });
     }
+    const logged = await tx
+      .select({ table: syncDeletions.table, id: syncDeletions.id, seq: syncDeletions.syncSeq })
+      .from(syncDeletions)
+      .where(and(eq(syncDeletions.userId, userId), gt(syncDeletions.syncSeq, from)))
+      .orderBy(asc(syncDeletions.syncSeq))
+      .limit(limit + 1);
+    for (const d of logged) found.push({ table: d.table as RowTable, seq: d.seq, deleted: d.id });
     found.sort((a, b) => a.seq - b.seq);
     const candidates = found.slice(0, limit);
+    const isDeck = (f: Found): f is Found & { row: Row } => f.table === 'decks' && 'row' in f;
     // Every deck brings its whole list: stop once rows and lists pass the budget, one row always.
-    const candidateDecks = candidates.filter((f) => f.table === 'decks').map((f) => f.row.id);
+    const candidateDecks = candidates.filter(isDeck).map((f) => f.row.id);
     const sizes = new Map(
       candidateDecks.length
         ? (
@@ -395,25 +485,90 @@ export async function syncPull(
           ).map((r) => [r.deckId, r.n])
         : [],
     );
-    const page: typeof found = [];
+    const page: Found[] = [];
     let size = 0;
     for (const f of candidates) {
-      size += 1 + (f.table === 'decks' ? (sizes.get(f.row.id) ?? 0) : 0);
+      size += 1 + (isDeck(f) ? (sizes.get(f.row.id) ?? 0) : 0);
       if (page.length && size > SYNC_DECK_ENTRIES_TOTAL) break;
       page.push(f);
     }
     const rows = new Map<SyncTable, unknown[]>();
-    for (const f of page) rows.set(f.table, [...(rows.get(f.table) ?? []), f.row]);
-    const deckIds = page.filter((f) => f.table === 'decks').map((f) => f.row.id);
+    const deletions: SyncDeletion[] = [];
+    for (const f of page)
+      if ('row' in f) rows.set(f.table, [...(rows.get(f.table) ?? []), f.row]);
+      else deletions.push({ table: f.table, id: f.deleted });
+    const deckIds = page.filter(isDeck).map((f) => f.row.id);
     const lists = await entriesOf(tx, deckIds);
     rows.set(
       'deck_entries',
       deckIds.flatMap((id) => lists.get(id) ?? []),
     );
-    return {
-      changes: grouped(rows),
-      cursor: page.at(-1)?.seq ?? since,
-      more: found.length > page.length,
-    };
+    // Read last: a sweep that commits while this pull reads raises the horizon before (or with)
+    // dropping log entries this pull might have missed.
+    if (!full) {
+      const [horizon] = await tx
+        .select({ value: appMeta.value })
+        .from(appMeta)
+        .where(eq(appMeta.key, SYNC_DELETIONS_HORIZON_KEY));
+      if (horizon && since < Number(horizon.value))
+        throw new HTTPException(409, {
+          message: `The cursor is older than the deletion log (${SYNC_DELETION_RETENTION_DAYS} days); pull again from 0`,
+          cause: { code: 'resync_required' },
+        });
+    }
+    const last = page.at(-1)?.seq ?? from;
+    const more = found.length > page.length;
+    let cursor = full ? -last : last;
+    if (!more) {
+      const seq = await tx.execute<{ last_value: string }>(sql`select last_value from sync_seq`);
+      cursor = Math.max(last, Number(seq.rows[0]?.last_value ?? 0));
+    }
+    return { changes: grouped(rows), deletions, cursor, more };
   });
+}
+
+/** Log entries removed per sweep statement. */
+const SWEEP_BATCH = 1000;
+
+/**
+ * The daily sweep of the deletion log (VB-75): removes entries the server wrote more than
+ * `SYNC_DELETION_RETENTION_DAYS` before `now`, in batches, and raises the horizon below which a
+ * pull answers `resync_required` to the highest `sync_seq` it removed. Returns the count.
+ */
+export async function sweepSyncDeletions(db: NodePgDatabase, now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - SYNC_DELETION_RETENTION_DAYS * 86_400_000);
+  let total = 0;
+  for (;;) {
+    const removed = await db.transaction(async (tx) => {
+      // The age is checked again on the row deleted: a delete repeated meanwhile refreshed it.
+      const gone = await tx
+        .delete(syncDeletions)
+        .where(
+          and(
+            lt(syncDeletions.loggedAt, cutoff),
+            sql`(${syncDeletions.userId}, ${syncDeletions.table}, ${syncDeletions.id}) in (select ${syncDeletions.userId}, ${syncDeletions.table}, ${syncDeletions.id} from ${syncDeletions} where ${syncDeletions.loggedAt} < ${cutoff} limit ${SWEEP_BATCH})`,
+          ),
+        )
+        .returning({ seq: syncDeletions.syncSeq });
+      if (gone.length)
+        await tx
+          .insert(appMeta)
+          .values({
+            key: SYNC_DELETIONS_HORIZON_KEY,
+            value: String(Math.max(...gone.map((g) => g.seq))),
+          })
+          .onConflictDoUpdate({
+            target: appMeta.key,
+            set: {
+              value: sql`greatest(${appMeta.value}::bigint, excluded.value::bigint)::text`,
+              updatedAt: sql`now()`,
+            },
+          });
+      return gone.length;
+    });
+    total += removed;
+    if (removed < SWEEP_BATCH) break;
+  }
+  log('info', { message: 'sync deletions swept', rows: total });
+  return total;
 }

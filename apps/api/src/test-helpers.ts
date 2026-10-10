@@ -17,9 +17,10 @@ export const migrationConfig = {
 
 /**
  * A new, migrated database on the test server, so test files that write the catalog run in
- * parallel without seeing each other. `drop()` removes it.
+ * parallel without seeing each other. `drop()` removes it. `migrationsFolder`: migrate from
+ * another folder (a test of a migration's data step, from the migrations before it).
  */
-export async function freshDatabase() {
+export async function freshDatabase(migrationsFolder = migrationConfig.migrationsFolder) {
   if (!databaseUrl) throw new Error('DATABASE_URL is unset');
   const admin = new Pool({ connectionString: databaseUrl, max: 1 });
   const name = `test_${crypto.randomUUID().replaceAll('-', '')}`;
@@ -31,7 +32,7 @@ export async function freshDatabase() {
   // without a listener its error would surface as an unhandled error of the test run.
   pool.on('error', () => undefined);
   const db = drizzle(pool);
-  await migrate(db, migrationConfig);
+  await migrate(db, { ...migrationConfig, migrationsFolder });
   return {
     db,
     drop: async () => {
