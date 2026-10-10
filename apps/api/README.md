@@ -674,12 +674,12 @@ routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` to del
 (deck entries aside: at most 500 per deck and 5000 in all), one transaction, applied binders,
 entries, wishes, decks; a user's pushes run one at a time, so a retry that overlaps its original
 answers like it. A deck's entries are its whole list and need the deck row in the same push (400
-otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown
-print, card or binder answers 404 and nothing is written; a taken binder name or wish 409 with a
-message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>: …`), for the
-device to rename or merge before it pushes again. An entry filed into a deleted binder lands in
-no binder, and a pushed binder delete moves its entries out, as the REST delete does (after the
-push's own entries, so an entry the same push moved to another binder keeps that move; the
+otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user (a row or a
+binder), an unknown print or card answers 404 and nothing is written; a taken binder name or wish
+409 with a message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>:
+…`), for the device to rename or merge before it pushes again. An entry filed into a binder that
+is gone (deleted, its log entry swept, or never synced) lands in no binder, and a pushed binder
+delete moves its entries out, as the REST delete does (after the push's own entries, so an entry the same push moved to another binder keeps that move; the
 binder itself goes where it comes in the push, so a row after it may take its name, and the
 entries' foreign key to it is checked at commit: `DEFERRABLE`, deferred in the push only); such
 an entry is listed in `applied`, but the device only learns its `binderId` is null from its next

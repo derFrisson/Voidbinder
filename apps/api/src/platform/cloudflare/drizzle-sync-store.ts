@@ -219,9 +219,10 @@ function grouped(rows: Map<SyncTable, unknown[]>): SyncChange[] {
  * `POST /sync/push` in one transaction: every row resolved by core's `resolvePush` against the
  * stored one (locked) or its entry in the deletion log, in table order. A pushed delete removes
  * the row and logs it; an edit that wins over a logged delete inserts the row again and clears
- * the log entry, one that loses is answered in `deletions`. A row id of another user, an unknown print, card or binder
- * answers 404 and writes nothing; a refused deck list 400; a taken binder name or wish 409, its
- * message starting with the pushed row (`<table> <id>: …`).
+ * the log entry, one that loses is answered in `deletions`. A row or binder id of another user,
+ * an unknown print or card answers 404 and writes nothing; an entry in a binder that is gone
+ * lands in no binder; a refused deck list 400; a taken binder name or wish 409, its message
+ * starting with the pushed row (`<table> <id>: …`).
  */
 export async function syncPush(
   db: NodePgDatabase,
@@ -301,34 +302,22 @@ export async function syncPush(
         if (loggedRows.some((r) => r.userId !== userId)) throw notFound(what);
         const logged = new Map(loggedRows.map((r) => [r.id, r]));
 
-        // An entry in a deleted binder lands in no binder, as `DELETE /binders/:id` does.
+        // An entry in a binder that is gone (deleted, swept from the log, or never synced) lands
+        // in no binder, as `DELETE /binders/:id` does; only another user's binder is a 404.
         if (change.table === 'collection_entries') {
           const binderIds = [
             ...new Set(pushed.flatMap((r) => (r.binderId ? [r.binderId as string] : []))),
           ];
-          const owned = binderIds.length
+          const found = binderIds.length
             ? await tx
-                .select({ id: binders.id })
+                .select({ id: binders.id, userId: binders.userId })
                 .from(binders)
-                .where(and(eq(binders.userId, userId), inArray(binders.id, binderIds)))
+                .where(inArray(binders.id, binderIds))
             : [];
-          const absent = binderIds.filter((id) => !owned.some((b) => b.id === id));
-          const gone = absent.length
-            ? await tx
-                .select({ id: syncDeletions.id })
-                .from(syncDeletions)
-                .where(
-                  and(
-                    eq(syncDeletions.userId, userId),
-                    eq(syncDeletions.table, 'binders'),
-                    inArray(syncDeletions.id, absent),
-                  ),
-                )
-            : [];
-          if (gone.length !== absent.length) throw notFound('Binder');
-          const goneIds = new Set(gone.map((b) => b.id));
+          if (found.some((b) => b.userId !== userId)) throw notFound('Binder');
+          const live = new Set(found.map((b) => b.id));
           for (const r of pushed)
-            if (r.binderId && goneIds.has(r.binderId as string)) r.binderId = null;
+            if (r.binderId && !live.has(r.binderId as string)) r.binderId = null;
         }
 
         const isDecks = change.table === 'decks';

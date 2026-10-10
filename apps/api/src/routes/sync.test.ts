@@ -469,6 +469,26 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(row?.binderId).toBeNull();
   });
 
+  it('files an edit into a binder gone from table and log into no binder', async () => {
+    // A device offline past the log's retention still has the entry in a binder that was
+    // deleted and swept meanwhile: the push goes through, the entry in no binder.
+    const adeline = await print('mid', '1');
+    const e = entry(adeline.printId);
+    await push(ash, [{ table: 'collection_entries', rows: [e] }]);
+    const res = await push(ash, [
+      {
+        table: 'collection_entries',
+        rows: [
+          { ...e, binderId: randomUUID(), quantity: 3, updatedAt: at(1), baseUpdatedAt: at(0) },
+        ],
+      },
+    ]);
+    expect(res.status).toBe(200);
+    expect(res.body.applied).toEqual([{ table: 'collection_entries', id: e.id, updatedAt: at(1) }]);
+    const [row] = await db.select().from(collectionEntries).where(eq(collectionEntries.id, e.id));
+    expect(row).toMatchObject({ binderId: null, quantity: 3 });
+  });
+
   it('keeps a move out of a binder deleted in the same push', async () => {
     const adeline = await print('mid', '1');
     const [b, c] = [binder(), binder()];
