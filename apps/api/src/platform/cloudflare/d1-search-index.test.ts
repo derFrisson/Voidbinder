@@ -190,6 +190,8 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     ['tanza', '&lang=en'],
     ['pineco', '&lang=de'],
     ['Satellitenkriger'],
+    ['Satellitenkriger', '&lang=en'],
+    ['lev schadoll', '&lang=de'],
   ])('suggest %j%s: same answer as Postgres', async (q, extra = '') => {
     const query = SearchSuggestQuerySchema.parse({
       q,

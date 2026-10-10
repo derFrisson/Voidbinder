@@ -433,7 +433,7 @@ export class D1SearchIndex implements SearchIndex {
 
   /**
    * Each card with a name similar to `q` (pg_trgm similarity 0.3 and up), best first, with the
-   * language of its similar names (nameLanguage) and its newest print with a name in it: the
+   * language of its most similar names (nameLanguage among equals) and its newest print with a name in it: the
    * trigram index picks the candidates, `similarity` decides as Postgres does.
    */
   private async similarCards(
@@ -470,8 +470,11 @@ export class D1SearchIndex implements SearchIndex {
       .prepare(sql)
       .bind(...params.values)
       .all<{ card_id: string; lang: string; names: string; print_id: string | null }>();
-    /** card id → its similar names, and the print per language whose names are similar. */
-    type Similar = { names: { name: string; sml: number }[]; prints: Map<string, string | null> };
+    /** card id → its similar names, and per language the print and its names' best similarity. */
+    type Similar = {
+      names: { name: string; sml: number }[];
+      prints: Map<string, { printId: string | null; sml: number }>;
+    };
     const byCard = new Map<string, Similar>();
     for (const r of rows.results) {
       const similar = (JSON.parse(r.names) as string[])
@@ -480,20 +483,26 @@ export class D1SearchIndex implements SearchIndex {
       if (!similar.length) continue;
       const card: Similar = byCard.get(r.card_id) ?? { names: [], prints: new Map() };
       card.names.push(...similar);
-      card.prints.set(r.lang, r.print_id);
+      card.prints.set(r.lang, {
+        printId: r.print_id,
+        sml: Math.max(...similar.map((n) => n.sml)),
+      });
       byCard.set(r.card_id, card);
     }
     return [...byCard]
       .flatMap(([cardId, card]) => {
-        const lang = nameLanguage([...card.prints.keys()], query.lang);
-        const printId = card.prints.get(lang);
+        // The best-scoring names' language; nameLanguage only among the languages that tie.
+        const sml = Math.max(...card.names.map((n) => n.sml));
+        const best = [...card.prints].filter(([, p]) => p.sml === sml).map(([l]) => l);
+        const lang = nameLanguage(best, query.lang);
+        const printId = card.prints.get(lang)?.printId;
         if (!printId) return [];
         return [
           {
             cardId,
             printId,
             lang,
-            sml: Math.max(...card.names.map((n) => n.sml)),
+            sml,
             name: card.names.map((n) => n.name).sort()[0] ?? '',
           },
         ];

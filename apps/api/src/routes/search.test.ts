@@ -321,6 +321,9 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     // Pokémon: the German name finds the print that has it, its number as stored.
     ['tannza', '&lang=en', 'de 001/198 Tannza'],
     ['pineco', '&lang=de', 'en 090/182 Pineco'],
+    // A typo: the language of the closest name, not ?lang= among every similar one.
+    ['Satellitenkriger', '&lang=en', 'de LDS3-DE121 Satellitenkrieger'],
+    ['lev schadoll', '&lang=de', 'en BLGG-EN025 Lev Shaddoll'],
   ])('%j%s: search and typeahead show %j (VB-102)', async (q, extra, shown) => {
     const label = (h?: { lang: string; displayCode?: string | undefined; name: string }) =>
       h && `${h.lang} ${h.displayCode} ${h.name}`;

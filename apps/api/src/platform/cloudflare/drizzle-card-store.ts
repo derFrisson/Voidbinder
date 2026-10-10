@@ -644,8 +644,9 @@ export class DrizzleCardStore implements CardStore {
     // in the name adds 1 to ts_rank, otherwise a card whose text repeats the word outranks the
     // card named so. Code matches (codeHits) rank above them; names similar to `q` (pg_trgm `%`,
     // similarity 0.3 and up, so `Satelite` finds Satellite Warrior) answer only when neither finds
-    // anything. A print's best rank wins; `langs` are the languages that matched it (the card's
-    // own columns are English), for the language it is shown in (matchLanguage, VB-102).
+    // anything. A print's best rank wins; `langs` are the languages of its best-ranked names (the
+    // card's own columns are English), for the language it is shown in (matchLanguage, VB-102):
+    // ?lang= breaks only a tie, it never overrides a better match in another language.
     const names = nameScope(query.names);
     const hits = sql`ts as (
         ${names.card(sql`select ${prints.id} as print_id,
@@ -674,11 +675,15 @@ export class DrizzleCardStore implements CardStore {
           and not exists (select 1 from ts) and not exists (select 1 from code)
       ),
       hits as (
-        select print_id, max(rank) as rank, array_remove(array_agg(distinct lang), null) as langs
+        select print_id, max(rank) as rank,
+          coalesce(array_agg(distinct lang) filter (where rank = top and lang is not null), '{}') as langs
         from (
-          select print_id, rank, lang from ts
-          union all select print_id, rank, null from code
-          union all select print_id, rank, lang from fuzzy
+          select *, max(rank) filter (where lang is not null) over (partition by print_id) as top
+          from (
+            select print_id, rank, lang from ts
+            union all select print_id, rank, null from code
+            union all select print_id, rank, lang from fuzzy
+          ) h
         ) h group by print_id
       )`;
     const filters: SQL[] = [sql`true`];
@@ -865,8 +870,9 @@ export class DrizzleCardStore implements CardStore {
       join ${cards} on ${cards.id} = ${prints.cardId}
       where ${match(printLocalizations.name)} ${names.localization} ${cardGame}`;
     /**
-     * nameLanguage's pick among the languages of a card's matched names (`lang` of the grouped
-     * rows): `?lang=`, else English, else the first. In SQL, as the card's print depends on it.
+     * nameLanguage's pick among the languages of a card's prefix-matched names (`lang` of the
+     * grouped rows; they tie, as each starts with `q`): `?lang=`, else English, else the first. In
+     * SQL, as the card's print depends on it.
      */
     const pickLang = sql`case when bool_or(lang = ${query.lang}) then ${query.lang}::text
       when bool_or(lang = 'en') then 'en' else min(lang) end`;
@@ -939,7 +945,9 @@ export class DrizzleCardStore implements CardStore {
       ),
       fuzzy as (
         select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name), card_id) as ord,
-          ${pickLang} as lang
+          -- The best-scoring name's language; nameLanguage's order only among equal scores.
+          (array_agg(lang order by similarity(name, ${query.q}) desc, lang = ${query.lang} desc,
+            lang = 'en' desc, lang))[1] as lang
         from (${named((name) => sql`${name} % ${query.q}`)}) n
         where ${fuzzyQuery(query.q)} and (select count(*) from prefix) < ${limit}
         group by card_id order by ord limit ${limit}
