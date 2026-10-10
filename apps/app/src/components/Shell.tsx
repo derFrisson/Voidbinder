@@ -24,6 +24,7 @@ import { useSession } from '../api/queries/me';
 import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
 import { usePalette } from './palette';
+import { Toaster } from './Toast';
 
 /**
  * Rail and top bar from 768 px, bottom tabs below. Decision: design.md says rail >= 1024 and tabs
@@ -167,6 +168,7 @@ export function Shell({ children }: { children: ReactNode }) {
           ))}
         </View>
       )}
+      <Toaster />
     </View>
   );
 }
