@@ -175,7 +175,7 @@ export function Segmented<T extends string>({
       <View
         role="radiogroup"
         aria-label={label}
-        className="flex-row gap-1 self-start rounded-xl bg-surface-2 p-1"
+        className="flex-row flex-wrap gap-1 self-start rounded-xl bg-surface-2 p-1"
       >
         {options.map((o, i) => (
           <Pressable
