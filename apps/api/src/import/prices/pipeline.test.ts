@@ -482,24 +482,41 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       steps.push(name);
       return name === failName ? Promise.reject(new Error('HTTP 429')) : fn();
     };
-  const plain = (lastUpdated: string, step = failing('')) =>
-    runTcgcsvImport(deps(fakeTcgcsv({ lastUpdated })), step, {
+  const plain = (lastUpdated: string, step = failing(''), files: Record<string, string> = {}) =>
+    runTcgcsvImport(deps(fakeTcgcsv({ lastUpdated, files })), step, {
       env: 'dev',
       date: '2026-10-10',
       delayMs: 0,
     });
+  // 25 groups per set code (no files: a group without products), so each set is one
+  // `prices mtg` step.
+  const groupIds = (set: number) => Array.from({ length: 25 }, (_, i) => 100_000 + set * 100 + i);
+  const groupsOf = (codes: string[]) => ({
+    '1/groups': JSON.stringify({
+      success: true,
+      errors: [],
+      results: codes.flatMap((abbreviation, set) =>
+        groupIds(set).map((groupId) => ({ groupId, name: `Group ${groupId}`, abbreviation })),
+      ),
+    }),
+  });
 
   it('lists a group step that still fails, goes on, and pulls the build again next time', async () => {
     const build = '2026-10-10T20:05:19+0000';
     const steps: string[] = [];
     const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
-    const { runId, stats } = await plain(build, failing('prices mtg 000', steps));
+    // Magic's two fixture sets: two steps.
+    const { runId, stats } = await plain(
+      build,
+      failing('prices mtg 001', steps),
+      groupsOf(['MID', 'NEO']),
+    );
     const warnings = warned.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
     warned.mockRestore();
-    // The other games and the finish still run; the run is `ok` and names the groups.
-    expect(steps.slice(steps.indexOf('prices mtg 000'))).toEqual([
-      'prices mtg 000',
+    // The other groups, games and the finish still run; the run is `ok` and names the groups.
+    expect(steps.slice(steps.indexOf('prices mtg 001'))).toEqual([
+      'prices mtg 001',
       'coverage mtg',
       'groups yugioh',
       'coverage yugioh',
@@ -510,8 +527,8 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'purge cache',
     ]);
     expect(stats).toMatchObject({
-      failedGroups: [{ game: 'mtg', groupIds: [2864, 2965, 24770], error: 'Error: HTTP 429' }],
-      games: { mtg: { matchedGroups: 3, mapped: 0 } },
+      failedGroups: [{ game: 'mtg', groupIds: groupIds(1), error: 'Error: HTTP 429' }],
+      games: { mtg: { matchedGroups: 50 } },
     });
     expect(warnings).toContainEqual(
       expect.objectContaining({ message: 'price groups failed', runId, game: 'mtg' }),
@@ -548,6 +565,59 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       skipped: expect.any(String),
       freshness: expect.any(Array),
     });
+  });
+
+  it('fails the run when the group steps fail systemically', async () => {
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const latest = async () =>
+      (await db.select().from(importRuns).orderBy(desc(importRuns.startedAt)).limit(1))[0];
+    // Two more Magic sets: four steps.
+    await db.insert(sets).values([
+      { gameId: 'mtg', code: 'zza', name: 'Test Set A' },
+      { gameId: 'mtg', code: 'zzb', name: 'Test Set B' },
+    ]);
+    const fourSteps = groupsOf(['MID', 'NEO', 'ZZA', 'ZZB']);
+    const every =
+      (steps: string[]) =>
+      <T>(name: string, fn: () => Promise<T>) =>
+        failing(name.startsWith('prices ') ? name : '', steps)(name, fn);
+
+    // Three failed steps in a row: the fourth is never tried.
+    const steps: string[] = [];
+    await expect(plain('2026-10-10T21:05:19+0000', every(steps), fourSteps)).rejects.toThrow(
+      'price groups failed: mtg, 3 step(s) in a row',
+    );
+    expect(steps.filter((s) => s.startsWith('prices '))).toEqual([
+      'prices mtg 000',
+      'prices mtg 001',
+      'prices mtg 002',
+    ]);
+    expect(steps.slice(-1)).toEqual(['fail run']);
+    expect(await latest()).toMatchObject({ status: 'failed' });
+
+    // Every step of a game failed (here its only one).
+    await expect(plain('2026-10-10T21:15:19+0000', every([]))).rejects.toThrow(
+      'price groups failed: mtg, 1 step(s) in a row',
+    );
+    expect(await latest()).toMatchObject({ status: 'failed' });
+
+    // Two failures apart are isolated: the run is `ok` and lists both.
+    const apart = await plain(
+      '2026-10-10T21:25:19+0000',
+      (name, fn) =>
+        failing(name === 'prices mtg 000' || name === 'prices mtg 002' ? name : '')(name, fn),
+      fourSteps,
+    );
+    expect(apart.stats).toMatchObject({
+      failedGroups: [
+        { game: 'mtg', groupIds: groupIds(0) },
+        { game: 'mtg', groupIds: groupIds(2) },
+      ],
+    });
+    expect(await latest()).toMatchObject({ status: 'ok' });
+    quiet.mockRestore();
+    warned.mockRestore();
   });
 
   it('pulls a build again after a failed run or one that never finished', async () => {

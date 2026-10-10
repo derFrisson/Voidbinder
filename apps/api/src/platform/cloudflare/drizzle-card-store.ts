@@ -307,8 +307,12 @@ const changeFilter = (since: string) => [
 ];
 
 /**
- * Hours after which a `running` import run is taken as dead (6 by default). TCGCSV: a run takes
- * minutes, and a run that died at 20:30 must not block the 22:30 one (VB-116).
+ * Hours after which a `running` import run is taken as dead (6 by default). TCGCSV: a run that died
+ * at 20:30 must not block the 22:30 one (VB-116). 1 h is above its worst case when failing fast: a
+ * full run is about 10 minutes (2,500 requests at 100 ms apart, plus the writes), and a systemic
+ * failure ends it after 3 failed group steps in a row, each 4 attempts and 3.5 minutes of backoff
+ * (30 s, 60 s, 120 s), about 25 minutes in all. Not covered: a step whose requests hang until the
+ * 30-minute step timeout (about 2 hours per step).
  */
 const RUN_TAKEN_DEAD_HOURS: Record<string, number> = { tcgcsv: 1 };
 

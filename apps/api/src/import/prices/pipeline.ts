@@ -42,6 +42,8 @@ import {
 
 /** Groups per step: 50 requests and their writes, a few minutes at most. */
 export const GROUPS_PER_STEP = 25;
+/** Failed group steps in a row that end the run: TCGCSV or the database is down, not one group. */
+const FAILURES_IN_A_ROW = 3;
 
 export interface PriceImportOptions {
   /** `IMPORT_ENV`: raw answers go to `raw/<env>/tcgcsv/<date>/<category>/`. */
@@ -243,6 +245,7 @@ export async function runTcgcsvImport(
 
     const games: Partial<Record<PricedGame, GameStats>> = {};
     const failedGroups: FailedGroups[] = [];
+    let inARow = 0;
     for (const game of opts.games ?? GAMES) {
       const category = CATEGORIES[game];
       const { total, matched } = await step(`groups ${game}`, async () => {
@@ -269,7 +272,9 @@ export async function runTcgcsvImport(
         prices: 0,
         noMarket: 0,
       };
-      for (const [i, groups] of groupSteps(matched).entries()) {
+      const steps = groupSteps(matched);
+      let gameFailures = 0;
+      for (const [i, groups] of steps.entries()) {
         const name = `prices ${game} ${String(i).padStart(3, '0')}`;
         let r;
         try {
@@ -277,9 +282,9 @@ export async function runTcgcsvImport(
             importGroups(deps, game, groups, { raw, delayMs, observedAt }),
           );
         } catch (err) {
-          // VB-116: still failing after the Workflow's retries. The other groups go on; the run
-          // lists these, and a run that lists any never counts as the build imported, so the
-          // next run pulls the build again.
+          // VB-116: still failing after the Workflow's retries. An isolated failure: the other
+          // groups go on; the run lists these, and a run that lists any never counts as the build
+          // imported, so the next run pulls the build again.
           const groupIds = [...new Set(groups.map((g) => g.groupId))];
           failedGroups.push({ game, groupIds, error: String(err).slice(0, 500) });
           log('warn', {
@@ -289,8 +294,18 @@ export async function runTcgcsvImport(
             groupIds,
             error: String(err),
           });
+          // A systemic failure (TCGCSV down or rate-limiting, Hyperdrive down) fails the run
+          // instead of burning every remaining step's retries for an `ok` that imported nothing.
+          inARow++;
+          gameFailures++;
+          if (inARow >= FAILURES_IN_A_ROW || gameFailures === steps.length)
+            throw new Error(
+              `price groups failed: ${game}, ${inARow} step(s) in a row; last: ${String(err)}`,
+              { cause: err },
+            );
           continue;
         }
+        inARow = 0;
         for (const k of ['cards', 'mapped', 'unmapped', 'prices', 'noMarket'] as const)
           g[k] += r[k];
       }

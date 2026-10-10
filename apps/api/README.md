@@ -815,11 +815,13 @@ price` per such set. Never fatal: a failure is a WARN `price coverage failed` an
 
 A `prices <game> …` step that still fails after the Workflow's three retries does not end the run
 (VB-116): its groups go into `stats.failedGroups` (`game`, `groupIds`, `error`), a WARN `price
-groups failed` is logged and the other groups and games go on. The build counts as imported (the
+groups failed` is logged and the other groups and games go on. A systemic failure (TCGCSV down or
+rate-limiting, the database unreachable) does end it: after three failed steps in a row, or when
+every step of a game failed, the run is `failed` (`price groups failed: <game>, …`). The build counts as imported (the
 next run skips it) only after a run that pulled all of it ended `ok`: a failed run, one still
 `running` and one with `failedGroups` do not count, so the 22:30 run pulls the build again. A
 TCGCSV run `running` for more than an hour is taken as dead and no longer blocks the next one
-(other sources: 6 hours).
+(other sources: 6 hours); a run that fails fast takes about 25 minutes at most.
 
 A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
 groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
