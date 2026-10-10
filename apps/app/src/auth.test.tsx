@@ -137,3 +137,43 @@ describe('sign-up', () => {
     });
   });
 });
+
+describe('sign-up details', () => {
+  const fillAll = () => {
+    fill('Name', 'Ada Lovelace');
+    fill('E-Mail-Adresse', 'ada@example.test');
+    fill('Passwort', 'correct horse battery');
+  };
+
+  it('toggles a checkbox with Space', () => {
+    fakeApi();
+    renderApp(<SignUp />);
+    fireEvent.keyDown(checkbox(0), { key: ' ' });
+    expect(checkbox(0).getAttribute('aria-checked')).toBe('true');
+    fireEvent.keyDown(checkbox(0), { key: ' ' });
+    expect(checkbox(0).getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('leaves no pending opt-in behind when the sign-up fails', async () => {
+    fakeApi((c) =>
+      c.path === '/auth/sign-up/email' ? json({ code: 'X', message: 'x' }, 500) : undefined,
+    );
+    renderApp(<SignUp />);
+    fillAll();
+    fireEvent.click(checkbox(0));
+    fireEvent.click(checkbox(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Konto erstellen' }));
+    await waitFor(() => expect(screen.queryByRole('status')).toBeNull());
+    await screen.findByRole('alert');
+    expect(localStorage.length).toBe(0);
+  });
+
+  it('describes a field by its error', () => {
+    fakeApi();
+    renderApp(<SignUp />);
+    fireEvent.click(screen.getByRole('button', { name: 'Konto erstellen' }));
+    const input = screen.getByLabelText('Name');
+    const id = input.getAttribute('aria-describedby') ?? '';
+    expect(document.getElementById(id)?.textContent).toBe('Gib einen Namen ein.');
+  });
+});

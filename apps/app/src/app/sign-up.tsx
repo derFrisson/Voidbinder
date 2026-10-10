@@ -38,8 +38,12 @@ export default function SignUp() {
     };
     setInvalid(errors);
     if (Object.keys(errors).length > 0 || !parsed.success) return;
-    if (optIn) rememberOptIn(parsed.data);
-    signUp.mutate({ name: name.trim(), email: parsed.data, password });
+    const address = parsed.data;
+    // Only an account that was created waits for the opt-in; a failed sign-up leaves nothing behind.
+    signUp.mutate(
+      { name: name.trim(), email: address, password },
+      { onSuccess: () => optIn && rememberOptIn(address) },
+    );
   };
 
   return (

@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useGames } from '../api/queries/catalog';
 import { Page, Heading, useWide } from '../components/Shell';
+import { ErrorState } from '../components/ui';
 import { fmt, useT } from '../i18n';
 
 // The game's colour field (docs/app/design.md): a soft tint with the full colour as a dot, never text.
@@ -35,7 +36,7 @@ function Tile({ game, sets }: { game: Game; sets: number | undefined }) {
         <Text className="font-display text-[22px] font-bold tracking-tight text-ink">
           {t.games[game]}
         </Text>
-        <Text className="font-mono text-sm text-ink-2">{meta}</Text>
+        <Text className={`text-sm text-ink-2 ${sets ? 'font-mono' : 'font-body'}`}>{meta}</Text>
       </View>
     </View>
   );
@@ -68,6 +69,7 @@ export default function Home() {
           <Tile key={game} game={game} sets={games.data ? (counts.get(game) ?? 0) : undefined} />
         ))}
       </View>
+      {games.isError && <ErrorState onRetry={() => void games.refetch()} />}
     </Page>
   );
 }

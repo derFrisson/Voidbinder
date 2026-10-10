@@ -20,6 +20,7 @@ vi.mock('expo-router', async () => {
     router: { replace: vi.fn(), push: vi.fn(), back: vi.fn(), canGoBack: () => false },
     useLocalSearchParams: vi.fn(() => ({})),
     usePathname: vi.fn(() => '/'),
+    useGlobalSearchParams: vi.fn(() => ({})),
     Link: ({ href, children }: { href: unknown; children?: Node }) =>
       createElement(
         'a',

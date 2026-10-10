@@ -16,7 +16,10 @@ import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
 import { usePalette } from './palette';
 
-/** Rail and top bar from 768 px, bottom tabs below (docs/app/design.md, Layout). */
+/**
+ * Rail and top bar from 768 px, bottom tabs below. Decision: design.md says rail >= 1024 and tabs
+ * < 768 and leaves 768 to 1023 open; that gap gets the rail (a tablet is closer to a desktop window).
+ */
 export function useWide() {
   return useWindowDimensions().width >= 768;
 }

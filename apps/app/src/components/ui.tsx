@@ -1,5 +1,5 @@
 import { Link, type Href } from 'expo-router';
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -12,6 +12,15 @@ import { ApiError } from '../api/queries/http';
 import { useT } from '../i18n';
 import { Icon } from './Icon';
 import { usePalette } from './palette';
+
+// react-native-web passes keyboard events through; the React Native types do not list them.
+type WebKey = {
+  key: string;
+  preventDefault: () => void;
+  currentTarget: { parentElement: { children: ArrayLike<{ focus: () => void }> } | null };
+};
+const onKey = (handler: (e: WebKey) => void) =>
+  ({ onKeyDown: handler }) as unknown as Record<string, never>;
 
 // The app's few controls, styled after the mockups (docs/app/mockups): blue is the only action
 // colour, 12 px radii, Sora for labels.
@@ -78,6 +87,9 @@ export function Field({
   ...input
 }: { label: string; hint?: string; error?: string | undefined } & TextInputProps) {
   const palette = usePalette();
+  // The hint or error is the input's description (aria-describedby on web, ignored natively).
+  const noteId = `${useId()}-note`;
+  const described = error || hint ? ({ 'aria-describedby': noteId } as object) : {};
   return (
     <View className="gap-1.5">
       <Text className="font-display text-xs font-semibold uppercase tracking-wider text-ink-2">
@@ -86,16 +98,19 @@ export function Field({
       <TextInput
         aria-label={label}
         aria-invalid={!!error}
+        {...described}
         placeholderTextColor={palette.ink3}
         className={`h-11 rounded-xl border bg-surface px-3 font-body text-[15px] text-ink ${error ? 'border-ink' : 'border-line'}`}
         {...input}
       />
       {error ? (
-        <Text role="alert" className="font-body text-sm text-ink">
+        <Text nativeID={noteId} role="alert" className="font-body text-sm text-ink">
           {error}
         </Text>
       ) : hint ? (
-        <Text className="font-body text-sm text-ink-3">{hint}</Text>
+        <Text nativeID={noteId} className="font-body text-sm text-ink-3">
+          {hint}
+        </Text>
       ) : null}
     </View>
   );
@@ -121,6 +136,11 @@ export function Checkbox({
         aria-checked={checked}
         aria-label={label}
         onPress={() => onChange(!checked)}
+        {...onKey((e) => {
+          if (e.key !== ' ') return;
+          e.preventDefault();
+          onChange(!checked);
+        })}
         className={`mt-0.5 h-6 w-6 items-center justify-center rounded-md border-2 ${checked ? 'border-blue bg-blue' : 'border-ink-3 bg-surface'}`}
       >
         {checked && <Icon name="check" size={16} color={palette.onBlue} />}
@@ -157,12 +177,27 @@ export function Segmented<T extends string>({
         aria-label={label}
         className="flex-row gap-1 self-start rounded-xl bg-surface-2 p-1"
       >
-        {options.map((o) => (
+        {options.map((o, i) => (
           <Pressable
             key={o.value}
             role="radio"
             aria-checked={o.value === value}
+            // Roving focus: only the checked radio is a tab stop, arrows move the selection.
+            tabIndex={o.value === value ? 0 : -1}
             onPress={() => onChange(o.value)}
+            {...onKey((e) => {
+              const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+              if (e.key === ' ') {
+                e.preventDefault();
+                onChange(o.value);
+              } else if (step) {
+                e.preventDefault();
+                const at = (i + step + options.length) % options.length;
+                const next = options[at];
+                if (next) onChange(next.value);
+                e.currentTarget.parentElement?.children[at]?.focus();
+              }
+            })}
             className={`h-9 justify-center rounded-lg px-4 ${o.value === value ? 'bg-surface border border-line' : ''}`}
           >
             <Text

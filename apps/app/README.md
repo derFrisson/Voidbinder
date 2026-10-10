@@ -79,7 +79,8 @@ fonts the same way, and neither can carry a nonce. Images: self, `data:` and `im
 pnpm --filter app test
 ```
 
-Three Vitest projects: `unit` renders the screens and hooks on react-native-web in jsdom with a
+Three Vitest projects: `unit` renders the screens and hooks with @testing-library/react over
+react-native-web in jsdom (not React Native Testing Library's web preset) with a
 fake API (`test/fake-api.tsx`): i18n parity, the session and catalog hooks, sign-in, sign-up and
 the opt-in, the route guard. `worker` runs the proxy against a fake service binding. `web` serves
 the exported build with `wrangler dev` and drives it in Chromium (`pnpm exec playwright install
