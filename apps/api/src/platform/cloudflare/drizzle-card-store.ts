@@ -1244,6 +1244,7 @@ export class DrizzleCardStore implements CardStore {
         number: prints.number,
         imageKey: prints.imageKey,
         externalIds: prints.externalIds,
+        rarity: prints.rarity,
         code: sets.code,
         cardCount: sets.cardCount,
       })
@@ -1275,6 +1276,7 @@ export class DrizzleCardStore implements CardStore {
         game: cards.gameId,
         cardCount: rep.cardCount,
         cardFormat: games.cardFormat,
+        rarity: rep.rarity,
       })
       .from(cards)
       .innerJoin(games, eq(games.id, cards.gameId))
@@ -1311,6 +1313,7 @@ export class DrizzleCardStore implements CardStore {
                 ).displayNumber
               : null,
           cardFormat: r.cardFormat as CardFormat,
+          rarity: r.rarity,
         },
       ]),
     );
