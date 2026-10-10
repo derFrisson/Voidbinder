@@ -1,0 +1,355 @@
+{
+  "totalItems": 6,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 719864,
+      "name": "The Great Gallant Bandit",
+      "cleanName": "The Great Gallant Bandit",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/719864_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24815,
+      "url": "https://www.tcgplayer.com/product/719864/yugioh-beyond-the-brave-the-great-gallant-bandit",
+      "modifiedOn": "2026-10-09T04:10:22.04",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-10-09T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "BETB-EN027"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Secret Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "WIND"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Warrior"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "2500"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "2000"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "You can Tribute Summon this card face-up by Tributing monsters in your hand and/or your opponent's field, while you control no monsters. You can only use each of the following effects of \"The Great Gallant Bandit\" once per turn. When your opponent activates a card effect in the hand, GY, or banishment, and you control this Normal Summoned/Set card (Quick Effect): You can negate that effect, and if you do, destroy that card. During the Battle Phase (Quick Effect): You can reveal your entire hand; change all monsters your opponent controls to Defense Position."
+        }
+      ]
+    },
+    {
+      "productId": 719865,
+      "name": "The Great Gallant Bandit (Extended Art)",
+      "cleanName": "The Great Gallant Bandit Extended Art",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/719865_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24815,
+      "url": "https://www.tcgplayer.com/product/719865/yugioh-beyond-the-brave-the-great-gallant-bandit-extended-art",
+      "modifiedOn": "2026-10-09T04:10:22.04",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-10-09T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "BETB-EN027"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "WIND"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Warrior"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "2500"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "2000"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "You can Tribute Summon this card face-up by Tributing monsters in your hand and/or your opponent's field, while you control no monsters. You can only use each of the following effects of \"The Great Gallant Bandit\" once per turn. When your opponent activates a card effect in the hand, GY, or banishment, and you control this Normal Summoned/Set card (Quick Effect): You can negate that effect, and if you do, destroy that card. During the Battle Phase (Quick Effect): You can reveal your entire hand; change all monsters your opponent controls to Defense Position."
+        }
+      ]
+    },
+    {
+      "productId": 719866,
+      "name": "The Great Gallant Bandit (Starlight Rare) (Extended Art)",
+      "cleanName": "The Great Gallant Bandit Starlight Rare Extended Art",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/719866_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24815,
+      "url": "https://www.tcgplayer.com/product/719866/yugioh-beyond-the-brave-the-great-gallant-bandit-starlight-rare-extended-art",
+      "modifiedOn": "2026-10-09T04:10:22.04",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-10-09T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "BETB-EN027"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Starlight Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "WIND"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Warrior"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "2500"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "2000"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "You can Tribute Summon this card face-up by Tributing monsters in your hand and/or your opponent's field, while you control no monsters. You can only use each of the following effects of \"The Great Gallant Bandit\" once per turn. When your opponent activates a card effect in the hand, GY, or banishment, and you control this Normal Summoned/Set card (Quick Effect): You can negate that effect, and if you do, destroy that card. During the Battle Phase (Quick Effect): You can reveal your entire hand; change all monsters your opponent controls to Defense Position."
+        }
+      ]
+    },
+    {
+      "productId": 719877,
+      "name": "Red-Eyes Black Dragon Exceed",
+      "cleanName": "Red Eyes Black Dragon Exceed",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/719877_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24815,
+      "url": "https://www.tcgplayer.com/product/719877/yugioh-beyond-the-brave-red-eyes-black-dragon-exceed",
+      "modifiedOn": "2026-10-09T04:10:22.04",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-10-09T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "BETB-EN036"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "DARK"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Dragon"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Fusion/Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "3400"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "3000"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "\"Red-Eyes Black Dragon\" + 1 monster that mentions \"Dark Time Wizard\"<br />Must be either Fusion Summoned, or Special Summoned (from your Extra Deck) by Tributing 1 face-up monster on either field during the turn a monster was destroyed by the effect of \"Dark Time Wizard\". You can only Special Summon \"Red-Eyes Black Dragon Exceed\" once per turn this way, no matter which method you use. Unaffected by your opponent's activated Spell or monster effects. If this card is Special Summoned: You can Special Summon 1 Level 8 or lower monster from your hand or GY."
+        }
+      ]
+    },
+    {
+      "productId": 719878,
+      "name": "Red-Eyes Black Dragon Exceed (Extended Art)",
+      "cleanName": "Red Eyes Black Dragon Exceed Extended Art",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/719878_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24815,
+      "url": "https://www.tcgplayer.com/product/719878/yugioh-beyond-the-brave-red-eyes-black-dragon-exceed-extended-art",
+      "modifiedOn": "2026-10-09T04:10:22.04",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-10-09T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "BETB-EN036"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "DARK"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Dragon"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Fusion/Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "3400"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "3000"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "\"Red-Eyes Black Dragon\" + 1 monster that mentions \"Dark Time Wizard\"<br />Must be either Fusion Summoned, or Special Summoned (from your Extra Deck) by Tributing 1 face-up monster on either field during the turn a monster was destroyed by the effect of \"Dark Time Wizard\". You can only Special Summon \"Red-Eyes Black Dragon Exceed\" once per turn this way, no matter which method you use. Unaffected by your opponent's activated Spell or monster effects. If this card is Special Summoned: You can Special Summon 1 Level 8 or lower monster from your hand or GY."
+        }
+      ]
+    },
+    {
+      "productId": 719879,
+      "name": "Red-Eyes Black Dragon Exceed (Starlight Rare) (Extended Art)",
+      "cleanName": "Red Eyes Black Dragon Exceed Starlight Rare Extended Art",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/719879_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24815,
+      "url": "https://www.tcgplayer.com/product/719879/yugioh-beyond-the-brave-red-eyes-black-dragon-exceed-starlight-rare-extended-art",
+      "modifiedOn": "2026-10-09T04:10:22.04",
+      "imageCount": 0,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-10-09T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "BETB-EN036"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Starlight Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "DARK"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Dragon"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Fusion/Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "3400"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "3000"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "\"Red-Eyes Black Dragon\" + 1 monster that mentions \"Dark Time Wizard\"<br />Must be either Fusion Summoned, or Special Summoned (from your Extra Deck) by Tributing 1 face-up monster on either field during the turn a monster was destroyed by the effect of \"Dark Time Wizard\". You can only Special Summon \"Red-Eyes Black Dragon Exceed\" once per turn this way, no matter which method you use. Unaffected by your opponent's activated Spell or monster effects. If this card is Special Summoned: You can Special Summon 1 Level 8 or lower monster from your hand or GY."
+        }
+      ]
+    }
+  ]
+}

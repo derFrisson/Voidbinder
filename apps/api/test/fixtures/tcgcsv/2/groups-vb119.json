@@ -1,0 +1,25 @@
+{
+  "totalItems": 2,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "groupId": 24815,
+      "name": "Beyond the Brave",
+      "abbreviation": "BETB",
+      "isSupplemental": false,
+      "publishedOn": "2026-10-09T00:00:00",
+      "modifiedOn": "2026-10-09T13:17:11.053",
+      "categoryId": 2
+    },
+    {
+      "groupId": 24707,
+      "name": "Magnificent Monsters",
+      "abbreviation": "MAMO",
+      "isSupplemental": false,
+      "publishedOn": "2026-09-04T00:00:00",
+      "modifiedOn": "2026-09-23T02:51:18.943",
+      "categoryId": 2
+    }
+  ]
+}

@@ -544,10 +544,16 @@ export async function writeArtworks(
         .filter((r) => (r.lang === 'en') === en)
         .map((r) => ({ id: r.printId, lang: r.lang, artwork: r.artwork })),
     );
+  // A row without an alt code keeps the one TCGplayer's product name gave (VB-119).
+  const old = sql`prints.external_ids -> ${ARTWORK}::text`;
+  const artwork = sql`(case when not v.artwork ? 'alt' and ${old} ->> 'alt_source' = 'tcgplayer'
+    then jsonb_build_object('alt', ${old} -> 'alt', 'alt_source', 'tcgplayer',
+      'tcgplayer_product', ${old} -> 'tcgplayer_product')
+    else '{}'::jsonb end) || v.artwork`;
   const printsDone = await db.execute(sql`
-    update prints set external_ids = external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork)
+    update prints set external_ids = external_ids || jsonb_build_object(${ARTWORK}::text, ${artwork})
     from jsonb_to_recordset(${json(true)}::jsonb) as v(id uuid, lang text, artwork jsonb)
-    where prints.id = v.id and prints.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
+    where prints.id = v.id and ${old} is distinct from ${artwork}`);
   const locsDone = await db.execute(sql`
     update print_localizations l
     set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork),

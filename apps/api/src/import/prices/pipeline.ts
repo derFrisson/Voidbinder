@@ -25,7 +25,9 @@ import {
   setIdsByCode,
   startRun,
   upsertMappings,
+  writeArtworkFlags,
   writePrices,
+  type ArtworkFlag,
   type MappingRow,
   type PriceRow,
 } from './write';
@@ -53,6 +55,11 @@ export interface PriceImportOptions {
    * `POST /admin/import/tcgcsv?force=true`).
    */
   force?: boolean;
+  /**
+   * `TCGPLAYER_IMAGES`: a Yu-Gi-Oh! print flagged by its product's name takes the product's
+   * image as its scan (VB-119). Off unless the var is `1` / `true` (licence pending).
+   */
+  tcgplayerImages?: boolean;
 }
 
 export interface GameStats {
@@ -67,6 +74,8 @@ export interface GameStats {
   prices: number;
   /** Price rows without a market price (too few sales), not written. */
   noMarket: number;
+  /** Yu-Gi-Oh! prints that took an artwork code from their product's name (VB-119). */
+  artworks: number;
 }
 
 const GAMES: readonly PricedGame[] = ['mtg', 'yugioh', 'pokemon'];
@@ -109,6 +118,26 @@ export function groupSteps(groups: readonly GroupImport[]) {
   }
   if (current.length) steps.push(current);
   return steps;
+}
+
+/** TCGplayer's product images (checked 2026-10-10: a 703×1000 JPEG of the card). */
+const TCGPLAYER_CDN = 'https://tcgplayer-cdn.tcgplayer.com/product';
+
+/**
+ * The artwork TCGplayer's name of a Yu-Gi-Oh! product gives (VB-119), in Yugipedia's alt codes:
+ * `… (Extended Art)` is `EA`, `(Alternate Art)` / `(Alternate Artwork)` `AA`; null for any other
+ * name (`(Original Artwork)` / `(New Artwork)` pairs are `matchProducts`' artwork variants). With
+ * the product's image (`_in_1000x1000.jpg`) when it has one: `imageCount` 0 answers 403.
+ */
+export function artworkFlag(product: TcgProduct): Omit<ArtworkFlag, 'printId'> | null {
+  const kind = /\((Extended|Alternate) Art(?:work)?\)$/i.exec(product.name.trim())?.[1];
+  if (!kind) return null;
+  const id = product.productId;
+  return {
+    alt: kind.toLowerCase() === 'extended' ? 'EA' : 'AA',
+    productId: id,
+    url: (product.imageCount ?? 0) > 0 ? `${TCGPLAYER_CDN}/${id}_in_1000x1000.jpg` : null,
+  };
 }
 
 /**
@@ -160,11 +189,17 @@ export async function importGroups(
   deps: ImportDeps,
   game: PricedGame,
   groups: GroupImport[],
-  opts: { raw: string; delayMs: number; observedAt: string; grouped?: ReadonlySet<string> },
+  opts: {
+    raw: string;
+    delayMs: number;
+    observedAt: string;
+    grouped?: ReadonlySet<string>;
+    tcgplayerImages?: boolean;
+  },
 ) {
   const category = CATEGORIES[game];
   const byId = game === 'mtg';
-  const stats = { cards: 0, mapped: 0, unmapped: 0, prices: 0, noMarket: 0 };
+  const stats = { cards: 0, mapped: 0, unmapped: 0, prices: 0, noMarket: 0, artworks: 0 };
   for (const [setId, groupIds] of groupsBySet(groups)) {
     const own: { groupId: number; product: TcgProduct }[] = [];
     const prices: TcgPrice[] = [];
@@ -249,10 +284,22 @@ export async function importGroups(
       const rows: PriceRow[] = [];
       const priced = new Set<number>();
       let noMarket = 0;
+      // The artwork a Yu-Gi-Oh! product's name gives, for the prints it prices (VB-119).
+      const flagged = new Map(
+        regional
+          ? own.flatMap(({ product }) => {
+              const flag = artworkFlag(product);
+              return flag ? [[product.productId, flag] as const] : [];
+            })
+          : [],
+      );
+      const flags: ArtworkFlag[] = [];
       for (const p of prices) {
         const printIds = resolved.get(`${p.productId}|${finish(p)}`) ?? [];
         if (!printIds.length) continue;
         priced.add(p.productId);
+        const flag = flagged.get(p.productId);
+        if (flag) flags.push(...printIds.map((printId) => ({ ...flag, printId })));
         const market = cents(p.marketPrice);
         if (market === null) {
           noMarket++;
@@ -272,7 +319,16 @@ export async function importGroups(
           });
       }
       const written = await writePrices(db, rows, opts.observedAt);
-      return { priced, written, noMarket };
+      return {
+        priced,
+        written,
+        noMarket,
+        // Only Yu-Gi-Oh!'s products flag; its stale flags go with this set's run.
+        artworks: await writeArtworkFlags(db, flags, {
+          setId: regional ? setId : null,
+          images: opts.tcgplayerImages === true,
+        }),
+      };
     });
 
     // A reprint left out of the matching counts as a card all the same.
@@ -283,6 +339,7 @@ export async function importGroups(
     stats.unmapped += cardIds.length - mapped;
     stats.prices += r.written;
     stats.noMarket += r.noMarket;
+    stats.artworks += r.artworks;
   }
   return stats;
 }
@@ -354,6 +411,7 @@ export async function runTcgcsvImport(
         unmapped: 0,
         prices: 0,
         noMarket: 0,
+        artworks: 0,
       };
       // Sets with a group of their own; a Magic group without a set (VB-114) names none.
       const grouped = new Set(matched.flatMap((m) => (m.setId ? [m.setId] : [])));
@@ -364,7 +422,13 @@ export async function runTcgcsvImport(
         let r;
         try {
           r = await step(name, () =>
-            importGroups(deps, game, groups, { raw, delayMs, observedAt, grouped }),
+            importGroups(deps, game, groups, {
+              raw,
+              delayMs,
+              observedAt,
+              grouped,
+              tcgplayerImages: opts.tcgplayerImages === true,
+            }),
           );
         } catch (err) {
           // VB-116: still failing after the Workflow's retries. An isolated failure: the other
@@ -391,7 +455,7 @@ export async function runTcgcsvImport(
           continue;
         }
         inARow = 0;
-        for (const k of ['cards', 'mapped', 'unmapped', 'prices', 'noMarket'] as const)
+        for (const k of ['cards', 'mapped', 'unmapped', 'prices', 'noMarket', 'artworks'] as const)
           g[k] += r[k];
       }
       games[game] = g;

@@ -1,0 +1,224 @@
+{
+  "totalItems": 4,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 714655,
+      "name": "Dark Magician, the Pharaoh's Servant (Starlight Rare)  (Extended Art)",
+      "cleanName": "Dark Magician the Pharaohs Servant Starlight Rare Extended Art",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/714655_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24707,
+      "url": "https://www.tcgplayer.com/product/714655/yugioh-magnificent-monsters-dark-magician-the-pharaohs-servant-starlight-rare-extended-art",
+      "modifiedOn": "2026-09-04T04:10:25.95",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-09-04T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MAMO-EN001"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Starlight Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "DARK"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Spellcaster"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "2500"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "2100"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "This card's name becomes \"Dark Magician\" while on the field or in the GY. You can only use 1 of the following effects of \"Dark Magician, the Pharaoh's Servant\" per turn, and only once that turn. If this card is in your hand: You can reveal 1 Spell in your hand; Special Summon this card, then you can Set 1 Spell/Trap that mentions \"Dark Magician\" from your Deck. (Quick Effect): You can discard 1 Spell; destroy all Spells/Traps your opponent controls."
+        }
+      ]
+    },
+    {
+      "productId": 714701,
+      "name": "Dark Magician, the Pharaoh's Servant",
+      "cleanName": "Dark Magician the Pharaohs Servant",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/714701_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24707,
+      "url": "https://www.tcgplayer.com/product/714701/yugioh-magnificent-monsters-dark-magician-the-pharaohs-servant",
+      "modifiedOn": "2026-09-04T04:10:25.95",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-09-04T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MAMO-EN001"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "DARK"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Spellcaster"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "2500"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "2100"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "This card's name becomes \"Dark Magician\" while on the field or in the GY. You can only use 1 of the following effects of \"Dark Magician, the Pharaoh's Servant\" per turn, and only once that turn. If this card is in your hand: You can reveal 1 Spell in your hand; Special Summon this card, then you can Set 1 Spell/Trap that mentions \"Dark Magician\" from your Deck. (Quick Effect): You can discard 1 Spell; destroy all Spells/Traps your opponent controls."
+        }
+      ]
+    },
+    {
+      "productId": 714702,
+      "name": "Dark Magician, the Pharaoh's Servant (Extended Art)",
+      "cleanName": "Dark Magician the Pharaohs Servant Extended Art",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/714702_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24707,
+      "url": "https://www.tcgplayer.com/product/714702/yugioh-magnificent-monsters-dark-magician-the-pharaohs-servant-extended-art",
+      "modifiedOn": "2026-09-04T04:10:25.95",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-09-04T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MAMO-EN001"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "DARK"
+        },
+        {
+          "name": "MonsterType",
+          "displayName": "Monster Type",
+          "value": "Spellcaster"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Effect Monster"
+        },
+        {
+          "name": "Attack",
+          "displayName": "Attack",
+          "value": "2500"
+        },
+        {
+          "name": "Defense",
+          "displayName": "Defense",
+          "value": "2100"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "This card's name becomes \"Dark Magician\" while on the field or in the GY. You can only use 1 of the following effects of \"Dark Magician, the Pharaoh's Servant\" per turn, and only once that turn. If this card is in your hand: You can reveal 1 Spell in your hand; Special Summon this card, then you can Set 1 Spell/Trap that mentions \"Dark Magician\" from your Deck. (Quick Effect): You can discard 1 Spell; destroy all Spells/Traps your opponent controls."
+        }
+      ]
+    },
+    {
+      "productId": 714819,
+      "name": "Artmage Academic Arcane Arts Acropolis",
+      "cleanName": "Artmage Academic Arcane Arts Acropolis",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/714819_200w.jpg",
+      "categoryId": 2,
+      "groupId": 24707,
+      "url": "https://www.tcgplayer.com/product/714819/yugioh-magnificent-monsters-artmage-academic-arcane-arts-acropolis",
+      "modifiedOn": "2026-09-04T04:10:25.95",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": "2026-09-04T00:00:00",
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MAMO-EN101"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        },
+        {
+          "name": "Attribute",
+          "displayName": "Attribute",
+          "value": "SPELL"
+        },
+        {
+          "name": "Card Type",
+          "displayName": "Card Type",
+          "value": "Field Spell"
+        },
+        {
+          "name": "Description",
+          "displayName": "Description",
+          "value": "During your Main Phase, you can Normal Summon 1 \"Medius the Pure\", in addition to your Normal Summon/Set (you can only gain this effect once per turn). You can discard 1 Spell/Trap, and declare 1 \"Artmage\" Monster Card name that is not among the monsters you control and has not been declared for \"Artmage Academic Arcane Arts Acropolis\" this turn; add that monster from your Deck to your hand, also you cannot Special Summon for the rest of this turn, except \"Artmage\" monsters, \"Medius the Pure\", or from the Extra Deck."
+        }
+      ]
+    }
+  ]
+}

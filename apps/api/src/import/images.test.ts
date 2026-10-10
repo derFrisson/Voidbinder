@@ -337,6 +337,16 @@ describe('mirrorJobs', () => {
     }
   });
 
+  it("counts TCGplayer's 403 as gone, any other source's as failed (VB-119)", async () => {
+    const tcgplayer = {
+      ...job(1),
+      url: 'https://tcgplayer-cdn.tcgplayer.com/product/1_in_1000x1000.jpg',
+    };
+    const { deps } = fakeDeps({ status: 403 });
+    expect(await run(deps, [tcgplayer]).then((r) => r.stats)).toMatchObject({ gone: 1, failed: 0 });
+    expect(await run(deps, [job(2)]).then((r) => r.stats)).toMatchObject({ gone: 0, failed: 1 });
+  });
+
   it('stops the run on a 429', async () => {
     const { deps, fetched } = fakeDeps({ status: 429 });
     await expect(run(deps, [job(1), job(2)])).rejects.toBeInstanceOf(SourceRateLimited);

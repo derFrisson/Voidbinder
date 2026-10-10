@@ -27,23 +27,26 @@ export const IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 /**
  * Requests per second per source: Scryfall's file hosts have no limit (be polite), YGOPRODeck
  * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API;
- * pokemontcg.io's pictures (VB-118, the Pokémon backup) a few a second.
+ * TCGplayer's product images (VB-119, a scan's stand-in) two; pokemontcg.io's pictures (VB-118,
+ * the Pokémon backup) a few a second.
  */
 export const SOURCE_RATES: Record<string, number> = {
   mtg: 20,
   yugioh: 15,
   pokemon: 8,
   yugipedia: 1,
+  tcgplayer: 2,
   pokemontcg: 4,
 };
 
 /**
  * The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan,
- * pokemontcg.io's for its pictures.
+ * TCGplayer's for a product image, pokemontcg.io's for its pictures.
  */
 const sourceOf = (game: string, url: string) => {
   const host = new URL(url).hostname;
   if (host.endsWith('yugipedia.com')) return 'yugipedia';
+  if (host.endsWith('tcgplayer.com')) return 'tcgplayer';
   return host === 'images.pokemontcg.io' ? 'pokemontcg' : game;
 };
 
@@ -108,10 +111,11 @@ export const showsScan = (artwork: unknown): boolean => {
  * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, for a high-res scan
  * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
  * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
- * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106) when it shows it
- * (`showsScan`), else YGOPRODeck's `image_url` (the card's first artwork); TCGdex
- * `tcgdex_images.high` (`<image>/high.webp`), else pokemontcg.io's `pokemontcg_images.large`
- * (VB-118, a print TCGdex has no picture for).
+ * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106; TCGplayer's
+ * product image until the gallery has one, VB-119) when it shows it (`showsScan`), else
+ * YGOPRODeck's `image_url` (the card's first artwork); TCGdex `tcgdex_images.high`
+ * (`<image>/high.webp`), else pokemontcg.io's `pokemontcg_images.large` (VB-118, a print TCGdex
+ * has no picture for).
  */
 export function sourceUrl(
   game: string,
@@ -145,7 +149,8 @@ const SAFE_ID = /^[A-Za-z0-9._-]+$/;
 /**
  * The source's stable id that names an image's objects: the Scryfall card id; for YGOPRODeck the
  * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it); for
- * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106);
+ * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106), for a TCGplayer
+ * product image its file name too (`719866_in_1000x1000`, VB-119);
  * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`), with
  * `-pokemontcg` for a pokemontcg.io picture, so `needsWork` and `writeKeys` let a later TCGdex
  * picture replace it (VB-118).
@@ -303,14 +308,17 @@ export interface MirrorStats {
   /** Already in the bucket (`verify`). */
   reused: number;
   failed: number;
-  /** The source answered 404 or 410: recorded in `image_sources_gone`, skipped from then on. */
+  /**
+   * The source answered 404 or 410 (TCGplayer's CDN also 403): recorded in `image_sources_gone`,
+   * skipped from then on.
+   */
   gone: number;
   bytes: number;
 }
 
 export class SourceRateLimited extends Error {}
 
-/** The source answered 404 or 410 for the image (VB-89). */
+/** The source answered 404 or 410 for the image (VB-89; TCGplayer's CDN also 403, VB-119). */
 export class SourceGone extends Error {}
 
 /**
@@ -367,7 +375,9 @@ export async function mirrorJobs(
       // An unread body keeps the connection open (Workers allow six).
       await res.body?.cancel();
       if (res.status === 429) throw new SourceRateLimited(`${job.url} answered 429, stopping`);
-      if (res.status === 404 || res.status === 410) throw new SourceGone(`answered ${res.status}`);
+      // TCGplayer's CDN answers 403 for a product without an image (VB-119).
+      const gone = [404, 410, ...(source === 'tcgplayer' ? [403] : [])];
+      if (gone.includes(res.status)) throw new SourceGone(`answered ${res.status}`);
       throw new Error(`answered ${res.status}`);
     }
     const type = res.headers.get('content-type')?.split(';')[0]?.trim();
