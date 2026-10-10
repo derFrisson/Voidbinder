@@ -49,12 +49,15 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
   const { card } = data;
   const { print } = view;
   const game: Game = card.game;
-  // Legality and card text side by side from 1180 px.
-  const half = width >= 1180 ? 'min-w-0 flex-1' : '';
+  // Three zones from 1600 px (stage, prices, prints with legality and text), two columns from 768
+  // with legality and text side by side from 1180, one column on phones (VB-100).
+  const three = width >= 1600;
+  const half = width >= 1180 && !three ? 'min-w-0 flex-1' : '';
   const pick = (id: string) => router.setParams({ print: id });
 
   const header = (
-    <View className={width >= 1180 ? 'flex-row items-start justify-between gap-6' : 'gap-4'}>
+    // In the middle zone (three zones) the buttons go under the title, side by side.
+    <View className={half ? 'flex-row items-start justify-between gap-6' : 'gap-4'}>
       <View className="flex-1 gap-3">
         <View className="flex-row flex-wrap items-center gap-2.5">
           <View className="h-7 flex-row items-center gap-2 rounded-full bg-surface px-3">
@@ -91,7 +94,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
         )}
       </View>
       {!wide && print && <PriceStrip printId={print.id} />}
-      {print && <CollectButtons wide={wide} printId={print.id} cardId={card.id} />}
+      {print && <CollectButtons wide={wide && !three} printId={print.id} cardId={card.id} />}
     </View>
   );
 
@@ -115,20 +118,23 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
     />
   );
   const notice = <RightsNotice game={game} artist={print?.artist} copyright={data.copyright} />;
-  const panels = (
+  const prices = print && (
+    <PricePanel key={print.id} printId={print.id} finishes={print.finishes} />
+  );
+  const details = (
     <>
-      {print && <PricePanel key={print.id} printId={print.id} finishes={print.finishes} />}
       {print && (
         <PrintsTable
           prints={data.prints}
           current={print.id}
           cardId={card.id}
           game={game}
-          // The full columns need the room of a 1024 px window; the 320 px image column takes it below.
-          wide={width >= 1024}
+          // The full columns need the room of a 1024 px window (the 320 px image column takes it
+          // below), and in the third zone a 1760 px one, where that zone is 640 px wide.
+          wide={three ? width >= 1760 : width >= 1024}
         />
       )}
-      <View className={width >= 1180 ? 'flex-row items-start gap-4' : 'gap-4'}>
+      <View className={half ? 'flex-row items-start gap-4' : 'gap-4'}>
         <Legality game={game} legalities={card.legalities} className={half} />
         <CardText text={view.text} lang={view.textLang} print={print} className={half} />
       </View>
@@ -140,22 +146,35 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
       <View className="gap-5">
         {stage}
         {header}
-        {panels}
+        {prices}
+        {details}
         {notice}
       </View>
     );
   }
   return (
-    <View className="flex-row items-start gap-10">
+    <View className={`flex-row items-start ${three ? 'gap-8' : 'gap-10'}`}>
       <View className={`gap-4 ${width >= 1180 ? 'w-[400px]' : 'w-[320px]'}`}>
         {stage}
         {print && <PrintThumbs prints={data.prints} current={print.id} onPick={pick} />}
         {notice}
       </View>
-      <View className="min-w-0 flex-1 gap-5">
-        {header}
-        {panels}
-      </View>
+      {three ? (
+        <>
+          {/* 496 px at 1600 (both price sources side by side), the rest goes to the prints. */}
+          <View className="min-w-[496px] flex-1 gap-5">
+            {header}
+            {prices}
+          </View>
+          <View className="min-w-[440px] flex-[1.25] gap-5">{details}</View>
+        </>
+      ) : (
+        <View className="min-w-0 flex-1 gap-5">
+          {header}
+          {prices}
+          {details}
+        </View>
+      )}
     </View>
   );
 }
@@ -182,7 +201,7 @@ export default function CardPage() {
         ]
       : [{ label: ' ' }];
   return (
-    <Page title={name || ' '} back crumbs={crumbs}>
+    <Page title={name || ' '} back catalog crumbs={crumbs}>
       <QueryState query={card}>{(data) => <CardView data={data} printId={print} />}</QueryState>
     </Page>
   );

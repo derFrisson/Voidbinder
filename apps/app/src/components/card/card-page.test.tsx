@@ -122,6 +122,17 @@ describe('card page', () => {
     expect(screen.getByText('0 Kopien')).toBeTruthy();
   });
 
+  it('puts the copies line with the format name, apart from the status (VB-100)', async () => {
+    renderApp(<Legality game="yugioh" legalities={{ tcg: 'Semi-Limited', ocg: 'Limited' }} />);
+    const copies = await screen.findByText('2 Kopien');
+    // Name and copies share a wrapping group (a gap between them, or a second line); the status
+    // chip is the group's sibling, right-aligned.
+    const group = copies.parentElement;
+    expect(group?.textContent).toBe('TCG2 Kopien');
+    expect(group?.nextElementSibling?.textContent).toBe('semi-limitiert');
+    expect(screen.getByText('1 Kopie').parentElement?.textContent).toBe('OCG1 Kopie');
+  });
+
   it('shows no copies line for Magic', async () => {
     renderApp(<Legality game="mtg" legalities={{ standard: 'banned' }} />);
     expect(await screen.findByText('gebannt')).toBeTruthy();

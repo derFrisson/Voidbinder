@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createServer } from 'node:net';
-import { chromium, type Browser, type Page } from 'playwright';
+import { chromium, type Browser, type Locator, type Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 // The exported web build (`pnpm build`, which turbo runs before the tests) served by the Worker
@@ -251,6 +251,29 @@ const card = {
     },
   ],
   copyright: '©Wizards of the Coast LLC',
+};
+// A Yu-Gi-Oh! card for the wide layout (VB-100): copies lines and a set name too long for one line.
+const YGO_CARD = '4d112e72-f8b2-48e0-9798-208873db6761';
+const ygoCard = {
+  card: {
+    ...card.card,
+    id: YGO_CARD,
+    game: 'yugioh',
+    name: 'Raigeki',
+    typeLine: 'Spell Card',
+    attributes: {},
+    legalities: { tcg: 'Semi-Limited', ocg: 'Limited' },
+  },
+  prints: card.prints.map((p) => ({
+    ...p,
+    cardId: YGO_CARD,
+    set: {
+      game: 'yugioh',
+      code: 'lob',
+      name: 'Legend of Blue Eyes White Dragon: Anniversary Pack',
+    },
+  })),
+  copyright: '©Studio Dice/SHUEISHA, TV TOKYO, KONAMI',
 };
 
 // The collection (VB-31): one binder, one priced entry, an empty wish list.
@@ -522,6 +545,7 @@ async function open({
     if (path === '/api/me/banlist-impact') return route.fulfill({ json: banlistImpact });
     if (path === '/api/catalog/search/suggest') return route.fulfill({ json: suggest });
     if (path === `/api/catalog/cards/${CARD}`) return route.fulfill({ json: card });
+    if (path === `/api/catalog/cards/${YGO_CARD}`) return route.fulfill({ json: ygoCard });
     return route.fulfill({
       status: 404,
       json: { error: { code: 'not_found', message: 'x', requestId: 'r' } },
@@ -823,9 +847,100 @@ describe('web build', () => {
     }
   });
 
+  // The wide layout (VB-100): the catalog width, the card page's zones and the set page's columns.
+  const rect = async (l: Locator) => {
+    const b = await l.boundingBox();
+    if (!b) throw new Error('not laid out');
+    return b;
+  };
+  it.each([
+    [1440, 'two columns'],
+    [1760, 'three zones'],
+    [2048, 'three zones'],
+    [390, 'one column'],
+  ] as const)('lays out the card page at %i px in %s', async (width, zones) => {
+    const { context, page, csp } = await open({ width, height: 1000 });
+    try {
+      await page.goto(`${origin}/cards/${YGO_CARD}`);
+      const heading = (name: string) => page.getByRole('heading', { level: 2, name });
+      await heading('Drucke und Varianten').waitFor();
+      if (process.env.SHOTS)
+        await page.screenshot({ path: `${process.env.SHOTS}/card-${width}.png` });
+      const [prices, prints, legality, text] = await Promise.all([
+        rect(heading('Preise')),
+        rect(heading('Drucke und Varianten')),
+        rect(heading('Legalität')),
+        rect(heading('Kartentext')),
+      ]);
+      if (zones === 'three zones') {
+        // Prints, legality and text stacked in a third zone right of the prices.
+        expect(prints.x).toBeGreaterThan(prices.x + 400);
+        expect(legality.x).toBe(prints.x);
+        expect(text.x).toBe(prints.x);
+        expect(text.y).toBeGreaterThan(legality.y);
+      } else {
+        expect(prints.x).toBe(prices.x);
+        expect(prints.y).toBeGreaterThan(prices.y);
+        // Legality and card text side by side from 1180 px, stacked below.
+        if (width >= 1180) expect(text.y).toBe(legality.y);
+        else expect(text.y).toBeGreaterThan(legality.y);
+      }
+      // The catalog width: 1760 px once the window has room for it (rail 80, gutters 2 × 32).
+      const main = await rect(page.getByRole('main'));
+      if (width >= 1904) expect(main.width).toBe(1760);
+      // The set name keeps to one line (two on a phone), its full name stays the link's text.
+      const set = page.getByRole('table', { name: 'Drucke und Varianten' }).getByRole('link', {
+        name: 'Legend of Blue Eyes White Dragon: Anniversary Pack',
+      });
+      expect((await rect(set)).height).toBeLessThan(width < 768 ? 44 : 24);
+      // The copies line follows the format name with a gap, or sits under it.
+      for (const copies of ['2 Kopien', '1 Kopie']) {
+        const line = page.getByText(copies, { exact: true });
+        const [c, name] = await Promise.all([
+          rect(line),
+          rect(line.locator('xpath=preceding-sibling::*[1]')),
+        ]);
+        expect(c.x >= name.x + name.width + 8 || c.y >= name.y + name.height - 1).toBe(true);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      expect(main.x + main.width).toBeLessThanOrEqual(width);
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  it.each([
+    [1440, 7],
+    [1760, 8],
+    [2048, 8],
+    [390, 3],
+  ] as const)('fills the set page at %i px with %i columns', async (width, columns) => {
+    const { context, page } = await open({ width, height: 1000 });
+    try {
+      await page.goto(`${origin}/mtg/sets/mid`);
+      const tile = page
+        .getByRole('listitem')
+        .filter({ has: page.getByRole('img', { name: 'Adeline 1, MID 1' }) });
+      await tile.waitFor();
+      if (process.env.SHOTS)
+        await page.screenshot({ path: `${process.env.SHOTS}/set-${width}.png` });
+      const [item, list] = await Promise.all([rect(tile), rect(tile.locator('xpath=..'))]);
+      expect(Math.round(list.width / item.width)).toBe(columns);
+      if (width >= 1904) expect((await rect(page.getByRole('main'))).width).toBe(1760);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+    } finally {
+      await context.close();
+    }
+  });
+
   // WCAG 2.2 AA, automated, like the site (apps/site/test/a11y.test.ts).
-  const cases = (['light', 'dark'] as const).flatMap((scheme) =>
-    [
+  const cases = (['light', 'dark'] as const).flatMap((scheme) => [
+    ...[
       ['desktop', 1440, 900],
       ['phone', 390, 844],
     ].flatMap(([name, width, height]) =>
@@ -840,7 +955,11 @@ describe('web build', () => {
         `/cards/${CARD}`,
       ].map((path) => [scheme, name, path, width, height] as const),
     ),
-  );
+    // The wide layout (VB-100).
+    ...['/mtg/sets/mid', `/cards/${CARD}`, `/cards/${YGO_CARD}`].map(
+      (path) => [scheme, 'wide', path, 2048, 1100] as const,
+    ),
+  ]);
   it.each(cases)('axe: %s %s %s has no violations', async (scheme, _name, path, width, height) => {
     const { context, page } = await open({
       width: width as number,

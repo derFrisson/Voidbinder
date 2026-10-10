@@ -32,9 +32,12 @@ export function PrintsTable({
   const h = t.card.table;
   const head = 'font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3';
   const cell = 'font-body text-sm text-ink';
+  // The set gets the most room; its name keeps to one line (two on a phone), cut with an ellipsis
+  // (the link keeps the full name as its text).
+  const setCol = wide ? 'flex-[3]' : 'flex-[2.4]';
   const cols = wide
     ? ([
-        ['flex-[2.4]', h.set],
+        [setCol, h.set],
         ['flex-[0.8]', h.number],
         ['flex-[0.8]', h.languages],
         ['flex-[1.2]', h.finish],
@@ -42,7 +45,7 @@ export function PrintsTable({
         ['flex-[0.8] text-right', h.price],
       ] as const)
     : ([
-        ['flex-[2.4]', h.set],
+        [setCol, h.set],
         ['flex-[1.2]', h.finish],
         ['flex-[0.8] text-right', h.price],
       ] as const);
@@ -69,9 +72,10 @@ export function PrintsTable({
               aria-current={on ? 'true' : undefined}
               className={`flex-row items-center gap-3 border-b border-line px-2.5 py-2.5 ${on ? `${fieldClass[game].soft} border-l-[3px] ${fieldClass[game].edge}` : ''}`}
             >
-              <View role="cell" className="flex-[2.4] gap-0.5">
+              <View role="cell" className={`${setCol} min-w-0 gap-0.5`}>
                 <Link
                   href={`/cards/${cardId}?print=${p.id}`}
+                  numberOfLines={wide ? 1 : 2}
                   className="font-display text-[14.5px] font-semibold text-ink underline"
                 >
                   {p.set.name}
@@ -175,10 +179,12 @@ export function Legality({
           return (
             <View
               key={key}
-              className="min-w-[140px] flex-1 basis-[45%] flex-row items-center justify-between rounded-[10px] bg-page py-2 pl-3 pr-2.5"
+              // A row with a copies line needs about 220 px; narrower, it takes the full width.
+              className={`${game === 'yugioh' ? 'min-w-[220px]' : 'min-w-[140px]'} flex-1 basis-[45%] flex-row items-center justify-between gap-3 rounded-[10px] bg-page py-2 pl-3 pr-2.5`}
             >
-              <Text className="font-display text-[13.5px] font-semibold text-ink">{name}</Text>
-              <View className="flex-row items-center gap-2">
+              {/* The copies line follows the name with a gap, or goes under it when narrow (VB-100). */}
+              <View className="shrink flex-row flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
+                <Text className="font-display text-[13.5px] font-semibold text-ink">{name}</Text>
                 {game === 'yugioh' && banLimit(status) !== null && (
                   // How many copies the list allows (Max, VB-81): 0, 1, 2 or 3.
                   <Text className="font-mono text-xs text-ink-3">
@@ -187,12 +193,12 @@ export function Legality({
                     })}
                   </Text>
                 )}
-                <Text
-                  className={`rounded-[7px] px-2 py-1 font-display text-xs font-semibold ${STATUS[status] ?? 'bg-surface-2 text-ink-2'}`}
-                >
-                  {label(t.card.legal, status)}
-                </Text>
               </View>
+              <Text
+                className={`shrink-0 rounded-[7px] px-2 py-1 font-display text-xs font-semibold ${STATUS[status] ?? 'bg-surface-2 text-ink-2'}`}
+              >
+                {label(t.card.legal, status)}
+              </Text>
             </View>
           );
         })}
