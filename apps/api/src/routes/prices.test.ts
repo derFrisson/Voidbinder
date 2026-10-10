@@ -98,8 +98,12 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       ['PO', 100],
     ]);
     expect(body.conditionsAreEstimates).toBe(true);
-    // VB-115: Cardmarket's foil and normal share one product, one link without a finish.
+    // VB-115: Cardmarket's foil and normal share one product, one link.
     expect(body.links).toEqual([
+      {
+        portal: 'cardnexus',
+        url: 'https://cardnexus.com/en/search?q=Adeline%2C%20Resplendent%20Cathar%20MID',
+      },
       {
         portal: 'cardmarket',
         url: 'https://www.cardmarket.com/en/Magic/Products?idProduct=574937',
@@ -129,7 +133,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect((await app.request(`/catalog/prints/${adeline}/prices?currency=GBP`)).status).toBe(400);
   });
 
-  it('links each TCGplayer product of a print (VB-115)', async () => {
+  it('links one TCGplayer product of a print (VB-115)', async () => {
     const id = await printId('mid', '1');
     const mapping = (externalId: string, finish: string) => ({
       printId: id,
@@ -144,8 +148,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       await (await app.request(`/catalog/prints/${id}/prices`)).json(),
     );
     expect(body.links.filter((l) => l.portal === 'tcgplayer')).toEqual([
-      { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247338', finish: 'normal' },
-      { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247339', finish: 'foil' },
+      { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247338' },
     ]);
     await db
       .delete(priceMappings)

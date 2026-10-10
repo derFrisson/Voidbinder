@@ -89,10 +89,13 @@ export const printPrices: PrintPricesResponse = {
     { condition: 'LP', factor: 0.6, cents: 200 },
   ],
   conditionsAreEstimates: true,
-  // Built by core's `marketplaceLinks` (VB-115): foil and normal are separate TCGplayer products.
+  // Built by core's `marketplaceLinks` (VB-115): Card Nexus first, one TCGplayer product.
   links: [
-    { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247338', finish: 'foil' },
-    { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247339', finish: 'normal' },
+    {
+      portal: 'cardnexus',
+      url: 'https://cardnexus.com/en/search?q=Adeline%2C%20Resplendent%20Cathar%20MID',
+    },
+    { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247339' },
     { portal: 'cardmarket', url: 'https://www.cardmarket.com/en/Magic/Products?idProduct=565281' },
     {
       portal: 'ebay',
