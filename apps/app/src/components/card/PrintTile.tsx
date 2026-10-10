@@ -1,17 +1,25 @@
 import type { SearchHit } from '@voidbinder/shared/api';
+import { cardAspect } from '@voidbinder/shared';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
+import { useT } from '../../i18n';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
 import { CardImage } from './CardImage';
+import { numberLabel } from './game';
 
 /** A search result: image, name, set code and number in mono, set name, market price. Opens the card page. */
 export function PrintTile({ hit }: { hit: SearchHit }) {
-  const code = `${hit.setCode.toUpperCase()} ${hit.number}`;
+  const t = useT();
+  const set = hit.setCode.toUpperCase();
+  const code = `${set} ${hit.displayNumber}`;
   return (
     <Link href={`/cards/${hit.cardId}?print=${hit.id}`} asChild>
-      <Pressable aria-label={`${hit.name}, ${code}`} className="gap-2 rounded-xl">
-        <CardImage uri={hit.imageUrl} />
+      <Pressable
+        aria-label={`${hit.name}, ${set} ${numberLabel(t.card.numberIn, hit)}`}
+        className="gap-2 rounded-xl"
+      >
+        <CardImage uri={hit.imageUrl} format={hit.cardFormat} />
         <View className="gap-0.5 px-0.5">
           <Text
             numberOfLines={2}
@@ -36,7 +44,7 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
 export function TileSkeleton() {
   return (
     <View aria-hidden className="gap-2">
-      <View className="aspect-[63/88] w-full rounded-lg bg-surface-2" />
+      <View style={{ aspectRatio: cardAspect() }} className="w-full rounded-lg bg-surface-2" />
       <View className="h-3.5 w-4/5 rounded bg-surface-2" />
       <View className="h-3 w-1/2 rounded bg-surface-2" />
     </View>

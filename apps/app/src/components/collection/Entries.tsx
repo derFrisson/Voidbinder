@@ -4,6 +4,7 @@ import type {
   CollectionEntry,
   EntryPrint,
 } from '@voidbinder/shared/api';
+import { cardAspect } from '@voidbinder/shared';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
@@ -28,19 +29,21 @@ import {
 
 const head = 'font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3';
 
-/** A small card image, or the game's soft field while there is none. */
-export function Thumb({ print }: { print: EntryPrint }) {
+/** A small card image in its format's box (contained), or the game's soft field while there is none. */
+export function Thumb({ print }: { print: Pick<EntryPrint, 'imageUrl' | 'game' | 'cardFormat'> }) {
   const [failed, setFailed] = useState(false);
+  const box = { aspectRatio: cardAspect(print.cardFormat) };
   return print.imageUrl && !failed ? (
     <Image
       aria-hidden
       source={{ uri: print.imageUrl }}
       onError={() => setFailed(true)}
-      resizeMode="cover"
-      className="h-[42px] w-[30px] rounded"
+      resizeMode="contain"
+      style={box}
+      className="w-[30px] rounded"
     />
   ) : (
-    <View aria-hidden className={`h-[42px] w-[30px] rounded ${fieldClass[print.game].soft}`} />
+    <View aria-hidden style={box} className={`w-[30px] rounded ${fieldClass[print.game].soft}`} />
   );
 }
 
@@ -58,7 +61,7 @@ export function CardCell({ print }: { print: EntryPrint }) {
             {print.name}
           </Text>
           <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
-            {print.setCode.toUpperCase()} · {print.number}
+            {print.setCode.toUpperCase()} · {print.displayNumber}
           </Text>
         </View>
       </Pressable>
@@ -145,7 +148,7 @@ function EditEntry({
         >
           {e.title}{' '}
           <Text className="font-mono text-[13px] font-medium text-ink-2">
-            {entry.print.name} · {entry.print.setCode.toUpperCase()} {entry.print.number}
+            {entry.print.name} · {entry.print.setCode.toUpperCase()} {entry.print.displayNumber}
           </Text>
         </Text>
         <IconButton icon="close" label={e.close} onPress={onClose} />
@@ -296,7 +299,7 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
                   {e.print.name}
                 </Text>
                 <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
-                  {e.print.number} · {e.language.toUpperCase()} · {e.condition} ·{' '}
+                  {e.print.displayNumber} · {e.language.toUpperCase()} · {e.condition} ·{' '}
                   {label(t.card.finishes, e.finish)}
                 </Text>
               </View>

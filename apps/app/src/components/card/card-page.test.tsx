@@ -14,6 +14,9 @@ const print = (id: string, set: string, number: string, langs: string[]) => ({
   cardId: CARD,
   set: { game: 'mtg', code: set, name: set === 'mid' ? 'Innistrad: Midnight Hunt' : 'The List' },
   number,
+  displayNumber: number,
+  displayCode: `${set.toUpperCase()} ${number}`,
+  cardFormat: 'standard',
   variant: '',
   rarity: 'rare',
   finishes: ['normal', 'foil'],
@@ -26,6 +29,8 @@ const print = (id: string, set: string, number: string, langs: string[]) => ({
     name: lang === 'de' ? 'Adeline, strahlende Katharerin' : 'Adeline, Resplendent Cathar',
     text: lang === 'de' ? 'Wachsamkeit' : 'Vigilance',
     imageUrl: null,
+    displayNumber: number,
+    displayCode: `${set.toUpperCase()} ${number}`,
   })),
 });
 const card = {
@@ -165,6 +170,36 @@ describe('card page', () => {
     renderApp(<CardPage />);
     expect(await screen.findByText('MID 1')).toBeTruthy();
     expect(screen.getByRole('row', { current: true }).textContent).toContain('Midnight Hunt');
+  });
+
+  it('shows a Yu-Gi-Oh! code in the language shown, the stage in its card format (VB-97)', async () => {
+    const ygo = {
+      card: { ...card.card, game: 'yugioh', legalities: {} },
+      prints: [
+        {
+          ...print('33333333-3333-4333-8333-333333333333', 'blgg', 'EN024', ['de', 'en']),
+          set: { game: 'yugioh', code: 'blgg', name: 'Battles of Legend' },
+          displayCode: 'BLGG-EN024',
+          cardFormat: 'japanese',
+          localizations: [
+            { lang: 'de', name: 'Geistertrick-Engel', text: null, imageUrl: null },
+            { lang: 'en', name: 'Ghostrick Angel', text: null, imageUrl: null },
+          ].map((l) => ({
+            ...l,
+            displayNumber: `${l.lang.toUpperCase()}024`,
+            displayCode: `BLGG-${l.lang.toUpperCase()}024`,
+          })),
+        },
+      ],
+      copyright: '©Konami',
+    };
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(ygo) : undefined));
+    const { container } = renderApp(<CardPage />);
+    // The header and the prints table (phone layout: the number folds into the set cell).
+    expect(await screen.findByText('BLGG-DE024')).toBeTruthy();
+    expect(screen.getByText(/^BLGG DE024 · DE · EN/)).toBeTruthy();
+    const stage = container.querySelector('[style*="aspect-ratio"]') as HTMLElement;
+    expect(stage.style.aspectRatio).toBe(`${59 / 86} / 1`);
   });
 
   it('says not found for an unknown card', async () => {

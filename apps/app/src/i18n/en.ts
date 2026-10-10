@@ -101,6 +101,7 @@ export const en: Dict = {
   },
   card: {
     noImage: 'No image',
+    numberIn: 'Number in {lang}',
     views: 'Choose a print',
     artist: 'Illustration: {artist}',
     addToCollection: 'Add to collection',

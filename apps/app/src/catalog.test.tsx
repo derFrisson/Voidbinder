@@ -18,6 +18,9 @@ const print = (n: number, extra: object = {}) => ({
   id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
   cardId: `10000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
   number: String(n),
+  displayNumber: String(n),
+  displayCode: `MID ${n}`,
+  cardFormat: 'standard' as const,
   variant: '',
   name: `Card ${n}`,
   rarity: n % 2 ? 'rare' : 'common',
@@ -167,8 +170,8 @@ describe('set page', () => {
     const imgs = container.querySelectorAll('img');
     expect(imgs).toHaveLength(1);
     expect(imgs[0]?.getAttribute('loading')).toBe('lazy');
-    expect(imgs[0]?.getAttribute('width')).toBe('250');
-    expect(imgs[0]?.getAttribute('height')).toBe('350');
+    expect(imgs[0]?.getAttribute('width')).toBe('320');
+    expect(imgs[0]?.getAttribute('height')).toBe('447');
     expect(imgs[0]?.getAttribute('alt')).toBe('Card 1, MID 1');
     // Card 2 has no picture: the frame shows its number.
     fireEvent.error(imgs[0] as HTMLImageElement);
@@ -371,12 +374,63 @@ describe('second review round', () => {
 
   it('shows a new picture after a failed one when the uri changes', () => {
     const uri = (n: number) => `https://img.voidbinder.de/images/mtg/${n}/en/sm.webp`;
-    const props = { alt: 'a', game: 'mtg' as const, number: '1' };
+    const props = { alt: 'a', game: 'mtg' as const, format: 'standard' as const, number: '1' };
     const { container, rerender } = renderApp(<CardImage uri={uri(1)} {...props} />);
     fireEvent.error(container.querySelector('img') as HTMLImageElement);
     expect(container.querySelector('img')).toBeNull();
     rerender(<CardImage uri={uri(2)} {...props} />);
     expect(container.querySelector('img')?.getAttribute('src')).toBe(uri(2));
+  });
+
+  it('boxes each game’s picture in its card format, contained (VB-97)', () => {
+    const uri = 'https://img.voidbinder.de/images/yugioh/34950192/en/sm.webp';
+    const box = (format: 'standard' | 'japanese') => {
+      const { container, unmount } = renderApp(
+        <CardImage uri={uri} alt="a" game="yugioh" format={format} number="EN024" />,
+      );
+      const img = container.querySelector('img') as HTMLImageElement;
+      const result = {
+        aspect: (img.parentElement as HTMLElement).style.aspectRatio,
+        fit: img.style.objectFit,
+        size: [img.getAttribute('width'), img.getAttribute('height')],
+      };
+      unmount();
+      return result;
+    };
+    expect(box('japanese')).toEqual({
+      aspect: `${59 / 86} / 1`,
+      fit: 'contain',
+      size: ['320', '466'],
+    });
+    expect(box('standard')).toEqual({
+      aspect: `${63 / 88} / 1`,
+      fit: 'contain',
+      size: ['320', '447'],
+    });
+  });
+
+  it('shows a Yu-Gi-Oh! number in the language shown, the label says so (VB-97)', () => {
+    renderApp(
+      <CardCollection
+        prints={[
+          print(24, {
+            number: 'EN024',
+            displayNumber: 'DE024',
+            displayCode: 'BLGG-DE024',
+            cardFormat: 'japanese',
+          }),
+        ]}
+        view="grid"
+        game="yugioh"
+        setCode="BLGG"
+        owned={undefined}
+        prices={undefined}
+      />,
+    );
+    // The number under the picture and in the frame that stands in for it.
+    expect(screen.getAllByText('DE024')).toHaveLength(2);
+    expect(screen.queryByText('EN024')).toBeNull();
+    expect(screen.getByLabelText('Card 24, BLGG DE024 (Nummer in DE)')).toBeTruthy();
   });
 
   it('labels the completion bar "Vollständigkeit" and has no owned-badge label', () => {

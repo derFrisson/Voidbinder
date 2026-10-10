@@ -4,6 +4,7 @@ import { Link } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
 import { QuickAdd } from '../collection/CollectButtons';
+import { numberLabel } from '../card/game';
 import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
 import { formatPrice, type PriceTag } from './seams';
@@ -61,7 +62,7 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
   const t = useT();
   const rarity = useRarityLabel();
   const missing = signedIn && !owned?.count;
-  const name = `${print.name}, ${setCode} ${print.number}`;
+  const name = `${print.name}, ${setCode} ${numberLabel(t.card.numberIn, print)}`;
   return (
     <Link href={`/cards/${print.cardId}`} asChild>
       <Pressable aria-label={name} className="gap-2 rounded-lg">
@@ -70,7 +71,8 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
             uri={print.imageUrl}
             alt={name}
             game={game}
-            number={print.number}
+            format={print.cardFormat}
+            number={print.displayNumber}
             className={missing ? 'border-dashed opacity-50' : ''}
           />
           {signedIn && owned?.count ? (
@@ -88,7 +90,7 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
         </View>
         <View className="gap-0.5">
           <View className="flex-row items-baseline justify-between gap-2">
-            <Text className="font-mono text-[11.5px] text-ink-2">{print.number}</Text>
+            <Text className="font-mono text-[11.5px] text-ink-2">{print.displayNumber}</Text>
             <Text numberOfLines={1} className="shrink font-body text-[11.5px] text-ink-3">
               {rarity(print.rarity)}
             </Text>
@@ -109,7 +111,7 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
   const rarity = useRarityLabel();
   const finish = useFinishLabel();
   const missing = signedIn && !owned?.count;
-  const name = `${print.name}, ${setCode} ${print.number}`;
+  const name = `${print.name}, ${setCode} ${numberLabel(t.card.numberIn, print)}`;
   const finishes = print.finishes
     .map((f) => (owned?.byFinish[f] ? `${finish(f)} ${owned.byFinish[f]}×` : finish(f)))
     .join(' · ');
@@ -125,11 +127,12 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
               uri={print.imageUrl}
               alt={name}
               game={game}
+              format={print.cardFormat}
               number=""
               className={missing ? 'border-dashed opacity-50' : ''}
             />
           </View>
-          <Text className="w-14 font-mono text-[13px] text-ink-2">{print.number}</Text>
+          <Text className="w-14 font-mono text-[13px] text-ink-2">{print.displayNumber}</Text>
           <View className="flex-1 gap-0.5">
             <Text numberOfLines={1} className="font-display text-[15px] font-semibold text-ink">
               {print.name}

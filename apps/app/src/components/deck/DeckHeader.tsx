@@ -141,7 +141,8 @@ export function DeckHeader({ deck }: { deck: DeckDetail }) {
                 uri={e.print?.imageUrl ?? null}
                 alt=""
                 game={deck.game}
-                number={e.print?.number ?? ''}
+                format={e.print?.cardFormat ?? 'standard'}
+                number={e.print?.displayNumber ?? ''}
               />
             </View>
           ))}

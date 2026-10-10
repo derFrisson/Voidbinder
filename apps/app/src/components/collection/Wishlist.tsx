@@ -85,7 +85,7 @@ function EditWish({ wish, onClose }: { wish: WishlistEntry; onClose: () => void 
         >
           {w.editTitle}{' '}
           <Text className="font-mono text-[13px] font-medium text-ink-2">
-            {wish.print.name} · {wish.print.setCode.toUpperCase()} {wish.print.number}
+            {wish.print.name} · {wish.print.setCode.toUpperCase()} {wish.print.displayNumber}
           </Text>
         </Text>
         <IconButton icon="close" label={e.close} onPress={onClose} />
@@ -209,7 +209,7 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
                   {x.print.name}
                 </Text>
                 <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
-                  {x.print.number} · {x.quantity}× · {condition(x)}
+                  {x.print.displayNumber} · {x.quantity}× · {condition(x)}
                 </Text>
                 <Status wish={x} />
               </View>
