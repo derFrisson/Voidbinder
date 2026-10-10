@@ -228,6 +228,7 @@ function Results({
                   name={hit.name}
                   finish={hit.finishes[0] ?? 'normal'}
                   binderId={binder}
+                  lang={hit.lang}
                 />
               </View>
             ) : (
