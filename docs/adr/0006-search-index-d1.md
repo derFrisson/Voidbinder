@@ -65,6 +65,12 @@ SQLite file: the offline catalog modules (VB-29) cannot be loaded into it.
   full local catalog gave identical answers, all eight places; with 300 candidates three typo
   queries lost a name in places 4 to 8. No collation difference showed up, so the Postgres ordering
   keeps its collation.
+- Measured on dev (2026-10-10, index 1,647 sets / 168,991 prints / 466,879 names / 152,756
+  name keys, the five Yu-Gi-Oh! languages included): the first rebuild took about 80 s. Typeahead
+  time to first byte from Frankfurt on one kept-alive connection, ten mixed queries (codes, names,
+  typos): D1 warm 22 to 50 ms, cold 65 to 300 ms with two outliers at 540 and 720 ms; the Postgres
+  path (prod, same queries) warm 30 to 300 ms, cold 240 to 600 ms. The Hyperdrive cache makes a
+  repeated Postgres query as fast as D1; the gain is the first and every uncached keystroke.
 - Self-hosting without D1 works: without the `SEARCH` binding the typeahead reads Postgres.
 - Searching card texts from D1 would need the texts in the index (larger, and a ranking unlike
   `ts_rank`); that is a decision of its own.
