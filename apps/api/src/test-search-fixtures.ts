@@ -25,6 +25,7 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
     name: string,
     number: string,
     de?: string,
+    fr?: string,
   ) => {
     const [card] = await db
       .insert(cards)
@@ -40,6 +41,7 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
       .values([
         { printId: p?.id ?? '', lang: 'en', name },
         ...(de ? [{ printId: p?.id ?? '', lang: 'de', name: de }] : []),
+        ...(fr ? [{ printId: p?.id ?? '', lang: 'fr', name: fr }] : []),
       ]);
   };
   const lds3 = await set('yugioh', 'lds3', 'Legendary Duelists: Season 3', '2022-07-14', 391);
@@ -49,9 +51,13 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
     await print(lds3, 'yugioh', `Duelist Filler ${n}`, `EN${n}`);
   const blgg = await set('yugioh', 'blgg', 'Battles of Legend: Chapter 1', '2024-01-11', 100);
   await print(blgg, 'yugioh', 'Ghostrick Angel of Mischief', 'EN024');
+  // VB-102: a name search shows the language that matched.
+  await print(blgg, 'yugioh', 'Lev Shaddoll', 'EN025', 'Lev-Schattenpuppen');
   const sv01 = await set('pokemon', 'sv01', 'Scarlet & Violet', '2023-03-31', 198);
   await print(sv01, 'pokemon', 'Pineco', '001', 'Tannza');
   await print(sv01, 'pokemon', 'Forretress ex', '005');
+  // The same name in three languages.
+  await print(sv01, 'pokemon', 'Pikachu', '063', 'Pikachu', 'Pikachu');
   const sv10 = await set('pokemon', 'sv10', 'Destined Rivals', '2025-05-30', 182);
   await print(sv10, 'pokemon', 'Ethan’s Pinsir', '001');
   // Pineco's newest print has no German name.
