@@ -5,6 +5,7 @@ import {
   matchProducts,
   normName,
   normNumber,
+  rarityKey,
   type CandidatePrint,
   type CatalogSet,
 } from './match';
@@ -358,5 +359,56 @@ describe('matchProducts', () => {
       { byId: false },
     );
     expect(matches.map((m) => [m.productId, m.method])).toEqual([[1, 'number_match']]);
+  });
+});
+
+describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
+  // TCGCSV's MRD and LOB groups as of 2026-10-10 (test/fixtures/tcgcsv/2/, a few products each):
+  // 255 / 330 the token-less North American prints, 22882 / 22881 `-EN` (Worldwide English),
+  // 23052 / 23050 `-EN` again (25th Anniversary Edition).
+  const ygo = (set: string, number: string, name: string, variant: string, artwork?: string) => ({
+    ...print(`${set}-${number}-${variant}`, number, name, variant),
+    setCode: set,
+    ...(artwork ? { artwork } : {}),
+  });
+  const regional = { byId: false, regional: true };
+  const rows = (matches: ReturnType<typeof matchProducts>) =>
+    matches
+      .map((m) => [m.printId, m.productId, m.method, m.confidence] as const)
+      .sort((a, b) => a[0].localeCompare(b[0]));
+
+  it('compares rarities through one alias table, both sides normalized', () => {
+    expect(rarityKey('Short Print')).toBe('common');
+    expect(rarityKey('super-short-print')).toBe(rarityKey('Common'));
+    expect(rarityKey('Ultimate Rare')).toBe(rarityKey('Prismatic Ultimate Rare'));
+    expect(rarityKey("Collector's Rare")).toBe(rarityKey('Prismatic Collector’s Rare'));
+    expect(rarityKey("Ultra Rare (Pharaoh's Rare)")).toBe(rarityKey('Ultra Pharaoh’s Rare'));
+    expect(rarityKey('Duel Terminal Normal Parallel Rare')).toBe(
+      rarityKey('Duel Terminal Technology Common'),
+    );
+    expect(rarityKey('PLatinum Secret Rare')).toBe(rarityKey('Platinum Secret Rare'));
+    // Distinct rarities stay apart.
+    expect(rarityKey('Rare')).not.toBe(rarityKey('Common'));
+    expect(rarityKey('Duel Terminal Normal Parallel Rare')).not.toBe(rarityKey('Common'));
+  });
+
+  it('prices `Short Print` and `Super Short Print` prints with TCGplayer’s `Common`', () => {
+    const prints = [
+      ygo('mrd', '011', 'Cocoon of Evolution', 'super-short-print'),
+      ygo('mrd', 'E011', 'Cocoon of Evolution', 'super-short-print'),
+      ygo('mrd', 'EN011', 'Cocoon of Evolution', 'common'),
+      ygo('mrd', 'EN011', 'Cocoon of Evolution', 'short-print'),
+      ygo('mrd', 'EN011', 'Cocoon of Evolution', 'super-short-print'),
+    ];
+    const cocoon = [...products('2/255'), ...products('2/22882')].filter(
+      (p) => p.name === 'Cocoon of Evolution',
+    );
+    expect(rows(matchProducts(cocoon, prints, regional))).toEqual([
+      ['mrd-011-super-short-print', 21835, 'number_match', 70],
+      ['mrd-E011-super-short-print', 476271, 'region_match', 60],
+      ['mrd-EN011-common', 476271, 'number_match', 70],
+      ['mrd-EN011-short-print', 476271, 'number_match', 70],
+      ['mrd-EN011-super-short-print', 476271, 'number_match', 70],
+    ]);
   });
 });

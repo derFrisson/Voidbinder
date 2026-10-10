@@ -5,7 +5,8 @@ import { extended, type TcgGroup, type TcgProduct } from './tcgcsv';
 // generic over the games: Magic matches by the TCGplayer ids Scryfall gives (confidence 100),
 // Pokémon and Yu-Gi-Oh! by set + number (70) or, failing that, set + a unique name (40); a
 // Yu-Gi-Oh! regional print without a product of its own takes the EN product (60, VB-110). An
-// admin override (method 'manual') beats all of them; the writer keeps it.
+// admin override (method 'manual') beats all of them; the writer keeps it. Yu-Gi-Oh! rarities are
+// compared through `rarityKey` (VB-113: YGOPRODeck's `Short Print` is TCGplayer's `Common`).
 
 export type MatchMethod = 'scryfall_id' | 'number_match' | 'region_match' | 'name_match';
 
@@ -89,6 +90,35 @@ export const GROUP_ALIASES: Readonly<Record<number, string>> = {
   3150: '2022swsh',
   23306: '2023sv',
   24163: '2024sv',
+};
+
+/**
+ * YGOPRODeck's rarity names that TCGplayer writes differently, as `raritySlug`s: each side maps to
+ * the same key (checked against TCGCSV's Yu-Gi-Oh! groups, 2026-10-10, VB-113). TCGplayer has no
+ * short prints: they are its `Common`.
+ */
+const RARITY_ALIASES: Readonly<Record<string, string>> = {
+  'short-print': 'common',
+  'super-short-print': 'common',
+  // RA01, RA04 (YGOPRODeck: `Ultimate Rare`, `Collector's Rare`; `Cr` once, in RA04).
+  'prismatic-ultimate-rare': 'ultimate-rare',
+  'prismatic-collectors-rare': 'collectors-rare',
+  cr: 'collectors-rare',
+  // King's Court: `Ultra Rare (Pharaoh's Rare)` is TCGplayer's `Ultra Pharaoh’s Rare`.
+  'ultra-rare-pharaohs-rare': 'ultra-pharaohs-rare',
+  // HAC1: the Duel Terminal parallels are TCGplayer's `Duel Terminal Technology …`.
+  'duel-terminal-technology-common': 'duel-terminal-normal-parallel-rare',
+  'duel-terminal-technology-ultra-rare': 'duel-terminal-ultra-parallel-rare',
+  // One DT07 print (TCGplayer: `Duel Terminal Rare Parallel Rare`).
+  'duel-terminal-normal-rare-parallel-rare': 'duel-terminal-rare-parallel-rare',
+  starfoil: 'starfoil-rare',
+  'extra-secret': 'extra-secret-rare',
+};
+
+/** A rarity (a name or a `raritySlug`) as both sources compare: the slug, aliased. */
+export const rarityKey = (rarity: string) => {
+  const slug = raritySlug(rarity);
+  return RARITY_ALIASES[slug] ?? slug;
 };
 
 /**
@@ -210,7 +240,8 @@ export const isCard = (p: TcgProduct) =>
  * Matches the products of one group to the prints of its set. `byId`: Magic, where Scryfall gives
  * the product ids; otherwise number, then a name unique in the set. A print claimed by more than
  * one product at the same best confidence is ambiguous and left unmatched. `regional`
- * (Yu-Gi-Oh!): a regional print no product claimed takes the one product of its name and rarity,
+ * (Yu-Gi-Oh!): rarities through `rarityKey`, so one product prices a number's `Common`, `Short
+ * Print` and `Super Short Print`; a regional print no product claimed takes the one product of its name and rarity,
  * so one product may price several prints.
  */
 export function matchProducts(
@@ -255,10 +286,13 @@ export function matchProducts(
       const exact = same.filter((p) => number && ownNumber(p.number) === ownNumber(number));
       if (same.length > 1 && exact.length) same = exact;
       // Yu-Gi-Oh! prints one number in several rarities, each a print (`variant`).
-      if (same.length > 1 && rarity) same = same.filter((p) => p.variant === raritySlug(rarity));
-      const [byNum] = same;
-      if (byNum && same.length === 1) {
-        found.push({ productId: product.productId, printId: byNum.id, ...method('number_match') });
+      if (same.length > 1 && rarity)
+        same = same.filter((p) => rarityKey(p.variant) === rarityKey(rarity));
+      // One TCGplayer rarity, several of YGOPRODeck's (`Common`, `Short Print`): one card.
+      const one = new Set(same.map((p) => ownNumber(p.number))).size === 1;
+      if (same.length === 1 || (regional && rarity && same.length && one)) {
+        for (const p of same)
+          found.push({ productId: product.productId, printId: p.id, ...method('number_match') });
         continue;
       }
       const named = byName.get(productName(product.name)) ?? [];
@@ -285,11 +319,11 @@ function regionalMatches(
   const taken = new Set(claimed.flatMap((m) => (m.method === 'name_match' ? [] : [m.printId])));
   const byNameRarity = groupBy(
     products.filter((p) => extended(p, 'Rarity') !== null),
-    (p) => `${productName(p.name)}|${raritySlug(extended(p, 'Rarity') ?? '')}`,
+    (p) => `${productName(p.name)}|${rarityKey(extended(p, 'Rarity') ?? '')}`,
   );
   return prints.flatMap((print) => {
     if (taken.has(print.id) || !isRegional(print.number)) return [];
-    let fit = byNameRarity.get(`${normName(print.name)}|${print.variant}`) ?? [];
+    let fit = byNameRarity.get(`${normName(print.name)}|${rarityKey(print.variant)}`) ?? [];
     const number = (p: TcgProduct) => extended(p, 'Number') ?? '';
     if (fit.length > 1) fit = fit.filter((p) => ownNumber(number(p)).startsWith('EN'));
     if (fit.length > 1) fit = fit.filter((p) => digits(number(p)) === digits(print.number));
