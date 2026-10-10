@@ -44,11 +44,11 @@ Retention: we do not receive or store these logs ourselves. Cloudflare keeps the
 
 <!-- TODO Max: this section replaces Cloudflare Web Analytics. It is only true once the website is built without PUBLIC_CF_ANALYTICS_TOKEN and Plausible is live on the website and the web app (VB-74). -->
 
-On the website and in the web app we measure how many people use them, which pages they open and where they come from. We use Plausible Analytics for this, open source software that we run ourselves on our server at OVH in France (address below). The data goes to no other provider, not even to the company behind Plausible.
+On the website and in the web app we measure how many people use them, which pages they open and where they come from. We use Plausible Analytics for this, open source software that runs on a server we operate. The data goes to no other provider, not even to the company behind Plausible.
 
-<!-- TODO Max: confirm that Plausible runs on the same OVH server in Gravelines as the database, and whether plausible.voidbinder.de is reached through Cloudflare (proxy or tunnel). If so, name Cloudflare as a recipient here. -->
+<!-- TODO Max: Standort/Hoster des Plausible-Servers web-analytics.voidcom.app (state the location and hoster), and check whether the address is reached through Cloudflare (proxy or tunnel). If so, name Cloudflare as a recipient here. -->
 
-With every page view your browser sends to plausible.voidbinder.de:
+With every page view your browser sends to web-analytics.voidcom.app:
 
 - the requested address and the referring page (referrer); in the web app without query parameters and without the part after "#",
 - the user agent of your browser and your IP address.

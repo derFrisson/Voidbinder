@@ -42,11 +42,11 @@ Speicherdauer: Wir selbst erhalten und speichern diese Logdaten nicht. Cloudflar
 
 <!-- TODO Max: Dieser Abschnitt ersetzt Cloudflare Web Analytics. Er stimmt erst, wenn die Website ohne PUBLIC_CF_ANALYTICS_TOKEN gebaut wird und Plausible auf Website und Web-App live ist (VB-74). -->
 
-Wir messen auf der Website und in der Web-App, wie viele Menschen sie nutzen, welche Seiten sie aufrufen und woher sie kommen. Dafür nutzen wir Plausible Analytics, eine quelloffene Software, die wir selbst auf unserem Server bei OVH in Frankreich betreiben (Adresse unten). Die Daten gehen an keinen anderen Anbieter, auch nicht an die Firma hinter Plausible.
+Wir messen auf der Website und in der Web-App, wie viele Menschen sie nutzen, welche Seiten sie aufrufen und woher sie kommen. Dafür nutzen wir Plausible Analytics, eine quelloffene Software, die auf einem von uns betriebenen Server läuft. Die Daten gehen an keinen anderen Anbieter, auch nicht an die Firma hinter Plausible.
 
-<!-- TODO Max: bestätigen, dass Plausible auf demselben OVH-Server in Gravelines läuft wie die Datenbank, und ob plausible.voidbinder.de über Cloudflare (Proxy oder Tunnel) erreichbar ist. Falls ja, Cloudflare hier als Empfänger nennen. -->
+<!-- TODO Max: Standort/Hoster des Plausible-Servers web-analytics.voidcom.app eintragen und prüfen, ob die Adresse über Cloudflare (Proxy oder Tunnel) erreichbar ist. Falls ja, Cloudflare hier als Empfänger nennen. -->
 
-Bei jedem Seitenaufruf schickt Ihr Browser an plausible.voidbinder.de:
+Bei jedem Seitenaufruf schickt Ihr Browser an web-analytics.voidcom.app:
 
 - die aufgerufene Adresse und die verweisende Seite (Referrer); in der Web-App ohne Suchparameter und ohne den Teil nach „#“,
 - den User-Agent Ihres Browsers und Ihre IP-Adresse.
