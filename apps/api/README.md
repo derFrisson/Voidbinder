@@ -790,25 +790,30 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    both `LOB-EN` groups map to `lob`); then the name without TCGplayer's series prefix (`SWSH03: `,
    `SM - `), a trailing `Base Set` or a leading series name (`SV: Scarlet & Violet 151` → `151`);
    last `GROUP_ALIASES` in `match.ts` (promos, McDonald's, Radiant Collections, by group id).
+   Magic also imports the groups no set matches (VB-114: Promo Pack, Art Series, Buy-A-Box, the
+   store promos and others that span several of Scryfall's sets; about 100 groups and 4,500
+   prints), since its products match by Scryfall's ids whatever the set; they do not count in
+   `matchedGroups`.
 3. `prices <game> 000` …: products and prices of about 25 matched groups per step, mapped to
    prints (below) and written to `prices_current` and `prices_daily`. A set's groups share a step
    and are matched together (LOB: the North American prints are in `LOB`, the EN ones in
    `LOB-EN`), so the more confident claim on a print wins across groups; a card that a lower group
    id of the set already lists under its number and rarity (the 25th Anniversary Edition's
    reprints, which the catalog folds into the set) is left unmapped.
-4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
-   with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
-   have a group but no priced print, from the group list the run just kept. Logged in the step as
+4. `coverage <game>` after each game (VB-111, VB-114, `src/import/prices/coverage.ts`): per set
+   the prints with a current price from any source, per source (`tcgplayer`, `cardmarket`,
+   `tcgplayer_scryfall`) and from none, the groups that matched no set and the sets that have a
+   group but no `tcgplayer` price, from the group list the run just kept. Logged in the step as
    one line `price coverage` per game (`game`, `sets`, `setsWithGroup`, `setsPriced`, `prints`,
-   `priced`, `unmatchedGroups`, `unpricedSets`) and a WARN `set has a TCGplayer group and no
-price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
+   `priced`, `sources`, `unpriced`, `unmatchedGroups`, `unpricedSets`) and a WARN `set has a
+TCGplayer group and no price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
    on (the prices are written by then).
 5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
    (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
    run's `RAW` prefix) and `catalog_version` + 1.
 
-A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
-groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
+A full run is about 2,700 requests (VB-114: every Magic group); the first local run for Magic
+(2026-10-10) matched 352 of 454 groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
 gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/` (`groups.json.gz`,
 `<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a `marketPrice` (too few
 sales) are not written. The cron runs on prod only: dev would be a second pull of the same build,
@@ -820,9 +825,10 @@ prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that land
 **Forced re-import.** `POST /admin/import/tcgcsv?force=true` (or `?force=1`; any other value is
 a plain run) imports the build even when the last run did: groups and products are matched anew,
 so a matching change reaches the current prices the same day instead of with the next build. It
-is a second pull of that build (about 2,500 requests, within TCGCSV's daily limit). After a
-matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN` groups) run
-both steps, once for both: the forced import, then the archive backfill on the VPS with
+is a second pull of that build (about 2,700 requests, within TCGCSV's daily limit). After a
+matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon and `LOB-EN`
+groups, VB-114's Magic groups without a set and shared 7th–10th Edition products) run both steps,
+once for both: the forced import, then the archive backfill on the VPS with
 `--refill`, since a plain backfill skips every day that already has `tcgplayer` rows and the
 re-mapped prints' history would otherwise start with the forced run:
 
@@ -840,9 +846,12 @@ insert plus the 2 s pause, so expect several hours (not measured yet: the archiv
 since 2026-10-10); run it under `systemd-run` as in the runbook.
 
 `GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
-the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced`, `groups`),
-`unmatchedGroups` (`groupId`, `name`, `abbreviation`) and `unpricedSets`; 404 before such a run
-or when its group list is gone from `RAW`, 400 for another game.
+the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced` by any
+source, `sources` per source, `unpriced` by none, `groups`, `groupMatched` and `rules`, the
+`matchGroups` rule of each group: `scryfall-id`, `abbreviation`, `name` or `alias`),
+`unmatchedGroups` (`groupId`, `name`, `abbreviation`), `unpricedSets` (a group, no `tcgplayer`
+price) and `totals` (the counts of the log line); 404 before such a run or when its group list is
+gone from `RAW`, 400 for another game.
 
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
@@ -871,8 +880,11 @@ with its digits), so one product prices several prints (VB-110, `drizzle/0014_�
 digits: the European numbers differ (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki, both
 Super Rare). A product with the regional number itself, should TCGplayer list one, wins with 70.
 
-Two products that claim one print with the same confidence are both left unmapped, and so is a
-TCGplayer id Scryfall gives more than one print. TCGCSV prices are written through the table, so
+Two products that claim one print with the same confidence are both left unmapped. A TCGplayer id
+Scryfall gives more than one print goes by printing: each print takes the finishes none of the
+others has (VB-114: 7th to 10th Edition list the nonfoil `115` and the foil-only `115★` as one
+product, whose `Normal` price is the first's and `Foil` price the second's); a finish two of them
+have is left unmapped. TCGCSV prices are written through the table, so
 an override counts from the next run on. Only `tcgplayer` can be overridden (400 for any other
 source): the Scryfall sources come with the print and never go through `price_mappings`.
 

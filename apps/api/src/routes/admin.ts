@@ -66,8 +66,9 @@ export function adminRoutes(adminToken: string | undefined, importEnv = 'local')
         '/import/yugipedia-galleries',
         importRoute('yugipedia-galleries', 'Yugipedia gallery', () => ({ galleries: 'only' })),
       )
-      // VB-111: per set the prints with a current TCGplayer price, the groups no set matched and
-      // the sets that have a group and no price, from the group list of the last TCGCSV run.
+      // VB-111, VB-114: per set the prints with a current price (any source and per source), the
+      // groups no set matched and the sets that have a group and no TCGplayer price, from the
+      // group list of the last TCGCSV run; `totals` sums them for the game.
       .get(
         '/prices/coverage',
         zValidator(

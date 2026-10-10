@@ -1,4 +1,4 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, notExists } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { pricesCurrent, prints, sets } from '../../db/schema';
 import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
@@ -34,16 +34,55 @@ describe.skipIf(!databaseUrl)('price coverage (Postgres)', () => {
   afterAll(() => drop());
 
   it('counts the priced prints per set, the unmatched groups and the unpriced sets', async () => {
+    // A Midnight Hunt print TCGCSV does not price has Scryfall's Cardmarket and TCGplayer prices
+    // (VB-114: a print counts as priced by any source).
+    const [scryfallOnly] = await db
+      .select({ id: prints.id })
+      .from(prints)
+      .innerJoin(sets, eq(sets.id, prints.setId))
+      .where(
+        and(
+          eq(sets.code, 'mid'),
+          notExists(db.select().from(pricesCurrent).where(eq(pricesCurrent.printId, prints.id))),
+        ),
+      )
+      .limit(1);
+    const row = {
+      printId: scryfallOnly?.id ?? '',
+      finish: 'normal',
+      lang: 'en',
+      centsMarket: 100,
+      observedAt: new Date('2026-10-09T00:00:00Z'),
+    };
+    await db.insert(pricesCurrent).values([
+      { ...row, source: 'cardmarket', currency: 'EUR' },
+      { ...row, source: 'tcgplayer_scryfall', currency: 'USD' },
+    ]);
     const c = await priceCoverage(db, 'mtg', groups);
-    expect(c.sets.filter((s) => s.groups.length)).toEqual([
-      { code: 'mid', name: 'Innistrad: Midnight Hunt', prints: 22, priced: 2, groups: [2864] },
-      { code: 'neo', name: 'Kamigawa: Neon Dynasty', prints: 6, priced: 1, groups: [2965] },
+    const coverage = (prints: number, tcgplayer: number, cardmarket: number) => ({
+      prints,
+      priced: tcgplayer + cardmarket,
+      sources: { tcgplayer, cardmarket, tcgplayer_scryfall: cardmarket },
+      unpriced: prints - tcgplayer - cardmarket,
+      groupMatched: true,
+      rules: ['scryfall-id'],
+    });
+    expect(c.sets.filter((s) => s.groupMatched)).toEqual([
+      { code: 'mid', name: 'Innistrad: Midnight Hunt', groups: [2864], ...coverage(22, 2, 1) },
+      { code: 'neo', name: 'Kamigawa: Neon Dynasty', groups: [2965], ...coverage(6, 1, 0) },
     ]);
     expect(c.unmatchedGroups).toEqual([
       { groupId: 24770, name: 'Commander: Star Trek', abbreviation: 'TRC' },
     ]);
     expect(c.unpricedSets).toEqual([]);
-    expect(coverageCounts(c)).toMatchObject({ setsWithGroup: 2, setsPriced: 2, priced: 3 });
+    expect(c.totals).toEqual(coverageCounts(c));
+    expect(c.totals).toMatchObject({
+      setsWithGroup: 2,
+      setsPriced: 2,
+      priced: 4,
+      sources: { tcgplayer: 3, cardmarket: 1, tcgplayer_scryfall: 1 },
+      unpriced: c.totals.prints - 4,
+    });
 
     // Neo loses its TCGplayer price: a set with a group and no price.
     const neo = db
@@ -97,6 +136,7 @@ describe.skipIf(!databaseUrl)('price coverage (Postgres)', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       game: 'mtg',
+      totals: { setsWithGroup: 2, sources: { tcgplayer: 2, cardmarket: 1 } },
       unmatchedGroups: [{ groupId: 24770 }],
       unpricedSets: [{ code: 'neo' }],
     });
