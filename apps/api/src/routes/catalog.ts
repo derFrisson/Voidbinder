@@ -21,15 +21,43 @@ import {
   type SetPageResponse,
   type SetsResponse,
 } from '@voidbinder/shared/api';
-import { Hono } from 'hono';
+import type { IndexedSuggestions, SearchIndex } from '@voidbinder/core';
+import { Hono, type Context } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { z } from 'zod';
 import type { AppEnv } from '../app';
 import { catalogCache } from '../middleware/catalog-cache';
 import { throwOnInvalid } from '../middleware/errors';
+import { log } from '../middleware/log';
 import { priceRoutes } from './prices';
 
 const IdParam = z.object({ id: z.uuid() });
+
+/**
+ * The typeahead from the search index (VB-98), null when Postgres must answer: no index
+ * (self-hosting), an error, an index that cannot answer (never synced, stale) or no suggestions
+ * (the first deploy). Sets `x-search-source` and logs the source.
+ */
+async function fromIndex(
+  c: Context<AppEnv>,
+  read: (index: SearchIndex) => Promise<IndexedSuggestions | null>,
+): Promise<IndexedSuggestions | null> {
+  const index = c.var.platform.searchIndex;
+  let indexed: IndexedSuggestions | null = null;
+  let fallback: string | undefined = 'no index';
+  if (index) {
+    try {
+      indexed = await read(index);
+      fallback = !indexed ? 'unavailable' : indexed.result.suggestions.length ? undefined : 'none';
+    } catch (err) {
+      fallback = 'error';
+      log('warn', { message: 'search index failed', error: String(err) });
+    }
+    log('info', { message: 'search source', source: fallback ? 'postgres' : 'd1', fallback });
+  }
+  c.header('x-search-source', fallback ? 'postgres' : 'd1');
+  return fallback ? null : indexed;
+}
 
 /** The UTC day BANLIST_CHANGE_DAYS days ago: day-sized, so the ban list reads stay cacheable. */
 export const banlistSince = (now = Date.now()) =>
@@ -89,10 +117,12 @@ export function catalogRoutes() {
       '/search/suggest',
       zValidator('query', SearchSuggestQuerySchema, throwOnInvalid),
       async (c) => {
-        const body: SearchSuggestResponse = await c.var.platform.cardStore.suggest(
-          c.req.valid('query'),
-          SUGGEST_LIMIT,
-        );
+        const query = c.req.valid('query');
+        const indexed = await fromIndex(c, (index) => index.suggest(query, SUGGEST_LIMIT));
+        // Answered by the index alone: its version tags the response, no Postgres round trip.
+        if (indexed) c.set('catalogVersion', indexed.catalogVersion);
+        const body: SearchSuggestResponse =
+          indexed?.result ?? (await c.var.platform.cardStore.suggest(query, SUGGEST_LIMIT));
         return c.json(body, 200);
       },
     )

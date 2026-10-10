@@ -101,6 +101,24 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `voidbinder-scryfall-import` (class `ScryfallImportWorkflow`), started daily by the cron trigger
   (prod 03:00 UTC, dev 04:30 UTC). The API sets `limits.cpu_ms` to 300000 for it (Workers Paid).
   `EMAIL` (`send_email`, sender `hello@voidbinder.de`) sends the auth mails.
+- **Search index (VB-98, [ADR 0006](adr/0006-search-index-d1.md)):** `SEARCH`, a D1 database per
+  environment with the typeahead's copy of the catalog, migrations in `apps/api/d1/` (applied by
+  `deploy:dev` / `deploy:prod`), and `SEARCH_INDEX_REFRESH`, the Workflow
+  `voidbinder-search-index-refresh-dev` / `voidbinder-search-index-refresh` (class
+  `SearchIndexRefreshWorkflow`) that refreshes it from Postgres after every catalog import.
+  Locally `wrangler dev` simulates the database under `.wrangler/state`.
+
+  | Environment | D1 database              | Id                                     | Location | Read replication |
+  | ----------- | ------------------------ | -------------------------------------- | -------- | ---------------- |
+  | `dev`       | `voidbinder-search-dev`  | `11307070-42cd-4207-bf31-37dc06cf0335` | `weur`   | on (REST API)    |
+  | `prod`      | `voidbinder-search-prod` | `6aee7e3a-f258-47a3-9d9d-42e565e9ae57` | `weur`   | on (REST API)    |
+
+  No jurisdiction: the index holds public catalog data only, and replicas should follow the
+  users. Create: `pnpm exec wrangler d1 create voidbinder-search-<env> --location weur` from
+  `apps/api`, the id into `wrangler.jsonc`; read replication is switched on in the dashboard (D1 →
+  the database → Settings) or with the REST API, not with wrangler. After the first deploy:
+  `POST /admin/search-index/rebuild`.
+
 - **Turnstile (VB-72):** one Cloudflare Turnstile widget (managed mode, name "Voidbinder", account
   `152a1fcd0eebb96d1bc30d14b5a6af58`) protects the sign-up, the password-reset request, the
   verification resend (API, web app) and the waitlist form (site). Its hostnames are

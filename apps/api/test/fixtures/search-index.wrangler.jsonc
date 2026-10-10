@@ -1,0 +1,13 @@
+// The local D1 of the search index tests (src/platform/cloudflare/d1-search-index.test.ts), through
+// wrangler's getPlatformProxy: just the binding, nothing persisted.
+{
+  "name": "search-index-test",
+  "compatibility_date": "2026-10-06",
+  "d1_databases": [
+    {
+      "binding": "SEARCH",
+      "database_name": "search-index-test",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+    },
+  ],
+}
