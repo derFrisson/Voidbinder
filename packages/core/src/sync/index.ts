@@ -39,7 +39,8 @@ const ms = (t: string) => Date.parse(t);
 
 /**
  * Last writer wins per row, with the server's row as authority:
- * - nothing stored: insert it (a delete of a row the server never had is skipped);
+ * - nothing stored: insert a row the device created (a delete of a row the server never had is
+ *   skipped); an edit with a base is a conflict, its row deleted with the log entry swept;
  * - the stored row equals the pushed one, or both are deleted: nothing to do (an idempotent
  *   retry);
  * - the device saw the stored row (`stored.updatedAt <= baseUpdatedAt`): apply;
@@ -51,7 +52,13 @@ const ms = (t: string) => Date.parse(t);
  * stored time plus a millisecond, so the next device's base comparison still holds.
  */
 export function resolvePush(stored: StoredStamp | null, pushed: PushedStamp): SyncResolution {
-  if (!stored) return { action: pushed.deletedAt ? 'skip' : 'insert', updatedAt: pushed.updatedAt };
+  if (!stored) {
+    if (pushed.deletedAt) return { action: 'skip', updatedAt: pushed.updatedAt };
+    // A base proves the server held the row: with no row and no log entry, the log entry of its
+    // delete was swept. Only a row the device created is inserted.
+    if (pushed.baseUpdatedAt !== null) return { action: 'conflict' };
+    return { action: 'insert', updatedAt: pushed.updatedAt };
+  }
   if (stored.same || (stored.deletedAt && pushed.deletedAt))
     return { action: 'noop', updatedAt: stored.updatedAt };
   const write = (): SyncResolution => ({

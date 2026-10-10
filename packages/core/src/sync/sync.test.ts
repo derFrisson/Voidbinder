@@ -27,6 +27,11 @@ describe('resolvePush', () => {
     });
   });
 
+  it('answers an edit of a row the server once held, now gone without a log entry, as deleted', () => {
+    // The base proves the row existed: its delete's log entry was swept (30 days).
+    expect(resolvePush(null, pushed())).toEqual({ action: 'conflict' });
+  });
+
   it('applies an edit made on the stored row', () => {
     expect(resolvePush(stored(), pushed())).toEqual({ action: 'apply', updatedAt: t(20) });
     // A base newer than the stored row (the stored time was read at millisecond precision).

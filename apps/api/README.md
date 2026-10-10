@@ -688,7 +688,9 @@ returns it in `conflicts` (a deck with its list), and the device replaces its co
 newer than the stored edit wins, and an edit newer than a logged delete brings the row back (it is
 inserted again and its log entry goes). For a row that is gone, its log entry stands in: an older
 edit is answered in `deletions` whatever its base (`[{ table, id }]`: drop the local copy), a delete is applied
-without writing anything. A row equal to the stored one writes nothing (a retried push changes
+without writing anything. An edit with a `baseUpdatedAt` for an id with neither row nor log entry
+(swept after 30 days) is answered in `deletions` too; only a row the device created is inserted. A
+row equal to the stored one writes nothing (a retried push changes
 nothing). `applied` lists the
 `updatedAt` the server holds for every other pushed row: the device's next `baseUpdatedAt`. An
 `updated_at` never goes back: `sync_stamp()` stores at least the old value plus 1 ms on every

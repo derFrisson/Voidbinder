@@ -70,7 +70,9 @@ native client runs the same code.
   inserted again and its log row goes). A row that is gone answers with its log row: an edit
   older than the delete is a conflict whatever its base (a logged delete's time can lie before
   the row's last edit, so a base at or after it proves nothing), returned in `deletions` (the device drops its copy), and a
-  delete is applied without writing anything. A row that already equals the stored one writes
+  delete is applied without writing anything. An edit with a base for an id with neither row nor
+  log row is answered in `deletions` too (the base proves the server held it, so its log row was
+  swept); only a row the device created (no base) is inserted. A row that already equals the stored one writes
   nothing, so a retried push is harmless. An applied
   row's `updatedAt` never goes back in time (a device clock behind the stored edit gets the
   stored time plus a millisecond). The trigger enforces the same for every writer: an update

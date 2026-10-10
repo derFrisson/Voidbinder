@@ -421,6 +421,18 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(await db.select().from(binders).where(eq(binders.id, b.id))).toEqual([]);
   });
 
+  it('answers an edit with a base for a row gone from table and log as a deletion', async () => {
+    // A device offline past the log's retention pushes before it pulls: the row stays gone.
+    const b = binder({ name: 'Swept', updatedAt: at(5), baseUpdatedAt: at(0) });
+    const res = await push(ash, [{ table: 'binders', rows: [b] }]);
+    expect(res.body).toEqual({
+      applied: [],
+      conflicts: [],
+      deletions: [{ table: 'binders', id: b.id }],
+    });
+    expect(await db.select().from(binders).where(eq(binders.id, b.id))).toEqual([]);
+  });
+
   it('moves entries out of a deleted binder', async () => {
     const adeline = await print('mid', '1');
     const b = binder();
