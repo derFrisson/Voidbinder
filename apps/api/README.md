@@ -761,7 +761,9 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    groups of the set list under one number and rarity (the 25th Anniversary Edition's reprints,
    which the catalog folds into the set) is one print: the lowest group id with a market price for
    it prices it, else the lowest, and the others are left unmapped (VB-113: the Worldwide English
-   `MRD-EN010` has no market price, its 25th Anniversary reprint has). Yu-Gi-Oh! products whose
+   `MRD-EN010` has no market price, its 25th Anniversary reprint has). A print already mapped keeps
+   its product while that is listed with a market price, so `prices_daily` does not switch between
+   two products as their prices come and go; it falls forward only when its product has none. Yu-Gi-Oh! products whose
    number names another set (LC03's group lists Legendary Collection 3's mega pack `LCYW-EN…`,
    SJMP the `JMP` and `JMPS` promos) are matched to that set's prints when it has no group of its
    own.

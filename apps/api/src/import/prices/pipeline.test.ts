@@ -678,6 +678,17 @@ describe('splitReprints (VB-113)', () => {
     ]);
     expect(reprints.map((p) => p.productId)).toEqual([476268, 476659, 486247, 486250, 486257]);
   });
+
+  it('keeps a print’s current product while it has a price, else falls forward', () => {
+    // Harpie Lady MRD-EN008 is mapped to the 25th Anniversary product and both have a price;
+    // Kojikocy MRD-EN010 to the Worldwide English one, which has none.
+    const { products } = splitReprints(
+      [...own(22882), ...own(23052)],
+      [...prices(22882), ...prices(23052)],
+      new Set([486247, 476268]),
+    );
+    expect(products.map((p) => p.productId)).toEqual([476271, 476288, 486247, 486249, 486358]);
+  });
 });
 
 describe.skipIf(!databaseUrl)('Yu-Gi-Oh! MRD price mapping (Postgres, VB-113)', () => {

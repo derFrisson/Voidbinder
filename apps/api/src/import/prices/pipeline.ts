@@ -96,13 +96,16 @@ export function groupSteps(groups: readonly { groupId: number; setId: string }[]
 /**
  * A set's products in group id order, without the reprints: a card that two groups of the set list
  * under one number and rarity is one print (VB-111: LOB's 25th Anniversary Edition, folded into
- * the set by the YGOPRODeck import). The lowest group id that has a market price for it prices the
- * print, else the lowest (VB-113: the Worldwide English `MRD-EN010` has none, its 25th Anniversary
- * reprint has); the other groups' products are the reprints, left out of the matching.
+ * the set by the YGOPRODeck import). A group with a market price for it prices the print (VB-113:
+ * the Worldwide English `MRD-EN010` has none, its 25th Anniversary reprint has); among those, and
+ * failing a price, the group of the print's current product (`mapped`, product ids) first, so a
+ * print keeps its product while that has a price; else the lowest group id. The other groups'
+ * products are the reprints, left out of the matching.
  */
 export function splitReprints(
   own: readonly { groupId: number; product: TcgProduct }[],
   prices: readonly TcgPrice[],
+  mapped: ReadonlySet<number> = new Set(),
 ) {
   // ponytail: group id order stands in for TCGplayer's `publishedOn`; read that if they diverge.
   const priced = new Set(prices.flatMap((p) => (p.marketPrice == null ? [] : [p.productId])));
@@ -110,15 +113,13 @@ export function splitReprints(
     const number = extended(p, 'Number');
     return number && `${number}|${rarityKey(extended(p, 'Rarity') ?? '')}`;
   };
-  const chosen = new Map<string, { groupId: number; priced: boolean }>();
+  // A price beats none, then the current mapping; a tie keeps the lower group (`own` is in order).
+  const chosen = new Map<string, { groupId: number; rank: number }>();
   for (const { groupId, product } of own) {
     const k = key(product);
     if (!k) continue;
-    const had = chosen.get(k);
-    const hasPrice = priced.has(product.productId);
-    if (!had || (!had.priced && hasPrice && had.groupId !== groupId))
-      chosen.set(k, { groupId, priced: hasPrice });
-    else if (had.groupId === groupId && hasPrice) had.priced = true;
+    const rank = (priced.has(product.productId) ? 2 : 0) + (mapped.has(product.productId) ? 1 : 0);
+    if (rank > (chosen.get(k)?.rank ?? -1)) chosen.set(k, { groupId, rank });
   }
   const products: TcgProduct[] = [];
   const reprints: TcgProduct[] = [];
@@ -164,9 +165,17 @@ export async function importGroups(
         own.push({ groupId, product });
       prices.push(...results<TcgPrice>(await fetchFile('prices'), `prices ${groupId}`));
     }
+    // The products the set's prints are mapped to now, so a reprint family keeps its group.
+    const current = byId
+      ? new Set<number>()
+      : await deps.withDb(async (db) => {
+          const ids = own.map((o) => String(o.product.productId));
+          const held = await resolveMappings(db, SOURCE, ids);
+          return new Set([...held.keys()].map((k) => Number(k.split('|')[0])));
+        });
     const { products, reprints } = byId
       ? { products: own.map((o) => o.product), reprints: [] }
-      : splitReprints(own, prices);
+      : splitReprints(own, prices, current);
     const productIds = [...new Set(prices.map((p) => String(p.productId)))];
     const codes = [
       ...new Set(products.map((p) => codeOf(extended(p, 'Number') ?? '')).filter(Boolean)),
