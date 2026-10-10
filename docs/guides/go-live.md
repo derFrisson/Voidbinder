@@ -613,6 +613,10 @@ go, but before the URL is shared widely.
 
 ## Time
 
-About 3 hours from step 1 to step 12, mostly waiting on the TCGdex full import (about 90 min with
-the purge wait), which runs in parallel with the Magic and Yu-Gi-Oh! image mirror. Hands-on
+About 2.5 hours from step 1 to step 12, mostly waiting. Step 7 runs first: the Magic and
+Yu-Gi-Oh! Workflows (about 30 min each with the prices, the purge wait and their mirror step, side
+by side) while the Pokémon copy runs on the VPS (minutes), followed by the TCGdex incremental
+(about 15 min with its purge wait and mirror step). Step 8, the VPS mirror at about 180 rows/s
+(about 10 min per big game), takes about 30 min and starts only once all three instances are
+`complete`; it gates step 11 (the site). Steps 9 (TCGCSV, about 25 min) and 10 (15 min) follow. Hands-on
 time is about 1 hour. Not counted: Max's dashboard work (B2, N1, N2) and the VB-62 review.
