@@ -26,19 +26,24 @@ function FieldShape({ game }: { game: Game }) {
   );
 }
 
-/** The selected print's image on the game's tinted field. */
+/**
+ * The selected print's image on the game's tinted field; `note` is the quiet line under it when the
+ * image is in another language or of another print (VB-86/VB-87).
+ */
 export function CardStage({
   game,
   format,
   uri,
   label,
   wide,
+  note,
 }: {
   game: Game;
   format: CardFormat | undefined;
   uri: string | null;
   label: string;
   wide: boolean;
+  note?: string | null;
 }) {
   return (
     <View
@@ -48,6 +53,11 @@ export function CardStage({
       <View className="-rotate-2 rounded-lg shadow-lg">
         <CardImage uri={uri} label={label} format={format} />
       </View>
+      {note && (
+        <Text className="mt-3 text-center font-body text-[12.5px] leading-5 text-ink-3">
+          {note}
+        </Text>
+      )}
     </View>
   );
 }

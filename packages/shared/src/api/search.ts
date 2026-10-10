@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CardFormatSchema, GameSchema } from '../index.js';
-import { LangSchema, SearchNamesSchema } from './catalog.js';
+import { ImageInfoSchema, LangSchema, SearchNamesSchema } from './catalog.js';
 
 // Search typeahead (VB-79). The full search (`GET /catalog/search`) lives in catalog.ts.
 
@@ -38,6 +38,7 @@ export const SearchSuggestionSchema = z.object({
   variant: z.string().optional(),
   rarity: z.string().nullable().optional(),
   imageUrl: z.url().nullable().optional(),
+  ...ImageInfoSchema.shape,
   cardId: z.uuid().optional(),
 });
 export type SearchSuggestion = z.infer<typeof SearchSuggestionSchema>;

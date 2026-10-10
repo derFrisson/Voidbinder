@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CardFormatSchema } from '../index.js';
-import { LangSchema } from './catalog.js';
+import { ImageInfoSchema, LangSchema } from './catalog.js';
 
 // Yu-Gi-Oh! ban lists (VB-81): the current Forbidden & Limited List per format, its changes, and
 // what of a user's collection and decks they touch. The statuses are the source's (YGOPRODeck's
@@ -53,6 +53,7 @@ export const BanlistCardSchema = z.object({
   name: z.string(),
   printId: z.uuid().nullable(),
   imageUrl: z.url().nullable(),
+  ...ImageInfoSchema.shape,
   setCode: z.string().nullable(),
   number: z.string().nullable(),
   /** The number in `?lang=` (VB-97, as on PrintSummary); null without a print. */

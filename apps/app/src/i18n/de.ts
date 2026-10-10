@@ -110,6 +110,8 @@ export const de = {
   card: {
     noImage: 'Kein Bild',
     numberIn: 'Nummer in {lang}',
+    imageLang: 'Bild: {lang}',
+    imageSibling: 'Bild eines anderen Drucks',
     views: 'Druck wählen',
     artist: 'Illustration: {artist}',
     addToCollection: 'In Sammlung',
@@ -117,6 +119,8 @@ export const de = {
     printsTitle: 'Drucke und Varianten',
     allPrints: 'Alle {count} Drucke zeigen',
     legality: 'Legalität',
+    copies: '{n} Kopien',
+    copiesOne: '{n} Kopie',
     text: 'Kartentext',
     noText: 'Diese Karte hat keinen Text.',
     attrs: {

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CardFormatSchema, type Game } from '../index.js';
+import { ImageInfoSchema } from './catalog.js';
 import { EntryPriceSchema, ValueGroupSchema } from './collection.js';
 import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
@@ -154,6 +155,7 @@ export const DeckEntrySchema = z.object({
       displayCode: z.string(),
       cardFormat: CardFormatSchema,
       imageUrl: z.url().nullable(),
+      ...ImageInfoSchema.shape,
     })
     .nullable(),
   /** Copies of this card's name in the collection (any print). */
