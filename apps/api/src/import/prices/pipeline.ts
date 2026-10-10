@@ -3,7 +3,7 @@ import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
 import { coverageCounts, groupsKey, priceCoverage, readGroups } from './coverage';
-import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
+import { codeOf, isCard, matchGroups, matchProducts, rarityKey, type ProductMatch } from './match';
 import {
   CATEGORIES,
   cents,
@@ -22,6 +22,7 @@ import {
   gameSets,
   lastImportedUpdate,
   resolveMappings,
+  setIdsByCode,
   startRun,
   upsertMappings,
   writePrices,
@@ -93,30 +94,62 @@ export function groupSteps(groups: readonly { groupId: number; setId: string }[]
 }
 
 /**
+ * A set's products in group id order, without the reprints: a card that two groups of the set list
+ * under one number and rarity is one print (VB-111: LOB's 25th Anniversary Edition, folded into
+ * the set by the YGOPRODeck import). A group with a market price for it prices the print (VB-113:
+ * the Worldwide English `MRD-EN010` has none, its 25th Anniversary reprint has); among those, and
+ * failing a price, the group of the print's current product (`mapped`, product ids) first, so a
+ * print keeps its product while that has a price; else the lowest group id. The other groups'
+ * products are the reprints, left out of the matching.
+ */
+export function splitReprints(
+  own: readonly { groupId: number; product: TcgProduct }[],
+  prices: readonly TcgPrice[],
+  mapped: ReadonlySet<number> = new Set(),
+) {
+  // ponytail: group id order stands in for TCGplayer's `publishedOn`; read that if they diverge.
+  const priced = new Set(prices.flatMap((p) => (p.marketPrice == null ? [] : [p.productId])));
+  const key = (p: TcgProduct) => {
+    const number = extended(p, 'Number');
+    return number && `${number}|${rarityKey(extended(p, 'Rarity') ?? '')}`;
+  };
+  // A price beats none, then the current mapping; a tie keeps the lower group (`own` is in order).
+  const chosen = new Map<string, { groupId: number; rank: number }>();
+  for (const { groupId, product } of own) {
+    const k = key(product);
+    if (!k) continue;
+    const rank = (priced.has(product.productId) ? 2 : 0) + (mapped.has(product.productId) ? 1 : 0);
+    if (rank > (chosen.get(k)?.rank ?? -1)) chosen.set(k, { groupId, rank });
+  }
+  const products: TcgProduct[] = [];
+  const reprints: TcgProduct[] = [];
+  for (const { groupId, product } of own) {
+    const k = key(product);
+    (k && chosen.get(k)?.groupId !== groupId ? reprints : products).push(product);
+  }
+  return { products, reprints };
+}
+
+/**
  * Imports the products and prices of a range of matched groups; returns their counts. The groups
  * of one set are matched together (VB-111: LOB's `LOB` group holds the North American prints, its
  * two `LOB-EN` groups the EN ones), so a print one group's product claims by number is taken for
- * another group's regional pass and the more confident claim wins.
+ * another group's regional pass and the more confident claim wins. Yu-Gi-Oh! products may name
+ * another set (VB-113: LC03's group lists Legendary Collection 3's mega pack, `LCYW-EN…`); the
+ * prints of such a set are candidates too, unless the set has a group of its own (`grouped`).
  */
 export async function importGroups(
   deps: ImportDeps,
   game: PricedGame,
   groups: { groupId: number; setId: string }[],
-  opts: { raw: string; delayMs: number; observedAt: string },
+  opts: { raw: string; delayMs: number; observedAt: string; grouped?: ReadonlySet<string> },
 ) {
   const category = CATEGORIES[game];
   const byId = game === 'mtg';
   const stats = { cards: 0, mapped: 0, unmapped: 0, prices: 0, noMarket: 0 };
   for (const [setId, groupIds] of groupsBySet(groups)) {
-    const products: TcgProduct[] = [];
-    const reprints: TcgProduct[] = [];
+    const own: { groupId: number; product: TcgProduct }[] = [];
     const prices: TcgPrice[] = [];
-    // A card a lower group id already lists under its number and rarity is a reprint of that
-    // print (LOB's 25th Anniversary Edition, folded into the set by the YGOPRODeck import): the
-    // older group prices it, not a tie that leaves the print unpriced.
-    // ponytail: group id order stands in for TCGplayer's `publishedOn`; read that if they diverge.
-    const listed = new Set<string>();
-    const cardKey = (p: TcgProduct) => `${extended(p, 'Number')}|${extended(p, 'Rarity') ?? ''}`;
     for (const groupId of groupIds) {
       const fetchFile = (file: string) =>
         fetchRaw(
@@ -128,20 +161,47 @@ export async function importGroups(
           // A group without products has no files.
           true,
         );
-      const own = results<TcgProduct>(await fetchFile('products'), `products ${groupId}`);
+      for (const product of results<TcgProduct>(await fetchFile('products'), `products ${groupId}`))
+        own.push({ groupId, product });
       prices.push(...results<TcgPrice>(await fetchFile('prices'), `prices ${groupId}`));
-      for (const p of own)
-        (!byId && extended(p, 'Number') && listed.has(cardKey(p)) ? reprints : products).push(p);
-      for (const p of own) if (extended(p, 'Number')) listed.add(cardKey(p));
     }
+    // The products the set's prints are mapped to now, so a reprint family keeps its group.
+    const current = byId
+      ? new Set<number>()
+      : await deps.withDb(async (db) => {
+          const ids = own.map((o) => String(o.product.productId));
+          const held = await resolveMappings(db, SOURCE, ids);
+          return new Set([...held.keys()].map((k) => Number(k.split('|')[0])));
+        });
+    const { products, reprints } = byId
+      ? { products: own.map((o) => o.product), reprints: [] }
+      : splitReprints(own, prices, current);
     const productIds = [...new Set(prices.map((p) => String(p.productId)))];
+    const codes = [
+      ...new Set(products.map((p) => codeOf(extended(p, 'Number') ?? '')).filter(Boolean)),
+    ];
 
     const r = await deps.withDb(async (db) => {
-      const candidates = await candidatePrints(db, [setId], byId ? productIds : []);
+      const others =
+        game === 'yugioh'
+          ? (await setIdsByCode(db, game, codes)).filter(
+              (id) => id !== setId && !opts.grouped?.has(id),
+            )
+          : [];
+      const candidates = await candidatePrints(db, [setId, ...others], byId ? productIds : []);
       // A product may price several prints (Yu-Gi-Oh! regional prints, VB-110).
       const matches = new Map<number, ProductMatch[]>();
-      for (const m of matchProducts(products, candidates, { byId, regional: game === 'yugioh' }))
+      const regional = game === 'yugioh';
+      for (const m of matchProducts(products, candidates, { byId, regional, setId })) {
         matches.set(m.productId, [...(matches.get(m.productId) ?? []), m]);
+        if (m.artwork)
+          log('info', {
+            message: 'artwork variant picked',
+            game,
+            productId: m.productId,
+            printId: m.printId,
+          });
+      }
       const finish = (p: TcgPrice) =>
         matches.get(p.productId)?.[0]?.finish ?? finishOf(p.subTypeName);
       const mappings: MappingRow[] = prices.flatMap((p) =>
@@ -252,10 +312,11 @@ export async function runTcgcsvImport(
         prices: 0,
         noMarket: 0,
       };
+      const grouped = new Set(matched.map((m) => m.setId));
       for (const [i, groups] of groupSteps(matched).entries()) {
         const name = `prices ${game} ${String(i).padStart(3, '0')}`;
         const r = await step(name, () =>
-          importGroups(deps, game, groups, { raw, delayMs, observedAt }),
+          importGroups(deps, game, groups, { raw, delayMs, observedAt, grouped }),
         );
         for (const k of ['cards', 'mapped', 'unmapped', 'prices', 'noMarket'] as const)
           g[k] += r[k];

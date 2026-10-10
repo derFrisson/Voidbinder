@@ -1,0 +1,147 @@
+{
+  "totalItems": 5,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 22151,
+      "name": "Legendary Sword",
+      "cleanName": "Legendary Sword",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22151_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/22151/yugioh-the-legend-of-blue-eyes-white-dragon-legendary-sword",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-040"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 22232,
+      "name": "Monster Egg",
+      "cleanName": "Monster Egg",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22232_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/22232/yugioh-the-legend-of-blue-eyes-white-dragon-monster-egg",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-017"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 22341,
+      "name": "Red-Eyes B. Dragon",
+      "cleanName": "Red Eyes B Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22341_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/22341/yugioh-the-legend-of-blue-eyes-white-dragon-red-eyes-b-dragon",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-070"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    },
+    {
+      "productId": 22539,
+      "name": "Trial of Nightmare",
+      "cleanName": "Trial of Nightmare",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22539_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/22539/yugioh-the-legend-of-blue-eyes-white-dragon-trial-of-nightmare",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-012"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 129069,
+      "name": "Trial of Hell",
+      "cleanName": "Trial of Hell",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/129069_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/129069/yugioh-the-legend-of-blue-eyes-white-dragon-trial-of-hell",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-012"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    }
+  ]
+}
