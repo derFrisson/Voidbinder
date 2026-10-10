@@ -41,6 +41,8 @@ export const SearchSuggestionSchema = z.object({
   rarity: z.string().nullable().optional(),
   imageUrl: z.url().nullable().optional(),
   ...ImageInfoSchema.shape,
+  /** As on SearchHit: a Yu-Gi-Oh! Extended Art print (VB-109); absent otherwise. */
+  extendedArt: z.literal(true).optional(),
   cardId: z.uuid().optional(),
 });
 export type SearchSuggestion = z.infer<typeof SearchSuggestionSchema>;

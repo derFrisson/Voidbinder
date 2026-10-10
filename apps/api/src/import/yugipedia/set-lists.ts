@@ -82,9 +82,9 @@ export interface CodeChoice {
 /**
  * The verified code of each localization of `prints` (of our set `setCode`) from the set's list
  * pages: the first row of the print's number in the language's best page (`FR` before `FC`). A
- * language's rows with our set code count, or all of them where it has none (early French and
- * Italian sets have their own: `LDC-F065`, `LDI-I065` for `LON-065`). A number in no list, and a
- * print of one language only (`DE001`), are left alone.
+ * language's rows with our set code count, or all of them where it has none and the English rows
+ * are all ours (early French and Italian sets have their own: `LDC-F065`, `LDI-I065` for
+ * `LON-065`). A number in no list, and a print of one language only (`DE001`), are left alone.
  */
 export function planCodes(
   setCode: string,
@@ -104,7 +104,13 @@ export function planCodes(
         };
       }),
     );
-  const rows = all.filter((r) => r.ours || !all.some((o) => o.ours && o.lang === r.lang));
+  // Another set code counts only where the English lists are ours alone: a page several sets
+  // share (Pharaoh Tour promotional cards, GALLERY_NAMES) would lend us another set's numbers.
+  const english = all.filter((r) => r.lang === 'en');
+  const alone = english.length > 0 && english.every((r) => r.ours);
+  const rows = all.filter(
+    (r) => r.ours || (alone && !all.some((o) => o.ours && o.lang === r.lang)),
+  );
   return prints.flatMap((p) => {
     const own = rows.filter((r) => r.number === numberKey(p.number));
     if (p.language || !own.length) return [];

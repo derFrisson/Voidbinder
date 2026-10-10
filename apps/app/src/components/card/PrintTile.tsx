@@ -45,6 +45,7 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
           </Text>
           <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
             {code}
+            {hit.extendedArt && <Text className="font-body"> · {t.set.extendedArt}</Text>}
           </Text>
           <Text numberOfLines={1} className="font-body text-xs text-ink-3">
             {hit.setName}

@@ -180,7 +180,7 @@ reads a copy in D1 first (VB-98, next section).
   `matchedCode` `BLGG-DE024`, whatever `lang` is. A localization's stored code (VB-94) finds its
   print whole whatever set code it starts with (`LDC-F065` → LON 065, index
   `print_localizations_set_code_idx` over its letters and digits, migration
-  `0015_localized_set_codes.sql`) and by its start after the print's set code (`long06`), in the
+  `0016_localized_set_codes.sql`) and by its start after the print's set code (`long06`), in the
   localization's language. A set code alone (`lds3`, `mid`, `sv1`) lists the set.
 - **Numbers:** `121` matches that number in every set, `001/128` in the sets of 128 cards
   (`prints_number_key_idx`), newest first, at most 50.
@@ -222,7 +222,7 @@ Postgres stays the source of truth:
   image mirror) and by `POST /admin/search-index/rebuild` (bearer `ADMIN_TOKEN`, 202, rewrites
   every set). It reads Postgres through `HYPERDRIVE` (not the cached pool): an md5 per set over
   the set, its prints and names (with a Yu-Gi-Oh! localization's stored code, which `names.code`
-  and `names.code_alnum` hold, `d1/0002_localized_codes.sql`); sets whose hash differs from D1's
+  and `names.code_alnum` hold, `d1/0003_localized_codes.sql`); sets whose hash differs from D1's
   `sets.hash` are rewritten,
   about 1000 prints per step and D1 batch (one transaction: delete the set's rows, insert them
   again), sets gone from Postgres are deleted, names no print has any more too. The localizations
@@ -549,7 +549,9 @@ one print, so a card id (`swsh3-136`) is both `cards.oracle_key` and the print (
 English creates it, German adds the `print_localizations` row and the set name, a card TCGdex lacks in
 German only has its English row. Prices, TCGdex's `updated` and the Pokémon TCG Pocket series
 (`tcgp`, digital) are never imported; the image URLs (`/high.webp`, `/low.webp`) go to
-`external_ids.tcgdex_images` for VB-57 and nothing is downloaded; Cardmarket and TCGplayer ids go
+`external_ids.tcgdex_images` for VB-57 and nothing is downloaded (a card without `image`, e.g. the
+`mep` and `svp` promos, gets the conventional `assets.tcgdex.net/<lang>/<serie>/<set>/<localId>`
+when one paced `HEAD` of its `high.webp` answers, VB-85); Cardmarket and TCGplayer ids go
 to `external_ids.tcgdex_marketplace` with `mapping_confidence: 'low'` (not under `tcgplayer`, which
 `prints_tcgplayer_idx` reads), for VB-30 to verify. The Workflow `src/workflows/tcgdex-import.ts`
 (binding `TCGDEX_IMPORT`, params `{ mode }`) runs `start run`, `set list`, `sets 00000` … (25 sets
@@ -1040,7 +1042,9 @@ and its English localization, a Yu-Gi-Oh! card in several sets). Downloads are r
 source (token bucket: Scryfall 20/s, YGOPRODeck 15/s, TCGdex 8/s, Yugipedia 1/s with its own
 `User-Agent`); a 429 stops the run once the
 images in flight are stored, a failed image is logged and keeps its key (or none), so the next
-run retries it. Every run is an `import_runs` row with source and kind `images`, and only one
+run retries it. A `404` or `410` from the source counts as `gone` instead (VB-89): the URL goes to
+`image_sources_gone` and the query skips every row with that source URL until the URL changes; the
+runs on Sundays (UTC) retry them all and delete the URLs that answer again. Every run is an `import_runs` row with source and kind `images`, and only one
 runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image
 mirror is running").
 

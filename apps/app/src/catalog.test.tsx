@@ -697,6 +697,29 @@ describe('home', () => {
     expect(links[0]?.textContent).toContain('Pikachu');
   });
 
+  it('links a recent card to the print and language it was opened in, an old entry to the card (VB-108)', async () => {
+    fakeApi((c) =>
+      c.path === '/catalog/games'
+        ? json({ games: [{ id: 'mtg', name: 'Magic', setCount: 3 }] })
+        : undefined,
+    );
+    localStorage.setItem(
+      'voidbinder.recent',
+      JSON.stringify([
+        { kind: 'card', game: 'mtg', id: 'new', name: 'Neu', printId: 'p1', lang: 'en' },
+        { kind: 'card', game: 'mtg', id: 'old', name: 'Alt' },
+        { kind: 'card', game: 'mtg', id: 'odd', name: 'Komisch', printId: 7, lang: false },
+      ]),
+    );
+    renderApp(<Home />);
+    const list = within(await screen.findByRole('region', { name: 'Zuletzt angesehen' }));
+    expect(list.getAllByRole('link').map((l) => l.getAttribute('href'))).toEqual([
+      '/cards/new?print=p1&lang=en',
+      '/cards/old',
+      '/cards/odd',
+    ]);
+  });
+
   it('has no recent row on a fresh device, and a search entry', () => {
     fakeApi();
     renderApp(<Home />);

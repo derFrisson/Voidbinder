@@ -1,6 +1,6 @@
 {
-  "id": "72950e68-93d4-402e-9e9d-c92cff2ecf8b",
-  "prevId": "5bbfcc22-53fb-4276-b056-92bb632ae84f",
+  "id": "d5b262ea-35e7-4c89-8ae3-a63fb69700ad",
+  "prevId": "72950e68-93d4-402e-9e9d-c92cff2ecf8b",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1026,6 +1026,22 @@
           "isUnique": false,
           "concurrently": false,
           "method": "gin",
+          "with": {}
+        },
+        "print_localizations_set_code_idx": {
+          "name": "print_localizations_set_code_idx",
+          "columns": [
+            {
+              "expression": "regexp_replace(lower(\"external_ids\" ->> 'set_code'), '[^a-z0-9]+', '', 'g')",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"print_localizations\".\"external_ids\" ? 'set_code'",
+          "concurrently": false,
+          "method": "btree",
           "with": {}
         }
       },

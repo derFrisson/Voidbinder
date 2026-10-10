@@ -49,6 +49,27 @@ describe('recent items', () => {
     expect(readRecents(memory(JSON.stringify([unknown, set('a')])))).toEqual([set('a')]);
   });
 
+  it('keeps a card’s print and language, and loses a wrong-typed one (VB-108)', () => {
+    const withPrint: Recent = {
+      kind: 'card',
+      game: 'mtg',
+      id: 'c1',
+      name: 'c1',
+      printId: 'p1',
+      lang: 'en',
+    };
+    const odd = { ...card('c2'), printId: 7, lang: null };
+    expect(readRecents(memory(JSON.stringify([withPrint, odd, card('c3')])))).toEqual([
+      withPrint,
+      card('c2'),
+      card('c3'),
+    ]);
+    // Opening the card in another print replaces the earlier entry.
+    expect(pushRecent([withPrint], { ...withPrint, printId: 'p2' })).toEqual([
+      { ...withPrint, printId: 'p2' },
+    ]);
+  });
+
   it('records into the storage it is given, and survives a storage that throws', () => {
     const storage = memory();
     recordRecent(set('a'), storage);

@@ -95,6 +95,21 @@ describe('Yugipedia set lists', () => {
       { printId: 'jam', lang: 'de', code: 'LON-G006' },
     ]);
   });
+
+  it('takes no other set code from a page several sets share', () => {
+    const page = (region: string) =>
+      parseGalleryTitle(`Set Card Lists:Pharaoh Tour (TCG-${region})`) as GalleryPage;
+    expect(
+      planCodes(
+        'pt02',
+        [{ id: 'p', number: 'EN001', langs: ['de'], language: null }],
+        [
+          { page: page('EN'), codes: ['PT01-EN001', 'PT02-EN001'] },
+          { page: page('DE'), codes: ['PT01-DE001'] },
+        ],
+      ),
+    ).toEqual([{ printId: 'p', lang: 'de', code: null }]);
+  });
 });
 
 describe.skipIf(!databaseUrl)('Yugipedia set list import (Postgres)', () => {

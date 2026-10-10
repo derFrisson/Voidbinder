@@ -48,7 +48,8 @@ const dark = {
   surface2: '#18213a',
   ink: '#e9eeff',
   ink2: '#a6b0ce',
-  ink3: '#7983a4',
+  // ink3 carries the 12-12.5 px price labels on surface2: 4.5:1 there (VB-101).
+  ink3: '#8089aa',
   line: '#252f4b',
   // Deeper than the mockup's #4A6FFF so white text on blue keeps 4.5:1.
   blue: '#2d4de0',
