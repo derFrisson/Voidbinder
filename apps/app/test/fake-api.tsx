@@ -60,7 +60,7 @@ export const signedIn: Route = (c) =>
   c.method === 'GET' && c.path === '/me' ? json(me) : undefined;
 
 export function renderApp(ui: ReactElement) {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
   return render(
     <QueryClientProvider client={client}>
       <I18nProvider>{ui}</I18nProvider>

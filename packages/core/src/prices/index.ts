@@ -20,26 +20,38 @@ export interface PriceLike {
   finish: string;
   currency: Currency;
   market: number;
+  observedAt: string;
 }
 
 /**
- * The price to show: the finish first (`finish`, then `normal`, then the print's finishes in
- * order, then any), then within it the source the currency prefers. No conversion: the result
- * keeps its source's currency.
+ * The price to show: the finish first, then within it the source the currency prefers. Finish
+ * order, the same as the API's SQL `finishRank`: `finish` if asked, the listed finish (`normal`
+ * if the print lists it, else its first), the print's other finishes in order, then finishes it
+ * does not list, alphabetically. No conversion: the result keeps its source's currency.
  */
 export function pickDisplayPrice(
   prices: readonly PriceLike[],
   opts: { currency: Currency; finish?: string | undefined; finishes?: readonly string[] },
 ): DisplayPrice | null {
-  const ranked = [opts.finish, 'normal', ...(opts.finishes ?? [])];
-  const finish =
-    ranked.find((f) => f !== undefined && prices.some((p) => p.finish === f)) ?? prices[0]?.finish;
+  // ponytail: a caller without the print's finishes (collection value) assumes it lists normal.
+  const finishes = opts.finishes?.length ? opts.finishes : ['normal'];
+  const listed = finishes.includes('normal') ? 'normal' : finishes[0];
+  const present = [...new Set(prices.map((p) => p.finish))].sort();
+  const finish = [opts.finish, listed, ...finishes, ...present].find(
+    (f) => f !== undefined && present.includes(f),
+  );
   const order = SOURCE_PREFERENCE[opts.currency];
   const best = prices
     .filter((p) => p.finish === finish)
     .sort((a, b) => order.indexOf(a.source) - order.indexOf(b.source))[0];
   return best
-    ? { source: best.source, finish: best.finish, currency: best.currency, cents: best.market }
+    ? {
+        source: best.source,
+        finish: best.finish,
+        currency: best.currency,
+        cents: best.market,
+        observedAt: best.observedAt,
+      }
     : null;
 }
 

@@ -20,14 +20,20 @@ const hit = (marketPrice: SearchHit['marketPrice']): SearchHit => ({
 });
 
 describe('PrintTile', () => {
-  it('shows the market price with its source, like the set page', () => {
+  it('shows the market price with its source and the day it was observed, like the set page', () => {
     renderApp(
       <PrintTile
-        hit={hit({ source: 'tcgplayer', finish: 'normal', currency: 'USD', cents: 402 })}
+        hit={hit({
+          source: 'tcgplayer',
+          finish: 'normal',
+          currency: 'USD',
+          cents: 402,
+          observedAt: '2026-10-09T20:05:19.000Z',
+        })}
       />,
     );
     expect(screen.getByText(/4,02/)).toBeTruthy();
-    expect(screen.getByText('TCGplayer')).toBeTruthy();
+    expect(screen.getByText('TCGplayer, Stand 09.10.2026')).toBeTruthy();
   });
 
   it('shows no number for a print without a price', () => {

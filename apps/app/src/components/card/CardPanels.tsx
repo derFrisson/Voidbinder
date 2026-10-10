@@ -1,9 +1,11 @@
 import type { Game } from '@voidbinder/shared';
-import type { PrintDetail } from '@voidbinder/shared/api';
+import type { CardPrint, PrintDetail } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { fmt, useT } from '../../i18n';
+import { Price } from '../catalog/Cards';
+import { priceTag } from '../catalog/seams';
 import { label } from './attributes';
 import { fieldClass } from './game';
 import { Section } from './PricePanel';
@@ -16,7 +18,7 @@ export function PrintsTable({
   game,
   wide,
 }: {
-  prints: PrintDetail[];
+  prints: CardPrint[];
   current: string;
   cardId: string;
   game: Game;
@@ -96,14 +98,15 @@ export function PrintsTable({
                   {rarity}
                 </Text>
               )}
-              {/* VB-30: the print's display price once the price routes exist. */}
-              <Text
-                role="cell"
-                aria-label={t.prices.noneSource}
-                className="flex-[0.8] text-right font-mono text-sm text-ink-2"
-              >
-                –
-              </Text>
+              <View role="cell" className="flex-[0.8] items-end">
+                {p.marketPrice ? (
+                  <Price price={priceTag(p.marketPrice)} />
+                ) : (
+                  <Text aria-label={t.prices.noneSource} className="font-mono text-sm text-ink-2">
+                    –
+                  </Text>
+                )}
+              </View>
             </View>
           );
         })}
