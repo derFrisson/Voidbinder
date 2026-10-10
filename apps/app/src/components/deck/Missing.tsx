@@ -62,7 +62,7 @@ export function Missing({ deck }: { deck: DeckDetail }) {
                     </Text>
                     <Text className="font-mono text-xs text-ink-2">
                       {[
-                        m.setCode && `${m.setCode.toUpperCase()}-${m.number}`,
+                        m.setCode && `${m.setCode.toUpperCase()}-${m.displayNumber}`,
                         m.unitPriceCents !== null &&
                           m.currency &&
                           fmt(n.each, { amount: money(m.unitPriceCents, m.currency, locale) }),

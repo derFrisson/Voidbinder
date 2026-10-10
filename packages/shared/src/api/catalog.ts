@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GameSchema } from '../index.js';
+import { CardFormatSchema, GameSchema } from '../index.js';
 import { CurrencySchema } from './me.js';
 import { DisplayPriceSchema } from './prices.js';
 
@@ -16,6 +16,8 @@ export const GameSummarySchema = z.object({
   id: GameSchema,
   name: z.string(),
   setCount: z.number().int(),
+  /** The game's card format (`CARD_FORMATS`), for the image box. */
+  cardFormat: CardFormatSchema,
 });
 export type GameSummary = z.infer<typeof GameSummarySchema>;
 
@@ -70,6 +72,15 @@ export const PrintSummarySchema = z.object({
   id: z.uuid(),
   cardId: z.uuid(),
   number: z.string(),
+  /**
+   * The number in the language shown (VB-97): a Yu-Gi-Oh! print with a localization in that
+   * language takes its language token (`EN024` → `DE024`); otherwise `number`.
+   */
+  displayNumber: z.string(),
+  /** Set code and `displayNumber` as printed: `BLGG-DE024`, `053/128` (Pokémon), `MID 123`. */
+  displayCode: z.string(),
+  /** The game's card format (`CARD_FORMATS`), for the image box. */
+  cardFormat: CardFormatSchema,
   /** '' or, where one number exists in several rarities (Yu-Gi-Oh!), the rarity slug. */
   variant: z.string(),
   /** Name in `?lang=`, falling back to English. */
@@ -126,6 +137,9 @@ export const PrintLocalizationSchema = z.object({
   name: z.string(),
   text: z.string().nullable(),
   imageUrl: z.url().nullable(),
+  /** The print's number and code in this language (as on PrintDetail). */
+  displayNumber: z.string(),
+  displayCode: z.string(),
   ...ImageInfoSchema.shape,
 });
 export type PrintLocalization = z.infer<typeof PrintLocalizationSchema>;
@@ -135,6 +149,11 @@ export const PrintDetailSchema = z.object({
   cardId: z.uuid(),
   set: z.object({ game: GameSchema, code: z.string(), name: z.string() }),
   number: z.string(),
+  /** The number and code as stored (English); each localization has its own. */
+  displayNumber: z.string(),
+  displayCode: z.string(),
+  /** The game's card format (`CARD_FORMATS`), for the image box. */
+  cardFormat: CardFormatSchema,
   /** '' or, where one number exists in several rarities (Yu-Gi-Oh!), the rarity slug. */
   variant: z.string(),
   rarity: z.string().nullable(),
@@ -222,6 +241,11 @@ export const SearchHitSchema = PrintSummarySchema.extend({
   setCode: z.string(),
   /** Set name in `?lang=`, falling back to English. */
   setName: z.string(),
+  /**
+   * The code `q` named with a language token, as printed (`BLGG-DE024` for a search of
+   * `blgg de024`); `displayNumber` then carries that token whatever `?lang=`. Absent otherwise.
+   */
+  matchedCode: z.string().optional(),
 });
 export type SearchHit = z.infer<typeof SearchHitSchema>;
 

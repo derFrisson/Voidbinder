@@ -109,6 +109,29 @@ describe('search typeahead (VB-79)', () => {
     expect(screen.getByTestId('typeahead-status').textContent).toBe('2 Vorschläge');
   });
 
+  it('shows a print’s number in the language shown, its picture in its card format (VB-97)', async () => {
+    const [print] = suggestions;
+    answer({
+      suggestions: [
+        {
+          ...print,
+          number: 'EN121',
+          displayNumber: 'DE121',
+          displayCode: 'LDS3-DE121',
+          cardFormat: 'japanese',
+          imageUrl: 'https://img.voidbinder.de/images/yugioh/34950192/en/sm.webp',
+        },
+      ],
+    });
+    type(shell(), 'lds3 de121');
+    const list = await screen.findByRole('listbox', { name: 'Vorschläge' });
+    const [option] = within(list).getAllByRole('option');
+    expect(option?.textContent).toContain('LDS3 DE121 · Ultra Rare');
+    const img = option?.querySelector('img') as HTMLImageElement;
+    expect((img.parentElement as HTMLElement).style.aspectRatio).toBe(`${59 / 86} / 1`);
+    expect(img.style.objectFit).toBe('contain');
+  });
+
   it('moves the highlight with the arrow keys and opens the highlighted row with Enter', async () => {
     answer();
     const box = shell();

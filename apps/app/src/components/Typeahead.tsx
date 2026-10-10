@@ -1,3 +1,4 @@
+import { cardAspect } from '@voidbinder/shared';
 import type { SearchSuggestion } from '@voidbinder/shared/api';
 import { router } from 'expo-router';
 import { useEffect, useId, useState, type ReactNode } from 'react';
@@ -54,7 +55,7 @@ export function SearchLead({ busy, size }: { busy: boolean; size: number }) {
 /** The code in front of a print's number, unless the number already starts with it (Yu-Gi-Oh!). */
 function printLabel(s: SearchSuggestion, code: string) {
   if (s.kind === 'set') return code;
-  const number = s.number ?? '';
+  const number = s.displayNumber ?? s.number ?? '';
   return number.toUpperCase().startsWith(code) ? number : `${code} ${number}`.trim();
 }
 
@@ -90,7 +91,8 @@ function Row({
       <View className="w-8">
         {s.kind === 'set' ? (
           <View
-            className={`aspect-[5/7] w-full items-center justify-center rounded-md ${fieldClass[s.game].soft}`}
+            style={{ aspectRatio: cardAspect() }}
+            className={`w-full items-center justify-center rounded-md ${fieldClass[s.game].soft}`}
           >
             <View className={`h-2.5 w-2.5 rounded-[3px] ${fieldClass[s.game].solid}`} />
           </View>
@@ -99,7 +101,8 @@ function Row({
             uri={s.imageUrl ?? null}
             alt=""
             game={s.game}
-            number={s.number ?? ''}
+            format={s.cardFormat ?? 'standard'}
+            number={s.displayNumber ?? s.number ?? ''}
             className="rounded-md border"
           />
         )}

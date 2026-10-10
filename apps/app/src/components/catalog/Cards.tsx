@@ -5,6 +5,7 @@ import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
 import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { QuickAdd } from '../collection/CollectButtons';
+import { numberLabel } from '../card/game';
 import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
 import { formatPrice, type PriceTag } from './seams';
@@ -64,7 +65,7 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
   const ban = useBanStatus(game, print.cardId);
   const banLabel = useBanLabel();
   const missing = signedIn && !owned?.count;
-  const name = `${print.name}, ${setCode} ${print.number}`;
+  const name = `${print.name}, ${setCode} ${numberLabel(t.card.numberIn, print)}`;
   return (
     <Link href={`/cards/${print.cardId}`} asChild>
       <Pressable aria-label={ban ? `${name}, ${banLabel(ban)}` : name} className="gap-2 rounded-lg">
@@ -73,7 +74,8 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
             uri={print.imageUrl}
             alt={name}
             game={game}
-            number={print.number}
+            format={print.cardFormat}
+            number={print.displayNumber}
             className={missing ? 'border-dashed opacity-50' : ''}
           />
           {ban && (
@@ -96,7 +98,7 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
         </View>
         <View className="gap-0.5">
           <View className="flex-row items-baseline justify-between gap-2">
-            <Text className="font-mono text-[11.5px] text-ink-2">{print.number}</Text>
+            <Text className="font-mono text-[11.5px] text-ink-2">{print.displayNumber}</Text>
             <Text numberOfLines={1} className="shrink font-body text-[11.5px] text-ink-3">
               {rarity(print.rarity)}
             </Text>
@@ -119,7 +121,7 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
   const ban = useBanStatus(game, print.cardId);
   const banLabel = useBanLabel();
   const missing = signedIn && !owned?.count;
-  const name = `${print.name}, ${setCode} ${print.number}${ban ? `, ${banLabel(ban)}` : ''}`;
+  const name = `${print.name}, ${setCode} ${numberLabel(t.card.numberIn, print)}${ban ? `, ${banLabel(ban)}` : ''}`;
   const finishes = print.finishes
     .map((f) => (owned?.byFinish[f] ? `${finish(f)} ${owned.byFinish[f]}×` : finish(f)))
     .join(' · ');
@@ -135,11 +137,12 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
               uri={print.imageUrl}
               alt={name}
               game={game}
+              format={print.cardFormat}
               number=""
               className={missing ? 'border-dashed opacity-50' : ''}
             />
           </View>
-          <Text className="w-14 font-mono text-[13px] text-ink-2">{print.number}</Text>
+          <Text className="w-14 font-mono text-[13px] text-ink-2">{print.displayNumber}</Text>
           <View className="flex-1 gap-0.5">
             <View className="flex-row items-center gap-2">
               <Text
@@ -183,6 +186,7 @@ export function CardCollection({
   owned: ReadonlyMap<string, OwnedPrint> | undefined;
   prices: ReadonlyMap<string, PriceTag> | undefined;
 }) {
+  const t = useT();
   const columns = useColumns();
   const item = (print: PrintSummary): Item => ({
     print,
@@ -217,7 +221,7 @@ export function CardCollection({
             <QuickAdd
               printId={p.id}
               cardId={p.cardId}
-              name={`${p.name}, ${setCode} ${p.number}`}
+              name={`${p.name}, ${setCode} ${numberLabel(t.card.numberIn, p)}`}
               finish={p.finishes[0] ?? 'normal'}
             />
           )}

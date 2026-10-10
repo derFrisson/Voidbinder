@@ -56,6 +56,9 @@ const entry: CollectionEntry = {
     setCode: 'mid',
     setName: 'Innistrad: Midnight Hunt',
     number: '1',
+    displayNumber: '1',
+    displayCode: 'MID 1',
+    cardFormat: 'standard',
     name: 'Adeline, strahlende Katharerin',
     rarity: 'rare',
     finishes: ['normal', 'foil'],
@@ -234,6 +237,35 @@ describe('collection screen', () => {
     expect(screen.queryByText(/€/)).toBeNull();
   });
 
+  it('shows a copy’s number in its language, the picture in its card format (VB-97)', async () => {
+    const ygo: CollectionEntry = {
+      ...entry,
+      finish: 'normal',
+      print: {
+        ...entry.print,
+        game: 'yugioh',
+        setCode: 'blgg',
+        number: 'EN024',
+        displayNumber: 'DE024',
+        displayCode: 'BLGG-DE024',
+        cardFormat: 'japanese',
+        imageUrl: 'https://img.voidbinder.de/images/yugioh/34950192/en/sm.webp',
+      },
+    };
+    fakeApi(signedIn, (c) => {
+      if (c.path === '/collection/summary') return json(summary);
+      if (c.path === '/collection/binders') return json({ binders: [] });
+      if (c.path.startsWith('/collection/entries')) return json(page([ygo]));
+      return undefined;
+    });
+    const { container } = renderApp(<Collection />);
+    expect(await screen.findByText('DE024 · DE · NM · Normal')).toBeTruthy();
+    const thumb = container.querySelector('[style*="aspect-ratio"]') as HTMLElement;
+    expect(thumb.style.aspectRatio).toBe(`${59 / 86} / 1`);
+    const picture = thumb.querySelector('[style*="background-image"]') as HTMLElement;
+    expect(getComputedStyle(picture).backgroundSize).toBe('contain');
+  });
+
   it('saves the edit form with every field', async () => {
     const calls = collectionApi();
     renderApp(<Collection />);
@@ -355,6 +387,9 @@ describe('card page collection buttons', () => {
         cardId: CARD,
         set: { game: 'mtg', code: 'mid', name: 'Innistrad: Midnight Hunt' },
         number: '1',
+        displayNumber: '1',
+        displayCode: 'MID 1',
+        cardFormat: 'standard',
         variant: '',
         rarity: 'rare',
         finishes: ['normal', 'foil'],
@@ -412,6 +447,9 @@ describe('adding from the search', () => {
         cardId: CARD,
         set: { game: 'mtg', code: 'mid', name: 'Innistrad: Midnight Hunt' },
         number: '1',
+        displayNumber: '1',
+        displayCode: 'MID 1',
+        cardFormat: 'standard',
         variant: '',
         rarity: 'rare',
         finishes: ['normal'],
