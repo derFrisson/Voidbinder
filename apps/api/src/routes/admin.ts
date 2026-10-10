@@ -41,6 +41,15 @@ export function adminRoutes(adminToken: string | undefined) {
       .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
       // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
       .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))
+      // Rewrites the whole search index from Postgres (VB-98); waits for a running refresh.
+      .post('/search-index/rebuild', async (c) => {
+        await c.var.platform.jobQueue.send({
+          type: 'search-index-refresh',
+          payload: { full: true },
+        });
+        const body: ImportStartedResponse = { status: 'started' };
+        return c.json(body, 202);
+      })
       // A manual price mapping (VB-30): confidence 100, never overwritten by the importers.
       // `tcgplayer` only: the Scryfall sources write by print, never through price_mappings.
       .put(

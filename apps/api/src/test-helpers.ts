@@ -1,4 +1,11 @@
-import type { BlobStore, CardStore, CollectionStore, DeckStore, JobQueue } from '@voidbinder/core';
+import type {
+  BlobStore,
+  CardStore,
+  CollectionStore,
+  DeckStore,
+  JobQueue,
+  SearchIndex,
+} from '@voidbinder/core';
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { migrate } from 'drizzle-orm/node-postgres/migrator';
 import { Pool } from 'pg';
@@ -74,6 +81,8 @@ export interface TestAppOptions {
   dbUp?: boolean;
   /** Overrides the in-memory card store (e.g. a DrizzleCardStore on the test database). */
   cardStore?: CardStore;
+  /** The search index in front of the card store's search; none by default (Postgres alone). */
+  searchIndex?: SearchIndex;
   jobQueue?: JobQueue;
   collectionStore?: CollectionStore;
   deckStore?: DeckStore;
@@ -91,6 +100,7 @@ export function testApp(opts: TestAppOptions = {}) {
       unavailable<CardStore>('card store', {
         ping: () => (opts.dbUp === false ? Promise.reject(new Error('down')) : Promise.resolve()),
       }),
+    searchIndex: opts.searchIndex,
     collectionStore: opts.collectionStore ?? unavailable<CollectionStore>('collection store'),
     deckStore: opts.deckStore ?? unavailable<DeckStore>('deck store'),
     blobStore: unavailable<BlobStore>('blob store'),

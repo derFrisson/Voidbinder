@@ -178,7 +178,7 @@ export function parseCodeQuery(q: string): CodeQuery {
 const alnum = (number: SQLWrapper) => sql`regexp_replace(lower(${number}), '[^a-z0-9]+', '', 'g')`;
 
 /** Prints a pure-number query lists at most (`121` matches that number in every set). */
-const NUMBER_HITS = 50;
+export const NUMBER_HITS = 50;
 
 /**
  * `(print_id, rank)` of the prints `q` names by code (VB-79), null when `q` cannot be one. Every
@@ -233,7 +233,7 @@ function codeHits(q: string, game: Game | undefined): SQL | null {
  * Whether names similar to `q` are worth looking for: below 4 characters nearly every name shares
  * a trigram with it, and a typo in so few letters is no typo.
  */
-const fuzzyQuery = (q: string) => q.length >= 4;
+export const fuzzyQuery = (q: string) => q.length >= 4;
 
 /** `q` as an ILIKE prefix pattern, its wildcards escaped. */
 const prefixPattern = (q: string) => `${q.replace(/[\\%_]/g, '\\$&')}%`;
@@ -838,7 +838,8 @@ export class DrizzleCardStore implements CardStore {
       from ${sql.raw(cte)} cross join lateral (
         select ${prints.id} as id from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
         where ${prints.cardId} = ${sql.raw(cte)}.card_id ${hasName}
-        order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+        order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant},
+          ${prints.id}
         limit 1
       ) np`;
     type Row = {
@@ -873,13 +874,14 @@ export class DrizzleCardStore implements CardStore {
           case when rank >= 300 then 0 when rank >= 200 then 1 when rank > 0 then 2 else 4 end as tier,
           row_number() over (
             partition by rank > 0
-            order by rank desc, released_on desc nulls last, number_value nulls last, number
+            order by rank desc, released_on desc nulls last, number_value nulls last, number,
+              print_id
           ) as ord
         from code_ranked
       ),
       set_cands as (
         select 'set' as kind, ${sets.id} as id, 3 as tier,
-          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}) as ord
+          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}, ${sets.id}) as ord
         from ${sets}
         where (${key ? sql`catalog_code_key(${sets.code}) = catalog_code_key(${key}) or` : sql``}
           ${sets.name} ilike ${pattern}
@@ -891,12 +893,12 @@ export class DrizzleCardStore implements CardStore {
         order by ord limit ${limit}
       ),
       prefix as (
-        select card_id, row_number() over (order by min(length(name)), min(name)) as ord
+        select card_id, row_number() over (order by min(length(name)), min(name), card_id) as ord
         from (${named((name) => sql`${name} ilike ${pattern}`)}) n
         group by card_id order by ord limit ${limit}
       ),
       fuzzy as (
-        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name)) as ord
+        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name), card_id) as ord
         from (${named((name) => sql`${name} % ${query.q}`)}) n
         where ${fuzzyQuery(query.q)} and (select count(*) from prefix) < ${limit}
         group by card_id order by ord limit ${limit}
