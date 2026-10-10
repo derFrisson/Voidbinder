@@ -220,13 +220,13 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       expect(await names('q=champion&finish=foil')).toEqual(['Champion of the Perished']);
     });
 
-    it('pages by 30', async () => {
-      const store30 = await store.search({ q: 'cathar', lang: 'en', page: 2 }, 3);
+    it('pages by the given size', async () => {
+      const second = await store.search({ q: 'cathar', lang: 'en', page: 2 }, 3);
       const first = await store.search({ q: 'cathar', lang: 'en', page: 1 }, 3);
       expect(first.prints).toHaveLength(3);
-      expect(store30.page).toBe(2);
-      expect(store30.total).toBe(first.total);
-      expect(store30.prints.map((p) => p.id)).not.toContain(first.prints[0]?.id);
+      expect(second.page).toBe(2);
+      expect(second.total).toBe(first.total);
+      expect(second.prints.map((p) => p.id)).not.toContain(first.prints[0]?.id);
       expect(await search('q=cathar&page=9')).toMatchObject({ page: 9, prints: [] });
     });
 
@@ -251,34 +251,42 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
         typeLine: 'Creature',
         text: `Filler text number ${i}.`,
       }));
-      const inserted = await db.insert(cards).values(many).returning({ id: cards.id });
-      await db
-        .insert(prints)
-        .values(inserted.map((c, i) => ({ cardId: c.id, setId: set?.id ?? '', number: `s${i}` })));
-      await db.execute(sql`analyze cards, prints, print_localizations`);
-
       // The store's own queries, run as EXPLAIN. At this size a sequential scan is cheaper and
       // the planner rightly takes it, so seqscan is switched off: when the query has an index
       // path the plan uses it, when it has none (an OR across both tables, a wrapped column) the
-      // plan still shows the Seq Scan.
+      // plan still shows the Seq Scan. The synthetic rows live in a transaction that is rolled
+      // back, so later tests see the fixture only.
       const plans: unknown[] = [];
-      await db.transaction(async (tx) => {
-        await tx.execute(sql`set local enable_seqscan = off`);
-        const explaining = new Proxy(tx as unknown as NodePgDatabase, {
-          get: (target, key) =>
-            key === 'execute'
-              ? async (query: ReturnType<typeof sql>) => {
-                  const r = await target.execute(sql`explain (format json) ${query}`);
-                  plans.push(r.rows[0]?.['QUERY PLAN']);
-                  return { rows: [] };
-                }
-              : Reflect.get(target, key),
+      const rollback = new Error('rollback');
+      await db
+        .transaction(async (tx) => {
+          const inserted = await tx.insert(cards).values(many).returning({ id: cards.id });
+          await tx
+            .insert(prints)
+            .values(
+              inserted.map((c, i) => ({ cardId: c.id, setId: set?.id ?? '', number: `s${i}` })),
+            );
+          await tx.execute(sql`analyze cards, prints, print_localizations`);
+          await tx.execute(sql`set local enable_seqscan = off`);
+          const explaining = new Proxy(tx as unknown as NodePgDatabase, {
+            get: (target, key) =>
+              key === 'execute'
+                ? async (query: ReturnType<typeof sql>) => {
+                    const r = await target.execute(sql`explain (format json) ${query}`);
+                    plans.push(r.rows[0]?.['QUERY PLAN']);
+                    return { rows: [] };
+                  }
+                : Reflect.get(target, key),
+          });
+          await new DrizzleCardStore(db, { catalogDb: explaining }).search(
+            { q: 'adeline', lang: 'de', game: 'mtg', page: 1 },
+            30,
+          );
+          throw rollback;
+        })
+        .catch((e: unknown) => {
+          if (e !== rollback) throw e;
         });
-        await new DrizzleCardStore(db, { catalogDb: explaining }).search(
-          { q: 'adeline', lang: 'de', game: 'mtg', page: 1 },
-          30,
-        );
-      });
       expect(plans).toHaveLength(2);
       const scans: string[] = [];
       const walk = (node: unknown): void => {

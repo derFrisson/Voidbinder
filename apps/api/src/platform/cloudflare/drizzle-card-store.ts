@@ -44,7 +44,8 @@ const localized = alias(printLocalizations, 'localized');
 const english = alias(printLocalizations, 'english');
 const RARITY_ORDER = sql`case ${prints.rarity} when 'common' then 0 when 'uncommon' then 1 when 'rare' then 2 when 'mythic' then 3 else 4 end`;
 /** Numeric part of a collector number ('12a' → 12), so 2 sorts before 10. */
-const NUMBER_ORDER = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int nulls last`;
+const NUMBER_VALUE = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int`;
+const NUMBER_ORDER = sql`${NUMBER_VALUE} nulls last`;
 
 /**
  * The text-search query for `q`: websearch syntax, and the last word as a prefix (`adel` finds
@@ -341,8 +342,6 @@ export class DrizzleCardStore implements CardStore {
       join ${cards} on ${cards.id} = ${prints.cardId}
       join ${sets} on ${sets.id} = ${prints.setId}`;
     const where = sql.join(filters, sql` and `);
-    const name = sql`coalesce(localized.name, english.name, ${cards.name})`;
-
     type Row = {
       id: string;
       card_id: string;
@@ -363,23 +362,36 @@ export class DrizzleCardStore implements CardStore {
       this.catalog.execute<{ total: number }>(
         sql`select count(*)::int as total ${joins} where ${where}`,
       ),
+      // Page first, localize after: the CTE orders and cuts the hits, and only its rows are
+      // joined to the localizations (a broad query matches thousands of prints).
       this.catalog.execute<Row>(sql`
-        select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
-          ${name} as name, ${prints.rarity}, ${prints.finishes}, ${prints.imageKey} as image_key,
-          ${prints.externalIds} as external_ids, localized.image_key as localized_image_key,
-          localized.external_ids as localized_ids, ${sets.gameId} as game,
-          ${sets.code} as set_code, coalesce(set_l.name, ${sets.name}) as set_name
-        ${joins}
+        with page as (
+          select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
+            ${cards.name} as card_name, ${prints.rarity}, ${prints.finishes},
+            ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
+            ${sets.id} as set_id, ${sets.gameId} as game, ${sets.code} as set_code,
+            ${sets.name} as set_name, ${sets.releasedOn} as released_on, hits.rank,
+            ${NUMBER_VALUE} as number_value
+          ${joins}
+          where ${where}
+          order by hits.rank desc, ${cards.name}, ${sets.releasedOn} desc nulls last, ${sets.code},
+            ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+          limit ${pageSize} offset ${(query.page - 1) * pageSize}
+        )
+        select page.id, page.card_id, page.number, page.variant,
+          coalesce(localized.name, english.name, page.card_name) as name, page.rarity,
+          page.finishes, page.image_key, page.external_ids,
+          localized.image_key as localized_image_key, localized.external_ids as localized_ids,
+          page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name
+        from page
         left join ${printLocalizations} localized
-          on localized.print_id = ${prints.id} and localized.lang = ${query.lang}
+          on localized.print_id = page.id and localized.lang = ${query.lang}
         left join ${printLocalizations} english
-          on english.print_id = ${prints.id} and english.lang = 'en'
+          on english.print_id = page.id and english.lang = 'en'
         left join ${setLocalizations} set_l
-          on set_l.set_id = ${sets.id} and set_l.lang = ${query.lang}
-        where ${where}
-        order by hits.rank desc, ${name}, ${sets.releasedOn} desc nulls last, ${sets.code},
-          ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
-        limit ${pageSize} offset ${(query.page - 1) * pageSize}`),
+          on set_l.set_id = page.set_id and set_l.lang = ${query.lang}
+        order by page.rank desc, page.card_name, page.released_on desc nulls last, page.set_code,
+          page.number_value nulls last, page.number, page.variant`),
     ]);
     return {
       prints: rows.rows.map((r) => ({
