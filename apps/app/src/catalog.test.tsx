@@ -439,6 +439,8 @@ describe('second review round', () => {
     const { unmount } = renderApp(<SetHeader data={data} gameName="Magic" owned={owned} />);
     expect(screen.getByRole('progressbar', { name: 'Vollständigkeit' })).toBeTruthy();
     unmount();
+    // The tiles ask for the ban list (VB-81) and offer the quick add, so they need the query client
+    // renderApp gives.
     renderApp(
       <CardCollection
         prints={[print(1)]}

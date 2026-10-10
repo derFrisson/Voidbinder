@@ -3,6 +3,7 @@ import { cardAspect } from '@voidbinder/shared';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { useT } from '../../i18n';
+import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
 import { CardImage } from './CardImage';
@@ -13,13 +14,23 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
   const t = useT();
   const set = hit.setCode.toUpperCase();
   const code = `${set} ${hit.displayNumber}`;
+  // VB-81: the TCG ban list status of a Yu-Gi-Oh! hit.
+  const ban = useBanStatus(hit.game, hit.cardId);
+  const banLabel = useBanLabel();
   return (
     <Link href={`/cards/${hit.cardId}?print=${hit.id}`} asChild>
       <Pressable
-        aria-label={`${hit.name}, ${set} ${numberLabel(t.card.numberIn, hit)}`}
+        aria-label={`${hit.name}, ${set} ${numberLabel(t.card.numberIn, hit)}${ban ? `, ${banLabel(ban)}` : ''}`}
         className="gap-2 rounded-xl"
       >
-        <CardImage uri={hit.imageUrl} format={hit.cardFormat} />
+        <View>
+          <CardImage uri={hit.imageUrl} format={hit.cardFormat} />
+          {ban && (
+            <View className="absolute left-1.5 top-1.5">
+              <BanBadge status={ban} />
+            </View>
+          )}
+        </View>
         <View className="gap-0.5 px-0.5">
           <Text
             numberOfLines={2}

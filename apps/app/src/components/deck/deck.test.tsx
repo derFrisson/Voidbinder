@@ -241,6 +241,15 @@ describe('deck helpers', () => {
     expect(problemText(de, { code: 'banned', params: { name: 'Pot of Greed' } })).toBe(
       'Pot of Greed ist in diesem Format verboten.',
     );
+    // Yu-Gi-Oh!'s limits come from the TCG list and say so (VB-81).
+    const many = {
+      code: 'too_many_copies',
+      params: { name: 'Raigeki', count: 3, limit: 1 },
+    } as const;
+    expect(problemText(de, many, 'yugioh')).toBe('Raigeki: 3 Exemplare, max. 1 laut TCG-Liste.');
+    expect(problemText(en, { code: 'banned', params: { name: 'Pot of Greed' } }, 'yugioh')).toBe(
+      'Pot of Greed is forbidden by the TCG list (max. 0).',
+    );
   });
 
   it('writes a list as "n Name" lines', () => {

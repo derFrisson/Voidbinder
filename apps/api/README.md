@@ -42,18 +42,19 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 
 ## Catalog API
 
-| Route                                                                  | Answer                                                                               |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `GET /catalog/games`                                                   | Games with their set counts                                                          |
-| `GET /catalog/games/:game/sets?lang=`                                  | Sets, newest first, with the name in `lang`                                          |
-| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`      | Set header and 60 prints per page (`sort`: number, name, rarity, price)              |
-| `GET /catalog/cards/:id?currency=`                                     | Card, legalities and every print with localizations and `marketPrice`                |
-| `GET /catalog/prints/:id`                                              | One print with its card                                                              |
-| `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` | 30 prints per page by name, text, set code and number (see Search)                   |
-| `GET /catalog/search/suggest?q=&game=&lang=&names=`                    | Up to 8 prints and sets for the search box's typeahead (see Search)                  |
-| `GET /catalog/prints/:id/prices?currency=&finish=`                     | Current prices, display price, condition estimates (see Prices)                      |
-| `GET /catalog/prints/:id/prices/history?days=`                         | Daily market prices per source and finish (see Prices)                               |
-| `GET /catalog/modules`                                                 | Manifests of the offline catalog modules, one per game (see Offline catalog modules) |
+| Route                                                                  | Answer                                                                                 |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `GET /catalog/games`                                                   | Games with their set counts                                                            |
+| `GET /catalog/games/:game/sets?lang=`                                  | Sets, newest first, with the name in `lang`                                            |
+| `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=`      | Set header and 60 prints per page (`sort`: number, name, rarity, price)                |
+| `GET /catalog/cards/:id?currency=`                                     | Card, legalities and every print with localizations and `marketPrice`                  |
+| `GET /catalog/prints/:id`                                              | One print with its card                                                                |
+| `GET /catalog/search?q=&game=&set=&rarity=&lang=&names=&finish=&page=` | 30 prints per page by name, text, set code and number (see Search)                     |
+| `GET /catalog/search/suggest?q=&game=&lang=&names=`                    | Up to 8 prints and sets for the search box's typeahead (see Search)                    |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                     | Current prices, display price, condition estimates (see Prices)                        |
+| `GET /catalog/prints/:id/prices/history?days=`                         | Daily market prices per source and finish (see Prices)                                 |
+| `GET /catalog/modules`                                                 | Manifests of the offline catalog modules, one per game (see Offline catalog modules)   |
+| `GET /catalog/banlist/yugioh?format=&lang=`                            | Yu-Gi-Oh! ban list (`format` `tcg`, `ocg`): groups, 90 days of changes (see Ban lists) |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Every print (set page, search, typeahead, card
 page per localization, collection, wish list and deck entries) carries `displayNumber` and
@@ -67,6 +68,25 @@ image is in R2 (VB-57) and the source's URL until then. Every 200 carries
 `catalog_version` plus a hash of the body (`src/middleware/catalog-cache.ts`); `If-None-Match`
 answers 304. Cloudflare also caches them at the edge (see Caching). The queries use no `now()` or
 other non-immutable function, so Hyperdrive can cache them.
+
+## Ban lists
+
+Yu-Gi-Oh! only (VB-81, schemas `packages/shared/src/api/banlist.ts`). The statuses are the
+YGOPRODeck import's `cards.legalities.tcg` / `.ocg` (`Forbidden`, `Limited`, `Semi-Limited`,
+`Unlimited`). Every change of any card's `legalities`, whichever importer writes it (so Magic and
+Pokémon get history too), adds a `legality_changes` row through the trigger
+`record_legality_changes` (`drizzle/0011_legality_changes.sql`); a new card adds none. The
+effective date of each list comes from Yugipedia (`src/import/ygoprodeck/banlist-dates.ts`, two
+requests per run, into `app_meta.banlist_<format>_effective`; a failed lookup keeps the old date
+and never fails the run), because YGOPRODeck has none.
+
+| Route                                              | Answer                                                                                                                   |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GET /catalog/banlist/yugioh?format=&lang=`        | `{ format, effectiveDate, asOf, groups: { forbidden, limited, semiLimited }, changes }`, cached like the catalog         |
+| `GET /me/banlist-impact?game=yugioh&format=&lang=` | The user's collection cards changed in the last 90 days and deck lines changed or over the list's limit; fresh, no cache |
+
+Changes count only between two different restrictions (a card entering a format unrestricted is
+none) and are taken from the UTC day 90 days back, so the cached query stays the same all day.
 
 ## Caching
 
@@ -503,7 +523,8 @@ two sets in both languages (265 cards) took 60 seconds.
 `src/import/ygoprodeck/` has the Scryfall shape (Workflow `src/workflows/ygoprodeck-import.ts`,
 binding `YGOPRODECK_IMPORT`, `POST /admin/import/ygoprodeck`, one instance `ygoprodeck-<date>`
 from the daily cron, prod 03:30 and dev 05:00 UTC; `CRON_SOURCES` in `src/import/schedule.ts` maps
-every cron to its source). A run makes three requests, `cardinfo.php?misc=yes` (English),
+every cron to its source). A run makes three requests (plus two to Yugipedia for the ban lists'
+dates, see Ban lists), `cardinfo.php?misc=yes` (English),
 `cardinfo.php?language=de` and `cardsets.php`, far below the guide's 20 per second and never one
 per card; the answers go gzip-compressed to `raw/<env>/ygoprodeck/<date>/` in `RAW` and are split
 into chunks of 1000 cards, one step each. `sets.code` is the lowercase set code (`lob`, the

@@ -129,6 +129,78 @@ const search = {
   pageSize: 30,
   total: 1,
 };
+// The Yu-Gi-Oh! ban list (VB-81): one card per group, a change, and what it does to a deck.
+const banCard = (n: number, name: string) => ({
+  id: `3333333${n}-3333-4333-8333-333333333333`,
+  name,
+  printId: null,
+  imageUrl: 'https://img.voidbinder.de/x.png',
+  setCode: 'lob',
+  number: `EN00${n}`,
+});
+const banlist = (format: string) => ({
+  format,
+  effectiveDate: format === 'tcg' ? '2026-09-01' : null,
+  asOf: '2026-10-09T03:00:00.000Z',
+  groups: {
+    forbidden: [banCard(1, 'Pot of Greed')],
+    limited: [banCard(2, 'Monster Reborn')],
+    semiLimited: format === 'tcg' ? [banCard(3, 'Raigeki')] : [],
+  },
+  changes: [
+    {
+      card: banCard(1, 'Pot of Greed'),
+      from: 'Limited',
+      to: 'Forbidden',
+      seenAt: '2026-09-02T03:00:00.000Z',
+    },
+  ],
+});
+const banlistImpact = {
+  format: 'tcg',
+  collection: [
+    {
+      card: banCard(1, 'Pot of Greed'),
+      owned: 2,
+      status: 'Forbidden',
+      change: { from: 'Limited', to: 'Forbidden', seenAt: '2026-09-02T03:00:00.000Z' },
+    },
+  ],
+  decks: [
+    {
+      deck: { id: '44444444-4444-4444-8444-444444444444', name: 'Exodia' },
+      card: banCard(1, 'Pot of Greed'),
+      copies: 1,
+      limit: 0,
+      status: 'Forbidden',
+      change: { from: 'Limited', to: 'Forbidden', seenAt: '2026-09-02T03:00:00.000Z' },
+    },
+  ],
+};
+
+// The typeahead (VB-79): a print with a picture and a set.
+const suggest = {
+  suggestions: [
+    {
+      kind: 'print',
+      id: PRINT,
+      name: 'Adeline, strahlende Katharerin',
+      game: 'mtg',
+      set: { code: 'mid', name: 'Innistrad: Midnight Hunt' },
+      number: '1',
+      rarity: 'rare',
+      imageUrl: 'https://img.voidbinder.de/images/mtg/1/en/sm.webp',
+      cardId: CARD,
+    },
+    {
+      kind: 'set',
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'Innistrad: Midnight Hunt',
+      game: 'mtg',
+      set: { code: 'mid', name: 'Innistrad: Midnight Hunt' },
+    },
+  ],
+};
 const card = {
   card: {
     id: CARD,
@@ -439,6 +511,13 @@ async function open({
       return route.fulfill({ json: mid(url.searchParams.get('rarity')) });
     }
     if (path === '/api/catalog/search') return route.fulfill({ json: search });
+    if (path === '/api/catalog/banlist/yugioh') {
+      return route.fulfill({
+        json: banlist(new URL(req.url()).searchParams.get('format') ?? 'tcg'),
+      });
+    }
+    if (path === '/api/me/banlist-impact') return route.fulfill({ json: banlistImpact });
+    if (path === '/api/catalog/search/suggest') return route.fulfill({ json: suggest });
     if (path === `/api/catalog/cards/${CARD}`) return route.fulfill({ json: card });
     return route.fulfill({
       status: 404,
@@ -652,6 +731,70 @@ describe('web build', () => {
         .getByRole('heading', { level: 1, name: 'Adeline, strahlende Katharerin' })
         .waitFor();
       await page.getByText('Für diesen Druck gibt es noch keine Preise.').waitFor();
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // The typeahead (VB-79): the top bar's box on a desktop, the search page's box on a phone.
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          ['desktop', 1440, '/'],
+          ['phone', 390, '/search'],
+        ] as const
+      ).map(([name, width, path]) => [scheme, name, width, path] as const),
+    ),
+  )(
+    'suggests while typing (%s, %s) and opens a row by keyboard',
+    async (scheme, _n, width, path) => {
+      const { context, page, csp } = await open({ width, height: 844, scheme });
+      const shots = process.env.SHOTS;
+      try {
+        await page.goto(origin + path);
+        const box = page.getByRole('combobox', {
+          name: width < 768 ? 'Karten suchen' : 'Karte, Set oder Nummer suchen',
+        });
+        await box.fill('adel');
+        const list = page.getByRole('listbox', { name: 'Vorschläge' });
+        await list.waitFor();
+        expect(await list.getByRole('option').count()).toBe(2);
+        await page
+          .getByRole('status')
+          .filter({ hasText: '2 Vorschläge' })
+          .waitFor({ state: 'attached' });
+        // The print's picture loads from the image host within the CSP.
+        await list.locator('img').first().waitFor();
+        // On a phone the list spans the box: the page width less the gutters.
+        const listBox = await list.boundingBox();
+        if (width < 768) expect(listBox?.width).toBeGreaterThan(width - 40);
+        await box.press('ArrowDown');
+        if (shots) await page.screenshot({ path: `${shots}/typeahead-${scheme}-${width}.png` });
+        expect(await list.getByRole('option', { selected: true }).textContent()).toContain(
+          'Adeline',
+        );
+        expect(await axe(page)).toEqual([]);
+        await box.press('Enter');
+        await page.waitForURL(new RegExp(`/cards/${CARD}\\?print=${PRINT}$`));
+        expect(csp).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    },
+  );
+
+  // The real mouse path: mousedown must not blur the box (the list would close before the click).
+  it('opens a suggestion with a mouse click (desktop)', async () => {
+    const { context, page, csp } = await open({ width: 1440, height: 844, scheme: 'light' });
+    try {
+      await page.goto(origin);
+      await page.getByRole('combobox', { name: 'Karte, Set oder Nummer suchen' }).fill('adel');
+      const list = page.getByRole('listbox', { name: 'Vorschläge' });
+      await list.waitFor();
+      await list.getByRole('option').first().click();
+      await page.waitForURL(new RegExp(`/cards/${CARD}\\?print=${PRINT}$`));
       expect(csp).toEqual([]);
     } finally {
       await context.close();
@@ -877,6 +1020,37 @@ describe('web build', () => {
         await page.getByRole('button', { name: 'Bestätigen' }).waitFor();
         await shot('two-factor-challenge');
       }
+    } finally {
+      await context.close();
+    }
+  });
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          [1440, 900],
+          [390, 844],
+        ] as const
+      ).map(([width, height]) => [scheme, width, height] as const),
+    ),
+  )('axe: %s /yugioh/banlist at %i px has no violations', async (scheme, width, height) => {
+    const { context, page, csp } = await open({ width, height, scheme, session: true });
+    try {
+      await page.goto(`${origin}/yugioh/banlist`);
+      await page
+        .getByText('Gültig ab 01.09.2026 (Datum: Yugipedia) · Kartendaten: YGOPRODeck')
+        .waitFor();
+      await page.getByRole('heading', { level: 2, name: 'Deine betroffenen Karten' }).waitFor();
+      await page.getByText('Exodia: 1× im Deck, erlaubt 0').waitFor();
+      await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('Raigeki').waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      // The OCG list has no date: the import's "as of" stands in.
+      await page.getByRole('radio', { name: 'OCG' }).click();
+      await page.getByText('Stand 09.10.2026 · Kartendaten: YGOPRODeck').waitFor();
+      expect(await page.getByText('Keine Karten in dieser Gruppe.').count()).toBe(1);
+      expect(await axe(page)).toEqual([]);
+      expect(csp).toEqual([]);
     } finally {
       await context.close();
     }

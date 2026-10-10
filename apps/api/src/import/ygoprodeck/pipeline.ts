@@ -1,6 +1,7 @@
 import { log } from '../../middleware/log';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { purgeEdgeCache } from '../util';
+import { fetchBanlistDates, writeBanlistDates, type BanlistDates } from './banlist-dates';
 import {
   chunkKey,
   deletePrefix,
@@ -135,7 +136,26 @@ export async function runYgoprodeckImport(deps: ImportDeps, step: StepRunner, op
       }
     }
 
-    const stats = { languages, lines, sets, ...cards, otherLanguages: localizations };
+    // The lists' effective dates (VB-81): a failed lookup keeps the stored ones, never the run.
+    const banlistDates = await step('banlist dates', async (): Promise<BanlistDates> => {
+      try {
+        const dates = await fetchBanlistDates(deps.fetch, opts.date);
+        await deps.withDb((db) => writeBanlistDates(db, dates));
+        return dates;
+      } catch (err) {
+        log('warn', { message: 'banlist dates failed', runId, error: String(err) });
+        return {};
+      }
+    });
+
+    const stats = {
+      languages,
+      lines,
+      sets,
+      ...cards,
+      otherLanguages: localizations,
+      banlistDates,
+    };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
     await purgeEdgeCache(deps, step, ['catalog']);
     result = { runId, stats };

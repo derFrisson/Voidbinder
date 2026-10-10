@@ -1,6 +1,6 @@
 {
-  "id": "cc265ef3-8824-4c01-9758-b99a8ca02bd2",
-  "prevId": "3e54a1ed-abed-4a1f-9959-e4e2acc8c866",
+  "id": "3e54a1ed-abed-4a1f-9959-e4e2acc8c866",
+  "prevId": "6e4cb137-9459-47bc-be4f-7cc60d046830",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -736,13 +736,6 @@
           "type": "smallint",
           "primaryKey": false,
           "notNull": true
-        },
-        "card_format": {
-          "name": "card_format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'standard'"
         }
       },
       "indexes": {},
@@ -750,12 +743,7 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {
-        "games_card_format_check": {
-          "name": "games_card_format_check",
-          "value": "\"games\".\"card_format\" in ('standard', 'japanese')"
-        }
-      },
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.import_runs": {
