@@ -572,21 +572,22 @@ Each language the page has becomes a `print_localizations` row for every print o
 wrote is never overwritten (YGOPRODeck's daily German pass takes the card over once it has it), a
 Yugipedia row is rewritten only when the page changed. Wikitext becomes plain text (`<br />` → line
 break, link labels kept, italics dropped); a Pendulum Monster's text is laid out as YGOPRODeck's
-(`[ Pendulum Effect ]` then `[ Monster Effect ]` or `[ Flavor Text ]`). Requests are one second apart
-(robots.txt `Crawl-delay: 1`) with a `User-Agent` naming voidbinder.de and the contact address; the
-answers stay in `RAW` under `raw/<env>/yugipedia/<date>/cards-<n>.json`. Every card a chunk looked
-up, found or not, goes into the `app_meta` map `yugipedia_checked` (passcode → day) and is not asked
-again for 30 days, so the ~80 cards Yugipedia lacks and pages without a language are not re-asked
-every week (a print added to a card in that time waits for the next lookup too). The first run on a
-catalog covers the whole catalog, about 1,400 requests (25 minutes); the weekly cron (prod Mondays
-04:30, dev Mondays 06:00 UTC, instance `yugipedia-<date>`, not started while a run is going) then
-asks for new cards and those whose 30 days are up. YGOPRODeck also publishes French, Italian and
-Portuguese dumps; reading them daily would be the cheaper source for those languages (a later
-ticket), with Yugipedia left for Spanish and the gaps. `POST /admin/import/yugipedia` starts one on
-demand (202, 409 while one is `running`). The content is CC BY-SA 4.0: the app credits it in the
-footer and on every Yu-Gi-Oh! card page (`YUGIPEDIA_ATTRIBUTION` in `@voidbinder/shared/notices`,
-source and licence linked), and the offline module's `meta` and manifest carry it as
-`attribution`.
+(`[ Pendulum Effect ]` then `[ Monster Effect ]` or `[ Flavor Text ]`). Requests are one second
+apart (self-imposed; Yugipedia's robots.txt sets `Crawl-delay: 1` only for msnbot) with a
+`User-Agent` naming voidbinder.de and the contact address; the answers stay in `RAW` under
+`raw/<env>/yugipedia/<date>/cards-<n>.json`. Every card a chunk looked up, found or not, goes into
+the `app_meta` map `yugipedia_checked` (passcode → day) and is not asked again for 30 days, so the
+~80 cards Yugipedia lacks and pages without a language are not re-asked every week (a print added to
+a card in that time waits for the next lookup too). The first run on a catalog covers the whole
+catalog, about 1,400 requests (25 minutes); the weekly cron (prod Mondays 04:30, dev Mondays 06:00
+UTC, instance `yugipedia-<date>`, not started while a run is going) then asks for new cards and
+those whose 30 days are up. YGOPRODeck also publishes French, Italian and Portuguese dumps; reading
+them daily would be the cheaper source for those languages (a later ticket), with Yugipedia left for
+Spanish and the gaps. `POST /admin/import/yugipedia` starts one on demand (202, 409 while one is
+`running`). The content is CC BY-SA 4.0, and adapted (wikitext converted, Pendulum texts re-laid
+out): the app credits it in the footer and on every Yu-Gi-Oh! card page (`YUGIPEDIA_ATTRIBUTION` in
+`@voidbinder/shared/notices`, source and licence linked), and the offline module's `meta` and
+manifest carry it as `attribution`.
 
 ## Prices
 

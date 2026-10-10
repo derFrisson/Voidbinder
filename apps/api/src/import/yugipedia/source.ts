@@ -5,9 +5,11 @@ import type { Fetch } from '../scryfall/source';
 // One `action=ask` query selects the card pages (`Category:Duel Monsters cards`) by their
 // `Password` property, the passcode that is our `cards.oracle_key`, and prints the localized
 // name, lore and Pendulum Effect of each language. The wiki refuses a query with more than about
-// a dozen conditions, so one request carries ASK_BATCH passcodes. robots.txt asks for a crawl
-// delay of one second; the importer waits that long before every request. The content is
-// CC BY-SA 4.0 (credited in @voidbinder/shared/notices).
+// a dozen conditions, so one request carries ASK_BATCH passcodes. The importer waits one second
+// before every request, self-imposed (Yugipedia's robots.txt sets `Crawl-delay: 1` only for
+// msnbot and states no API quota). The content is CC BY-SA 4.0 (credited in
+// @voidbinder/shared/notices); the texts are adapted: wikitext becomes plain text, a Pendulum
+// Monster's text is re-laid out.
 
 export const API = 'https://yugipedia.com/api.php';
 export const USER_AGENT =
