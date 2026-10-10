@@ -14,15 +14,20 @@ function info(o: R2Object): BlobInfo {
 }
 
 export class R2BlobStore implements BlobStore {
-  /** `onlyPrefix`: `put` refuses every other key (the public `CATALOG` bucket takes `images/`). */
+  /**
+   * `onlyPrefixes`: `put` refuses every other key (the public `CATALOG` bucket takes `images/` and
+   * `modules/`).
+   */
   constructor(
     private readonly bucket: R2Bucket,
-    private readonly onlyPrefix?: string,
+    private readonly onlyPrefixes?: readonly string[],
   ) {}
 
   async put(key: string, body: ByteStream | Uint8Array | string, options: BlobPutOptions) {
-    if (this.onlyPrefix && !key.startsWith(this.onlyPrefix))
-      throw new Error(`refusing to write ${key}: this bucket takes ${this.onlyPrefix} keys only`);
+    if (this.onlyPrefixes && !this.onlyPrefixes.some((p) => key.startsWith(p)))
+      throw new Error(
+        `refusing to write ${key}: this bucket takes ${this.onlyPrefixes.join(', ')} keys only`,
+      );
     const { contentType, cacheControl } = options;
     const obj = await this.bucket.put(key, body as ReadableStream | Uint8Array | string, {
       httpMetadata: { contentType, ...(cacheControl && { cacheControl }) },

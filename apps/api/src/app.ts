@@ -14,6 +14,7 @@ import { collectionRoutes } from './routes/collection';
 import { deckRoutes } from './routes/decks';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
+import { moduleRoutes } from './routes/modules';
 
 /** The platform seams one request works with (ADR 0001). */
 export interface Platform {
@@ -41,6 +42,8 @@ export interface AppDeps {
   auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail'>;
   /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
   adminToken?: string | undefined;
+  /** `IMPORT_ENV` (`local`, `dev`, `prod`): the R2 prefix of the catalog modules; default `local`. */
+  importEnv?: string | undefined;
   /** Called once per request; the platform is closed after the response. */
   openPlatform(): Platform;
 }
@@ -98,6 +101,8 @@ export function createApp(deps: AppDeps) {
       // Better Auth: sign-up, sign-in, sign-out, verification, password reset (README.md).
       .on(['GET', 'POST'], '/auth/*', (c) => c.var.auth().handler(c.req.raw))
       .route('/me', meRoutes())
+      // Before `/catalog`, so the catalog's cache middleware does not run a second time.
+      .route('/catalog/modules', moduleRoutes(deps.importEnv ?? 'local'))
       .route('/catalog', catalogRoutes())
       .route('/collection', collectionRoutes())
       .route('/decks', deckRoutes())
