@@ -1,10 +1,13 @@
 import { failRun, finishRun } from '../scryfall/write';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
+import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
+import { coverageCounts, groupsKey, priceCoverage, readGroups } from './coverage';
 import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
 import {
   CATEGORIES,
   cents,
+  extended,
   fetchRaw,
   finishOf,
   lastUpdated,
@@ -41,7 +44,11 @@ export interface PriceImportOptions {
   /** Pause before each request; TCGCSV asks for 100 ms. */
   delayMs?: number;
   games?: readonly PricedGame[];
-  /** Runs on a build already imported: re-maps and re-prices it (VB-110, `?force=true`). */
+  /**
+   * Imports the build even when the last run did: re-runs the group and product matching, so a
+   * new rule reaches the prices without a new build (VB-110, VB-111,
+   * `POST /admin/import/tcgcsv?force=true`).
+   */
   force?: boolean;
 }
 
@@ -62,7 +69,35 @@ export interface GameStats {
 const GAMES: readonly PricedGame[] = ['mtg', 'yugioh', 'pokemon'];
 const SOURCE = 'tcgplayer';
 
-/** Imports the products and prices of a range of matched groups; returns their counts. */
+/** The matched groups per set, in order of first appearance; each set's groups by group id. */
+function groupsBySet(groups: readonly { groupId: number; setId: string }[]) {
+  const out = new Map<string, number[]>();
+  for (const g of groups) out.set(g.setId, [...(out.get(g.setId) ?? []), g.groupId]);
+  for (const ids of out.values()) ids.sort((a, b) => a - b);
+  return out;
+}
+
+/** Steps of about `GROUPS_PER_STEP` groups that never split a set (its groups match together). */
+export function groupSteps(groups: readonly { groupId: number; setId: string }[]) {
+  const steps: { groupId: number; setId: string }[][] = [];
+  let current: { groupId: number; setId: string }[] = [];
+  for (const [setId, ids] of groupsBySet(groups)) {
+    if (current.length && current.length + ids.length > GROUPS_PER_STEP) {
+      steps.push(current);
+      current = [];
+    }
+    current.push(...ids.map((groupId) => ({ groupId, setId })));
+  }
+  if (current.length) steps.push(current);
+  return steps;
+}
+
+/**
+ * Imports the products and prices of a range of matched groups; returns their counts. The groups
+ * of one set are matched together (VB-111: LOB's `LOB` group holds the North American prints, its
+ * two `LOB-EN` groups the EN ones), so a print one group's product claims by number is taken for
+ * another group's regional pass and the more confident claim wins.
+ */
 export async function importGroups(
   deps: ImportDeps,
   game: PricedGame,
@@ -70,24 +105,38 @@ export async function importGroups(
   opts: { raw: string; delayMs: number; observedAt: string },
 ) {
   const category = CATEGORIES[game];
+  const byId = game === 'mtg';
   const stats = { cards: 0, mapped: 0, unmapped: 0, prices: 0, noMarket: 0 };
-  for (const { groupId, setId } of groups) {
-    const fetchFile = (file: string) =>
-      fetchRaw(
-        deps.fetch,
-        deps.raw,
-        `/tcgplayer/${category}/${groupId}/${file}`,
-        `${opts.raw}/${category}/${groupId}.${file}.json.gz`,
-        opts.delayMs,
-        // A group without products has no files.
-        true,
-      );
-    const products = results<TcgProduct>(await fetchFile('products'), `products ${groupId}`);
-    const prices = results<TcgPrice>(await fetchFile('prices'), `prices ${groupId}`);
+  for (const [setId, groupIds] of groupsBySet(groups)) {
+    const products: TcgProduct[] = [];
+    const reprints: TcgProduct[] = [];
+    const prices: TcgPrice[] = [];
+    // A card a lower group id already lists under its number and rarity is a reprint of that
+    // print (LOB's 25th Anniversary Edition, folded into the set by the YGOPRODeck import): the
+    // older group prices it, not a tie that leaves the print unpriced.
+    // ponytail: group id order stands in for TCGplayer's `publishedOn`; read that if they diverge.
+    const listed = new Set<string>();
+    const cardKey = (p: TcgProduct) => `${extended(p, 'Number')}|${extended(p, 'Rarity') ?? ''}`;
+    for (const groupId of groupIds) {
+      const fetchFile = (file: string) =>
+        fetchRaw(
+          deps.fetch,
+          deps.raw,
+          `/tcgplayer/${category}/${groupId}/${file}`,
+          `${opts.raw}/${category}/${groupId}.${file}.json.gz`,
+          opts.delayMs,
+          // A group without products has no files.
+          true,
+        );
+      const own = results<TcgProduct>(await fetchFile('products'), `products ${groupId}`);
+      prices.push(...results<TcgPrice>(await fetchFile('prices'), `prices ${groupId}`));
+      for (const p of own)
+        (!byId && extended(p, 'Number') && listed.has(cardKey(p)) ? reprints : products).push(p);
+      for (const p of own) if (extended(p, 'Number')) listed.add(cardKey(p));
+    }
     const productIds = [...new Set(prices.map((p) => String(p.productId)))];
 
     const r = await deps.withDb(async (db) => {
-      const byId = game === 'mtg';
       const candidates = await candidatePrints(db, [setId], byId ? productIds : []);
       // A product may price several prints (Yu-Gi-Oh! regional prints, VB-110).
       const matches = new Map<number, ProductMatch[]>();
@@ -138,7 +187,8 @@ export async function importGroups(
       return { priced, written, noMarket };
     });
 
-    const cardIds = products.filter(isCard).map((p) => p.productId);
+    // A reprint left out of the matching counts as a card all the same.
+    const cardIds = [...products, ...reprints].filter(isCard).map((p) => p.productId);
     const mapped = cardIds.filter((id) => r.priced.has(id)).length;
     stats.cards += cardIds.length;
     stats.mapped += mapped;
@@ -183,12 +233,15 @@ export async function runTcgcsvImport(
           deps.fetch,
           deps.raw,
           `/tcgplayer/${category}/groups`,
-          `${raw}/${category}/groups.json.gz`,
+          groupsKey(raw, game),
           delayMs,
         );
         const groups = results<TcgGroup>(text, `groups ${category}`);
         const sets = await deps.withDb((db) => gameSets(db, game));
-        return { total: groups.length, matched: matchGroups(groups, sets) };
+        return {
+          total: groups.length,
+          matched: matchGroups(groups, sets, { regional: game === 'yugioh' }),
+        };
       });
       const g: GameStats = {
         groups: total,
@@ -199,22 +252,36 @@ export async function runTcgcsvImport(
         prices: 0,
         noMarket: 0,
       };
-      for (let i = 0; i < matched.length; i += GROUPS_PER_STEP) {
-        const name = `prices ${game} ${String(i / GROUPS_PER_STEP).padStart(3, '0')}`;
+      for (const [i, groups] of groupSteps(matched).entries()) {
+        const name = `prices ${game} ${String(i).padStart(3, '0')}`;
         const r = await step(name, () =>
-          importGroups(deps, game, matched.slice(i, i + GROUPS_PER_STEP), {
-            raw,
-            delayMs,
-            observedAt,
-          }),
+          importGroups(deps, game, groups, { raw, delayMs, observedAt }),
         );
         for (const k of ['cards', 'mapped', 'unmapped', 'prices', 'noMarket'] as const)
           g[k] += r[k];
       }
       games[game] = g;
+      // From the group list just kept, so the route and the log read the same thing. Logged inside
+      // the step (a Workflow replays a finished step's result, not its body), and never fatal: the
+      // prices are written by now.
+      await step(`coverage ${game}`, async () => {
+        try {
+          const groups = (await readGroups(deps.raw, groupsKey(raw, game))) ?? [];
+          const c = await deps.withDb((db) => priceCoverage(db, game, groups));
+          const counts = coverageCounts(c);
+          log('info', { message: 'price coverage', game, ...counts });
+          for (const set of c.unpricedSets)
+            log('warn', { message: 'set has a TCGplayer group and no price', game, ...set });
+          return counts;
+        } catch (err) {
+          log('warn', { message: 'price coverage failed', game, error: String(err) });
+          return null;
+        }
+      });
     }
 
-    const stats = { lastUpdated: observedAt, games };
+    // `raw`: where the run kept its answers, the group lists of the coverage route among them.
+    const stats = { lastUpdated: observedAt, raw, games };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
     await purgeEdgeCache(deps, step, ['prices']);
     return { runId, stats };

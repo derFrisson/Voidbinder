@@ -2,6 +2,7 @@ import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import type { AppDeps, Platform } from '../../app';
 import type { MirrorDeps } from '../../import/images';
+import { lastCoverage } from '../../import/prices/coverage';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
 import type { ImportDeps as TcgdexDeps } from '../../import/tcgdex/pipeline';
 import { TcgdexClient } from '../../import/tcgdex/source';
@@ -66,6 +67,7 @@ export function createPlatform(env: Env): Platform {
       ? new D1SearchIndex(env.SEARCH, { imageBaseUrl: env.IMAGE_BASE_URL })
       : undefined,
     blobStore: catalogImages(env),
+    priceCoverage: (game) => lastCoverage(db, new R2BlobStore(env.RAW), game),
     jobQueue: new WorkflowJobQueue({
       'scryfall-import': env.SCRYFALL_IMPORT,
       'tcgdex-import': env.TCGDEX_IMPORT,

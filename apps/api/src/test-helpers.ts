@@ -88,6 +88,8 @@ export interface TestAppOptions {
   deckStore?: DeckStore;
   /** The cache-disabled database (admin writes); unavailable otherwise. */
   db?: NodePgDatabase;
+  /** `GET /admin/prices/coverage`; none by default. */
+  priceCoverage?: Platform['priceCoverage'];
   adminToken?: string;
   extraOrigins?: string[];
 }
@@ -104,6 +106,7 @@ export function testApp(opts: TestAppOptions = {}) {
     collectionStore: opts.collectionStore ?? unavailable<CollectionStore>('collection store'),
     deckStore: opts.deckStore ?? unavailable<DeckStore>('deck store'),
     blobStore: unavailable<BlobStore>('blob store'),
+    priceCoverage: opts.priceCoverage,
     jobQueue: opts.jobQueue ?? unavailable<JobQueue>('job queue'),
     db: opts.db ?? unavailable<NodePgDatabase>('database'),
     close: async () => undefined,
