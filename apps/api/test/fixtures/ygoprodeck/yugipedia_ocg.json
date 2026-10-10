@@ -1,0 +1,28 @@
+{
+  "query": {
+    "results": {
+      "October 2026 Lists (Korean)": {
+        "printouts": {
+          "Effective date": [
+            {
+              "timestamp": "1791158400",
+              "raw": "1/2026/10/05"
+            }
+          ]
+        },
+        "fulltext": "October 2026 Lists (Korean)"
+      },
+      "October 2026 Lists (OCG)": {
+        "printouts": {
+          "Effective date": [
+            {
+              "timestamp": "1790812800",
+              "raw": "1/2026/10/01"
+            }
+          ]
+        },
+        "fulltext": "October 2026 Lists (OCG)"
+      }
+    }
+  }
+}

@@ -3,6 +3,7 @@ import type { CardResponse } from '@voidbinder/shared/api';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Text, View, useWindowDimensions } from 'react-native';
 import { useCard } from '../../api/queries/catalog';
+import { CardBanBadges } from '../../components/banlist/BanBadge';
 import { attributeChips } from '../../components/card/attributes';
 import { CardText, Legality, PrintsTable } from '../../components/card/CardPanels';
 import { CardStage, PrintThumbs, RightsNotice } from '../../components/card/CardStage';
@@ -75,6 +76,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
         >
           {view.name}
         </Text>
+        {game === 'yugioh' && <CardBanBadges legalities={card.legalities} />}
         {card.typeLine && <Text className="font-body text-[17px] text-ink-2">{card.typeLine}</Text>}
         {wide && (
           <View className="flex-row flex-wrap gap-2">

@@ -1,4 +1,5 @@
-import type { MeResponse, UpdateMeRequest } from '@voidbinder/shared/api';
+import type { BanlistFormat, MeResponse, UpdateMeRequest } from '@voidbinder/shared/api';
+import type { Locale } from '@voidbinder/shared';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { api } from '../client';
 import { ApiError, read } from './http';
@@ -44,5 +45,14 @@ export function useDeleteMe() {
   return useMutation({
     mutationFn: () => read(api.me.$delete()),
     onSuccess: () => signedOut(client),
+  });
+}
+
+/** What of the signed-in user's collection and decks the ban list touches (VB-81). */
+export function useBanlistImpact(format: BanlistFormat, lang: Locale, enabled: boolean) {
+  return useQuery({
+    queryKey: ['banlist-impact', format, lang],
+    queryFn: () => read(api.me['banlist-impact'].$get({ query: { game: 'yugioh', format, lang } })),
+    enabled,
   });
 }

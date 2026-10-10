@@ -10,6 +10,7 @@ import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import { useDeleteEntry, useUpdateEntry } from '../../api/queries/collection';
 import { useSession } from '../../api/queries/me';
 import { fmt, useLocale, useT } from '../../i18n';
+import { BanBadge, useBanStatus } from '../banlist/BanBadge';
 import { label } from '../card/attributes';
 import { fieldClass } from '../card/game';
 import { useWide } from '../Shell';
@@ -46,17 +47,22 @@ export function Thumb({ print }: { print: EntryPrint }) {
 
 /** Name, set code and number; links to the card page with the print selected. */
 export function CardCell({ print }: { print: EntryPrint }) {
+  // VB-81: the TCG ban list status of a Yu-Gi-Oh! card.
+  const ban = useBanStatus(print.game, print.cardId);
   return (
     <Link href={`/cards/${print.cardId}?print=${print.id}`} asChild>
       <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
         <Thumb print={print} />
         <View className="min-w-0 flex-1">
-          <Text
-            numberOfLines={2}
-            className="font-display text-[15px] font-semibold leading-5 text-ink"
-          >
-            {print.name}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text
+              numberOfLines={2}
+              className="shrink font-display text-[15px] font-semibold leading-5 text-ink"
+            >
+              {print.name}
+            </Text>
+            {ban && <BanBadge status={ban} format="tcg" />}
+          </View>
           <Text numberOfLines={1} className="font-mono text-xs text-ink-2">
             {print.setCode.toUpperCase()} · {print.number}
           </Text>

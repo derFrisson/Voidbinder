@@ -1,6 +1,7 @@
 import type { SearchHit } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
+import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
 import { CardImage } from './CardImage';
@@ -8,10 +9,23 @@ import { CardImage } from './CardImage';
 /** A search result: image, name, set code and number in mono, set name, market price. Opens the card page. */
 export function PrintTile({ hit }: { hit: SearchHit }) {
   const code = `${hit.setCode.toUpperCase()} ${hit.number}`;
+  // VB-81: the TCG ban list status of a Yu-Gi-Oh! hit.
+  const ban = useBanStatus(hit.game, hit.cardId);
+  const banLabel = useBanLabel();
   return (
     <Link href={`/cards/${hit.cardId}?print=${hit.id}`} asChild>
-      <Pressable aria-label={`${hit.name}, ${code}`} className="gap-2 rounded-xl">
-        <CardImage uri={hit.imageUrl} />
+      <Pressable
+        aria-label={`${hit.name}, ${code}${ban ? `, ${banLabel(ban)}` : ''}`}
+        className="gap-2 rounded-xl"
+      >
+        <View>
+          <CardImage uri={hit.imageUrl} />
+          {ban && (
+            <View className="absolute left-1.5 top-1.5">
+              <BanBadge status={ban} />
+            </View>
+          )}
+        </View>
         <View className="gap-0.5 px-0.5">
           <Text
             numberOfLines={2}

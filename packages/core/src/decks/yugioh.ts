@@ -1,4 +1,4 @@
-import type { DeckProblem, DeckRules } from '@voidbinder/shared/api';
+import { banLimit, type DeckProblem, type DeckRules } from '@voidbinder/shared/api';
 import {
   buckets,
   copyProblems,
@@ -19,14 +19,7 @@ export const isExtraDeck = (card: { typeLine: string | null }) =>
   /\b(Fusion|Synchro|XYZ|Link)\b/i.test(card.typeLine ?? '');
 
 /** Copies the TCG list allows; null: not on the TCG list at all (an OCG-only card). */
-function allowed(card: DeckCard): number | null {
-  const status = card.legalities.tcg?.toLowerCase();
-  if (status === undefined) return null;
-  if (status === 'banned' || status === 'forbidden') return 0;
-  if (status === 'limited') return 1;
-  if (status === 'semi-limited') return 2;
-  return 3;
-}
+const allowed = (card: DeckCard): number | null => banLimit(card.legalities.tcg);
 
 const rules = (): DeckRules => ({
   zones: { main: { min: 40, max: 60 }, extra: { max: 15 }, side: { max: 15 } },

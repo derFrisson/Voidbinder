@@ -288,8 +288,14 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     });
 
     it('pages by the given size', async () => {
-      const second = await store.search({ q: 'cathar', lang: 'en', currency: 'EUR', page: 2 }, 3);
-      const first = await store.search({ q: 'cathar', lang: 'en', currency: 'EUR', page: 1 }, 3);
+      const second = await store.search(
+        { q: 'cathar', lang: 'en', names: 'all', currency: 'EUR', page: 2 },
+        3,
+      );
+      const first = await store.search(
+        { q: 'cathar', lang: 'en', names: 'all', currency: 'EUR', page: 1 },
+        3,
+      );
       expect(first.prints).toHaveLength(3);
       expect(second.page).toBe(2);
       expect(second.total).toBe(first.total);
@@ -312,7 +318,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
     });
 
-    it('uses the GIN index on cards, no sequential scan, with ~200 cards', async () => {
+    it('uses the GIN indexes, no sequential scan, with ~200 cards', async () => {
       const [set] = await db.select({ id: sets.id }).from(sets).where(eq(sets.code, 'mid'));
       const many = Array.from({ length: 200 }, (_, i) => ({
         gameId: 'mtg',
@@ -321,54 +327,86 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
         typeLine: 'Creature',
         text: `Filler text number ${i}.`,
       }));
-      // The store's own queries, run as EXPLAIN. At this size a sequential scan is cheaper and
-      // the planner rightly takes it, so seqscan is switched off: when the query has an index
-      // path the plan uses it, when it has none (an OR across both tables, a wrapped column) the
-      // plan still shows the Seq Scan. The synthetic rows live in a transaction that is rolled
-      // back, so later tests see the fixture only.
-      const plans: unknown[] = [];
+      // The store's own queries, run as EXPLAIN. At this size a sequential scan (or a full scan
+      // of a primary key) is cheaper and the planner rightly takes it, so both are switched off:
+      // when the query has an index path the plan uses it, when it has none (an OR across both
+      // tables, a wrapped column) the plan still shows the Seq Scan. The synthetic rows live in a
+      // transaction that is rolled back, so later tests see the fixture only.
+      const plans: Record<string, unknown[]> = {};
       const rollback = new Error('rollback');
       await db
         .transaction(async (tx) => {
           const inserted = await tx.insert(cards).values(many).returning({ id: cards.id });
-          await tx
+          const synthetic = await tx
             .insert(prints)
             .values(
               inserted.map((c, i) => ({ cardId: c.id, setId: set?.id ?? '', number: `s${i}` })),
-            );
+            )
+            .returning({ id: prints.id });
+          await tx.insert(printLocalizations).values(
+            synthetic.flatMap((p, i) => [
+              { printId: p.id, lang: 'en', name: `Synthetic Wanderer ${i}` },
+              { printId: p.id, lang: 'de', name: `Synthetischer Wanderer ${i}` },
+            ]),
+          );
           await tx.execute(sql`analyze cards, prints, print_localizations`);
           await tx.execute(sql`set local enable_seqscan = off`);
+          await tx.execute(sql`set local enable_indexscan = off`);
+          let into: unknown[] = [];
           const explaining = new Proxy(tx as unknown as NodePgDatabase, {
             get: (target, key) =>
               key === 'execute'
                 ? async (query: ReturnType<typeof sql>) => {
                     const r = await target.execute(sql`explain (format json) ${query}`);
-                    plans.push(r.rows[0]?.['QUERY PLAN']);
+                    into.push(r.rows[0]?.['QUERY PLAN']);
                     return { rows: [] };
                   }
                 : Reflect.get(target, key),
           });
-          await new DrizzleCardStore(db, { catalogDb: explaining }).search(
-            { q: 'adeline', lang: 'de', currency: 'EUR', game: 'mtg', page: 1 },
-            30,
-          );
+          const explained = new DrizzleCardStore(db, { catalogDb: explaining });
+          for (const names of ['all', 'de']) {
+            const query = { q: 'adeline', lang: 'de', names, game: 'mtg' as const };
+            into = plans[`search ${names}`] = [];
+            await explained.search({ ...query, currency: 'EUR', page: 1 }, 30);
+            into = plans[`suggest ${names}`] = [];
+            await explained.suggest(query, 8);
+          }
           throw rollback;
         })
         .catch((e: unknown) => {
           if (e !== rollback) throw e;
         });
-      expect(plans).toHaveLength(2);
-      const scans: string[] = [];
-      const walk = (node: unknown): void => {
-        if (Array.isArray(node)) return node.forEach(walk);
-        if (!node || typeof node !== 'object') return;
-        const n = node as Record<string, unknown>;
-        if (n['Node Type'] === 'Seq Scan') scans.push(String(n['Relation Name']));
-        Object.values(n).forEach(walk);
+      /** The relations each plan reads by Seq Scan and the indexes it reads. */
+      const reads = (plan: unknown) => {
+        const scans: string[] = [];
+        const indexes: string[] = [];
+        const walk = (node: unknown): void => {
+          if (Array.isArray(node)) return node.forEach(walk);
+          if (!node || typeof node !== 'object') return;
+          const n = node as Record<string, unknown>;
+          if (n['Node Type'] === 'Seq Scan') scans.push(String(n['Relation Name']));
+          if (typeof n['Index Name'] === 'string') indexes.push(n['Index Name']);
+          Object.values(n).forEach(walk);
+        };
+        walk(plan);
+        return { scans, indexes };
       };
-      walk(plans);
-      expect(scans).not.toContain('cards');
-      expect(scans).not.toContain('print_localizations');
+      expect(Object.values(plans).map((p) => p.length)).toEqual([2, 1, 2, 1]);
+      for (const [name, plan] of Object.entries(plans)) {
+        const { scans } = reads(plan);
+        expect(scans, name).not.toContain('cards');
+        expect(scans, name).not.toContain('print_localizations');
+      }
+      // The name matches in localizations use their GIN indexes with a language as well (the
+      // typeahead may read the cards of a game by cards_game_id_idx).
+      expect(reads(plans['search all']).indexes).toEqual(
+        expect.arrayContaining(['cards_search_idx', 'print_localizations_search_idx']),
+      );
+      expect(reads(plans['search de']).indexes).toContain('print_localizations_search_idx');
+      expect(reads(plans['search de']).indexes).not.toContain('cards_search_idx');
+      expect(reads(plans['suggest all']).indexes).toContain('print_localizations_name_trgm_idx');
+      expect(reads(plans['suggest de']).indexes).toContain('print_localizations_name_trgm_idx');
+      expect(reads(plans['suggest de']).indexes).not.toContain('cards_name_trgm_idx');
     });
   });
 

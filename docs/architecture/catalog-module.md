@@ -103,6 +103,11 @@ TCGplayer via Scryfall), its market price in integer cents in that source's curr
 converted, with the time the source observed it. Indexes: `prints (card_id)`,
 `prints (set_id, number)`.
 
+The ban list history (`legality_changes`, VB-81) is not in the module: `cards.legalities` already
+holds every card's current status offline, and the history grows with every Magic and Pokémon
+rotation (thousands of rows per format each time), past the 50k rows a module table may carry.
+The app reads the changes from `GET /catalog/banlist/:game` while online.
+
 Name search (both languages, umlauts folded, `*` for a prefix):
 
 ```sql
