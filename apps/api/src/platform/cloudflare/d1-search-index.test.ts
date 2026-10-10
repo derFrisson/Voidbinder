@@ -209,6 +209,17 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     expect(await refresh(true)).toMatchObject({ setsWritten: 8, setsRemoved: 0 });
   });
 
+  it('deletes a removed set on a full rebuild too', async () => {
+    const swsh12 = db.select({ id: sets.id }).from(sets).where(eq(sets.code, 'swsh12'));
+    await db.delete(prints).where(inArray(prints.setId, swsh12));
+    await db.delete(sets).where(eq(sets.code, 'swsh12'));
+
+    expect(await refresh(true)).toMatchObject({ setsWritten: 7, setsRemoved: 1 });
+    expect(
+      await d1.prepare(`select count(*) as n from sets where code = 'swsh12'`).first('n'),
+    ).toBe(0);
+  });
+
   it('is unusable once the last refresh is older than MAX_INDEX_AGE_MS', async () => {
     const syncedAt = Date.parse(
       (await d1.prepare(`select value from meta where key = 'synced_at'`).first('value')) ?? '',

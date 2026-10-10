@@ -99,19 +99,19 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
       from sets s order by s.id`);
     return [version.rows[0]?.value ?? '0', rows.rows] as const;
   });
-  const stored = full
-    ? new Map<string, string>()
-    : new Map(
-        (
-          await deps.d1.prepare('select id, hash from sets').all<{ id: string; hash: string }>()
-        ).results.map((r) => [r.id, r.hash]),
-      );
+  // Read in both modes: a full rebuild skips only the hash comparison, it still removes sets gone
+  // from Postgres.
+  const stored = new Map(
+    (
+      await deps.d1.prepare('select id, hash from sets').all<{ id: string; hash: string }>()
+    ).results.map((r) => [r.id, r.hash]),
+  );
   const live = new Set(hashes.map((h) => h.id));
   const chunks: [string, string][][] = [];
   let chunk: [string, string][] = [];
   let size = 0;
   for (const h of hashes) {
-    if (stored.get(h.id) === h.hash) continue;
+    if (!full && stored.get(h.id) === h.hash) continue;
     if (chunk.length && size + h.prints > CHUNK_PRINTS) {
       chunks.push(chunk);
       chunk = [];
