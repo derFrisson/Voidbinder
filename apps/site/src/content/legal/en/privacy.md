@@ -130,7 +130,7 @@ The result is a token that your browser sends to us with the form. Our server ha
 
 The legal basis is Art. 6 (1) (f) GDPR. Our legitimate interest is protection against accounts created automatically, abuse of the mail sending and spam. The provider is Cloudflare, Inc. (address above). Cloudflare carries out the check as a processor on our instructions under a data processing agreement, and the same safeguards for transfers to the USA apply. According to the Turnstile Privacy Addendum, Cloudflare also uses the details as a controller of its own to improve Turnstile's bot detection.
 
-For the check, Cloudflare may set technically necessary cookies through challenges.cloudflare.com, such as "__cf_bm" for bot detection, which expires after 30 minutes without activity. Turnstile sets the cookie "cf_clearance", which records a passed check for further requests, only when pre-clearance is turned on, which we do not use. The check and these cookies are strictly necessary for the service you want to use at that moment (§ 25 (2) no. 2 TDDDG). No consent is needed for them. Cloudflare describes the details in the Turnstile Privacy Addendum at https://www.cloudflare.com/turnstile-privacy-policy/.
+Turnstile sets no cookies of its own. It sets the cookie "cf_clearance", which records a passed check for further requests, only when pre-clearance is turned on, which we do not use. The check is strictly necessary for the service you want to use at that moment (§ 25 (2) no. 2 TDDDG). No consent is needed for it. Cloudflare describes the details in the Turnstile Privacy Addendum at https://www.cloudflare.com/turnstile-privacy-policy/.
 
 ### Emails
 
