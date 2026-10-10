@@ -82,7 +82,7 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   bytes in base64; encrypts the two-factor secrets and backup codes at rest with AES-256-GCM,
   VB-68). Locally `cp apps/api/.dev.vars.example apps/api/.dev.vars`; deployed, once per
   environment from `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put <NAME>
---env dev|prod`. All three secrets are under `secrets.required`, so `wrangler deploy` fails while
+--env dev|prod`. All three secrets, and `TURNSTILE_SECRET` (the Turnstile bullet below), are under `secrets.required`, so `wrangler deploy` fails while
   one is unset; a Worker without `ADMIN_TOKEN` answers 404 on `/admin/**`, changing
   `BETTER_AUTH_SECRET` signs every user out, and changing `TWO_FACTOR_ENCRYPTION_KEY` after users
   enrolled makes their second factor unreadable.
@@ -101,6 +101,32 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `voidbinder-scryfall-import` (class `ScryfallImportWorkflow`), started daily by the cron trigger
   (prod 03:00 UTC, dev 04:30 UTC). The API sets `limits.cpu_ms` to 300000 for it (Workers Paid).
   `EMAIL` (`send_email`, sender `hello@voidbinder.de`) sends the auth mails.
+- **Turnstile (VB-72):** one Cloudflare Turnstile widget (managed mode, name "Voidbinder", account
+  `152a1fcd0eebb96d1bc30d14b5a6af58`) protects the sign-up, the password-reset request, the
+  verification resend (API, web app) and the waitlist form (site). Its hostnames are
+  `voidbinder.de`, `www.voidbinder.de`, `voidbinder-site-dev.frisson.workers.dev`,
+  `app.voidbinder.de`, `voidbinder-app-dev.frisson.workers.dev` and `localhost`; a new hostname
+  (a preview domain, a new app origin) must be added to the widget in the dashboard (Turnstile).
+  - **Sitekey** `0x4AAAAAAFS5R7qPne3TN2Nz` (public): the wrangler var `TURNSTILE_SITE_KEY` in `apps/site` (read at
+    build, `env` of `cloudflare:workers` in the prerender) and `apps/api` (documentation only, the
+    API verifies tokens and never renders a widget); locally and in the tests Cloudflare's
+    always-passes test key `1x00000000000000000000AA`. The web app is an `expo export`, so its key
+    is inlined at build time as `EXPO_PUBLIC_TURNSTILE_SITE_KEY` (listed under `build.env` in
+    `turbo.json`): `pnpm --filter app deploy:dev|prod` set the real key above, a plain
+    `pnpm --filter app build` (CI, local) uses the test key, and a build that forgot the key fails
+    closed (the API's real secret rejects the test key's tokens).
+  - **Secret** `TURNSTILE_SECRET` on `apps/api` and `apps/site`, once per environment from each
+    app's directory (the value is shown once when the widget is created, and the dashboard or
+    `GET /accounts/<id>/challenges/widgets/<sitekey>` returns it again):
+    `pnpm exec wrangler secret put TURNSTILE_SECRET --env dev|prod`. Both list it under
+    `secrets.required`, so `wrangler deploy` fails while it is unset. Locally it is the test secret
+    `1x0000000000000000000000000000000AA` from `.dev.vars.example`; the API then skips the check
+    when `IMPORT_ENV` is `local`, and the site when `SITE_URL` is on `localhost`, so no widget
+    token is needed on a developer machine.
+  - **Native bypass:** the vars `TURNSTILE_NATIVE_BYPASS` of `apps/api` (`"false"`, never
+    `"true"` in prod) lets a request with an `Authorization: Bearer` header skip the check. It is
+    the Sprint 3 stopgap until the React Native client has a widget; off, native sign-ups are
+    refused with 400 `turnstile_failed`.
 - **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
   site token, read by `astro build` and baked into the static pages (it is public in the HTML).
   Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create

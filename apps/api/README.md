@@ -103,13 +103,13 @@ its own Worker (VB-25), so the cookies are first-party.
 
 | Step            | Request                                                             | Result                                                                                             |
 | --------------- | ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| Sign up         | `POST /auth/sign-up/email` `{ name, email, password }`              | 200 (also for a taken address, no enumeration); verification mail with `${APP_URL}/verify?token=…` |
+| Sign up         | `POST /auth/sign-up/email` `{ name, email, password }` + Turnstile  | 200 (also for a taken address, no enumeration); verification mail with `${APP_URL}/verify?token=…` |
 | Verify          | `GET /auth/verify-email?token=…` (the app's `/verify` page)         | `{ "status": true }`; sign-in is refused with 403 until then                                       |
 | Sign in         | `POST /auth/sign-in/email` `{ email, password }`                    | session cookie, plus the session token in the `set-auth-token` header for native clients           |
 | Second factor   | `POST /auth/two-factor/verify-totp` `{ code, trustDevice? }`        | with 2FA, sign-in answers `{ twoFactorRedirect: true }` and no session; the code starts it         |
 | Backup code     | `POST /auth/two-factor/verify-backup-code` `{ code, trustDevice? }` | instead of the TOTP code; each backup code works once                                              |
 | Sign out        | `POST /auth/sign-out`                                               | session deleted, cookies cleared                                                                   |
-| Forgot password | `POST /auth/request-password-reset` `{ email }`                     | 200 always; mail with `${APP_URL}/reset-password?token=…` if the address exists                    |
+| Forgot password | `POST /auth/request-password-reset` `{ email }` + Turnstile         | 200 always; mail with `${APP_URL}/reset-password?token=…` if the address exists                    |
 | Reset password  | `POST /auth/reset-password` `{ token, newPassword }`                | new password set, every session of the user revoked                                                |
 | Profile         | `GET /me`, `PATCH /me` (`UpdateMeRequestSchema`)                    | `MeResponseSchema` (`@voidbinder/shared/api`); 401 with `WWW-Authenticate: Bearer` when signed out |
 | Delete account  | `DELETE /me`                                                        | 202, `deletionRequestedAt` set, every session revoked, cookies cleared                             |
@@ -194,6 +194,33 @@ backup codes. In the order the app uses it, all with the session:
   self-service way around the second factor; support turns it off by hand after checking the
   person (delete the `two_factor` row, set `user.two_factor_enabled` to false).
 
+**Turnstile (VB-72)** guards the three endpoints that create an account or send a mail to an
+address the caller names: `POST /auth/sign-up/email`, `/auth/request-password-reset` (also
+`/auth/forget-password`) and `/auth/send-verification-email`. `requireTurnstile`
+(`src/middleware/turnstile.ts`, mounted in `app.ts` in front of the Better Auth handler, so a
+request that fails it costs no database work) reads the widget's token from the
+`cf-turnstile-response` header (or a field of that name in the JSON body) and checks it with
+Cloudflare's Siteverify (`remoteip` = `cf-connecting-ip`):
+
+| Case                                          | Answer                                                                     |
+| --------------------------------------------- | -------------------------------------------------------------------------- |
+| token missing, wrong, spent or expired        | 400 `{ error: { code: "turnstile_failed", … } }`                           |
+| Siteverify unreachable, slow (5 s) or garbled | 503 `{ error: { code: "turnstile_unavailable", … } }`, never a silent pass |
+
+Only `POST` on those paths is checked; sign-in, the reset itself and everything else are not. The
+check is skipped when `TURNSTILE_SECRET` is Cloudflare's test secret **and** `IMPORT_ENV` is
+`local` (`skipsTurnstile`), so a developer needs no widget; any deployed environment verifies for
+real. `TURNSTILE_NATIVE_BYPASS=true` additionally lets a request with `Authorization: Bearer …`
+through: a stopgap for native clients until Sprint 3 brings a widget to React Native; the default
+is off, and native requests without a token are refused. A token works once and lives 5 minutes,
+so a client asks the widget for a new one after every failed attempt. The sitekey var
+`TURNSTILE_SITE_KEY` is not read by the API (the clients render the widget); it sits next to the
+secret so the pair is documented in one place (docs/environments.md, Secrets).
+
+**Secret:** `TURNSTILE_SECRET` (the widget's secret key; locally the test secret in
+`.dev.vars.example`). Deployed once per environment from `apps/api`:
+`pnpm exec wrangler secret put TURNSTILE_SECRET --env dev|prod`, under `secrets.required` too.
+
 **Mails** (verification, password reset) go out through the `EMAIL` binding (Cloudflare Email
 Service, `hello@voidbinder.de`, sender name "Voidbinder") in the user's `language`; sign-up sets
 it from `Accept-Language` (`de` otherwise). Always the binding: locally `wrangler dev` simulates
@@ -213,7 +240,9 @@ it signs everyone out.
 Under `secrets.required` too. Never change it once users have enrolled: every authenticator and
 backup code becomes unreadable (their code step then fails with 500), and those users need support.
 
-**A test user locally** (with `pnpm --filter api dev` running and the database migrated):
+**A test user locally** (with `pnpm --filter api dev` running and the database migrated; the
+local Turnstile check is skipped, a deployed API needs `-H 'cf-turnstile-response: <token>'` on the
+sign-up):
 
 ```sh
 curl -X POST localhost:8787/auth/sign-up/email -H 'Content-Type: application/json' \
