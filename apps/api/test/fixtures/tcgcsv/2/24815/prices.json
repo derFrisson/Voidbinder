@@ -1,0 +1,61 @@
+{
+  "totalItems": 6,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 719864,
+      "lowPrice": 67.0,
+      "midPrice": 71.0,
+      "highPrice": 106.0,
+      "marketPrice": 68.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 719865,
+      "lowPrice": 98.0,
+      "midPrice": 106.0,
+      "highPrice": 200.0,
+      "marketPrice": 98.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 719866,
+      "lowPrice": 565.0,
+      "midPrice": 580.0,
+      "highPrice": 1421.0,
+      "marketPrice": 650.0,
+      "directLowPrice": 575.0,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 719877,
+      "lowPrice": 3.0,
+      "midPrice": 5.0,
+      "highPrice": 600.0,
+      "marketPrice": 5.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 719878,
+      "lowPrice": 28.0,
+      "midPrice": 45.0,
+      "highPrice": 100.0,
+      "marketPrice": 35.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 719879,
+      "lowPrice": 260.0,
+      "midPrice": 331.0,
+      "highPrice": 600.0,
+      "marketPrice": 303.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    }
+  ]
+}

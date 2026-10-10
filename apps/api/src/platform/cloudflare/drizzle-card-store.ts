@@ -110,7 +110,10 @@ const finishRank = (finish: SQLWrapper, finishes: SQLWrapper) =>
   sql`case when ${finish} = case when 'normal' = any(${finishes}) or cardinality(${finishes}) = 0 then 'normal' else (${finishes})[1] end then 0 else coalesce(array_position(${finishes}, ${finish}), 98) + 1 end`;
 const DAY_MS = 86_400_000;
 
-/** `{ extendedArt: true }` for a print whose Yugipedia gallery row says `EA` (VB-106). */
+/**
+ * `{ extendedArt: true }` for a print whose Yugipedia gallery row says `EA` (VB-106) or whose
+ * TCGplayer product is named `(Extended Art)` (VB-119).
+ */
 const extendedArt = (ids: Record<string, unknown>) =>
   (ids.artwork as { alt?: string } | undefined)?.alt === 'EA' ? { extendedArt: true as const } : {};
 

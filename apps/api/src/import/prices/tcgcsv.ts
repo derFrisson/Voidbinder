@@ -27,6 +27,8 @@ export interface TcgProduct {
   productId: number;
   name: string;
   extendedData?: { name: string; value: string }[];
+  /** Product images on TCGplayer's CDN; 0: none (VB-119). */
+  imageCount?: number;
 }
 
 export interface TcgPrice {

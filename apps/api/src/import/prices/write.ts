@@ -217,6 +217,43 @@ export async function resolveMappings(
   return out;
 }
 
+/** The artwork a Yu-Gi-Oh! print's TCGplayer product names (VB-119, `artworkFlag`). */
+export interface ArtworkFlag {
+  printId: string;
+  /** Yugipedia's alt code: `EA`, `AA`. */
+  alt: string;
+  productId: number;
+  /** The product image, null when it has none. */
+  url: string | null;
+}
+
+/**
+ * Writes TCGplayer's artwork codes into `external_ids.artwork` (VB-119): `alt` with `alt_source:
+ * 'tcgplayer'` and `tcgplayer_product`, on prints without an alt code of the gallery's; plus the
+ * product image as `url` where the gallery gave no scan (`file`, its own or a sibling's), so the
+ * image mirror shows it (`showsScan`). The galleries' writes replace it, keeping a code theirs
+ * lacks (`writeArtworks`); the importers keep it (`keepArtwork`). Returns the prints changed.
+ */
+export async function writeArtworkFlags(db: Db, rows: ArtworkFlag[]): Promise<number> {
+  // One per print: the first product's.
+  const unique = [...new Map(rows.map((r) => [r.printId, r])).values()];
+  if (!unique.length) return 0;
+  const artwork = sql`(${prints.externalIds} -> 'artwork')`;
+  const next = sql`coalesce(${artwork}, '{}'::jsonb)
+    || jsonb_build_object('alt', v.alt, 'alt_source', 'tcgplayer', 'tcgplayer_product', v.product)
+    || case when v.url is null or coalesce(${artwork} ? 'file', false) then '{}'::jsonb
+      else jsonb_build_object('url', v.url) end`;
+  const done = await db.execute(sql`
+    update ${prints} set external_ids = ${prints.externalIds} || jsonb_build_object('artwork', ${next})
+    from jsonb_to_recordset(${JSON.stringify(
+      unique.map((r) => ({ id: r.printId, alt: r.alt, product: r.productId, url: r.url })),
+    )}::jsonb) as v(id uuid, alt text, product bigint, url text)
+    where ${prints.id} = v.id
+      and (coalesce(${artwork} ->> 'alt', '') = '' or ${artwork} ->> 'alt_source' = 'tcgplayer')
+      and ${artwork} is distinct from ${next}`);
+  return done.rowCount ?? 0;
+}
+
 export interface PriceRow {
   printId: string;
   finish: string;

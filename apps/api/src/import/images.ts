@@ -26,18 +26,29 @@ export const IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 /**
  * Requests per second per source: Scryfall's file hosts have no limit (be polite), YGOPRODeck
- * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API.
+ * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API;
+ * TCGplayer's product images (VB-119, a scan's stand-in) two.
  */
 export const SOURCE_RATES: Record<string, number> = {
   mtg: 20,
   yugioh: 15,
   pokemon: 8,
   yugipedia: 1,
+  tcgplayer: 2,
 };
 
-/** The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan. */
-const sourceOf = (game: string, url: string) =>
-  new URL(url).hostname.endsWith('yugipedia.com') ? 'yugipedia' : game;
+/**
+ * The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan,
+ * TCGplayer's for a product image.
+ */
+const sourceOf = (game: string, url: string) => {
+  const host = new URL(url).hostname;
+  return host.endsWith('yugipedia.com')
+    ? 'yugipedia'
+    : host.endsWith('tcgplayer.com')
+      ? 'tcgplayer'
+      : game;
+};
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -99,8 +110,8 @@ export const showsScan = (artwork: unknown): boolean => {
  * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, for a high-res scan
  * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
  * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
- * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106) when it shows it
- * (`showsScan`), else YGOPRODeck's `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106; TCGplayer's
+ * product image until the gallery has one, VB-119) when it shows it (`showsScan`), else YGOPRODeck's `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
  */
 export function sourceUrl(
   game: string,
@@ -131,7 +142,8 @@ const SAFE_ID = /^[A-Za-z0-9._-]+$/;
 /**
  * The source's stable id that names an image's objects: the Scryfall card id; for YGOPRODeck the
  * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it); for
- * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106);
+ * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106), for a TCGplayer
+ * product image its file name too (`719866_in_1000x1000`, VB-119);
  * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`).
  */
 export function sourceId(game: string, ids: Record<string, unknown>, url: string): string | null {

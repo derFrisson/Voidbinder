@@ -5,8 +5,11 @@ import {
   type WorkflowStepConfig,
 } from 'cloudflare:workers';
 import { runTcgcsvImport, type PriceImportOptions } from '../import/prices/pipeline';
+import { purgeEdgeCache } from '../import/util';
 import { tcgcsvImportDeps } from '../platform/cloudflare';
 import { edgeCacheDeps } from '../platform/cloudflare/cache';
+import { mirrorStepFor } from './mirror-images';
+import { refreshSearchIndexStep } from './search-index-refresh';
 
 /** Every step: three retries with backoff; a step is 25 groups, about 50 small requests. */
 const STEP = {
@@ -22,20 +25,25 @@ export interface TcgcsvImportParams {
 /**
  * Binding `TCGCSV_IMPORT`: the daily TCGplayer prices from TCGCSV
  * (src/import/prices/pipeline.ts), one durable step per game's groups and per about 25 matched
- * groups (a set's groups together).
- * No image step: the run touches prices only.
+ * groups (a set's groups together). When Yu-Gi-Oh! prints took an artwork from their product's
+ * name (VB-119), the image mirror, one `catalog` purge and the search index follow, as after the
+ * Yugipedia galleries.
  */
 export class TcgcsvImportWorkflow extends WorkflowEntrypoint<Env, TcgcsvImportParams> {
   override async run(event: WorkflowEvent<TcgcsvImportParams>, step: WorkflowStep) {
-    return runTcgcsvImport(
-      { ...tcgcsvImportDeps(this.env), ...edgeCacheDeps(step) },
-      (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
-      {
-        env: this.env.IMPORT_ENV,
-        date: event.timestamp.toISOString().slice(0, 10),
-        // The cron starts the Workflow without a payload.
-        force: event.payload?.force === true,
-      },
-    );
+    const deps = { ...tcgcsvImportDeps(this.env), ...edgeCacheDeps(step) };
+    const runner = (name: string, fn: () => Promise<unknown>) =>
+      step.do(name, STEP, fn as () => Promise<never>);
+    const result = await runTcgcsvImport(deps, runner, {
+      env: this.env.IMPORT_ENV,
+      date: event.timestamp.toISOString().slice(0, 10),
+      // The cron starts the Workflow without a payload.
+      force: event.payload?.force === true,
+    });
+    if (!('games' in result.stats && result.stats.games.yugioh?.artworks)) return result;
+    const images = await mirrorStepFor('yugioh')(this.env, step);
+    await purgeEdgeCache(deps, runner, ['catalog'], 'artworks: ');
+    const searchIndex = await refreshSearchIndexStep(this.env, step);
+    return { ...result, images, searchIndex };
   }
 }

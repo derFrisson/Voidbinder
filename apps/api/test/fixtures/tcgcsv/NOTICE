@@ -3,3 +3,5 @@ and prices are illustrative, not copied TCGplayer data. Exception (VB-113): the 
 in 2/groups-vb113.json and the products in 2/255, 2/22882, 2/23052, 2/22881, 2/23050 and
 2/330-vb113 follow TCGCSV's answers of 2026-10-10 (ids, names, numbers, rarities, whether a
 market price exists); their prices are rounded stand-ins.
+Exception (VB-119): the groups in 2/groups-vb119.json and the products in 2/24815 (BETB) and
+2/24707 (MAMO) follow TCGCSV's answers of 2026-10-10 the same way; their prices are rounded.

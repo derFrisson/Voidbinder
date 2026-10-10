@@ -116,6 +116,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
           unmapped: 1,
           prices: 4,
           noMarket: 1,
+          artworks: 0,
         },
         // No Yu-Gi-Oh! or Pokémon sets in this catalog: only their group lists are read.
         yugioh: {
@@ -126,6 +127,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
           unmapped: 0,
           prices: 0,
           noMarket: 0,
+          artworks: 0,
         },
         pokemon: {
           groups: 3,
@@ -135,6 +137,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
           unmapped: 0,
           prices: 0,
           noMarket: 0,
+          artworks: 0,
         },
       },
     });
