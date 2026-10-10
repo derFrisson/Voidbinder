@@ -64,9 +64,11 @@ export function typedLanguage(
 ): string | null {
   if (game !== 'yugioh' || !code || !ENGLISH.test(number)) return null;
   const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Without leading zeros, like catalog_number_key: `de24` names EN024 as `de024` does.
+  const digits = (s: string) => key(s).replace(/^0+/, '');
   const set = key(setCode);
   const rest = code.slice(set.length);
-  return code.startsWith(set) && rest.slice(2) === key(number.slice(2))
+  return code.startsWith(set) && digits(rest.slice(2)) === digits(number.slice(2))
     ? (TYPED[rest.slice(0, 2)] ?? null)
     : null;
 }

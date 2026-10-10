@@ -50,6 +50,12 @@ describe('typedLanguage', () => {
     expect(typedLanguage('yugioh', 'blggen024', 'blgg', 'EN024')).toBe('en');
   });
 
+  it('ignores leading zeros of the typed number', () => {
+    expect(typedLanguage('yugioh', 'blggde24', 'blgg', 'EN024')).toBe('de');
+    expect(typedLanguage('yugioh', 'blggjp0024', 'blgg', 'EN024')).toBe('ja');
+    expect(typedLanguage('yugioh', 'blggde240', 'blgg', 'EN024')).toBeNull();
+  });
+
   it('is null for other numbers, sets, games and plain queries', () => {
     expect(typedLanguage('yugioh', 'blggde025', 'blgg', 'EN024')).toBeNull();
     expect(typedLanguage('yugioh', 'lds3de024', 'blgg', 'EN024')).toBeNull();
