@@ -263,7 +263,10 @@ about 9 MB (62,400 localizations with Japanese text, which compresses less than 
   Yu-Gi-Oh! get two chips, International and Japan (Magic has no Japanese sets). Set names:
   Japanese sets get an `en` name where one exists (TCGCSV's group name for Pokémon, the Yugipedia
   page title for OCG sets) and the Japanese one as the `ja` localization; `sets.name` stays the
-  English name, falling back to the Japanese one.
+  English name, falling back to the Japanese one. One importer writes it per game and set (the
+  TCGdex `ja` pass for Pokémon, taking the English name from TCGCSV's group list; the Yugipedia pass
+  for OCG sets), so no two importers upsert the same `sets.name`. The list's default is
+  `region=intl` (see step 1).
 - **Card page:** lists every print of the card, so Yu-Gi-Oh! OCG prints show up next to the TCG
   ones without a change. Japanese Pokémon cards are cards of their own and list only their print.
 - **Collection:** an entry already carries `language` (default `en` in `POST /entries`); the app
@@ -290,12 +293,21 @@ about 9 MB (62,400 localizations with Japanese text, which compresses less than 
 
 Each step is one PR and leaves `main` working.
 
-1. **Schema and the Magic and Pokémon importers.** Migration 0009 (above) with its Drizzle schema
-   change. `SCRYFALL_LANGUAGES=en,de,ja` in all three envs of `wrangler.jsonc`. TCGdex: a second
+1. **Schema, set-list API and the Magic and Pokémon importers.** Migration 0009 (above) with its
+   Drizzle schema change, and with it `region` in `SetSummary` and `?region=` on
+   `GET /catalog/games/:game/sets`, default `intl`: an older app build sends no region and so sees
+   exactly the international sets it sees today, and the Japanese sets only appear to a build that
+   asks for `region=jp`. (Search and the card page return Japanese prints from this step on, with
+   their Japanese set name, as any print.) `SCRYFALL_LANGUAGES=en,de,ja` in all three envs of `wrangler.jsonc`. TCGdex: a second
    pass with `ja` as the master language (`/v2/ja/sets`, codes `<lowercased id>-jp`, `region = 'jp'`,
    `oracle_key` `ja:<id>`, sets without cards skipped); the plan, rotation and missing-card logic
-   reused per region. `setStates` (`import/tcgdex/write.ts`) is keyed by code across the whole game,
-   so each pass filters by region (or the `-jp` suffix) or it sees the other pass's sets. The
+   reused per region. This pass is the only writer of a Japanese Pokémon set's `sets.name`: it reads
+   TCGCSV's one group list for category 85 (`/tcgplayer/85/groups`, one request) and takes the
+   English name from the group whose abbreviation equals the TCGdex id (`SV2a: Pokemon Card 151`
+   gives `Pokemon Card 151`), the TCGdex Japanese name where no group matches, and writes the
+   Japanese name as the set's `ja` localization. Step 4 then only matches prices and writes no set
+   names, so `sets.name` has one writer. `setStates` (`import/tcgdex/write.ts`) is keyed by code
+   across the whole game, so each pass filters by region (or the `-jp` suffix) or it sees the other pass's sets. The
    comment on `cards.name` ("English canonical name") changes: for a Japanese Pokémon card it holds
    the Japanese name. Tests with fixtures from the probe (`SV2a`, `neo1` for the collision).
 2. **Yu-Gi-Oh! OCG importer.** `src/import/yugipedia/` with the YGOPRODeck shape: set lists in
@@ -307,9 +319,9 @@ Each step is one PR and leaves `main` working.
    the mirror already reads. Run the bulk load on the VPS once steps 1 and 2 are on prod.
 4. **Prices.** TCGCSV category 85 in the TCGCSV import, matched to `region = 'jp'` Pokémon sets by
    abbreviation (number match as today).
-5. **API and search.** `region` in `SetSummary` and `?region=` on the set list; the CJK branch of
-   `search` (above); the image fallback to another print of the same card for prints without one
-   (OCG prints, see Images above); tests on a Japanese fixture and on an OCG print.
+5. **Search and images.** The CJK branch of `search` (above); the image fallback to another print
+   of the same card for prints without one (OCG prints, see Images above); tests on a Japanese
+   fixture and on an OCG print.
 6. **App.** Region chips on the Pokémon and Yu-Gi-Oh! set lists, `lang = 'ja'` default on Japanese
    sets, `ja` default language when collecting a Japanese print, CJK search through the API.
 7. **Offline modules.** `LANGS` gains `ja`, `sets` gains `region` (`SCHEMA_VERSION` 2,
