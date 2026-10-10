@@ -162,6 +162,7 @@ const search = {
       game: 'yugioh',
       setCode: 'lob',
       setName: 'Legend of Blue Eyes',
+      lang: 'en',
     },
     {
       id: pid(1),
@@ -186,6 +187,7 @@ const search = {
       game: 'yugioh',
       setCode: 'lob',
       setName: 'Legend of Blue Eyes',
+      lang: 'en',
     },
     {
       id: pid(6),
@@ -204,6 +206,7 @@ const search = {
       game: 'yugioh',
       setCode: 'lob',
       setName: 'Legend of Blue Eyes',
+      lang: 'de',
     },
   ],
   page: 1,
@@ -411,8 +414,9 @@ describe('deck screen', () => {
     ).toBe('true');
   });
 
-  // VB-103: a hit's price for copies in another language than the search's carries the chip.
-  it('marks a search hit’s price only when it is for another language', async () => {
+  // VB-103: a hit's price for copies in another language than the hit is shown in (its match's,
+  // VB-102; not the user's) carries the chip.
+  it('marks a search hit’s price only when it is for another language than the hit’s', async () => {
     deckApi();
     renderApp(<DeckPage />);
     fireEvent.change(await screen.findByLabelText('Karte suchen'), {
@@ -421,8 +425,9 @@ describe('deck screen', () => {
     const hit = (name: RegExp) =>
       within(screen.getByRole('button', { name }).closest('[role="listitem"]') as HTMLElement);
     await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' });
-    expect(hit(/^Nebelschwinge hinzufügen/).getByLabelText('Preis für EN-Karten')).toBeTruthy();
-    expect(hit(/^Nebelwächter hinzufügen/).queryByLabelText(/^Preis für/)).toBeNull();
+    // Both hits matched in English, the user reads German.
+    expect(hit(/^Nebelschwinge hinzufügen/).queryByLabelText(/^Preis für/)).toBeNull();
+    expect(hit(/^Nebelwächter hinzufügen/).getByLabelText('Preis für DE-Karten')).toBeTruthy();
   });
 
   it('lands two quick adds, and an Extra Deck monster in the extra deck', async () => {

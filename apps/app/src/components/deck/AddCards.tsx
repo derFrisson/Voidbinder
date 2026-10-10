@@ -89,7 +89,7 @@ export function AddCards({
                     {hit.rarity ? ` · ${hit.rarity}` : ''}
                   </Text>
                   <View className="flex-row items-center gap-1">
-                    <PriceLang lang={hit.marketPrice?.lang} shown={locale} />
+                    <PriceLang lang={hit.marketPrice?.lang} shown={hit.lang} />
                     <Text numberOfLines={1} className="flex-1 font-body text-xs text-ink-2">
                       {[
                         hit.marketPrice &&
