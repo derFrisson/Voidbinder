@@ -3,6 +3,7 @@ import type { PrintSummary } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
+import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { CardImage } from './CardImage';
 import { formatDate, type OwnedPrint } from './model';
 import { formatPrice, type PriceTag } from './seams';
@@ -59,11 +60,13 @@ export function Price({ price }: { price: PriceTag | undefined }) {
 export function CardTile({ print, game, setCode, owned, signedIn, price }: Item) {
   const t = useT();
   const rarity = useRarityLabel();
+  const ban = useBanStatus(game, print.cardId);
+  const banLabel = useBanLabel();
   const missing = signedIn && !owned?.count;
   const name = `${print.name}, ${setCode} ${print.number}`;
   return (
     <Link href={`/cards/${print.cardId}`} asChild>
-      <Pressable aria-label={name} className="gap-2 rounded-lg">
+      <Pressable aria-label={ban ? `${name}, ${banLabel(ban)}` : name} className="gap-2 rounded-lg">
         <View>
           <CardImage
             uri={print.imageUrl}
@@ -72,6 +75,11 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
             number={print.number}
             className={missing ? 'border-dashed opacity-50' : ''}
           />
+          {ban && (
+            <View className="absolute left-1.5 top-1.5">
+              <BanBadge status={ban} />
+            </View>
+          )}
           {signedIn && owned?.count ? (
             <View className="absolute right-1.5 top-1.5 rounded-md bg-surface px-1.5 py-0.5">
               <Text className="font-display text-xs font-bold text-ink">{owned.count}×</Text>
@@ -107,8 +115,10 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
   const t = useT();
   const rarity = useRarityLabel();
   const finish = useFinishLabel();
+  const ban = useBanStatus(game, print.cardId);
+  const banLabel = useBanLabel();
   const missing = signedIn && !owned?.count;
-  const name = `${print.name}, ${setCode} ${print.number}`;
+  const name = `${print.name}, ${setCode} ${print.number}${ban ? `, ${banLabel(ban)}` : ''}`;
   const finishes = print.finishes
     .map((f) => (owned?.byFinish[f] ? `${finish(f)} ${owned.byFinish[f]}×` : finish(f)))
     .join(' · ');
@@ -130,9 +140,15 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
           </View>
           <Text className="w-14 font-mono text-[13px] text-ink-2">{print.number}</Text>
           <View className="flex-1 gap-0.5">
-            <Text numberOfLines={1} className="font-display text-[15px] font-semibold text-ink">
-              {print.name}
-            </Text>
+            <View className="flex-row items-center gap-2">
+              <Text
+                numberOfLines={1}
+                className="shrink font-display text-[15px] font-semibold text-ink"
+              >
+                {print.name}
+              </Text>
+              {ban && <BanBadge status={ban} />}
+            </View>
             <Text numberOfLines={1} className="font-body text-[13px] text-ink-3">
               {[rarity(print.rarity), finishes].filter(Boolean).join(' · ')}
             </Text>

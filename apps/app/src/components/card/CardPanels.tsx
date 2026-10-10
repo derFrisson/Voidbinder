@@ -138,14 +138,21 @@ const FORMATS: Partial<Record<Game, [string, string][]>> = {
     ['standard', 'Standard'],
     ['expanded', 'Expanded'],
   ],
+  // The ban lists (VB-81); GOAT is a fan format and stays out.
+  yugioh: [
+    ['tcg', 'TCG'],
+    ['ocg', 'OCG'],
+  ],
 };
 
 const STATUS: Record<string, string> = {
   legal: 'border border-line bg-surface text-ok-ink',
   banned: 'bg-ink text-page',
+  Forbidden: 'bg-ink text-page',
+  Unlimited: 'border border-line bg-surface text-ok-ink',
 };
 
-/** Legality chips for Magic and Pokémon, where the source has data; nothing otherwise. */
+/** Legality chips for Magic, Pokémon and the Yu-Gi-Oh! lists, where the source has data. */
 export function Legality({
   game,
   legalities,
