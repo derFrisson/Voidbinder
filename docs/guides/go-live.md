@@ -399,7 +399,7 @@ harmless (nothing reads them until the native app ships).
 
 ```sh
 pnpm --filter site deploy:prod
-curl -sL https://voidbinder.de/de/ | grep -c -i 'in deutschland'     # 0
+curl -sL https://voidbinder.de/de/ | grep -c -i -E 'server in deutschland|betrieben in deutschland'   # 0
 curl -sL https://voidbinder.de/de/ | grep -o 'https://app.voidbinder.de[^"]*' | head -2
 curl -sL https://voidbinder.de/de/datenschutz/ | grep -c -i 'plausible'   # > 0 once VB-62 is in
 ```
@@ -407,7 +407,9 @@ curl -sL https://voidbinder.de/de/datenschutz/ | grep -c -i 'plausible'   # > 0 
 Do not set `PUBLIC_CF_ANALYTICS_TOKEN` (Max chose Plausible over Cloudflare Web Analytics; #64
 removes the variable).
 
-**Expect:** the German page no longer claims servers in Germany, the hero links to the web app,
+**Expect:** the German page no longer claims servers in Germany (the footer line "Mit Liebe gemacht
+in Deutschland" stays, which is why the grep names only the forbidden claims, as the deny list in
+`apps/site/src/i18n/i18n.test.ts` does), the hero links to the web app,
 the privacy policy covers app accounts and Plausible, the Plausible script loads (once N1 is
 done). The waitlist form still works: sign up with a test address, the confirmation mail arrives
 from `hello@voidbinder.de`.
