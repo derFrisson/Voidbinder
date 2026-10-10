@@ -389,4 +389,11 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(missing.headers.get('Cache-Control')).toBe('no-store');
     expect(missing.headers.get('Cache-Tag')).toBeNull();
   });
+
+  it('keeps an unvalidated ?game= out of the Cache-Tag header', async () => {
+    // A newline in a header value throws after the handler ran; the tags come from the path only.
+    const res = await app.request(`/catalog/cards/${await cardId('Plains')}?game=x%0Ay`);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Tag')).toBe('catalog,prices');
+  });
 });
