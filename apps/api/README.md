@@ -106,7 +106,7 @@ Three layers, each explicit about what may be stale (ADR 0004 and its addendum):
 
    | Tag       | Responses                                                                                                       | Purged by                                                          |
    | --------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-   | `catalog` | `/catalog/**` except modules                                                                                    | every catalog import (Scryfall, YGOPRODeck, TCGdex)                |
+   | `catalog` | `/catalog/**` except modules                                                                                    | every catalog import (Scryfall, YGOPRODeck, Yugipedia, TCGdex)     |
    | `prices`  | the responses that embed a price: `/catalog/sets/:game/:code`, `/cards/:id`, `/search`, `/prints/:id/prices/**` | the TCGCSV import (when it found a new build), the Scryfall import |
    | `modules` | `/catalog/modules`                                                                                              | nothing yet: the module build runs on the VPS (TTL only)           |
 

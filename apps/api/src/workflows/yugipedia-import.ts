@@ -7,6 +7,7 @@ import {
 import { runYugipediaImport } from '../import/yugipedia/pipeline';
 import { scryfallImportDeps } from '../platform/cloudflare';
 import { edgeCacheDeps } from '../platform/cloudflare/cache';
+import { refreshSearchIndexStep } from './search-index-refresh';
 
 /** Every step: three retries with backoff; a step is about twenty requests a second apart. */
 const STEP = {
@@ -21,11 +22,14 @@ const STEP = {
  */
 export class YugipediaImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
-    return runYugipediaImport(
+    const result = await runYugipediaImport(
       { ...scryfallImportDeps(this.env), ...edgeCacheDeps(step) },
       // Every step result is plain JSON (counts); Workflows persists it.
       (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
       { env: this.env.IMPORT_ENV, date: event.timestamp.toISOString().slice(0, 10) },
     );
+    // The names this run wrote reach the D1 typeahead (VB-98) now, not with the next daily import.
+    const searchIndex = await refreshSearchIndexStep(this.env, step);
+    return { ...result, searchIndex };
   }
 }
