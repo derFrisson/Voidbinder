@@ -4,6 +4,7 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { searchable, useSearch } from '../../api/queries/search';
 import { fmt, useLocale, useT } from '../../i18n';
 import { PriceLang } from '../card/PriceLang';
+import { printFoil } from '../card/game';
 import { Thumb } from '../collection/Entries';
 import { money } from '../collection/format';
 import { Icon } from '../Icon';
@@ -74,7 +75,7 @@ export function AddCards({
                 role="listitem"
                 className="flex-row items-center gap-3 border-t border-line py-2.5"
               >
-                <Thumb print={thumb} />
+                <Thumb print={thumb} foil={printFoil(deck.game, hit)} />
                 <View className="min-w-0 flex-1">
                   <Text
                     numberOfLines={1}

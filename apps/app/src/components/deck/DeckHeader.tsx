@@ -2,6 +2,7 @@ import { DECK_ZONES, type DeckDetail, type DeckZone } from '@voidbinder/shared/a
 import { Text, View } from 'react-native';
 import { useBanlist } from '../../api/queries/catalog';
 import { fmt, useLocale, useT } from '../../i18n';
+import { printFoil } from '../card/game';
 import { CardImage } from '../catalog/CardImage';
 import { field, GameChip } from '../catalog/GameChip';
 import { day, money, SOURCE_NAMES } from '../collection/format';
@@ -164,6 +165,7 @@ export function DeckHeader({ deck }: { deck: DeckDetail }) {
                 game={deck.game}
                 format={e.print?.cardFormat ?? 'standard'}
                 number={e.print?.displayNumber ?? ''}
+                foil={!!e.print && printFoil(deck.game, e.print)}
               />
             </View>
           ))}

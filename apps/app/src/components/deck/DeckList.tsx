@@ -5,6 +5,7 @@ import { fmt, useLocale, useT } from '../../i18n';
 import { hitHref, useBrowsingLanguage } from '../../hooks/browsing-language';
 import { BanBadge, statusFromLimit } from '../banlist/BanBadge';
 import { IconButton } from '../collection/Controls';
+import { printFoil } from '../card/game';
 import { Thumb } from '../collection/Entries';
 import { money } from '../collection/format';
 import { PriceLang } from '../card/PriceLang';
@@ -134,7 +135,7 @@ function Row({
   const name = (
     <Link href={hitHref({ cardId: entry.cardId, id: entry.print?.id, lang }, locale)} asChild>
       <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
-        <Thumb print={thumb} />
+        <Thumb print={thumb} foil={!!entry.print && printFoil(deck.game, entry.print)} />
         <View className="min-w-0 flex-1">
           <View className="flex-row items-center gap-2">
             <Text

@@ -41,3 +41,90 @@ body {
   display: flex;
   flex: 1;
 }
+
+/*
+ * The light on a foil card (VB-112, components/card/FoilSheen.tsx): a spectrum and a specular band,
+ * each soft-light blended into the art so it keeps its contrast and the colour reads as light on
+ * the surface, not as a tint. The image box clips them to its corners. Static in grids; the card
+ * page adds `vb-foil-live` (a slow sweep while idle) and, while the pointer is over the image,
+ * `vb-foil-tracking`: band and spectrum follow `--foil-x`/`--foil-y` (0–100 %) under a glare.
+ */
+.vb-foil {
+  --foil-x: 38%;
+  --foil-y: 32%;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+}
+.vb-foil::before,
+.vb-foil::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  mix-blend-mode: soft-light;
+}
+.vb-foil::before {
+  background-image: linear-gradient(
+    120deg,
+    hsl(340 95% 62%) 0%,
+    hsl(35 95% 58%) 12%,
+    hsl(140 75% 52%) 25%,
+    hsl(190 95% 55%) 37%,
+    hsl(260 90% 66%) 50%,
+    hsl(340 95% 62%) 62%,
+    hsl(35 95% 58%) 75%,
+    hsl(140 75% 52%) 87%,
+    hsl(190 95% 55%) 100%
+  );
+  background-size: 140% 140%;
+  background-position: var(--foil-x) var(--foil-y);
+  opacity: 0.7;
+}
+.vb-foil::after {
+  background-image: linear-gradient(
+    120deg,
+    transparent 35%,
+    rgb(255 255 255 / 0.9) 48%,
+    rgb(255 255 255 / 0.9) 52%,
+    transparent 65%
+  );
+  background-size: 250% 250%;
+  background-position: calc(100% - var(--foil-x)) calc(100% - var(--foil-y));
+  opacity: 0.6;
+}
+.vb-foil-live::before,
+.vb-foil-live::after {
+  animation: vb-foil-sweep 8s ease-in-out infinite alternate;
+}
+.vb-foil-tracking::before,
+.vb-foil-tracking::after {
+  animation: none;
+}
+.vb-foil-tracking::after {
+  background-image:
+    radial-gradient(circle at var(--foil-x) var(--foil-y), rgb(255 255 255 / 0.8), transparent 45%),
+    linear-gradient(
+      120deg,
+      transparent 35%,
+      rgb(255 255 255 / 0.9) 48%,
+      rgb(255 255 255 / 0.9) 52%,
+      transparent 65%
+    );
+  background-size:
+    100% 100%,
+    250% 250%;
+  background-position:
+    0 0,
+    calc(100% - var(--foil-x)) calc(100% - var(--foil-y));
+  opacity: 0.75;
+}
+@keyframes vb-foil-sweep {
+  from {
+    background-position: 10% 10%;
+  }
+  to {
+    background-position: 90% 90%;
+  }
+}
