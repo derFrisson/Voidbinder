@@ -76,7 +76,7 @@ export function SetHeader({
             </Text>
             <View
               role="progressbar"
-              aria-label={t.set.cards}
+              aria-label={t.set.completion}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={Math.round(done.ratio * 100)}

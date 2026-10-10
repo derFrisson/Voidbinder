@@ -70,10 +70,7 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
             className={missing ? 'border-dashed opacity-50' : ''}
           />
           {signedIn && owned?.count ? (
-            <View
-              aria-label={fmt(t.set.owned, { count: owned.count })}
-              className="absolute right-1.5 top-1.5 rounded-md bg-surface px-1.5 py-0.5"
-            >
+            <View className="absolute right-1.5 top-1.5 rounded-md bg-surface px-1.5 py-0.5">
               <Text className="font-display text-xs font-bold text-ink">{owned.count}×</Text>
             </View>
           ) : null}

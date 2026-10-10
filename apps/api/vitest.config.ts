@@ -8,9 +8,6 @@ const databaseUrl = process.env.DATABASE_URL ?? '';
 
 export default defineConfig({
   test: {
-    // CI runs the API tests next to the app's build and tests (turbo) on one shared runner; the
-    // 5 s default timed out on the first workerd request and on the 1-byte chunk split.
-    testTimeout: 30_000,
     projects: [
       { extends: true, test: { name: 'unit', include: ['src/**/*.test.ts'] } },
       {
@@ -28,6 +25,9 @@ export default defineConfig({
         ],
         test: {
           name: 'worker',
+          // CI runs these next to the app's build and tests (turbo) on one shared runner; the 5 s
+          // default timed out on the first workerd request.
+          testTimeout: 30_000,
           include: ['test/**/*.test.ts'],
           provide: { databaseUrl },
           deps: {

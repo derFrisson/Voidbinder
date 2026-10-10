@@ -6,10 +6,12 @@ import GameSets from './app/[game]/index';
 import SetRoute from './app/[game]/sets/[code]';
 import Home from './app/index';
 import { CardCollection } from './components/catalog/Cards';
-import { ValueStrip } from './components/catalog/SetHeader';
+import { CardImage } from './components/catalog/CardImage';
+import { SetHeader, ValueStrip } from './components/catalog/SetHeader';
 import { SetList } from './components/catalog/SetList';
 import { SetPage } from './components/catalog/SetPage';
 import type { Owned, SetFilters } from './components/catalog/model';
+import { PageScroll } from './components/Shell';
 import { recordRecent } from './storage/recent';
 
 const print = (n: number, extra: object = {}) => ({
@@ -302,6 +304,65 @@ describe('set page review fixes', () => {
   });
 });
 
+describe('second review round', () => {
+  it('keeps sort and view out of the scrolling language row on phones', async () => {
+    fakeApi((c) => (c.path.startsWith('/catalog/sets/') ? json(setPage()) : undefined));
+    renderApp(
+      <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
+    );
+    await screen.findByText('Card 1');
+    const row = (name: string) =>
+      screen.getByRole('radiogroup', { name }).parentElement?.parentElement;
+    expect(row('Sortierung')).toBe(row('Ansicht'));
+    expect(row('Sprache')).toBe(row('Ausführung'));
+    expect(row('Sprache')).not.toBe(row('Sortierung'));
+  });
+
+  it('scrolls the page back to the top when the page changes', async () => {
+    fakeApi((c) => (c.path.startsWith('/catalog/sets/') ? json(setPage()) : undefined));
+    const scrollTo = vi.fn();
+    const onChange = vi.fn();
+    renderApp(
+      <PageScroll.Provider value={{ current: { scrollTo } as never }}>
+        <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={onChange} />
+      </PageScroll.Provider>,
+    );
+    await screen.findByText('Card 1');
+    expect(scrollTo).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Seite 3' }));
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ page: 3 }));
+    expect(scrollTo).toHaveBeenCalledWith({ y: 0 });
+  });
+
+  it('shows a new picture after a failed one when the uri changes', () => {
+    const uri = (n: number) => `https://img.voidbinder.de/images/mtg/${n}/en/sm.webp`;
+    const props = { alt: 'a', game: 'mtg' as const, number: '1' };
+    const { container, rerender } = renderApp(<CardImage uri={uri(1)} {...props} />);
+    fireEvent.error(container.querySelector('img') as HTMLImageElement);
+    expect(container.querySelector('img')).toBeNull();
+    rerender(<CardImage uri={uri(2)} {...props} />);
+    expect(container.querySelector('img')?.getAttribute('src')).toBe(uri(2));
+  });
+
+  it('labels the completion bar "Vollständigkeit" and has no owned-badge label', () => {
+    const data = setPage() as never;
+    const owned: Owned = new Map([[print(1).id, { count: 3, byFinish: { normal: 3 } }]]);
+    const { rerender } = renderApp(<SetHeader data={data} gameName="Magic" owned={owned} />);
+    expect(screen.getByRole('progressbar', { name: 'Vollständigkeit' })).toBeTruthy();
+    rerender(
+      <CardCollection
+        prints={[print(1)]}
+        view="grid"
+        game="mtg"
+        setCode="MID"
+        owned={owned}
+        prices={undefined}
+      />,
+    );
+    expect(screen.getByText('3×').parentElement?.getAttribute('aria-label')).toBeNull();
+  });
+});
+
 describe('set route', () => {
   it('turns the URL into filters and a bad game into not found', async () => {
     vi.mocked(useLocalSearchParams).mockReturnValue({ game: 'chess', code: 'mid' });
@@ -419,6 +480,9 @@ describe('game page', () => {
     expect(screen.getByText('Innistrad: Mitternachtsjagd')).toBeTruthy();
     expect(screen.getByText(/^19\.11\.2021 · 1 Karte$/)).toBeTruthy();
     expect(screen.getByText(/^24\.09\.2021 · 392 Karten$/)).toBeTruthy();
+    // The group of sets without a date is named "Ohne Datum", not left unnamed.
+    expect(screen.getByRole('group', { name: 'Ohne Datum' })).toBeTruthy();
+    expect(screen.getByRole('group', { name: '2021' })).toBeTruthy();
     const link = screen.getByText('Crimson Vow').closest('a');
     expect(link?.getAttribute('href')).toBe('/mtg/sets/vow');
 

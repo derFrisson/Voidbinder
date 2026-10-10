@@ -187,9 +187,9 @@ export class DrizzleCardStore implements CardStore {
         .from(prints)
         .where(and(inSet, isNotNull(prints.rarity)))
         .groupBy(prints.rarity)
-        .orderBy(sql`${RARITY_ORDER}`, sql`count(*) desc`),
+        .orderBy(sql`${RARITY_ORDER}`, sql`count(*) desc`, asc(prints.rarity)),
       this.catalog.execute<{ finish: string; count: number }>(
-        sql`select f as finish, count(*)::int as count from ${prints}, unnest(${prints.finishes}) as f where ${prints.setId} = ${setId} group by f order by count desc, f`,
+        sql`select f as finish, count(*)::int as count from ${prints}, unnest(${prints.finishes}) as f where ${prints.setId} = ${setId} group by f order by (f = 'normal') desc, count desc, f`,
       ),
       this.catalog
         .selectDistinct({ lang: printLocalizations.lang })

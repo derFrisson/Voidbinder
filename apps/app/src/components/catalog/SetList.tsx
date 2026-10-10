@@ -63,7 +63,11 @@ export function SetList({ game }: { game: Game }) {
               <View
                 key={g.year ?? 'all'}
                 role="group"
-                aria-label={g.year ?? fmt(t.game.list, { game: t.games[game] })}
+                aria-label={
+                  g.year === null
+                    ? fmt(t.game.list, { game: t.games[game] })
+                    : g.year || t.game.undated
+                }
                 className="gap-2"
               >
                 {g.year !== null && (

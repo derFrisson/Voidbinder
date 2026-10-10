@@ -7,7 +7,7 @@ import {
 } from '@voidbinder/shared/api';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appMeta, cards, printLocalizations, prints } from '../db/schema';
+import { appMeta, cards, printLocalizations, prints, sets } from '../db/schema';
 import { runScryfallImport } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -96,9 +96,10 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
         { rarity: 'rare', count: 5 },
         { rarity: 'mythic', count: 1 },
       ],
+      // `normal` first although `foil` has more prints.
       finishes: [
-        { finish: 'foil', count: 22 },
         { finish: 'normal', count: 21 },
+        { finish: 'foil', count: 22 },
       ],
       languages: ['de', 'en'],
     });
@@ -110,6 +111,39 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(second?.prints.map((p) => p.number)).toEqual(['6', '7', '8', '9', '10']);
 
     expect((await get('/sets/mtg/xyz')).res.status).toBe(404);
+  });
+
+  it('breaks rarity ties by name, so the chips keep their order', async () => {
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'mtg', code: 'tie', name: 'Tie' })
+      .returning({ id: sets.id });
+    // Two rarities the Magic ranking does not know, one print each: only the name tells them apart.
+    for (const [number, rarity] of [
+      ['1', 'Zeta'],
+      ['2', 'Alpha'],
+    ] as const) {
+      const [card] = await db
+        .insert(cards)
+        .values({ gameId: 'mtg', name: `Tie ${number}`, oracleKey: `tie-${number}` })
+        .returning({ id: cards.id });
+      await db.insert(prints).values({
+        cardId: card?.id ?? '',
+        setId: set?.id ?? '',
+        number,
+        rarity,
+        finishes: ['normal'],
+      });
+    }
+    for (let i = 0; i < 3; i++) {
+      const page = await store.getSetPage(
+        'mtg',
+        'tie',
+        { lang: 'en', sort: 'number', page: 1 },
+        60,
+      );
+      expect(page?.facets.rarities.map((r) => r.rarity)).toEqual(['Alpha', 'Zeta']);
+    }
     expect((await get('/sets/mtg/mid?sort=price')).res.status).toBe(400);
   });
 

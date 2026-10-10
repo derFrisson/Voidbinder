@@ -5,6 +5,7 @@ import { Text, View } from 'react-native';
 import { useSetPage } from '../../api/queries/catalog';
 import { fmt, useLocale, useT } from '../../i18n';
 import { recordRecent } from '../../storage/recent';
+import { useScrollToTop } from '../Shell';
 import { Button, Empty, QueryState } from '../ui';
 import { CardCollection } from './Cards';
 import { Filters } from './Filters';
@@ -36,6 +37,7 @@ export function SetPage({
   const owned = useOwnedPrints();
   const prices = useSetPrices();
   const set = page.data?.set;
+  const toTop = useScrollToTop();
   useEffect(() => {
     if (set) {
       recordRecent({ kind: 'set', game, code: set.code, name: set.localizedName ?? set.name });
@@ -79,7 +81,10 @@ export function SetPage({
             <Pagination
               page={data.page}
               pages={pageCount(data.total, data.pageSize)}
-              onPage={(next) => onChange(change(filters, { page: next }))}
+              onPage={(next) => {
+                onChange(change(filters, { page: next }));
+                toTop();
+              }}
             />
           </View>
         );

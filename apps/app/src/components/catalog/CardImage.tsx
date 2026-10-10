@@ -29,19 +29,20 @@ function isAllowedImage(uri: string): boolean {
  * load: sources can be missing, and the CSP admits only our own image host). On the web a real
  * `<img>` so it can load lazily and reserve its size; react-native-web's Image has neither.
  */
-export function CardImage({
-  uri,
-  alt,
-  game,
-  number,
-  className = '',
-}: {
+export function CardImage({ uri, ...props }: CardImageProps) {
+  // A new uri (the grid re-uses the tile on a page change) starts over instead of keeping the failure.
+  return <Picture key={uri} uri={uri} {...props} />;
+}
+
+interface CardImageProps {
   uri: string | null;
   alt: string;
   game: Game;
   number: string;
   className?: string;
-}) {
+}
+
+function Picture({ uri, alt, game, number, className = '' }: CardImageProps) {
   const [failed, setFailed] = useState(false);
   const shown = uri && !failed && isAllowedImage(uri);
   return (
