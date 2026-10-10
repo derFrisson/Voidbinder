@@ -435,6 +435,22 @@ describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
     ]);
   });
 
+  it('reads only alternate-art codes as another artwork, and picks none of two others', () => {
+    const harpie = products('2/255').filter((p) => p.name.startsWith('Harpie Lady'));
+    // `B` (a further scan) and `L` (a deck letter) are the print's own artwork: the original.
+    for (const code of ['B', 'L'])
+      expect(
+        rows(matchProducts(harpie, [ygo('mrd', '008', 'Harpie Lady', 'common', code)], regional)),
+      ).toEqual([['mrd-008-common', 22062, 'number_match', 65]]);
+    const alternate = { ...(harpie[0] as TcgProduct), productId: 1 };
+    const three = [...harpie, { ...alternate, name: 'Harpie Lady (Alternate Art)' }];
+    const aa = ygo('mrd', '008', 'Harpie Lady', 'common', 'AA');
+    expect(matchProducts(three, [aa], regional)).toEqual([]);
+    expect(
+      rows(matchProducts(three, [ygo('mrd', '008', 'Harpie Lady', 'common')], regional)),
+    ).toEqual([['mrd-008-common', 22062, 'number_match', 65]]);
+  });
+
   it('takes the product with the print’s name over a misprint of the same number', () => {
     // TCGplayer lists LOB-012 twice: Trial of Nightmare and its misprint Trial of Hell.
     const trial = products('2/330-vb113').filter((p) => p.name.startsWith('Trial of'));

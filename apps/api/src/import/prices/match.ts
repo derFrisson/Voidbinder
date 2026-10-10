@@ -248,6 +248,11 @@ const productName = (name: string) => normName(name.replace(/\s+\(.*\)$|\s+-\s+.
 /** TCGplayer's artwork suffix: `(Original Artwork)`, `(New Artwork)`, `(Alternate Art)`. */
 const ARTWORK = /\s+\([^()]*\bArt(?:work)?\)$/i;
 const ORIGINAL = /\(Original Art(?:work)?\)$/i;
+/**
+ * Yugipedia's alt codes that mean another artwork (`AA`, `AA2`, `Alt`); the others (`EA`, `B`, `C`,
+ * `ReprintB`: further scans of one number; `L`, `S`, `K`: deck letters) are the print's own.
+ */
+const ALT_ART = /^(?:AA\d*|Alt)$/i;
 
 /** The set code a Yu-Gi-Oh! number starts with (`LCGX-EN001` → `lcgx`), '' without a dash. */
 export const codeOf = (number: string) => {
@@ -262,16 +267,17 @@ export const isCard = (p: TcgProduct) =>
 /**
  * The product of a print among products that differ only by TCGplayer's artwork suffix (VB-113,
  * `Harpie Lady (Original Artwork)` and `(New Artwork)`, both MRD-008): a print with Yugipedia's
- * alt code (VB-106, not `EA`) takes the one other artwork, any other the original, else the one
- * without a suffix, else the lowest product id. Undefined when the names differ otherwise.
+ * alternate-art code (VB-106, `ALT_ART`) takes the one other artwork (none of several), any other
+ * print the original, else the one without a suffix, else the lowest product id. Undefined when
+ * the names differ otherwise.
  */
 function pickArtwork(products: readonly TcgProduct[], print: CandidatePrint) {
   const bare = products.filter((p) => !ARTWORK.test(p.name));
   const base = new Set(products.map((p) => normName(p.name.replace(ARTWORK, ''))));
   if (products.length < 2 || base.size > 1 || bare.length > 1) return undefined;
   const others = products.filter((p) => ARTWORK.test(p.name) && !ORIGINAL.test(p.name));
-  const [other] = others;
-  if (print.artwork && print.artwork !== 'EA' && other && others.length === 1) return other;
+  if (print.artwork && ALT_ART.test(print.artwork) && others.length)
+    return others.length === 1 ? others[0] : undefined;
   return (
     products.find((p) => ORIGINAL.test(p.name)) ??
     bare[0] ??

@@ -857,7 +857,8 @@ TCGplayer id Scryfall gives more than one print. Products of one number and rari
 name are resolved per print (VB-113): the one with the print's name wins (LOB-012 is Trial of
 Nightmare and its misprint Trial of Hell); artwork variants (`Harpie Lady (Original Artwork)` and
 `(New Artwork)`, MRD-008) go to the original, or to the other one when Yugipedia gives the print an
-alt code (`external_ids.artwork.alt`, VB-106), at confidence 65 with an INFO line `artwork variant
+alternate-art code (`AA`, `AA2`, `Alt` in `external_ids.artwork.alt`, VB-106; none when several
+other artworks are listed), at confidence 65 with an INFO line `artwork variant
 picked`. A regional print whose name no product has (TCGplayer keeps `B. Skull Dragon`) takes the
 product of its card's EN print of the same rarity. TCGCSV prices are written through the table, so
 an override counts from the next run on. Only `tcgplayer` can be overridden (400 for any other
