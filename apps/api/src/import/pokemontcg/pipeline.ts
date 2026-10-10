@@ -106,11 +106,12 @@ export function planSets(
 }
 
 /** Our prints of `code` without a picture. */
-async function printsWithoutPicture(db: Db, code: string): Promise<OurPrint[]> {
-  const { rows } = await db.execute<{ id: string; number: string; name: string }>(sql`
-    select p.id, p.number, c.name from prints p
+/** Every print of the set; `hasPicture` marks those the matcher only counts. */
+async function setPrints(db: Db, code: string): Promise<OurPrint[]> {
+  const { rows } = await db.execute<OurPrint>(sql`
+    select p.id, p.number, c.name, not (${NO_PICTURE}) as "hasPicture" from prints p
     join sets s on s.id = p.set_id join cards c on c.id = p.card_id
-    where s.game_id = 'pokemon' and s.code = ${code} and ${NO_PICTURE}
+    where s.game_id = 'pokemon' and s.code = ${code}
     order by p.number`);
   return rows;
 }
@@ -154,8 +155,9 @@ export async function runPokemontcgImport(deps: ImportDeps, step: StepRunner, op
         const cards = await allPages<PtcgCard>(deps.client, cardsPath(ptcg));
         await putJson(deps.blobs, `${raw}/cards/${ptcg}.json`, `[${cards.bodies.join(',')}]`);
         return deps.withDb(async (db) => {
-          const prints = await printsWithoutPicture(db, code);
-          const matched = matchCards(prints, cards.data);
+          const all = await setPrints(db, code);
+          const prints = all.filter((p) => !p.hasPicture);
+          const matched = matchCards(all, cards.data);
           const written = await writeImages(db, matched);
           await markChecked(db, [code], opts.date, CHECKED_KEY);
           return { prints: prints.length, matched: matched.size, written };

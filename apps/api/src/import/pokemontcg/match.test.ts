@@ -270,6 +270,21 @@ describe('matchCards', () => {
     ).toBe(0);
   });
 
+  it('never gives a picture-less print the card of a pictured sibling (146a vs 146)', () => {
+    const cards: PtcgCard[] = [
+      {
+        id: 'xy8-146',
+        name: 'Gardevoir',
+        number: '146',
+        images: { large: 'https://images.pokemontcg.io/xy8/146_hires.png' },
+      },
+    ];
+    const ours = [{ ...print('146', 'Gardevoir'), hasPicture: true }, print('146a', 'Gardevoir')];
+    expect(matchCards(ours, cards).size).toBe(0);
+    // Without the pictured sibling the name match still applies.
+    expect(matchCards([print('146a', 'Gardevoir')], cards).size).toBe(1);
+  });
+
   it('skips a card without a picture the mirror can store', () => {
     const cards: PtcgCard[] = [
       {

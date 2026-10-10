@@ -93,11 +93,12 @@ export function matchSets(ours: OurSet[], theirs: PtcgSet[]): Map<string, string
   return matched;
 }
 
-/** One of our prints that has no picture. */
+/** One of our prints of the set; only those without a picture are matched. */
 export interface OurPrint {
   id: string;
   number: string;
   name: string;
+  hasPicture?: boolean;
 }
 
 /** What a print stores in `external_ids`: the card id and its two picture URLs. */
@@ -109,8 +110,10 @@ export interface PtcgImageIds {
 /**
  * Print id → the card's ids, for each print one card matches: the same number and name; then,
  * among the rest, a name only one print and one card carry (Celebrations' Classic Collection is
- * CC001… at TCGdex and the original numbers there). A card is used once, and only with a `large`
- * picture the mirror can store (a known file extension; `images.scrydex.com` URLs have none).
+ * CC001… at TCGdex and the original numbers there). Pictured prints only count for the names and
+ * keep the cards of their numbers out of the name match, so a `146a` never takes `146`'s card. A
+ * card is used once, and only with a `large` picture the mirror can store (a known file extension;
+ * `images.scrydex.com` URLs have none).
  */
 export function matchCards(prints: OurPrint[], cards: PtcgCard[]): Map<string, PtcgImageIds> {
   const usable = cards.filter((c) => c.images?.large && safeExtension(c.images.large));
@@ -124,7 +127,8 @@ export function matchCards(prints: OurPrint[], cards: PtcgCard[]): Map<string, P
     });
   };
 
-  for (const p of prints) {
+  const todo = prints.filter((p) => !p.hasPicture);
+  for (const p of todo) {
     const key = `${normNumber(p.number)} ${normName(p.name)}`;
     const hits = usable.filter((c) => `${normNumber(c.number)} ${normName(c.name)}` === key);
     if (hits.length === 1 && hits[0] && !used.has(hits[0])) take(p, hits[0]);
@@ -135,9 +139,13 @@ export function matchCards(prints: OurPrint[], cards: PtcgCard[]): Map<string, P
     for (const i of items) n.set(name(i), (n.get(name(i)) ?? 0) + 1);
     return n;
   };
-  const restPrints = prints.filter((p) => !out.has(p.id));
-  const restCards = usable.filter((c) => !used.has(c));
-  const ourNames = count(restPrints, (p) => normName(p.name));
+  const ourNumbers = new Set(prints.map((p) => normNumber(p.number)));
+  const restPrints = todo.filter((p) => !out.has(p.id));
+  const restCards = usable.filter((c) => !used.has(c) && !ourNumbers.has(normNumber(c.number)));
+  const ourNames = count(
+    prints.filter((p) => !out.has(p.id)),
+    (p) => normName(p.name),
+  );
   const theirNames = count(restCards, (c) => normName(c.name));
   for (const p of restPrints) {
     const name = normName(p.name);
