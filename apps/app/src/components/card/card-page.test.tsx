@@ -7,6 +7,7 @@ import CardPage from '../../app/cards/[id]';
 import { printPrices } from '../../../test/prices';
 import { de } from '../../i18n/de';
 import { attributeChips } from './attributes';
+import { Legality } from './CardPanels';
 
 const CARD = '2d112e72-f8b2-48e0-9798-208873db6761';
 const print = (id: string, set: string, number: string, langs: string[]) => ({
@@ -109,17 +110,17 @@ describe('card page', () => {
   });
 
   it('shows how many copies the Yu-Gi-Oh! lists allow next to the status', async () => {
-    const ygo: Card = {
-      ...card,
-      game: 'yugioh',
-      legalities: { tcg: 'Limited', ocg: 'Forbidden' },
-    };
-    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(ygo) : undefined));
-    renderApp(<CardPage />);
+    renderApp(<Legality game="yugioh" legalities={{ tcg: 'Limited', ocg: 'Forbidden' }} />);
     expect(await screen.findByText('limitiert')).toBeTruthy();
     expect(screen.getByText('1 Kopie')).toBeTruthy();
     expect(screen.getByText('verboten')).toBeTruthy();
     expect(screen.getByText('0 Kopien')).toBeTruthy();
+  });
+
+  it('shows no copies line for Magic', async () => {
+    renderApp(<Legality game="mtg" legalities={{ standard: 'banned' }} />);
+    expect(await screen.findByText('gebannt')).toBeTruthy();
+    expect(screen.queryByText(/Kopie/)).toBeNull();
   });
 
   it('shows the real prices of the selected print in the price panel', async () => {
