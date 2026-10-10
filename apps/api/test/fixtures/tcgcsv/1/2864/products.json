@@ -1,0 +1,136 @@
+{
+  "totalItems": 5,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 248137,
+      "name": "Adeline, Resplendent Cathar",
+      "cleanName": "Adeline, Resplendent Cathar",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/248137_200w.jpg",
+      "categoryId": 1,
+      "groupId": 2864,
+      "url": "https://www.tcgplayer.com/product/248137",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "1"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "M"
+        }
+      ]
+    },
+    {
+      "productId": 248154,
+      "name": "Ambitious Farmhand // Seasoned Cathar",
+      "cleanName": "Ambitious Farmhand // Seasoned Cathar",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/248154_200w.jpg",
+      "categoryId": 1,
+      "groupId": 2864,
+      "url": "https://www.tcgplayer.com/product/248154",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "2"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "U"
+        }
+      ]
+    },
+    {
+      "productId": 249991,
+      "name": "Champion of the Perished (Showcase)",
+      "cleanName": "Champion of the Perished (Showcase)",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/249991_200w.jpg",
+      "categoryId": 1,
+      "groupId": 2864,
+      "url": "https://www.tcgplayer.com/product/249991",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "385"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "R"
+        }
+      ]
+    },
+    {
+      "productId": 251000,
+      "name": "Mystery Card",
+      "cleanName": "Mystery Card",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/251000_200w.jpg",
+      "categoryId": 1,
+      "groupId": 2864,
+      "url": "https://www.tcgplayer.com/product/251000",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "999"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "R"
+        }
+      ]
+    },
+    {
+      "productId": 250000,
+      "name": "Innistrad: Midnight Hunt Set Booster Box",
+      "cleanName": "Innistrad: Midnight Hunt Set Booster Box",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/250000_200w.jpg",
+      "categoryId": 1,
+      "groupId": 2864,
+      "url": "https://www.tcgplayer.com/product/250000",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": []
+    }
+  ]
+}

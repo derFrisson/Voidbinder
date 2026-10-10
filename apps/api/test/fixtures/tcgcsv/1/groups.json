@@ -1,0 +1,34 @@
+{
+  "totalItems": 3,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "groupId": 2864,
+      "name": "Innistrad: Midnight Hunt",
+      "abbreviation": "MID",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 1
+    },
+    {
+      "groupId": 2965,
+      "name": "Kamigawa: Neon Dynasty",
+      "abbreviation": "NEO",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 1
+    },
+    {
+      "groupId": 24770,
+      "name": "Commander: Star Trek",
+      "abbreviation": "TRC",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 1
+    }
+  ]
+}

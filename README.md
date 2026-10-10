@@ -80,8 +80,9 @@ apply to you too:
   Pokémon, Nintendo, Game Freak or Creatures."
 - **One Piece:** no importer exists yet. Check the research below before you add card art. Card
   art and text belong to their owners.
-- **Prices:** no scraping of Cardmarket or TCGplayer. Prices come only from licensed or official
-  APIs.
+- **Prices:** no scraping of Cardmarket or TCGplayer. Prices come from
+  [TCGCSV](https://tcgcsv.com), a daily republication of TCGplayer's public price data (not an
+  official API), and from Scryfall's bulk data (Cardmarket EUR and TCGplayer USD for Magic).
 - **Notices:** an instance must show the Wizards Fan Content notice verbatim and should show the unofficial-fan-project notice for each other game it serves. The
   texts, with sources and open legal questions, are in
   [docs/marketing/card-imagery-legal.md](docs/marketing/card-imagery-legal.md). That file is

@@ -1,0 +1,108 @@
+{
+  "totalItems": 4,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 21800,
+      "name": "Blue-Eyes White Dragon",
+      "cleanName": "Blue-Eyes White Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/21800_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/21800",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-001"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    },
+    {
+      "productId": 21801,
+      "name": "Blue-Eyes White Dragon",
+      "cleanName": "Blue-Eyes White Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/21801_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/21801",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-001"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Secret Rare"
+        }
+      ]
+    },
+    {
+      "productId": 21747,
+      "name": "Aqua Madoor",
+      "cleanName": "Aqua Madoor",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/21747_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/21747",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "LOB-027"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Rare"
+        }
+      ]
+    },
+    {
+      "productId": 21850,
+      "name": "Legend of Blue Eyes White Dragon Booster Pack",
+      "cleanName": "Legend of Blue Eyes White Dragon Booster Pack",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/21850_200w.jpg",
+      "categoryId": 2,
+      "groupId": 330,
+      "url": "https://www.tcgplayer.com/product/21850",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": []
+    }
+  ]
+}

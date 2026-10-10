@@ -1,0 +1,154 @@
+{
+  "totalItems": 6,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 42346,
+      "name": "Alakazam",
+      "cleanName": "Alakazam",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42346_200w.jpg",
+      "categoryId": 3,
+      "groupId": 604,
+      "url": "https://www.tcgplayer.com/product/42346",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "001/102"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Holo Rare"
+        }
+      ]
+    },
+    {
+      "productId": 42400,
+      "name": "Pikachu",
+      "cleanName": "Pikachu",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42400_200w.jpg",
+      "categoryId": 3,
+      "groupId": 604,
+      "url": "https://www.tcgplayer.com/product/42400",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "058/102"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 42401,
+      "name": "Pikachu (Red Cheeks)",
+      "cleanName": "Pikachu (Red Cheeks)",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42401_200w.jpg",
+      "categoryId": 3,
+      "groupId": 604,
+      "url": "https://www.tcgplayer.com/product/42401",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "058/102"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 42500,
+      "name": "Energy Removal",
+      "cleanName": "Energy Removal",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42500_200w.jpg",
+      "categoryId": 3,
+      "groupId": 604,
+      "url": "https://www.tcgplayer.com/product/42500",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 42501,
+      "name": "Potion",
+      "cleanName": "Potion",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42501_200w.jpg",
+      "categoryId": 3,
+      "groupId": 604,
+      "url": "https://www.tcgplayer.com/product/42501",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 42999,
+      "name": "Base Set Booster Pack",
+      "cleanName": "Base Set Booster Pack",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/42999_200w.jpg",
+      "categoryId": 3,
+      "groupId": 604,
+      "url": "https://www.tcgplayer.com/product/42999",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": []
+    }
+  ]
+}

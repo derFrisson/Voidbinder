@@ -9,3 +9,4 @@ export const appMeta = pgTable('app_meta', {
 
 export * from './auth';
 export * from './catalog';
+export * from './prices';

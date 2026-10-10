@@ -1139,23 +1139,21 @@ connection reaches the container from `172.30.0.1` like any other host connectio
 
 **verify:** the run ends with `migrations applied successfully!`; a second run is a no-op.
 
-**Preview: price history (arrives with VB-30).** The app migrations create the tables. The price
-pipeline (VB-30) will turn `prices_daily` into a hypertable with compression, roughly as below.
-Column names are placeholders until VB-30 fixes the schema; a hypertable's primary key and unique
-constraints must include the time column. Do not run this now.
+**Price history (VB-30).** The API migration `apps/api/drizzle/0004_prices.sql` creates the price
+tables and, because `timescaledb` is installed here, turns `prices_daily` into a hypertable: chunks
+of one month, columnstore (compression) segmented by `print_id, source` and ordered by
+`observed_at DESC`, and a policy that compresses chunks older than 30 days. Nothing to run by hand;
+`migrate.sh api dev|prod` applies it like every other migration. Plain PostgreSQL skips this part
+(the migration logs a notice). Check after the migration:
 
 ```sql
-SELECT create_hypertable('prices_daily', by_range('observed_at', INTERVAL '1 month'));
-ALTER TABLE prices_daily SET (
-  timescaledb.enable_columnstore = true,
-  timescaledb.segmentby = 'print_id, source',
-  timescaledb.orderby = 'observed_at DESC'
-);
-CALL add_columnstore_policy('prices_daily', after => INTERVAL '30 days');
+SELECT hypertable_name, compression_enabled FROM timescaledb_information.hypertables;
+SELECT proc_name, config FROM timescaledb_information.jobs WHERE hypertable_name = 'prices_daily';
 ```
 
 `add_columnstore_policy` replaced `add_compression_policy` in TimescaleDB 2.18
-([docs](https://www.tigerdata.com/docs/api/latest/hypercore/add_columnstore_policy)).
+([docs](https://www.tigerdata.com/docs/api/latest/hypercore/add_columnstore_policy)); the
+migration was checked against `timescale/timescaledb:latest-pg18` (2.30.2).
 
 ## 6. Cloudflare Tunnel, Workers VPC and Hyperdrive
 

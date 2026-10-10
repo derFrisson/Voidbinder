@@ -23,8 +23,10 @@ describe('dataObjects', () => {
   const text = fixture('cardinfo_en.json');
   const expected = (JSON.parse(text) as { data: unknown[] }).data.map((c) => JSON.stringify(c));
 
+  // Size 1 streams the fixture byte by byte: about 1 s locally, over 5 s on a busy CI runner.
   it.each([1, 7, 100, 4096, 1_000_000])(
     'splits the cards whatever the chunk size (%i)',
+    { timeout: 30_000 },
     async (size) => {
       const lines = await collect(chunked(text, size));
       expect(lines.map((l) => JSON.stringify(JSON.parse(l)))).toEqual(expected);

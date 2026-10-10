@@ -8,4 +8,5 @@ export function cardKey(game: Game, setCode: string, number: string): string {
   return `${game}:${set}-${num}`;
 }
 
+export * from './prices/index.js';
 export type * from './platform/index.js';
