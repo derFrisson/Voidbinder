@@ -98,6 +98,17 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       ['PO', 100],
     ]);
     expect(body.conditionsAreEstimates).toBe(true);
+    // VB-115: Cardmarket's foil and normal share one product, one link without a finish.
+    expect(body.links).toEqual([
+      {
+        portal: 'cardmarket',
+        url: 'https://www.cardmarket.com/en/Magic/Products?idProduct=574937',
+      },
+      {
+        portal: 'ebay',
+        url: 'https://www.ebay.com/sch/i.html?_nkw=Adeline%2C%20Resplendent%20Cathar%20MID',
+      },
+    ]);
 
     const usd = PrintPricesResponseSchema.parse(
       await (
@@ -116,6 +127,29 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect((await app.request(`/catalog/prints/${crypto.randomUUID()}/prices`)).status).toBe(404);
     expect((await app.request('/catalog/prints/nope/prices')).status).toBe(400);
     expect((await app.request(`/catalog/prints/${adeline}/prices?currency=GBP`)).status).toBe(400);
+  });
+
+  it('links each TCGplayer product of a print (VB-115)', async () => {
+    const id = await printId('mid', '1');
+    const mapping = (externalId: string, finish: string) => ({
+      printId: id,
+      source: 'tcgplayer',
+      externalId,
+      finish,
+      confidence: 70,
+      method: 'number_match',
+    });
+    await db.insert(priceMappings).values([mapping('247338', 'normal'), mapping('247339', 'foil')]);
+    const body = PrintPricesResponseSchema.parse(
+      await (await app.request(`/catalog/prints/${id}/prices`)).json(),
+    );
+    expect(body.links.filter((l) => l.portal === 'tcgplayer')).toEqual([
+      { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247338', finish: 'normal' },
+      { portal: 'tcgplayer', url: 'https://www.tcgplayer.com/product/247339', finish: 'foil' },
+    ]);
+    await db
+      .delete(priceMappings)
+      .where(and(eq(priceMappings.printId, id), eq(priceMappings.source, 'tcgplayer')));
   });
 
   it('answers the history: daily for 180 days, weekly before, at most one point per day', async () => {
