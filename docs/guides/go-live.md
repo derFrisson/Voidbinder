@@ -10,7 +10,8 @@ the API in [apps/api/README.md](../../apps/api/README.md).
 Audit date: 2026-10-10, against `main` at `50a9343`; the runbook is updated to `750d6ac`
 (adds #61, migration `0008_sync.sql`). Everything below was checked read-only
 (dry-run deploys, `wrangler secret list`, `wrangler hyperdrive get`, `wrangler email … settings`,
-`dig`, `curl`). Nothing was deployed or migrated, and the prod database was not queried.
+`dig`, `curl`). Nothing was deployed or migrated, and the prod database was not queried (the state at audit
+time, before the go-live; see the next section).
 
 ## What happened on 2026-10-10
 
