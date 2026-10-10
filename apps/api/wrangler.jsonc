@@ -146,8 +146,7 @@
         {
           "binding": "SEARCH",
           "database_name": "voidbinder-search-dev",
-          // TODO(VB-98): the id `wrangler d1 create voidbinder-search-dev --location weur` prints.
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "database_id": "11307070-42cd-4207-bf31-37dc06cf0335",
           "migrations_dir": "d1",
         },
       ],
@@ -227,8 +226,7 @@
         {
           "binding": "SEARCH",
           "database_name": "voidbinder-search-prod",
-          // TODO(VB-98): the id `wrangler d1 create voidbinder-search-prod --location weur` prints.
-          "database_id": "00000000-0000-0000-0000-000000000000",
+          "database_id": "6aee7e3a-f258-47a3-9d9d-42e565e9ae57",
           "migrations_dir": "d1",
         },
       ],

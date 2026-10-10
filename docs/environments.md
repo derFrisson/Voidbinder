@@ -108,10 +108,10 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `SearchIndexRefreshWorkflow`) that refreshes it from Postgres after every catalog import.
   Locally `wrangler dev` simulates the database under `.wrangler/state`.
 
-  | Environment | D1 database              | Id                      | Location | Read replication |
-  | ----------- | ------------------------ | ----------------------- | -------- | ---------------- |
-  | `dev`       | `voidbinder-search-dev`  | not created yet (VB-98) | `weur`   | on (dashboard)   |
-  | `prod`      | `voidbinder-search-prod` | not created yet (VB-98) | `weur`   | on (dashboard)   |
+  | Environment | D1 database              | Id                                     | Location | Read replication |
+  | ----------- | ------------------------ | -------------------------------------- | -------- | ---------------- |
+  | `dev`       | `voidbinder-search-dev`  | `11307070-42cd-4207-bf31-37dc06cf0335` | `weur`   | on (REST API)    |
+  | `prod`      | `voidbinder-search-prod` | `6aee7e3a-f258-47a3-9d9d-42e565e9ae57` | `weur`   | on (REST API)    |
 
   No jurisdiction: the index holds public catalog data only, and replicas should follow the
   users. Create: `pnpm exec wrangler d1 create voidbinder-search-<env> --location weur` from
