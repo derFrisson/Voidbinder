@@ -12,6 +12,7 @@ import {
   type TextInputKeyPressEventData,
 } from 'react-native';
 import { searchable, useSuggest } from '../api/queries/search';
+import { hitHref } from '../hooks/browsing-language';
 import { fmt, useLocale, useT } from '../i18n';
 import { label } from './card/attributes';
 import { fieldClass } from './card/game';
@@ -31,10 +32,13 @@ function useDebounced(value: string, ms: number) {
   return settled;
 }
 
-/** Where a suggestion leads: a print to its card page, a set to the set page. */
-export function suggestionHref(s: SearchSuggestion) {
+/**
+ * Where a suggestion leads: a print to its card page, in the language it matched unless that is
+ * `locale` (VB-102); a set to the set page.
+ */
+export function suggestionHref(s: SearchSuggestion, locale: string) {
   return s.kind === 'print' && s.cardId
-    ? `/cards/${s.cardId}?print=${s.id}`
+    ? hitHref({ ...s, cardId: s.cardId }, locale)
     : `/${s.game}/sets/${s.set.code}`;
 }
 
@@ -168,7 +172,7 @@ export function useTypeahead({
   };
   const go = (s: SearchSuggestion) => {
     close();
-    router.push(suggestionHref(s));
+    router.push(suggestionHref(s, locale));
   };
   const onKeyPress = (e: KeyPress) => {
     const key = e.nativeEvent.key;

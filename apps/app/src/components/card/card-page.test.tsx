@@ -190,6 +190,43 @@ describe('card page', () => {
     ]);
   });
 
+  it('shows the language of ?lang= (a search hit’s match) over the profile language (VB-102)', async () => {
+    const PRINT = card.prints[1]?.id ?? '';
+    // Each language's own code, so the test sees which one shows.
+    const coded = {
+      ...card,
+      prints: card.prints.map((p) => ({
+        ...p,
+        localizations: p.localizations.map((l) => ({
+          ...l,
+          displayCode: `MID ${l.lang.toUpperCase()}1`,
+        })),
+      })),
+    };
+    fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(coded) : undefined));
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, print: PRINT, lang: 'en' });
+    const english = renderApp(<CardPage />);
+    expect(
+      await screen.findByRole('heading', { name: 'Adeline, Resplendent Cathar' }),
+    ).toBeTruthy();
+    expect(screen.getByText('MID EN1')).toBeTruthy();
+    expect(screen.getByText('Vigilance')).toBeTruthy();
+    // Another print in the table keeps the language.
+    expect(
+      screen.getAllByRole('link').some((a) => a.getAttribute('href')?.endsWith('&lang=en')),
+    ).toBe(true);
+    english.unmount();
+
+    // Without ?lang= the profile language (German) shows.
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, print: PRINT });
+    renderApp(<CardPage />);
+    expect(
+      await screen.findByRole('heading', { name: 'Adeline, strahlende Katharerin' }),
+    ).toBeTruthy();
+    expect(screen.getByText('MID DE1')).toBeTruthy();
+    expect(screen.getByText('Wachsamkeit')).toBeTruthy();
+  });
+
   it('shows the print from the URL', async () => {
     vi.mocked(useLocalSearchParams).mockReturnValue({ id: CARD, print: card.prints[1]?.id ?? '' });
     fakeApi((c) => (c.path.startsWith(`/catalog/cards/${CARD}`) ? json(card) : undefined));

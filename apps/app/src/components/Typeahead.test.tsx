@@ -2,9 +2,10 @@ import { act, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { router } from 'expo-router';
 import { Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { SearchSuggestion } from '@voidbinder/shared/api';
 import { fakeApi, json, renderApp, type Call } from '../../test/fake-api';
 import { Shell, Page } from './Shell';
-import { SearchLead } from './Typeahead';
+import { SearchLead, suggestionHref } from './Typeahead';
 
 // The top bar (and its search box) shows from 768 px; jsdom is 0 px wide.
 vi.mock('react-native', async (orig) => ({
@@ -60,6 +61,18 @@ const type = (box: HTMLElement, value: string) => fireEvent.change(box, { target
 const key = (box: HTMLElement, k: string) => fireEvent.keyDown(box, { key: k });
 
 beforeEach(() => vi.mocked(router.push).mockClear());
+
+describe('suggestionHref (VB-102)', () => {
+  const [print, set] = suggestions as [SearchSuggestion, SearchSuggestion];
+
+  it('adds ?lang= only when the suggestion’s language differs from the user’s', () => {
+    expect(suggestionHref({ ...print, lang: 'en' }, 'de')).toBe(
+      `/cards/${CARD}?print=${PRINT}&lang=en`,
+    );
+    expect(suggestionHref({ ...print, lang: 'de' }, 'de')).toBe(`/cards/${CARD}?print=${PRINT}`);
+    expect(suggestionHref({ ...set, lang: 'de' }, 'de')).toBe('/yugioh/sets/lds3');
+  });
+});
 
 describe('search typeahead (VB-79)', () => {
   afterEach(() => vi.useRealTimers());

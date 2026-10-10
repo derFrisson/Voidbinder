@@ -5,18 +5,12 @@ import { Pressable, Text, View } from 'react-native';
 import { cardOptions } from '../../api/queries/catalog';
 import { useAddEntries, useOwned } from '../../api/queries/collection';
 import { useSession } from '../../api/queries/me';
+import { useBrowsingLanguage } from '../../hooks/browsing-language';
 import { fmt, useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { useWide } from '../Shell';
 import { hideToast, showToast } from '../Toast';
-import {
-  AddDialog,
-  defaultLanguage,
-  printOptions,
-  session,
-  useBrowsingLanguage,
-  type EntryValues,
-} from './AddDialog';
+import { AddDialog, defaultLanguage, printOptions, session, type EntryValues } from './AddDialog';
 import { IconButton } from './Controls';
 
 /**
