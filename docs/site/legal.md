@@ -23,24 +23,8 @@ operator's review, not legal advice.** The operator details were filled in on 20
 
 ## Placeholders
 
-Search the repo for `[MAX:` before launch. The set is fixed in `src/content/legal/legal.test.ts`;
-a missing or misspelled one fails `pnpm test`.
-
-| Placeholder                                                            | Where                                 |
-| ---------------------------------------------------------------------- | ------------------------------------- |
-| `[MAX: Vor- und Nachname]`                                             | imprint, privacy                      |
-| `[MAX: Straße Hausnummer]`                                             | imprint, privacy                      |
-| `[MAX: PLZ Ort]`                                                       | imprint, privacy                      |
-| `[MAX: E-Mail]`                                                        | imprint, privacy                      |
-| `[MAX: Telefon oder weiterer Kontaktweg]`                              | imprint (optional second channel)     |
-| `[MAX: USt-IdNr. falls vorhanden]`                                     | imprint (delete the section if none)  |
-| `[MAX: Datenbank-Anbieter und Region, z. B. Neon, Frankfurt]`          | privacy, waitlist recipients          |
-| `[MAX: zuständige Landesdatenschutzbehörde]`                           | privacy, rights                       |
-| `[MAX: Aufbewahrungsfrist für unbestätigte Anmeldungen]`               | privacy, waitlist storage             |
-| `[MAX: Aufbewahrungsfrist abgemeldeter Adressen, Vorschlag 12 Monate]` | privacy, waitlist after unsubscribing |
-| `[MAX: Speicherdauer Cloudflare-Logs]`                                 | privacy, hosting and server logs      |
-
-The English files use the same German placeholder text so one search finds all of them.
+All `[MAX: …]` placeholders were filled on 2026-10-09; `src/content/legal/legal.test.ts` (FACTS) now
+asserts the real values and fails `pnpm test` if a placeholder comes back.
 
 ## Facts the text states, and where they come from
 
@@ -76,8 +60,7 @@ The English files use the same German placeholder text so one search finds all o
 | R2 buckets in the EU; OVH Gravelines database, Backblaze B2 EU Central backups and their retention                                                                                                                                                                                                                      | `apps/api/wrangler.jsonc` (`jurisdiction: "eu"`), `docs/guides/database-vps.md`                                                                                                                                       |
 
 Not verifiable from the repo: the signed Cloudflare DPA, Cloudflare's retention for its own edge logs
-(the docs give no number, hence `[MAX: Speicherdauer Cloudflare-Logs]`), the database provider, and any
-cookie Cloudflare's edge might add.
+outside Workers Logs (the docs give no number), and any cookie Cloudflare's edge might add.
 
 ## Before launch
 
