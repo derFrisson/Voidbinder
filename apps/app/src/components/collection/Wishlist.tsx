@@ -193,7 +193,7 @@ export function WishList({ wishes }: { wishes: WishlistEntry[] }) {
     x.price ? money(x.price.unitCents, x.price.currency, locale) : h.noPrice;
   // A wish for any language takes any price: no chip.
   const lang = (x: WishlistEntry) =>
-    x.language && <PriceLang lang={x.price?.lang} shown={x.language} />;
+    x.language ? <PriceLang lang={x.price?.lang} shown={x.language} /> : null;
 
   if (!wide) {
     return (
