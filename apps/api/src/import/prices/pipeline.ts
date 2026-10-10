@@ -162,7 +162,10 @@ export async function runTcgcsvImport(
     });
     if (!fresh) {
       const stats = { lastUpdated: observedAt, skipped: 'TCGCSV has not been updated since' };
-      await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
+      // Nothing changed: no catalog_version bump, so the cached reads stay valid.
+      await step('finish run', () =>
+        deps.withDb((db) => finishRun(db, runId, stats, { bump: false })),
+      );
       return { runId, stats };
     }
 
