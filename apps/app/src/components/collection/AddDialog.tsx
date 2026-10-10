@@ -3,7 +3,16 @@ import type { CardResponse, CollectionCondition } from '@voidbinder/shared/api';
 import { useQuery } from '@tanstack/react-query';
 import { useLocalSearchParams } from 'expo-router';
 import { useId, useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { cardOptions } from '../../api/queries/catalog';
 import {
@@ -86,6 +95,7 @@ type Props = {
 export function AddDialog(props: Props) {
   const t = useT();
   const wide = useWide();
+  const insets = useSafeAreaInsets();
   const titleId = useId();
   const card = useQuery(cardOptions(props.cardId));
   const d = t.collection.dialog;
@@ -98,7 +108,12 @@ export function AddDialog(props: Props) {
       onRequestClose={props.onClose}
       aria-labelledby={titleId}
     >
-      <View className={`flex-1 ${wide ? 'items-center justify-center p-6' : 'justify-end'}`}>
+      {/* The phone's sheet stays below the status bar and, on iOS, rises above the keyboard. */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={wide ? undefined : { paddingTop: insets.top }}
+        className={`flex-1 ${wide ? 'items-center justify-center p-6' : 'justify-end'}`}
+      >
         <View
           className={`z-10 max-h-full w-full border border-line bg-surface ${wide ? 'max-w-[520px] rounded-2xl' : 'rounded-t-2xl'}`}
         >
@@ -128,7 +143,7 @@ export function AddDialog(props: Props) {
           onPress={props.onClose}
           className="absolute inset-0 bg-phone opacity-50"
         />
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
