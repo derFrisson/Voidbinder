@@ -361,6 +361,23 @@ describe('deck screen', () => {
     expect(screen.getByRole('img', { name: /4: 6/ })).toBeTruthy();
   });
 
+  it('links a row to its print, ?lang= only when the page browses another language (VB-107)', async () => {
+    deckApi();
+    const { unmount } = renderApp(<DeckPage />);
+    await screen.findByText('Hauptdeck: 9 Karten, mindestens 40 nötig.');
+    const href = () =>
+      screen
+        .getAllByRole('link')
+        .find((l) => l.getAttribute('href')?.startsWith(`/cards/${id(1)}`));
+    expect(href()?.getAttribute('href')).toBe(`/cards/${id(1)}?print=${pid(1)}`);
+    unmount();
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: DECK, lang: 'en' });
+    renderApp(<DeckPage />);
+    await screen.findByText('Hauptdeck: 9 Karten, mindestens 40 nötig.');
+    expect(href()?.getAttribute('href')).toBe(`/cards/${id(1)}?print=${pid(1)}&lang=en`);
+    vi.mocked(useLocalSearchParams).mockReturnValue({ id: DECK });
+  });
+
   it('switches zones and steps quantities, removing a line at zero', async () => {
     const calls = deckApi();
     renderApp(<DeckPage />);

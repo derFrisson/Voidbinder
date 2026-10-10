@@ -118,7 +118,9 @@ describe('set page', () => {
     expect(screen.getByText('391 Karten, Seite 1')).toBeTruthy();
     // Cards: a link to the card page, named name + set code + number.
     const link = screen.getByRole('link', { name: 'Card 2, MID 2' });
-    expect(link.getAttribute('href')).toBe('/cards/10000000-0000-4000-8000-000000000002');
+    expect(link.getAttribute('href')).toBe(
+      '/cards/10000000-0000-4000-8000-000000000002?print=00000000-0000-4000-8000-000000000002',
+    );
     expect(screen.getByRole('navigation', { name: 'Seitenwahl' })).toBeTruthy();
     // Signed out: no owned badge, no "fehlt", no value strip.
     expect(screen.queryByText('fehlt')).toBeNull();
@@ -502,6 +504,31 @@ describe('collection and prices', () => {
     expect(screen.getByText('2×')).toBeTruthy();
     expect(screen.getAllByText('fehlt')).toHaveLength(1);
   });
+
+  it.each(['grid', 'list'] as const)(
+    'the %s links each print to the card page with that print, ?lang= only when not the user’s (VB-107)',
+    (view) => {
+      const props = {
+        prints,
+        view,
+        game: 'mtg',
+        setCode: 'MID',
+        owned,
+        prices: undefined,
+      } as const;
+      const href = () => screen.getAllByRole('link')[1]?.getAttribute('href');
+      const target =
+        '/cards/10000000-0000-4000-8000-000000000002?print=00000000-0000-4000-8000-000000000002';
+      vi.mocked(useLocalSearchParams).mockReturnValue({});
+      const { unmount } = renderApp(<CardCollection {...props} />);
+      expect(href()).toBe(target);
+      unmount();
+      vi.mocked(useLocalSearchParams).mockReturnValue({ lang: 'en' });
+      renderApp(<CardCollection {...props} />);
+      expect(href()).toBe(`${target}&lang=en`);
+      vi.mocked(useLocalSearchParams).mockReturnValue({});
+    },
+  );
 
   it('shows the list with copies per finish', () => {
     renderApp(

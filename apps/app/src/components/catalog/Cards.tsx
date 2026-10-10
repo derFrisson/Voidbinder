@@ -3,6 +3,7 @@ import type { PrintSummary } from '@voidbinder/shared/api';
 import { Link } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
+import { hitHref, useBrowsingLanguage } from '../../hooks/browsing-language';
 import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { QuickAdd } from '../collection/CollectButtons';
 import { numberLabel } from '../card/game';
@@ -74,10 +75,12 @@ export function CardTile({ print, game, setCode, owned, signedIn, price }: Item)
   const rarity = useRarityLabel();
   const ban = useBanStatus(game, print.cardId);
   const banLabel = useBanLabel();
+  const locale = useLocale();
+  const lang = useBrowsingLanguage();
   const missing = signedIn && !owned?.count;
   const name = `${print.name}, ${setCode} ${numberLabel(t.card.numberIn, print)}`;
   return (
-    <Link href={`/cards/${print.cardId}`} asChild>
+    <Link href={hitHref({ cardId: print.cardId, id: print.id, lang }, locale)} asChild>
       <Pressable aria-label={ban ? `${name}, ${banLabel(ban)}` : name} className="gap-2 rounded-lg">
         <View>
           <CardImage
@@ -130,6 +133,8 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
   const finish = useFinishLabel();
   const ban = useBanStatus(game, print.cardId);
   const banLabel = useBanLabel();
+  const locale = useLocale();
+  const lang = useBrowsingLanguage();
   const missing = signedIn && !owned?.count;
   const name = `${print.name}, ${setCode} ${numberLabel(t.card.numberIn, print)}${ban ? `, ${banLabel(ban)}` : ''}`;
   const finishes = print.finishes
@@ -137,7 +142,7 @@ export function CardRow({ print, game, setCode, owned, signedIn, price }: Item) 
     .join(' · ');
   return (
     <View role="listitem">
-      <Link href={`/cards/${print.cardId}`} asChild>
+      <Link href={hitHref({ cardId: print.cardId, id: print.id, lang }, locale)} asChild>
         <Pressable
           aria-label={name}
           className="min-h-[64px] flex-row items-center gap-3 border-b border-line py-2"

@@ -11,6 +11,7 @@ import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import { useDeleteEntry, useUpdateEntry } from '../../api/queries/collection';
 import { useSession } from '../../api/queries/me';
 import { fmt, useLocale, useT } from '../../i18n';
+import { hitHref } from '../../hooks/browsing-language';
 import { BanBadge, useBanStatus } from '../banlist/BanBadge';
 import { label } from '../card/attributes';
 import { fieldClass } from '../card/game';
@@ -50,11 +51,12 @@ export function Thumb({ print }: { print: Pick<EntryPrint, 'imageUrl' | 'game' |
 }
 
 /** Name, set code and number; links to the card page with the print selected. */
-export function CardCell({ print }: { print: EntryPrint }) {
+export function CardCell({ print, lang }: { print: EntryPrint; lang?: string | undefined }) {
+  const locale = useLocale();
   // VB-81: the TCG ban list status of a Yu-Gi-Oh! card.
   const ban = useBanStatus(print.game, print.cardId);
   return (
-    <Link href={`/cards/${print.cardId}?print=${print.id}`} asChild>
+    <Link href={hitHref({ cardId: print.cardId, id: print.id, lang }, locale)} asChild>
       <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
         <Thumb print={print} />
         <View className="min-w-0 flex-1">
@@ -371,7 +373,7 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
               className={`flex-row items-center gap-3 border-b border-line px-2 py-2.5 ${open ? 'border-l-[3px] border-l-blue bg-page' : ''}`}
             >
               <View role="cell" className="min-w-0 flex-1">
-                <CardCell print={e.print} />
+                <CardCell print={e.print} lang={e.language} />
               </View>
               <View role="cell" className="w-[96px]">
                 {/* While the form is open it is the one place to edit; the row shows the number. */}

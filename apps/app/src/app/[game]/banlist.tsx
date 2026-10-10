@@ -17,6 +17,7 @@ import { day } from '../../components/collection/format';
 import { Heading, Page } from '../../components/Shell';
 import { Empty, Panel, QueryState, Segmented } from '../../components/ui';
 import { fmt, useLocale, useT } from '../../i18n';
+import { hitHref, useBrowsingLanguage } from '../../hooks/browsing-language';
 
 // `/yugioh/banlist` (VB-81): the Forbidden & Limited List of the TCG or the OCG, what changed in the
 // last 90 days and, for a signed-in user, which of their cards and deck lines it touches.
@@ -30,13 +31,15 @@ const statusWord = (t: Dict, status: string | null) =>
 
 /** One card: thumbnail, name, set code; opens the card page with that print. */
 function CardLine({ card, children }: { card: BanlistCard; children?: ReactNode }) {
+  const locale = useLocale();
+  const lang = useBrowsingLanguage();
   const code =
     card.setCode && card.displayNumber
       ? `${card.setCode.toUpperCase()} ${card.displayNumber}`
       : null;
   return (
     <View role="listitem" className="flex-row items-center gap-3 border-t border-line py-2">
-      <Link href={`/cards/${card.id}${card.printId ? `?print=${card.printId}` : ''}`} asChild>
+      <Link href={hitHref({ cardId: card.id, id: card.printId, lang }, locale)} asChild>
         <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
           <View className="w-[30px]">
             <CardImage
