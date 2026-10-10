@@ -93,7 +93,19 @@ export async function priceFreshness(
   now: Date,
   games: readonly string[] = SOURCE_GAMES[source] ?? [],
 ): Promise<Freshness[]> {
-  const rows = games.length ? await setFreshness(db, source, now, games) : [];
+  return freshnessTotals(
+    games.length ? await setFreshness(db, source, now, games) : [],
+    source,
+    games,
+  );
+}
+
+/** `setFreshness` rows summed per game. */
+function freshnessTotals(
+  rows: (FreshnessCounts & { game: string })[],
+  source: string,
+  games: readonly string[],
+): Freshness[] {
   return games.map((game) => {
     const c: FreshnessCounts = { prints: 0, mapped: 0, unmapped: 0, priced: 0, fresh: 0, stale: 0 };
     for (const r of rows) if (r.game === game) for (const k of COUNTS) c[k] += r[k];
@@ -153,18 +165,21 @@ export async function priceCoverage(
     .where(eq(sets.gameId, game))
     .groupBy(sets.id)
     .orderBy(sets.code);
-  const stale = new Map(
-    (await setFreshness(db, SOURCE, now, [game])).map((r) => [r.setId, r.stale]),
-  );
+  const perSet = await setFreshness(db, SOURCE, now, [game]);
+  const stale = new Map(perSet.map((r) => [r.setId, r.stale]));
   const table = rows.map(({ id, ...r }) => ({
     ...r,
     groups: groupsOf.get(id) ?? [],
     stale: stale.get(id) ?? 0,
   }));
-  const sources = Object.keys(SOURCE_GAMES).filter((s) => SOURCE_GAMES[s]?.includes(game));
-  const freshness = (
-    await Promise.all(sources.map((source) => priceFreshness(db, source, now, [game])))
-  ).flat();
+  // `tcgplayer`'s totals from the per-set rows above, the other sources' with one SQL each.
+  const others = Object.keys(SOURCE_GAMES).filter(
+    (s) => s !== SOURCE && SOURCE_GAMES[s]?.includes(game),
+  );
+  const freshness = [
+    ...freshnessTotals(perSet, SOURCE, [game]),
+    ...(await Promise.all(others.map((source) => priceFreshness(db, source, now, [game])))).flat(),
+  ];
   const hit = new Set(matched.map((m) => m.groupId));
   return {
     game,
