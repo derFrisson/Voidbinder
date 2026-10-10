@@ -8,7 +8,18 @@ vi.mock('expo-localization', () => ({ getLocales: () => [{ languageCode: 'de' }]
 vi.mock('expo-font', () => ({ useFonts: () => [true] }));
 vi.mock('react-native-svg', () => {
   const Svg = ({ children }: { children?: import('react').ReactNode }) => children ?? null;
-  return { default: Svg, Svg, Circle: () => null, G: Svg, Path: () => null, Rect: () => null };
+  const none = () => null;
+  return {
+    default: Svg,
+    Svg,
+    Circle: none,
+    Defs: none,
+    G: Svg,
+    Path: none,
+    Pattern: none,
+    Polyline: none,
+    Rect: none,
+  };
 });
 vi.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
