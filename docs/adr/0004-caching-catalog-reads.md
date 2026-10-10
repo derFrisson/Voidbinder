@@ -90,16 +90,19 @@ Decision:
   `prices`, and Scryfall `catalog` and `prices` in one purge after its price step. No per-game
   tags: every catalog import purges all of `catalog` anyway. The ETag on `catalog_version` stays
   the browsers' signal.
-- The purge waits six minutes after `finish run` (a Workflow `step.sleep`). An entry purged at once
-  would be refilled through the cached Hyperdrive configuration of decision 1, which can still
-  serve the pre-import rows for `max_age` + `stale_while_revalidate` (360 s), and the edge would
-  keep those for another ten minutes. After the wait every refill reads the new rows.
+- The purge waits seven minutes after `finish run` (a Workflow `step.sleep`). An entry purged at
+  once would be refilled through the cached Hyperdrive configuration of decision 1, which can
+  still serve the pre-import rows for `max_age` + `stale_while_revalidate` (360 s), and the edge
+  would keep those for another ten minutes. The wait is those 360 s plus a minute of margin
+  (`PURGE_WAIT_SECONDS` = 420 s in `apps/api/src/import/util.ts`, built from the same two
+  values), so a refill that read in the last stale second has landed before the purge. After the
+  wait every refill reads the new rows.
 - A purge only reaches the cache of the entrypoint that calls it, and each Workflow is its own
   entrypoint. The default export becomes a `WorkerEntrypoint` class with a `purgeCache(tags)` RPC
   method, and the Workflows call it through `exports.default` (`src/platform/cloudflare/cache.ts`,
   the only place besides the Workflow classes that imports `cloudflare:workers`).
 
-Ceilings, written down: an import's changes reach the edge about six minutes after its finish;
+Ceilings, written down: an import's changes reach the edge about seven minutes after its finish;
 the edge serves an answer up to 20 minutes old when a purge fails (it is logged and never fails
 the import); the module manifests are purged by nothing yet, so a new module shows up within 10 to
 20 minutes; Workers Caching uses the Free plan's purge rate limits whatever the plan, which the

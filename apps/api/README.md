@@ -92,13 +92,14 @@ Caching never stores; `src/auth/auth.test.ts` asserts it for `/me`, `/collection
 `/auth`, signed in by cookie, by bearer and signed out. The public routes ignore the session, so a
 cached answer is the same for everyone, with or without a cookie or `Authorization` header.
 
-**Purge.** After `finish run` (which bumps `catalog_version`), each importer waits six minutes
+**Purge.** After `finish run` (which bumps `catalog_version`), each importer waits seven minutes
 (`step.sleep`, `wait for the Hyperdrive cache`) and then runs a `purge cache` step
 (`purgeEdgeCache`, `src/import/util.ts`); the Scryfall import waits and purges once, after its
 price step, for `catalog` and `prices` together. The wait matters: a purged entry is refilled
 through `HYPERDRIVE_CACHED`, which can serve the rows from before the import for 300 s + 60 s, and the edge
-would then keep them another ten minutes. A purge only reaches the cache of the entrypoint that
-calls it, and a Workflow is an entrypoint of its own, so `purgeCache(tags)`
+would then keep them another ten minutes; the extra minute (420 s, `PURGE_WAIT_SECONDS`) lets a
+refill that read in the last stale second land before the purge. A purge only reaches the cache
+of the entrypoint that calls it, and a Workflow is an entrypoint of its own, so `purgeCache(tags)`
 (`src/platform/cloudflare/cache.ts`) calls the RPC method `purgeCache` on the default entrypoint
 (`src/index.ts`), which runs `ctx.cache.purge({ tags })`. It never throws (a failed purge is a
 `cache purge failed` warning, and the entries are at most 20 minutes old anyway) and is a no-op

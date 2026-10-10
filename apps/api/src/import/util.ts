@@ -8,19 +8,27 @@ export interface EdgeCacheDeps {
   sleep?(name: string, seconds: number): Promise<void>;
 }
 
+/** `max_age` and `stale_while_revalidate` of the `HYPERDRIVE_CACHED` configs (docs/environments.md). */
+export const HYPERDRIVE_MAX_AGE = 300;
+export const HYPERDRIVE_SWR = 60;
+/**
+ * The wait before a purge: the Hyperdrive window plus a minute, so a refill that started in the
+ * window's last second has landed at the edge before the purge removes it (420 s, ADR 0004).
+ */
+export const PURGE_WAIT_SECONDS = HYPERDRIVE_MAX_AGE + HYPERDRIVE_SWR + 60;
+
 /**
  * The last step of a run that changed the catalog or the prices: purges the API's edge cache by
- * tag. It first waits out the Hyperdrive-cached reads (300 s + 60 s stale, ADR 0004), which would
- * otherwise refill the edge with the rows from before the import for another ten minutes.
+ * tag. It first waits out the Hyperdrive-cached reads (PURGE_WAIT_SECONDS), which would otherwise
+ * refill the edge with the rows from before the import for another ten minutes.
  */
 export async function purgeEdgeCache(
   deps: EdgeCacheDeps,
   step: <T>(name: string, fn: () => Promise<T>) => Promise<T>,
   tags: string[],
-  prefix = '',
 ): Promise<void> {
-  await deps.sleep?.(`${prefix}wait for the Hyperdrive cache`, 360);
-  await step(`${prefix}purge cache`, async () => deps.purgeCache?.(tags));
+  await deps.sleep?.('wait for the Hyperdrive cache', PURGE_WAIT_SECONDS);
+  await step('purge cache', async () => deps.purgeCache?.(tags));
 }
 
 /** Splits `items` into consecutive slices of at most `size`. */
