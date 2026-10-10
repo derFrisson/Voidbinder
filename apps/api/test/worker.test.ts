@@ -1,7 +1,7 @@
 import { HealthResponseSchema } from '@voidbinder/shared/api';
 import { env, exports } from 'cloudflare:workers';
 import { describe, expect, inject, it, vi } from 'vitest';
-import { purgeCache } from '../src/platform/cloudflare/cache';
+import { CachePurgingEntrypoint, purgeCache } from '../src/platform/cloudflare/cache';
 import { R2BlobStore } from '../src/platform/cloudflare/r2-blob-store';
 
 declare module 'vitest' {
@@ -32,6 +32,25 @@ describe('Worker', () => {
     await purgeCache(['catalog']);
     expect(warn).not.toHaveBeenCalled();
     await expect(exports.default.purgeCache(['prices'])).resolves.toBeUndefined();
+  });
+
+  it('purges by { tags } and logs a failed purge', async () => {
+    const purge = vi.fn(async () => ({ success: false, errors: [{ code: 1, message: 'nope' }] }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    await CachePurgingEntrypoint.prototype.purgeCache.call(
+      { ctx: { cache: { purge } } } as unknown as CachePurgingEntrypoint,
+      ['catalog', 'prices'],
+    );
+    expect(purge).toHaveBeenCalledWith({ tags: ['catalog', 'prices'] });
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('cache purge failed'));
+    warn.mockClear();
+    purge.mockResolvedValueOnce({ success: true, errors: [] });
+    await CachePurgingEntrypoint.prototype.purgeCache.call(
+      { ctx: { cache: { purge } } } as unknown as CachePurgingEntrypoint,
+      ['modules'],
+    );
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it('round-trips a blob through R2', async () => {
