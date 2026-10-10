@@ -172,9 +172,12 @@ export interface GalleryPage {
   lang: string;
 }
 
-/** A TCG gallery title in a language we store, else null (OCG, Korean, Asian English, …). */
+/**
+ * A TCG gallery title (or set list title, `Set Card Lists:<set> (TCG-DE)`, VB-94) in a language we
+ * store, else null (OCG, Korean, Asian English, …).
+ */
 export function parseGalleryTitle(title: string): GalleryPage | null {
-  const m = /^Set Card Galleries:(.+) \(TCG-([A-Z]+)(?:-([A-Z0-9]+))?\)$/.exec(title);
+  const m = /^Set Card (?:Galleries|Lists):(.+) \(TCG-([A-Z]+)(?:-([A-Z0-9]+))?\)$/.exec(title);
   const [, set = '', region = '', edition] = m ?? [];
   const lang = REGION_LANG[region];
   if (!lang) return null;
@@ -182,7 +185,7 @@ export function parseGalleryTitle(title: string): GalleryPage | null {
 }
 
 /** Pages of one language best first: `EN` before `NA` before `EU`, 1st Edition before Unlimited. */
-const pageRank = (p: GalleryPage) => {
+export const pageRank = (p: GalleryPage) => {
   const r = REGION_ORDER.indexOf(p.region);
   const e = EDITION_ORDER.indexOf(p.edition ?? '');
   return (r < 0 ? 0 : r) * 10 + (e < 0 ? EDITION_ORDER.length : e);
@@ -227,12 +230,15 @@ function templateParts(body: string): string[] {
 }
 
 /**
- * The rows of every `{{Set gallery}}` on a gallery page with the file name the template builds.
- * Rows without a card number (`abbr=`) and with an unknown rarity are left out.
+ * Every call of the template `name` (`Set gallery`, `Set list`) on a page: its named parameters
+ * (keys in lower case) and the lines of its unnamed ones (the rows).
  */
-export function parseGallery(wikitext: string, page: GalleryPage): GalleryRow[] {
-  const rows: GalleryRow[] = [];
-  const open = /\{\{\s*Set gallery\s*\|/gi;
+export function templateCalls(
+  wikitext: string,
+  name: string,
+): { named: Record<string, string>; lines: string[] }[] {
+  const calls: { named: Record<string, string>; lines: string[] }[] = [];
+  const open = new RegExp(`\\{\\{\\s*${name}\\s*\\|`, 'gi');
   for (let m = open.exec(wikitext); m; m = open.exec(wikitext)) {
     // The call's end: the `}}` that closes it.
     let depth = 1;
@@ -255,6 +261,18 @@ export function parseGallery(wikitext: string, page: GalleryPage): GalleryRow[] 
       if (key) named[key.toLowerCase()] = value.trim();
       else lines.push(...part.split('\n'));
     }
+    calls.push({ named, lines });
+  }
+  return calls;
+}
+
+/**
+ * The rows of every `{{Set gallery}}` on a gallery page with the file name the template builds.
+ * Rows without a card number (`abbr=`) and with an unknown rarity are left out.
+ */
+export function parseGallery(wikitext: string, page: GalleryPage): GalleryRow[] {
+  const rows: GalleryRow[] = [];
+  for (const { named, lines } of templateCalls(wikitext, 'Set gallery')) {
     if (named.abbr) continue;
     const region = named.region?.toUpperCase() || page.region;
     const edition = named.edition?.toUpperCase() || page.edition;
@@ -325,7 +343,7 @@ interface Answer {
 }
 
 /** Every answer of a query, following `continue`; the bodies go to `raw` as received. */
-async function query(
+export async function query(
   fetchFn: Fetch,
   params: Record<string, string>,
   raw: string[],
@@ -514,13 +532,21 @@ export async function writeArtworks(
   return (printsDone.rowCount ?? 0) + (locsDone.rowCount ?? 0);
 }
 
-interface PlannedSet {
+export interface PlannedSet {
   code: string;
   titles: string[];
 }
 
-/** Our Yu-Gi-Oh! sets with a TCG gallery, less those read within COOL_DOWN_DAYS before `date`. */
-export async function planSets(db: Db, titles: string[], date: string): Promise<PlannedSet[]> {
+/**
+ * Our Yu-Gi-Oh! sets with a TCG gallery (or set list) among `titles`, less those read within
+ * COOL_DOWN_DAYS before `date` (the `app_meta` map `metaKey`).
+ */
+export async function planSets(
+  db: Db,
+  titles: string[],
+  date: string,
+  metaKey = GALLERIES_CHECKED_KEY,
+): Promise<PlannedSet[]> {
   const byName = new Map<string, string[]>();
   for (const page of titles.map(parseGalleryTitle))
     if (page)
@@ -528,7 +554,7 @@ export async function planSets(db: Db, titles: string[], date: string): Promise<
   const [meta] = await db
     .select({ value: appMeta.value })
     .from(appMeta)
-    .where(eq(appMeta.key, GALLERIES_CHECKED_KEY));
+    .where(eq(appMeta.key, metaKey));
   const checked = JSON.parse(meta?.value ?? '{}') as Record<string, string>;
   const since = new Date(Date.parse(date) - COOL_DOWN_DAYS * 86_400_000).toISOString().slice(0, 10);
   const ours = await db
@@ -550,8 +576,8 @@ async function hasArtworkCounts(db: Db): Promise<boolean> {
   return result.rows[0]?.ok ?? false;
 }
 
-/** The prints of these sets with what planArtworks needs. */
-async function printsOf(db: Db, codes: string[]) {
+/** The prints of these sets with what planArtworks (and set-lists.ts' planCodes) needs. */
+export async function printsOf(db: Db, codes: string[]) {
   const result = await db.execute<PrintArtworks & { set_code: string }>(sql`
     select p.id, s.code as set_code, p.number, p.rarity,
       (p.external_ids ->> 'artworks')::int as artworks, p.external_ids ->> 'language' as language,

@@ -194,7 +194,7 @@ export function startTcgcsvCron(
   return startUnlessRunning('tcgcsv', () => startTcgcsvImport(env, id), platform);
 }
 
-/** The weekly Yugipedia cron's start (VB-93): skipped while a Yugipedia names or gallery run is going. */
+/** The weekly Yugipedia cron's start (VB-93): skipped while a Yugipedia names, gallery or set list run is going. */
 export function startYugipediaCron(
   env: Env,
   id: string,

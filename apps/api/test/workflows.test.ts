@@ -63,6 +63,8 @@ it('runs the Yugipedia import without a purge when it planned nothing (VB-93)', 
     plan: 0,
     'galleries: start run': 'run-2',
     'galleries: plan': 0,
+    'set lists: start run': 'run-3',
+    'set lists: plan': 0,
   };
   const step = {
     do: (name: string) => (names.push(name), Promise.resolve(canned[name] ?? {})),
@@ -73,7 +75,7 @@ it('runs the Yugipedia import without a purge when it planned nothing (VB-93)', 
   await YugipediaImportWorkflow.prototype.run.call({ env }, event, step);
 
   // Nothing written: no purge, no image mirror and no search index refresh either; the galleries
-  // (VB-106) follow the names.
+  // (VB-106) and the set lists (VB-94) follow the names.
   expect(names).toEqual([
     'start run',
     'plan',
@@ -83,6 +85,10 @@ it('runs the Yugipedia import without a purge when it planned nothing (VB-93)', 
     'galleries: plan',
     'galleries: finish run',
     'galleries: clean up chunks',
+    'set lists: start run',
+    'set lists: plan',
+    'set lists: finish run',
+    'set lists: clean up chunks',
   ]);
 });
 
@@ -95,6 +101,8 @@ it('ends the Yugipedia import with the search index step when it wrote names (VB
     'cards 00000': { planned: 1, found: 1, missing: 0, written: 1 },
     'galleries: start run': 'run-2',
     'galleries: plan': 0,
+    'set lists: start run': 'run-3',
+    'set lists: plan': 0,
   };
   const step = {
     do: (name: string) => (names.push(name), Promise.resolve(canned[name] ?? {})),
@@ -104,8 +112,37 @@ it('ends the Yugipedia import with the search index step when it wrote names (VB
 
   await YugipediaImportWorkflow.prototype.run.call({ env }, event, step);
 
-  expect(names.slice(-2)).toEqual(['galleries: clean up chunks', 'refresh search index']);
+  expect(names.slice(-2)).toEqual(['set lists: clean up chunks', 'refresh search index']);
   expect(names).toContain('purge cache');
+});
+
+it('purges and refreshes the search index when the set lists changed codes (VB-94)', async () => {
+  const names: string[] = [];
+  const canned: Record<string, unknown> = {
+    'start run': 'run-1',
+    plan: 0,
+    'galleries: start run': 'run-2',
+    'galleries: plan': 0,
+    'set lists: start run': 'run-3',
+    'set lists: plan': 1,
+    'set lists 00000': { sets: 1, pages: 6, planned: 9, dropped: 3, written: 9 },
+  };
+  const step = {
+    do: (name: string) => (names.push(name), Promise.resolve(canned[name] ?? {})),
+    sleep: (name: string) => (names.push(name), Promise.resolve()),
+  } as unknown as WorkflowStep;
+  const event = { timestamp: new Date('2026-10-12'), payload: {} } as WorkflowEvent<unknown>;
+
+  await YugipediaImportWorkflow.prototype.run.call({ env }, event, step);
+
+  expect(names.slice(-5)).toEqual([
+    'set lists: finish run',
+    'set lists: wait for the Hyperdrive cache',
+    'set lists: purge cache',
+    'set lists: clean up chunks',
+    'refresh search index',
+  ]);
+  expect(names).not.toContain('purge cache');
 });
 
 it('runs the galleries alone on request and mirrors the scans they found (VB-106)', async () => {
@@ -127,6 +164,7 @@ it('runs the galleries alone on request and mirrors the scans they found (VB-106
   await YugipediaImportWorkflow.prototype.run.call({ env }, event, step);
 
   expect(names).not.toContain('start run');
+  expect(names).not.toContain('set lists: start run');
   // One purge, after the mirror, under names of its own (the names import may purge before).
   expect(names.slice(-4)).toEqual([
     'galleries: clean up chunks',

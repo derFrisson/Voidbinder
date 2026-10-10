@@ -100,7 +100,7 @@ export function adminRoutes(adminToken: string | undefined) {
 }
 
 /** `import_runs` sources that crawl one site and so share its rate (VB-106: Yugipedia, 1 req/s). */
-const SHARED_LOCKS = [['yugipedia', 'yugipedia-galleries']];
+const SHARED_LOCKS = [['yugipedia', 'yugipedia-galleries', 'yugipedia-set-lists']];
 
 /** Whether an import of `source`, or of a source it shares a lock with, is running. */
 export async function importBlocked(
