@@ -1215,6 +1215,19 @@ source URL until the image is mirrored. `GET /catalog/cards/:id` and `GET /catal
 also carry `copyright`, the game's line from `@voidbinder/shared/notices` (which also exports the
 per-game notices and the Scryfall attribution); the card page shows it with the print's `artist`.
 
+**Card backs** (VB-120, VB-122): a print without any picture shows its game's back, drawn by us
+(no game's official back): one construction for all four games, the game's field colour from
+`@voidbinder/tokens` in its card format (59×86 for Yu-Gi-Oh!, 63×88 for the rest), an ink rim, a
+guilloche weave over the brand's dot grid, a double frame and an ink medallion with the game's
+monogram. `scripts/render-card-backs.ts` renders it from SVG with `sharp`, fetches nothing, and
+writes `images/backs/<game>/{orig,sm}.webp` (1000 and 320 px wide) into a local folder plus the
+`sm` copy into `apps/app/assets/backs/` (bundled, so it shows offline); it prints the
+`wrangler r2 object put` commands instead of uploading:
+
+```sh
+pnpm --filter api render-card-backs --out /path/to/folder
+```
+
 ## Offline catalog modules
 
 `scripts/build-catalog-module.ts` (VB-29) builds one SQLite file per game (sets, cards, prints,
