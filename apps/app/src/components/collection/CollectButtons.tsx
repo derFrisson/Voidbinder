@@ -144,7 +144,13 @@ export function QuickAdd({
   // The toast's "Ändern" opens the dialog of this tile: when the tile goes (next page, filter,
   // navigation) the toast goes with it, instead of a button that does nothing.
   const toastKey = useRef<number | undefined>(undefined);
-  useEffect(() => () => hideToast(toastKey.current), []);
+  // Only the toast this tile showed: without a key, hideToast() would hide any tile's toast.
+  useEffect(
+    () => () => {
+      if (toastKey.current !== undefined) hideToast(toastKey.current);
+    },
+    [],
+  );
   // The toast's button is gone once "Ändern" is pressed, so the dialog opened from it has nothing
   // to return focus to: it goes to this tile's button. (After a tick, so the dialog's own focus
   // trap has let go first.)

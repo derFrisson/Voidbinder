@@ -248,7 +248,8 @@ function Form({ printId, kind, edit, binderId, onClose, data }: Props & { data: 
             ...languages.map((l) => ({
               value: l,
               label: l.toUpperCase(),
-              name: c.languages[l] ?? l.toUpperCase(),
+              // Full name plus the visible code, so voice control finds "ES" too (WCAG 2.5.3).
+              name: `${c.languages[l] ?? l.toUpperCase()} (${l.toUpperCase()})`,
             })),
           ]}
         />

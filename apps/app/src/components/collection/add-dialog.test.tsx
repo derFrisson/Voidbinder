@@ -132,13 +132,13 @@ describe('add dialog on the card page', () => {
       .getAllByRole('radio')
       .map((r) => r.getAttribute('aria-label'));
     expect(names).toEqual([
-      'Englisch',
-      'Deutsch',
-      'Französisch',
-      'Italienisch',
-      'Spanisch',
-      'Portugiesisch',
-      'Japanisch',
+      'Englisch (EN)',
+      'Deutsch (DE)',
+      'Französisch (FR)',
+      'Italienisch (IT)',
+      'Spanisch (ES)',
+      'Portugiesisch (PT)',
+      'Japanisch (JA)',
     ]);
     // One finish: nothing to choose.
     expect(screen.queryByRole('radiogroup', { name: 'Ausführung' })).toBeNull();
@@ -168,7 +168,7 @@ describe('add dialog on the card page', () => {
     await screen.findByRole('radiogroup', { name: 'Sprache' });
     // The UI is German and the card page has no language chip: German first.
     expect(checked('Sprache')).toBe('DE');
-    pick('Sprache', 'Französisch');
+    pick('Sprache', 'Französisch (FR)');
     pick('Ausführung', 'Foil');
     pick('Zustand', 'EX');
     fireEvent.click(screen.getByRole('button', { name: 'Anzahl: eins mehr' }));
@@ -267,7 +267,7 @@ describe('quick add from a tile', () => {
     await screen.findByRole('dialog', { name: 'Hinzugefügte Karte ändern' });
     await screen.findByRole('radiogroup', { name: 'Sprache' });
     expect(checked('Sprache')).toBe('DE');
-    pick('Sprache', 'Japanisch');
+    pick('Sprache', 'Japanisch (JA)');
     fireEvent.click(screen.getByRole('button', { name: 'Speichern' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     const patch = calls.find((c) => c.method === 'PATCH');
@@ -303,6 +303,36 @@ describe('quick add from a tile', () => {
     fireEvent.click(screen.getByRole('button', { name: 'weg' }));
     await waitFor(() => expect(screen.queryByText('Als DE · Normal · NM hinzugefügt')).toBeNull());
     expect(screen.queryByRole('button', { name: 'Ändern' })).toBeNull();
+  });
+
+  it('keeps its toast when another tile goes', async () => {
+    vi.mocked(useLocalSearchParams).mockReturnValue({});
+    api(cardOf('yugioh', ['en', 'de']));
+    function Host() {
+      const [other, setOther] = useState(true);
+      return (
+        <>
+          <QuickAdd printId={PRINT} cardId={CARD} name="Dark Magician" finish="normal" />
+          {other && (
+            <QuickAdd
+              printId={`${PRINT.slice(0, -1)}9`}
+              cardId={CARD}
+              name="Kuriboh"
+              finish="normal"
+            />
+          )}
+          <Pressable role="button" aria-label="weg" onPress={() => setOther(false)} />
+          <Toaster />
+        </>
+      );
+    }
+    renderApp(<Host />);
+    fireEvent.click(screen.getByRole('button', { name: 'In Sammlung: Dark Magician' }));
+    await screen.findByText('Als DE · Normal · NM hinzugefügt');
+    fireEvent.click(screen.getByRole('button', { name: 'weg' }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Kuriboh' })).toBeNull());
+    expect(screen.getByText('Als DE · Normal · NM hinzugefügt')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ändern' })).toBeTruthy();
   });
 
   it('opens the dialog on a long press instead of adding', async () => {
