@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayCode, displayNumber, typedLanguage } from './index.js';
+import { displayCode, displayNumber, matchLanguage, typedLanguage } from './index.js';
 
 const ygo = ['en', 'de', 'fr', 'it', 'es', 'pt', 'ja'];
 
@@ -64,5 +64,29 @@ describe('typedLanguage', () => {
     expect(typedLanguage('yugioh', 'blggxx024', 'blgg', 'EN024')).toBeNull();
     expect(typedLanguage('yugioh', null, 'blgg', 'EN024')).toBeNull();
     expect(typedLanguage('mtg', 'midde123', 'mid', 'EN123')).toBeNull();
+  });
+});
+
+describe('matchLanguage (VB-102)', () => {
+  const blgg = { game: 'yugioh' as const, setCode: 'blgg', number: 'EN024' };
+  const pineco = { game: 'pokemon' as const, setCode: 'sv01', number: '001' };
+
+  it('follows the name that matched, whatever the requested language', () => {
+    expect(matchLanguage(blgg, [''], 'de')).toBe('en');
+    expect(matchLanguage(blgg, ['de'], 'en')).toBe('de');
+    expect(matchLanguage(pineco, ['de'], 'en')).toBe('de');
+  });
+
+  it('takes the requested language, else English, else the first among several matches', () => {
+    expect(matchLanguage(pineco, ['', 'de'], 'de')).toBe('de');
+    expect(matchLanguage(pineco, ['en', 'de'], 'fr')).toBe('en');
+    expect(matchLanguage(pineco, ['fr', 'de'], 'ja')).toBe('de');
+  });
+
+  it('a code token names the language; a match without a name keeps the requested one', () => {
+    expect(matchLanguage(blgg, [], 'de', 'blggen024')).toBe('en');
+    expect(matchLanguage(blgg, [], 'en', 'blggde024')).toBe('de');
+    expect(matchLanguage(blgg, [], 'de', 'blgg024')).toBe('de');
+    expect(matchLanguage(pineco, [], 'fr', 'sv1001')).toBe('fr');
   });
 });

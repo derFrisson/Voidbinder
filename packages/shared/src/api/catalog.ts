@@ -224,7 +224,10 @@ export const SearchQuerySchema = z.object({
   /** Set code, lowercase as in `/catalog/sets/:game/:code`. */
   set: z.string().trim().toLowerCase().max(32).optional(),
   rarity: z.string().max(32).optional(),
-  /** Language the names are shown in; the app sends the user's. Names fall back to English. */
+  /**
+   * The user's language (the app sends it): the language of a hit whose match names none, and the
+   * pick among several matched languages (`SearchHit.lang`).
+   */
   lang: LangSchema.default('en'),
   names: SearchNamesSchema,
   finish: z.string().max(32).optional(),
@@ -239,11 +242,19 @@ export const SearchHitSchema = PrintSummarySchema.extend({
   /** The card's English type line (the deck builder puts Extra Deck monsters into the extra). */
   typeLine: z.string().nullable().optional(),
   setCode: z.string(),
-  /** Set name in `?lang=`, falling back to English. */
+  /** Set name in `lang`, falling back to English. */
   setName: z.string(),
   /**
+   * The language the hit is shown in (VB-102): the language of what matched (a localized name,
+   * `en` for the English card name, the token of a code such as `BLGG-DE024`); `?lang=` only
+   * when nothing else names one (a code without a token, a set) or as the tie-breaker of a name
+   * equal in several languages. `name`, `displayNumber`, `displayCode`, `setName` and the image
+   * are in it, falling back as everywhere.
+   */
+  lang: LangSchema,
+  /**
    * The code `q` named with a language token, as printed (`BLGG-DE024` for a search of
-   * `blgg de024`); `displayNumber` then carries that token whatever `?lang=`. Absent otherwise.
+   * `blgg de024`); `lang` is then that token's language. Absent otherwise.
    */
   matchedCode: z.string().optional(),
 });
