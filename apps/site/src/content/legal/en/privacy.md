@@ -140,7 +140,7 @@ We send you mails that belong to the account: the link to confirm your email add
 
 What you create in the web app is stored with your account: your binders (name, game, order, colour), the entries of your collection (card and printing, quantity, language, condition, finish, purchase price and currency, note), your wishlist (card, quantity, wanted language, finish and minimum condition, maximum price, note) and your decks (name, game, format, description, cards). In addition, the times each item was created and last changed. The legal basis is Art. 6 (1) (b) GDPR. Only your account sees this data; we pass it on to no one.
 
-When you delete an entry, a binder or a deck, we mark it as deleted instead of removing it at once, and no longer show it. Deleted items stay stored as a deletion marker for at most 30 days so that your other devices take over the deletion, and are then removed for good.
+When you delete an entry, a binder or a deck, we remove its content at once. We keep only a deletion marker without content (which list and which ID) for at most 30 days, so that your other devices take over the deletion. Then the marker is removed too.
 
 ### Sync between devices
 
@@ -174,7 +174,7 @@ All three providers act as processors on our instructions under a data processin
 | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | Account and profile (email address, name, display name, language, currency, training data setting, password hash) | until your account is deleted                                                                                |
 | Collection, binders, wishlist, decks                                                                              | until your account is deleted                                                                                |
-| Items marked as deleted                                                                                           | at most 30 days                                                                                              |
+| Deletion markers (no content)                                                                                     | at most 30 days                                                                                              |
 | Session with IP address and user agent                                                                            | until you sign out, otherwise 7 days after the last use                                                      |
 | Remembered device for two-factor sign-in                                                                          | 30 days, or until you change two-factor sign-in or reset your password                                       |
 | Secret and backup codes of two-factor sign-in                                                                     | until you turn two-factor sign-in off or delete your account                                                 |
