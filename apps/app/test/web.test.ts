@@ -123,6 +123,29 @@ const search = {
   pageSize: 30,
   total: 1,
 };
+// The typeahead (VB-79): a print with a picture and a set.
+const suggest = {
+  suggestions: [
+    {
+      kind: 'print',
+      id: PRINT,
+      name: 'Adeline, strahlende Katharerin',
+      game: 'mtg',
+      set: { code: 'mid', name: 'Innistrad: Midnight Hunt' },
+      number: '1',
+      rarity: 'rare',
+      imageUrl: 'https://img.voidbinder.de/images/mtg/1/en/sm.webp',
+      cardId: CARD,
+    },
+    {
+      kind: 'set',
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'Innistrad: Midnight Hunt',
+      game: 'mtg',
+      set: { code: 'mid', name: 'Innistrad: Midnight Hunt' },
+    },
+  ],
+};
 const card = {
   card: {
     id: CARD,
@@ -408,6 +431,7 @@ async function open({
       return route.fulfill({ json: mid(url.searchParams.get('rarity')) });
     }
     if (path === '/api/catalog/search') return route.fulfill({ json: search });
+    if (path === '/api/catalog/search/suggest') return route.fulfill({ json: suggest });
     if (path === `/api/catalog/cards/${CARD}`) return route.fulfill({ json: card });
     return route.fulfill({
       status: 404,
@@ -626,6 +650,54 @@ describe('web build', () => {
       await context.close();
     }
   });
+
+  // The typeahead (VB-79): the top bar's box on a desktop, the search page's box on a phone.
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          ['desktop', 1440, '/'],
+          ['phone', 390, '/search'],
+        ] as const
+      ).map(([name, width, path]) => [scheme, name, width, path] as const),
+    ),
+  )(
+    'suggests while typing (%s, %s) and opens a row by keyboard',
+    async (scheme, _n, width, path) => {
+      const { context, page, csp } = await open({ width, height: 844, scheme });
+      const shots = process.env.SHOTS;
+      try {
+        await page.goto(origin + path);
+        const box = page.getByRole('combobox', {
+          name: width < 768 ? 'Karten suchen' : 'Karte, Set oder Nummer suchen',
+        });
+        await box.fill('adel');
+        const list = page.getByRole('listbox', { name: 'Vorschläge' });
+        await list.waitFor();
+        expect(await list.getByRole('option').count()).toBe(2);
+        await page
+          .getByRole('status')
+          .filter({ hasText: '2 Vorschläge' })
+          .waitFor({ state: 'attached' });
+        // The print's picture loads from the image host within the CSP.
+        await list.locator('img').first().waitFor();
+        // On a phone the list spans the box: the page width less the gutters.
+        const listBox = await list.boundingBox();
+        if (width < 768) expect(listBox?.width).toBeGreaterThan(width - 40);
+        await box.press('ArrowDown');
+        if (shots) await page.screenshot({ path: `${shots}/typeahead-${scheme}-${width}.png` });
+        expect(await list.getByRole('option', { selected: true }).textContent()).toContain(
+          'Adeline',
+        );
+        expect(await axe(page)).toEqual([]);
+        await box.press('Enter');
+        await page.waitForURL(new RegExp(`/cards/${CARD}\\?print=${PRINT}$`));
+        expect(csp).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    },
+  );
 
   it('lists the sets of a game and opens one, remembering it on the home page', async () => {
     const { context, page } = await open();
