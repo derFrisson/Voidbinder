@@ -62,6 +62,7 @@ export const de = {
   set: {
     count: '{count} Karten',
     empty: 'In diesem Set gibt es keine Karten mit diesen Filtern.',
+    resetFilters: 'Filter zurücksetzen',
     code: 'Code',
     released: 'Erschienen',
     cards: 'Karten',

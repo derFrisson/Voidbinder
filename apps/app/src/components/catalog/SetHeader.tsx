@@ -1,19 +1,12 @@
-import type { Game } from '@voidbinder/shared';
 import type { SetPageResponse } from '@voidbinder/shared/api';
 import { Text, View } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
 import { useWide } from '../Shell';
 import { Panel } from '../ui';
 import { useFinishLabel } from './Cards';
+import { field, GameChip } from './GameChip';
 import { completion, finishTotals, formatDate, setValue, type Owned } from './model';
 import { formatPrice, type PriceTag } from './seams';
-
-const field: Record<Game, { tint: string; dot: string }> = {
-  pokemon: { tint: 'bg-pk-soft', dot: 'bg-pk' },
-  yugioh: { tint: 'bg-yg-soft', dot: 'bg-yg' },
-  mtg: { tint: 'bg-mg-soft', dot: 'bg-mg' },
-  onepiece: { tint: 'bg-op-soft', dot: 'bg-op' },
-};
 
 const label = 'font-display text-xs font-semibold uppercase tracking-wider';
 
@@ -56,12 +49,7 @@ export function SetHeader({
         aria-hidden
         className={`absolute -right-20 -top-24 h-[340px] w-[340px] rounded-full opacity-30 ${field[set.game].dot}`}
       />
-      <View className="flex-row items-center gap-3">
-        <View className="flex-row items-center gap-2 rounded-full bg-surface px-3.5 py-1.5">
-          <View className={`h-2.5 w-2.5 rounded-full ${field[set.game].dot}`} />
-          <Text className="font-display text-sm font-semibold text-ink">{gameName}</Text>
-        </View>
-      </View>
+      <GameChip game={set.game} name={gameName} />
       <Text
         role={wide ? 'heading' : undefined}
         aria-level={wide ? 1 : undefined}

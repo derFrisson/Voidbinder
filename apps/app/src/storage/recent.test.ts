@@ -44,6 +44,9 @@ describe('recent items', () => {
     expect(readRecents(memory(JSON.stringify([set('a'), { kind: 'set' }, 7, null])))).toEqual([
       set('a'),
     ]);
+    // A game this build does not know would build a broken link.
+    const unknown = { kind: 'set', game: 'chess', code: 'x', name: 'x' };
+    expect(readRecents(memory(JSON.stringify([unknown, set('a')])))).toEqual([set('a')]);
   });
 
   it('records into the storage it is given, and survives a storage that throws', () => {

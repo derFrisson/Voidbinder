@@ -60,12 +60,20 @@ export function Filters({
   const finish = useFinishLabel();
   const languages = [...new Set([...facets.languages, filters.lang])].sort();
   const ALL = '';
+  // A rarity from the URL that the set does not have still shows, pressed, so it can be cleared.
+  const rarities =
+    filters.rarity && !facets.rarities.some((r) => r.rarity === filters.rarity)
+      ? [...facets.rarities, { rarity: filters.rarity, count: 0 }]
+      : facets.rarities;
   return (
     <View className="gap-4">
-      {facets.rarities.length > 0 && (
-        <View role="group" aria-label={t.set.rarity}>
+      {rarities.length > 0 && (
+        <View role="group" aria-label={t.set.rarity} className="gap-1.5">
+          <Text className="font-display text-xs font-semibold uppercase tracking-wider text-ink-2">
+            {t.set.rarity}
+          </Text>
           <Row>
-            {facets.rarities.map((r) => (
+            {rarities.map((r) => (
               <Chip
                 key={r.rarity}
                 label={rarity(r.rarity)}
@@ -90,7 +98,7 @@ export function Filters({
             onChange={(lang) => onChange(change(filters, { lang }))}
           />
         )}
-        {facets.finishes.length > 1 && (
+        {(facets.finishes.length > 1 || filters.finish) && (
           <Segmented
             label={t.set.finish}
             options={[

@@ -58,6 +58,7 @@ export const en: Dict = {
   set: {
     count: '{count} cards',
     empty: 'This set has no cards with these filters.',
+    resetFilters: 'Reset filters',
     code: 'Code',
     released: 'Released',
     cards: 'Cards',

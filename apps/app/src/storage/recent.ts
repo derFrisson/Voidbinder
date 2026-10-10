@@ -1,4 +1,4 @@
-import type { Game } from '@voidbinder/shared';
+import { GameSchema, type Game } from '@voidbinder/shared';
 import { useMemo, useSyncExternalStore } from 'react';
 import { Platform } from 'react-native';
 
@@ -47,7 +47,7 @@ export function pushRecent(list: Recent[], item: Recent): Recent[] {
 
 function isRecent(v: unknown): v is Recent {
   const r = v as Partial<Record<string, unknown>> | null;
-  if (!r || typeof r.game !== 'string' || typeof r.name !== 'string') return false;
+  if (!r || !GameSchema.safeParse(r.game).success || typeof r.name !== 'string') return false;
   return r.kind === 'set'
     ? typeof r.code === 'string'
     : r.kind === 'card' && typeof r.id === 'string';

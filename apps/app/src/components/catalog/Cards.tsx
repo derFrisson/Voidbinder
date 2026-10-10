@@ -4,7 +4,7 @@ import { Link } from 'expo-router';
 import { Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
 import { CardImage } from './CardImage';
-import type { OwnedPrint } from './model';
+import { formatDate, type OwnedPrint } from './model';
 import { formatPrice, type PriceTag } from './seams';
 
 /** Columns of the dense grid: 7 from 1240 px, 5 from 1024, 4 from 768, 3 on phones. */
@@ -46,7 +46,7 @@ function Price({ price }: { price: PriceTag | undefined }) {
         {formatPrice(price, locale)}
       </Text>
       <Text className="font-body text-[11px] text-ink-3">
-        {fmt(t.set.valueAsOf, { source: price.source, date: price.asOf })}
+        {fmt(t.set.valueAsOf, { source: price.source, date: formatDate(price.asOf, locale) })}
       </Text>
     </View>
   );

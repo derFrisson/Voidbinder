@@ -1,5 +1,6 @@
 import { GameSchema } from '@voidbinder/shared';
 import { useLocalSearchParams } from 'expo-router';
+import { GameChip } from '../../components/catalog/GameChip';
 import { SetList } from '../../components/catalog/SetList';
 import { Heading, Page } from '../../components/Shell';
 import { Empty } from '../../components/ui';
@@ -18,6 +19,7 @@ export default function GameSets() {
   const game = parsed.data;
   return (
     <Page title={t.games[game]} back crumbs={[{ label: t.games[game] }]}>
+      <GameChip game={game} name={t.games[game]} />
       <Heading>{t.games[game]}</Heading>
       <SetList game={game} />
     </Page>

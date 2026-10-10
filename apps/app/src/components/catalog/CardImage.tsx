@@ -1,6 +1,7 @@
 import type { Game } from '@voidbinder/shared';
 import { useState } from 'react';
 import { Image, Platform, Text, View } from 'react-native';
+import { imageHost } from '../../security-headers';
 
 const frame: Record<Game, string> = {
   pokemon: 'border-pk bg-pk-soft',
@@ -12,6 +13,16 @@ const frame: Record<Game, string> = {
 /** Card art is 5:7; the R2 `sm` renditions are 250 x 350. */
 const WIDTH = 250;
 const HEIGHT = 350;
+
+/** Only our own image host: any other URL would be a CSP violation per tile, so it gets the frame. */
+function isAllowedImage(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    return url.protocol === 'https:' && url.host === imageHost;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * A card's picture, or the game-coloured frame with the number when there is none (or it fails to
@@ -32,7 +43,7 @@ export function CardImage({
   className?: string;
 }) {
   const [failed, setFailed] = useState(false);
-  const shown = uri && !failed;
+  const shown = uri && !failed && isAllowedImage(uri);
   return (
     <View
       className={`aspect-[5/7] w-full overflow-hidden rounded-lg border-2 ${frame[game]} ${className}`}

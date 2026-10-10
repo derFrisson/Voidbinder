@@ -7,14 +7,8 @@ import { useSets } from '../../api/queries/catalog';
 import { fmt, useLocale, useT } from '../../i18n';
 import { useWide } from '../Shell';
 import { Empty, Field, QueryState, Segmented } from '../ui';
+import { field } from './GameChip';
 import { SET_SORTS, formatDate, groupSets, type SetListSort } from './model';
-
-const dot: Record<Game, string> = {
-  pokemon: 'bg-pk',
-  yugioh: 'bg-yg',
-  mtg: 'bg-mg',
-  onepiece: 'bg-op',
-};
 
 /** The sets of a game, newest first and grouped by year, with a text filter and a sort. */
 export function SetList({ game }: { game: Game }) {
@@ -69,7 +63,7 @@ export function SetList({ game }: { game: Game }) {
               <View
                 key={g.year ?? 'all'}
                 role="group"
-                aria-label={g.year ?? t.game.list}
+                aria-label={g.year ?? fmt(t.game.list, { game: t.games[game] })}
                 className="gap-2"
               >
                 {g.year !== null && (
@@ -91,7 +85,7 @@ export function SetList({ game }: { game: Game }) {
                         <Pressable
                           className={`min-h-[60px] flex-row items-center gap-4 px-4 py-2.5 ${i > 0 ? 'border-t border-line' : ''}`}
                         >
-                          <View className={`h-2.5 w-2.5 rounded-full ${dot[game]}`} />
+                          <View className={`h-2.5 w-2.5 rounded-full ${field[game].dot}`} />
                           <Text className="w-14 font-mono text-[13px] font-medium text-ink-2">
                             {s.code.toUpperCase()}
                           </Text>

@@ -217,6 +217,91 @@ describe('set page', () => {
   });
 });
 
+describe('set page review fixes', () => {
+  it('renders a response without facets', async () => {
+    fakeApi((c) => {
+      if (!c.path.startsWith('/catalog/sets/')) return undefined;
+      const old: Partial<ReturnType<typeof setPage>> = setPage();
+      delete old.facets;
+      return json(old);
+    });
+    renderApp(
+      <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
+    );
+    expect(await screen.findByText('Card 1')).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Seltenheit' })).toBeNull();
+  });
+
+  it('can always clear a filter from the URL, and says so in the empty state', async () => {
+    fakeApi((c) =>
+      c.path.startsWith('/catalog/sets/')
+        ? json(
+            setPage({
+              prints: [],
+              total: 0,
+              facets: {
+                rarities: [],
+                finishes: [{ finish: 'normal', count: 391 }],
+                languages: ['de'],
+              },
+            }),
+          )
+        : undefined,
+    );
+    const onChange = vi.fn();
+    renderApp(
+      <SetPage
+        game="mtg"
+        code="mid"
+        gameName="Magic"
+        filters={{ ...filters, rarity: 'mythic', finish: 'foil', page: 3 }}
+        onChange={onChange}
+      />,
+    );
+    await screen.findByText('In diesem Set gibt es keine Karten mit diesen Filtern.');
+    // The finish control shows for the active finish although the set has one finish only.
+    expect(screen.getByRole('radiogroup', { name: 'Ausführung' })).toBeTruthy();
+    // The rarity the set does not have: a pressed chip with count 0, with a visible label.
+    const chip = within(screen.getByRole('group', { name: 'Seltenheit' })).getByRole('button', {
+      name: /Mythisch/,
+    });
+    expect(chip.getAttribute('aria-pressed')).toBe('true');
+    expect(chip.textContent).toContain('0');
+    expect(screen.getAllByText('Seltenheit').length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Filter zurücksetzen' }));
+    expect(onChange).toHaveBeenLastCalledWith({
+      lang: 'de',
+      sort: 'number',
+      page: 1,
+      view: 'grid',
+    });
+  });
+
+  it('shows only pictures from the image host, the frame for any other URL', async () => {
+    fakeApi((c) =>
+      c.path.startsWith('/catalog/sets/')
+        ? json(
+            setPage({
+              prints: [
+                print(1),
+                print(2, { imageUrl: 'https://evil.example/x.webp' }),
+                print(3, { imageUrl: 'http://img.voidbinder.de/x.webp' }),
+                print(4, { imageUrl: 'not a url' }),
+              ],
+            }),
+          )
+        : undefined,
+    );
+    const { container } = renderApp(
+      <SetPage game="mtg" code="mid" gameName="Magic" filters={filters} onChange={() => {}} />,
+    );
+    await screen.findByText('Card 4');
+    const imgs = container.querySelectorAll('img');
+    expect(imgs).toHaveLength(1);
+    expect(imgs[0]?.getAttribute('src')).toBe('https://img.voidbinder.de/images/mtg/1/en/sm.webp');
+  });
+});
+
 describe('set route', () => {
   it('turns the URL into filters and a bad game into not found', async () => {
     vi.mocked(useLocalSearchParams).mockReturnValue({ game: 'chess', code: 'mid' });
@@ -296,7 +381,7 @@ describe('collection and prices', () => {
       />,
     );
     expect(screen.getByText(/12,34/)).toBeTruthy();
-    expect(screen.getByText('Cardmarket, Stand 2026-10-09')).toBeTruthy();
+    expect(screen.getByText('Cardmarket, Stand 09.10.2026')).toBeTruthy();
     expect(screen.queryByText('fehlt')).toBeNull();
   });
 
@@ -342,6 +427,16 @@ describe('game page', () => {
     expect(screen.queryByText('Old One')).toBeNull();
     fireEvent.change(screen.getByLabelText('Sets filtern'), { target: { value: 'zzz' } });
     expect(screen.getByText('Kein Set passt zu „zzz“.')).toBeTruthy();
+  });
+
+  it('names the flat list for the other sorts, and shows the game chip', async () => {
+    vi.mocked(useLocalSearchParams).mockReturnValue({ game: 'mtg' });
+    fakeApi((c) => (c.path.startsWith('/catalog/games/mtg/sets') ? json(sets) : undefined));
+    renderApp(<GameSets />);
+    await screen.findByText('3 Sets');
+    expect(screen.getAllByText('Magic: The Gathering').length).toBeGreaterThan(1);
+    fireEvent.click(screen.getByRole('radio', { name: 'Name' }));
+    expect(screen.getByRole('group', { name: 'Sets von Magic: The Gathering' })).toBeTruthy();
   });
 
   it('shows loading, empty and error states', async () => {
