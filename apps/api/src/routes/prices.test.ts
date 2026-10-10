@@ -1,4 +1,5 @@
 import {
+  CardResponseSchema,
   PriceHistoryResponseSchema,
   PrintPricesResponseSchema,
   SearchResponseSchema,
@@ -6,7 +7,14 @@ import {
 } from '@voidbinder/shared/api';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { conditionMultipliers, pricesCurrent, pricesDaily, prints, sets } from '../db/schema';
+import {
+  cards,
+  conditionMultipliers,
+  pricesCurrent,
+  pricesDaily,
+  prints,
+  sets,
+} from '../db/schema';
 import { runScryfallImport, type ImportDeps } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -71,6 +79,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       finish: 'normal',
       currency: 'EUR',
       cents: 334,
+      observedAt: '2026-10-09T03:00:00.000Z',
     });
     expect(body.conditions.map((c) => [c.condition, c.cents])).toEqual([
       ['NM', 334],
@@ -92,6 +101,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       finish: 'foil',
       currency: 'USD',
       cents: 433,
+      observedAt: '2026-10-09T03:00:00.000Z',
     });
 
     expect((await app.request(`/catalog/prints/${crypto.randomUUID()}/prices`)).status).toBe(404);
@@ -150,6 +160,7 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       finish: 'normal',
       currency: 'EUR',
       cents: 334,
+      observedAt: '2026-10-09T03:00:00.000Z',
     });
     const usd = await page('?currency=USD');
     expect(usd.prints[0]?.marketPrice).toMatchObject({ source: 'tcgplayer_scryfall', cents: 402 });
@@ -197,10 +208,102 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       finish: 'normal',
       currency: 'EUR',
       cents: 334,
+      observedAt: '2026-10-09T03:00:00.000Z',
     });
     const [usd] = await hits('q=adeline&currency=USD');
     expect(usd?.marketPrice).toMatchObject({ source: 'tcgplayer_scryfall', cents: 402 });
     expect((await hits('q=champion'))[0]?.marketPrice).toMatchObject({ finish: 'foil', cents: 76 });
+  });
+
+  it('gives every print of a card its market price, in the asked currency', async () => {
+    const adeline = await printId('mid', '1');
+    const [row] = await db
+      .select({ cardId: prints.cardId })
+      .from(prints)
+      .where(eq(prints.id, adeline));
+    const read = async (query = '') =>
+      CardResponseSchema.parse(
+        await (await app.request(`/catalog/cards/${row?.cardId}${query}`)).json(),
+      ).prints;
+    expect((await read())[0]?.marketPrice).toEqual({
+      source: 'cardmarket',
+      finish: 'normal',
+      currency: 'EUR',
+      cents: 334,
+      observedAt: '2026-10-09T03:00:00.000Z',
+    });
+    expect((await read('?currency=USD'))[0]?.marketPrice).toMatchObject({
+      source: 'tcgplayer_scryfall',
+      cents: 402,
+    });
+    expect((await app.request(`/catalog/cards/${row?.cardId}?currency=GBP`)).status).toBe(400);
+  });
+
+  // Yu-Gi-Oh!: TCGplayer prices per edition (`first_edition`), the print says `normal` (MP25 EN301).
+  it('prices a print by a finish it does not list: set page, search, card page, prices', async () => {
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'yugioh', name: 'Geistgrinder Golem', oracleKey: 'ygo-geistgrinder' })
+      .returning({ id: cards.id });
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'yugioh', code: 'mp25', name: '2025 Mega Pack' })
+      .returning({ id: sets.id });
+    const [print] = await db
+      .insert(prints)
+      .values({
+        cardId: card?.id ?? '',
+        setId: set?.id ?? '',
+        number: 'EN301',
+        finishes: ['normal'],
+      })
+      .returning({ id: prints.id });
+    const id = print?.id ?? '';
+    await db.insert(pricesCurrent).values({
+      printId: id,
+      finish: 'first_edition',
+      source: 'tcgplayer',
+      currency: 'USD',
+      centsMarket: 23,
+      observedAt: new Date('2026-10-09T20:05:19.000Z'),
+    });
+    const price = {
+      source: 'tcgplayer',
+      finish: 'first_edition',
+      currency: 'USD',
+      cents: 23,
+      observedAt: '2026-10-09T20:05:19.000Z',
+    };
+    const page = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/yugioh/mp25')).json(),
+    );
+    expect(page.prints[0]?.marketPrice).toEqual(price);
+    const hits = SearchResponseSchema.parse(
+      await (await app.request('/catalog/search?q=geistgrinder')).json(),
+    );
+    expect(hits.prints[0]?.marketPrice).toEqual(price);
+    const card2 = CardResponseSchema.parse(
+      await (await app.request(`/catalog/cards/${card?.id}`)).json(),
+    );
+    expect(card2.prints[0]?.marketPrice).toEqual(price);
+    const prices = PrintPricesResponseSchema.parse(
+      await (await app.request(`/catalog/prints/${id}/prices`)).json(),
+    );
+    expect(prices.display).toEqual(price);
+
+    // A listed finish wins over one the print does not list, whatever the source.
+    await db.insert(pricesCurrent).values({
+      printId: id,
+      finish: 'normal',
+      source: 'tcgplayer_scryfall',
+      currency: 'USD',
+      centsMarket: 99,
+      observedAt: new Date('2026-10-09T03:00:00.000Z'),
+    });
+    const again = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/yugioh/mp25')).json(),
+    );
+    expect(again.prints[0]?.marketPrice).toMatchObject({ finish: 'normal', cents: 99 });
   });
 
   it('estimates conditions with the default factors when a game has no rows', async () => {

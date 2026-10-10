@@ -8,11 +8,41 @@ import {
 } from './index.js';
 
 const prices: PriceLike[] = [
-  { source: 'tcgplayer', finish: 'normal', currency: 'USD', market: 120 },
-  { source: 'cardmarket', finish: 'normal', currency: 'EUR', market: 95 },
-  { source: 'tcgplayer_scryfall', finish: 'normal', currency: 'USD', market: 118 },
-  { source: 'cardmarket', finish: 'foil', currency: 'EUR', market: 400 },
-  { source: 'tcgplayer', finish: 'foil', currency: 'USD', market: 450 },
+  {
+    source: 'tcgplayer',
+    finish: 'normal',
+    currency: 'USD',
+    market: 120,
+    observedAt: '2026-10-10T03:00:00.000Z',
+  },
+  {
+    source: 'cardmarket',
+    finish: 'normal',
+    currency: 'EUR',
+    market: 95,
+    observedAt: '2026-10-10T03:00:00.000Z',
+  },
+  {
+    source: 'tcgplayer_scryfall',
+    finish: 'normal',
+    currency: 'USD',
+    market: 118,
+    observedAt: '2026-10-10T03:00:00.000Z',
+  },
+  {
+    source: 'cardmarket',
+    finish: 'foil',
+    currency: 'EUR',
+    market: 400,
+    observedAt: '2026-10-10T03:00:00.000Z',
+  },
+  {
+    source: 'tcgplayer',
+    finish: 'foil',
+    currency: 'USD',
+    market: 450,
+    observedAt: '2026-10-10T03:00:00.000Z',
+  },
 ];
 
 describe('pickDisplayPrice', () => {
@@ -22,6 +52,7 @@ describe('pickDisplayPrice', () => {
       finish: 'normal',
       currency: 'EUR',
       cents: 95,
+      observedAt: '2026-10-10T03:00:00.000Z',
     });
     expect(pickDisplayPrice(prices, { currency: 'USD' })?.source).toBe('tcgplayer');
   });
@@ -37,8 +68,20 @@ describe('pickDisplayPrice', () => {
   it('picks the finish before the source: asked finish, normal, the print’s finishes', () => {
     expect(pickDisplayPrice(prices, { currency: 'USD', finish: 'foil' })?.cents).toBe(450);
     const holoOnly: PriceLike[] = [
-      { source: 'tcgplayer', finish: 'reverse', currency: 'USD', market: 30 },
-      { source: 'tcgplayer', finish: 'holo', currency: 'USD', market: 80 },
+      {
+        source: 'tcgplayer',
+        finish: 'reverse',
+        currency: 'USD',
+        market: 30,
+        observedAt: '2026-10-10T03:00:00.000Z',
+      },
+      {
+        source: 'tcgplayer',
+        finish: 'holo',
+        currency: 'USD',
+        market: 80,
+        observedAt: '2026-10-10T03:00:00.000Z',
+      },
     ];
     expect(
       pickDisplayPrice(holoOnly, { currency: 'EUR', finishes: ['holo', 'reverse'] })?.finish,

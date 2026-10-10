@@ -31,6 +31,8 @@ describe('createApiClient', () => {
     expect(body.games).toEqual(games);
     expectTypeOf(client.catalog.cards[':id'].$get)
       .parameter(0)
-      .toEqualTypeOf<{ param: { id: string } }>();
+      .toEqualTypeOf<
+        { param: { id: string } } & { query: { currency?: 'EUR' | 'USD' | undefined } }
+      >();
   });
 });

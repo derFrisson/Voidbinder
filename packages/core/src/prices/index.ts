@@ -20,6 +20,7 @@ export interface PriceLike {
   finish: string;
   currency: Currency;
   market: number;
+  observedAt: string;
 }
 
 /**
@@ -39,7 +40,13 @@ export function pickDisplayPrice(
     .filter((p) => p.finish === finish)
     .sort((a, b) => order.indexOf(a.source) - order.indexOf(b.source))[0];
   return best
-    ? { source: best.source, finish: best.finish, currency: best.currency, cents: best.market }
+    ? {
+        source: best.source,
+        finish: best.finish,
+        currency: best.currency,
+        cents: best.market,
+        observedAt: best.observedAt,
+      }
     : null;
 }
 

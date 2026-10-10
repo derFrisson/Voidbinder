@@ -25,12 +25,16 @@ export const PriceSchema = z.object({
 });
 export type Price = z.infer<typeof PriceSchema>;
 
-/** The price shown for a print: one source and finish, in that source's currency. */
+/**
+ * The price shown for a print: one source and finish, in that source's currency, with the time
+ * the source observed it (`prices_current.observed_at`).
+ */
 export const DisplayPriceSchema = z.object({
   source: PriceSourceSchema,
   finish: z.string(),
   currency: CurrencySchema,
   cents: z.number().int(),
+  observedAt: z.iso.datetime({ offset: true }),
 });
 export type DisplayPrice = z.infer<typeof DisplayPriceSchema>;
 

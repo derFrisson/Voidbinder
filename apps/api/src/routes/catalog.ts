@@ -1,6 +1,7 @@
 import { zValidator } from '@hono/zod-validator';
 import { GameSchema } from '@voidbinder/shared';
 import {
+  CardQuerySchema,
   SEARCH_PAGE_SIZE,
   SearchQuerySchema,
   SET_PAGE_SIZE,
@@ -73,11 +74,19 @@ export function catalogRoutes() {
       );
       return c.json(body, 200);
     })
-    .get('/cards/:id', zValidator('param', IdParam, throwOnInvalid), async (c) => {
-      const card = await c.var.platform.cardStore.getCard(c.req.valid('param').id);
-      const body: CardResponse = found(card, 'Card');
-      return c.json(body, 200);
-    })
+    .get(
+      '/cards/:id',
+      zValidator('param', IdParam, throwOnInvalid),
+      zValidator('query', CardQuerySchema, throwOnInvalid),
+      async (c) => {
+        const card = await c.var.platform.cardStore.getCard(
+          c.req.valid('param').id,
+          c.req.valid('query'),
+        );
+        const body: CardResponse = found(card, 'Card');
+        return c.json(body, 200);
+      },
+    )
     .get('/prints/:id', zValidator('param', IdParam, throwOnInvalid), async (c) => {
       const print = await c.var.platform.cardStore.getPrint(c.req.valid('param').id);
       const body: PrintResponse = found(print, 'Print');

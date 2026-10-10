@@ -1,5 +1,6 @@
 import type { Game } from '@voidbinder/shared';
 import type {
+  CardQuery,
   CardResponse,
   GameSummary,
   PriceHistoryResponse,
@@ -32,7 +33,7 @@ export interface CardStore {
     query: SetPageQuery,
     pageSize: number,
   ): Promise<SetPageResponse | null>;
-  getCard(id: string): Promise<CardResponse | null>;
+  getCard(id: string, query: CardQuery): Promise<CardResponse | null>;
   getPrint(id: string): Promise<PrintResponse | null>;
   /** Full-text search over card and localized print names and texts (VB-35). */
   search(query: SearchQuery, pageSize: number): Promise<SearchResponse>;
