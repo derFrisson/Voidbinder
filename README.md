@@ -18,7 +18,7 @@ Streamer Kit. Nothing in this list is available today.
 | ----------------- | ---------------------------------------------------------------------------- |
 | `apps/site`       | Promo website (Astro on Cloudflare Workers static assets)                    |
 | `apps/api`        | API (Cloudflare Worker with Hono, PostgreSQL via Hyperdrive, R2)             |
-| `apps/app`        | Mobile and web app (Expo), reserved, no code yet                             |
+| `apps/app`        | The app (Expo, web first; iOS and Android follow), Worker for the web build  |
 | `packages/core`   | Platform-agnostic domain logic and the platform interfaces                   |
 | `packages/shared` | Zod schemas and shared types                                                 |
 | `packages/tokens` | Design tokens (colours, type, space) for the site and the app                |
