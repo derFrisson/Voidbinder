@@ -246,7 +246,7 @@ export function useTypeahead({
   const count =
     items.length === 1 ? t.top.suggestOne : fmt(t.top.suggestCount, { count: items.length });
   const live = web ? (
-    <Text role="status" className="sr-only">
+    <Text role="status" testID="typeahead-status" className="sr-only">
       {expanded ? count : none ? t.top.suggestNone : ''}
     </Text>
   ) : null;

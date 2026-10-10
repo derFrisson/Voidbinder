@@ -106,7 +106,7 @@ describe('search typeahead (VB-79)', () => {
     expect(options[0]?.textContent).toContain('Ultra Rare');
     // The print without a picture shows its number in the frame; the set row is styled as a set.
     expect(options[1]?.textContent).toContain('LDS3 · Set · Yu‑Gi‑Oh!');
-    expect(screen.getByRole('status').textContent).toBe('2 Vorschläge');
+    expect(screen.getByTestId('typeahead-status').textContent).toBe('2 Vorschläge');
   });
 
   it('moves the highlight with the arrow keys and opens the highlighted row with Enter', async () => {
@@ -193,7 +193,7 @@ describe('search typeahead (VB-79)', () => {
     await screen.findByText('Keine Treffer', { selector: 'div:not([role=status])' });
     expect(screen.queryByRole('listbox')).toBeNull();
     expect(box.getAttribute('aria-expanded')).toBe('false');
-    expect(screen.getByRole('status').textContent).toBe('Keine Treffer');
+    expect(screen.getByTestId('typeahead-status').textContent).toBe('Keine Treffer');
   });
 
   it('keeps "Keine Treffer" steady while the next keystroke is still being answered', async () => {
@@ -222,7 +222,7 @@ describe('search typeahead (VB-79)', () => {
       expect(
         screen.queryByText('Keine Treffer', { selector: 'div:not([role=status])' }),
       ).not.toBeNull();
-      expect(screen.getByRole('status').textContent).toBe('Keine Treffer');
+      expect(screen.getByTestId('typeahead-status').textContent).toBe('Keine Treffer');
       await new Promise((r) => setTimeout(r, 10));
     }
     expect(suggestCalls(calls)).toHaveLength(2);
