@@ -79,8 +79,10 @@ apply to you too:
   endorsed by TCGdex. The pictures TCGdex lacks (McDonald's collections, galleries, trainer kits)
   come from the [Pokémon TCG API](https://pokemontcg.io): credit it as "Card images: Pokémon TCG
   API (pokemontcg.io)", keep under its limit (1,000 requests a day without a key, 30 a minute) and
-  re-host the files. The image mirror re-hosts the card images instead of hotlinking them. Pokémon
-  offers no fan-content licence; show its notice: "Pokémon and Pokémon character names are
+  re-host the files. The API is deprecated: keys stop working on 2027-03-01 and new registrations
+  are closed. After that date, check its successor [Scrydex](https://scrydex.com) or the keyless
+  limit, and remove the pokemontcg.io step if the API is gone. The image mirror re-hosts the card
+  images instead of hotlinking them. Pokémon offers no fan-content licence; show its notice: "Pokémon and Pokémon character names are
   trademarks of Nintendo. Card images and text are © The Pokémon Company, Nintendo, Game Freak
   and/or Creatures. Voidbinder is not produced by, endorsed by, supported by, or affiliated with
   Pokémon, Nintendo, Game Freak or Creatures."
