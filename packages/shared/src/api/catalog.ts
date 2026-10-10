@@ -72,7 +72,16 @@ export const SetPageResponseSchema = z.object({
   prints: z.array(PrintSummarySchema),
   page: z.number().int(),
   pageSize: z.number().int(),
+  /** Prints matching the filters (not the whole set), for the pagination. */
   total: z.number().int(),
+  /** What the whole set holds, whatever the filters: the options of the filter rows. */
+  facets: z.object({
+    /** Rarities with their print counts, Magic's order first (common to mythic), then by count. */
+    rarities: z.array(z.object({ rarity: z.string(), count: z.number().int() })),
+    finishes: z.array(z.object({ finish: z.string(), count: z.number().int() })),
+    /** Languages the set's prints have a name in (`en`, `de`, …). */
+    languages: z.array(z.string()),
+  }),
 });
 export type SetPageResponse = z.infer<typeof SetPageResponseSchema>;
 

@@ -87,6 +87,22 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(byName.prints[0]?.name).toBe('Adeline, Resplendent Cathar');
     expect(byName.prints[1]?.name).toBe('Ambitious Farmhand // Seasoned Cathar');
 
+    // The facets describe the whole set, whatever the filters.
+    expect(mythic.facets).toEqual(page.facets);
+    expect(page.facets).toEqual({
+      rarities: [
+        { rarity: 'common', count: 8 },
+        { rarity: 'uncommon', count: 8 },
+        { rarity: 'rare', count: 5 },
+        { rarity: 'mythic', count: 1 },
+      ],
+      finishes: [
+        { finish: 'foil', count: 22 },
+        { finish: 'normal', count: 21 },
+      ],
+      languages: ['de', 'en'],
+    });
+
     const beyond = SetPageResponseSchema.parse((await get('/sets/mtg/mid?page=2')).body);
     expect(beyond).toMatchObject({ page: 2, total: 22, prints: [] });
     const query = { lang: 'en', sort: 'number', page: 2 } as const;

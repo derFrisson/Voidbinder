@@ -11,7 +11,7 @@ import type {
   SetPageResponse,
   SetSummary,
 } from '@voidbinder/shared/api';
-import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { alias } from 'drizzle-orm/pg-core';
 import {
@@ -154,7 +154,8 @@ export class DrizzleCardStore implements CardStore {
       rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
     }[query.sort];
 
-    const [[count], rows] = await Promise.all([
+    const inSet = eq(prints.setId, setId);
+    const [[count], rows, rarities, finishes, languages] = await Promise.all([
       this.catalog
         .select({ total: sql<number>`count(*)::int` })
         .from(prints)
@@ -181,6 +182,21 @@ export class DrizzleCardStore implements CardStore {
         .orderBy(...order)
         .limit(pageSize)
         .offset((query.page - 1) * pageSize),
+      this.catalog
+        .select({ rarity: prints.rarity, count: sql<number>`count(*)::int` })
+        .from(prints)
+        .where(and(inSet, isNotNull(prints.rarity)))
+        .groupBy(prints.rarity)
+        .orderBy(sql`${RARITY_ORDER}`, sql`count(*) desc`),
+      this.catalog.execute<{ finish: string; count: number }>(
+        sql`select f as finish, count(*)::int as count from ${prints}, unnest(${prints.finishes}) as f where ${prints.setId} = ${setId} group by f order by count desc, f`,
+      ),
+      this.catalog
+        .selectDistinct({ lang: printLocalizations.lang })
+        .from(printLocalizations)
+        .innerJoin(prints, eq(prints.id, printLocalizations.printId))
+        .where(inSet)
+        .orderBy(printLocalizations.lang),
     ]);
 
     return {
@@ -202,6 +218,11 @@ export class DrizzleCardStore implements CardStore {
       page: query.page,
       pageSize,
       total: count?.total ?? 0,
+      facets: {
+        rarities: rarities.flatMap((r) => (r.rarity ? [{ rarity: r.rarity, count: r.count }] : [])),
+        finishes: finishes.rows,
+        languages: languages.map((l) => l.lang),
+      },
     };
   }
 
