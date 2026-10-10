@@ -8,7 +8,7 @@ export const en: Dict = {
     ogLocale: 'en_US',
     title: 'Voidbinder · Your whole collection in one app',
     description:
-      'Pokémon, Yu-Gi-Oh!, Magic and One Piece in one binder: scan, price, build decks. Works offline, with Cardmarket prices. Open source, waitlist open.',
+      'Pokémon, Yu-Gi-Oh!, Magic and One Piece in one binder: scan, price, build decks. Works offline, with Cardmarket prices. Open source, web app in beta.',
   },
   a11y: {
     skip: 'Skip to content',
@@ -196,7 +196,7 @@ export const en: Dict = {
     emailLabel: 'Email address',
     emailPlaceholder: 'you@example.com',
     consentBefore:
-      'I agree that Voidbinder stores my email address to let me know when the beta starts. More in the ',
+      'I agree that Voidbinder stores my email address to let me know when the phone app beta starts. More in the ',
     consentLink: 'privacy policy',
     consentAfter: '.',
     submit: 'Sign up',

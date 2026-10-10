@@ -8,7 +8,7 @@ export const de = {
     ogLocale: 'de_DE',
     title: 'Voidbinder · Deine ganze Sammlung in einer App',
     description:
-      'Pokémon, Yu-Gi-Oh!, Magic und One Piece in einer Mappe: scannen, bewerten, Decks bauen. Offline, auf Deutsch, mit Cardmarket-Preisen. Open Source, Warteliste offen.',
+      'Pokémon, Yu-Gi-Oh!, Magic und One Piece in einer Mappe: scannen, bewerten, Decks bauen. Offline, auf Deutsch, mit Cardmarket-Preisen. Open Source, Web-App in der Beta.',
   },
   a11y: {
     skip: 'Zum Inhalt springen',
@@ -197,7 +197,7 @@ export const de = {
     emailLabel: 'E-Mail-Adresse',
     emailPlaceholder: 'du@beispiel.de',
     consentBefore:
-      'Ich bin einverstanden, dass Voidbinder meine E-Mail-Adresse speichert, um mich über den Beta-Start zu informieren. Mehr in der ',
+      'Ich bin einverstanden, dass Voidbinder meine E-Mail-Adresse speichert, um mich über den Beta-Start der Handy-App zu informieren. Mehr in der ',
     consentLink: 'Datenschutzerklärung',
     consentAfter: '.',
     submit: 'Eintragen',
