@@ -442,4 +442,34 @@ describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
       rows(matchProducts(trial, [ygo('lob', '012', 'Trial of Nightmare', 'common')], regional)),
     ).toEqual([['lob-012-common', 22539, 'number_match', 70]]);
   });
+
+  it('prices a regional print TCGplayer names otherwise through its card’s EN print', () => {
+    // `B. Skull Dragon` and `Red-Eyes B. Dragon`: the original names; the catalog has the new.
+    const prints = [
+      ygo('mrd', '018', 'Black Skull Dragon', 'ultra-rare'),
+      ygo('mrd', 'E018', 'Black Skull Dragon', 'ultra-rare'),
+      ygo('mrd', 'EN018', 'Black Skull Dragon', 'ultra-rare'),
+    ];
+    const skull = [...products('2/255'), ...products('2/22882')].filter((p) =>
+      p.name.includes('Skull'),
+    );
+    expect(rows(matchProducts(skull, prints, regional))).toEqual([
+      ['mrd-018-ultra-rare', 21762, 'number_match', 70],
+      ['mrd-E018-ultra-rare', 476288, 'region_match', 60],
+      ['mrd-EN018-ultra-rare', 476288, 'number_match', 70],
+    ]);
+    const lob = [
+      ygo('lob', '070', 'Red-Eyes Black Dragon', 'ultra-rare'),
+      ygo('lob', 'E056', 'Red-Eyes Black Dragon', 'ultra-rare'),
+      ygo('lob', 'EN070', 'Red-Eyes Black Dragon', 'ultra-rare'),
+    ];
+    const redEyes = [...products('2/330-vb113'), ...products('2/22881')].filter((p) =>
+      p.name.startsWith('Red-Eyes'),
+    );
+    expect(rows(matchProducts(redEyes, lob, regional))).toEqual([
+      ['lob-070-ultra-rare', 22341, 'number_match', 70],
+      ['lob-E056-ultra-rare', 476395, 'region_match', 60],
+      ['lob-EN070-ultra-rare', 476395, 'number_match', 70],
+    ]);
+  });
 });

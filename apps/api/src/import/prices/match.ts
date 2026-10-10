@@ -373,7 +373,9 @@ export function matchProducts(
 /**
  * The regional prints no product claimed, each to the one card product of its name and rarity
  * (several: the EN one of its digits). By name, not digits alone: European numbers differ from the
- * EN ones (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki).
+ * EN ones (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki). A print whose name no product has
+ * (TCGplayer's `B. Skull Dragon` is Black Skull Dragon) takes the product of its card's EN print
+ * of the same rarity (VB-113).
  */
 function regionalMatches(
   products: readonly TcgProduct[],
@@ -386,6 +388,14 @@ function regionalMatches(
     products.filter((p) => extended(p, 'Rarity') !== null),
     (p) => `${productName(p.name)}|${rarityKey(extended(p, 'Rarity') ?? '')}`,
   );
+  const card = (p: CandidatePrint) => `${normName(p.name)}|${rarityKey(p.variant)}`;
+  const printOf = new Map(prints.map((p) => [p.id, p]));
+  const siblings = new Map<string, Set<number>>();
+  for (const m of claimed) {
+    const p = printOf.get(m.printId);
+    if (m.method !== 'number_match' || !p || !ownNumber(p.number).startsWith('EN')) continue;
+    siblings.set(card(p), (siblings.get(card(p)) ?? new Set()).add(m.productId));
+  }
   return prints.flatMap((print) => {
     if (taken.has(print.id) || !isRegional(print.number)) return [];
     let fit = byNameRarity.get(`${normName(print.name)}|${rarityKey(print.variant)}`) ?? [];
@@ -393,8 +403,11 @@ function regionalMatches(
     if (fit.length > 1) fit = fit.filter((p) => ownNumber(number(p)).startsWith('EN'));
     if (fit.length > 1) fit = fit.filter((p) => digits(number(p)) === digits(print.number));
     const product = fit.length > 1 ? pickArtwork(fit, print) : fit[0];
-    return product
-      ? [{ productId: product.productId, printId: print.id, ...method('region_match') }]
+    if (product)
+      return [{ productId: product.productId, printId: print.id, ...method('region_match') }];
+    const [sibling, ...more] = siblings.get(card(print)) ?? [];
+    return sibling !== undefined && !fit.length && !more.length
+      ? [{ productId: sibling, printId: print.id, ...method('region_match') }]
       : [];
   });
 }
