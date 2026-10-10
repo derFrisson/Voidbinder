@@ -93,6 +93,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
           </View>
         )}
       </View>
+      {/* VB-102: useBrowsingLanguage once #87 is merged */}
       {!wide && print && <PriceStrip printId={print.id} lang={locale} />}
       {print && <CollectButtons wide={wide && !three} printId={print.id} cardId={card.id} />}
     </View>
@@ -119,6 +120,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
   );
   const notice = <RightsNotice game={game} artist={print?.artist} copyright={data.copyright} />;
   const prices = print && (
+    // VB-102: useBrowsingLanguage once #87 is merged
     <PricePanel key={print.id} printId={print.id} finishes={print.finishes} lang={locale} />
   );
   const details = (
@@ -183,6 +185,7 @@ export default function CardPage() {
   const t = useT();
   const locale = useLocale();
   const { id, print } = useLocalSearchParams<{ id: string; print?: string }>();
+  // VB-102: useBrowsingLanguage once #87 is merged
   const card = useCard(id, locale);
   const view = useView(card.data, print);
   const name = view?.name ?? '';
