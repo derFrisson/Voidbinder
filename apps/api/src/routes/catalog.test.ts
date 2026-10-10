@@ -554,4 +554,21 @@ describe.skipIf(!databaseUrl)('GET /catalog/sets/new (Postgres)', () => {
     expect(week.sets.map((s) => s.code)).toEqual(['und']);
     expect((await app.request('/catalog/sets/new?days=91')).status).toBe(400);
   });
+
+  it('caps each game at the 8 newest sets (VB-83)', async () => {
+    const day = (d: number) => new Date(Date.now() + d * 86_400_000).toISOString().slice(0, 10);
+    await db.insert(sets).values(
+      Array.from({ length: 9 }, (_, i) => ({
+        gameId: 'mtg',
+        code: `m${i + 1}`,
+        name: `Set ${i + 1}`,
+        releasedOn: day(-(i + 1)),
+      })),
+    );
+    const app = testApp({ cardStore: new DrizzleCardStore(db) });
+    const body = NewSetsResponseSchema.parse(await (await app.request('/catalog/sets/new')).json());
+    expect(body.sets.filter((s) => s.game === 'mtg').map((s) => s.code)).toEqual(
+      Array.from({ length: 8 }, (_, i) => `m${i + 1}`),
+    );
+  });
 });

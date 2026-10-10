@@ -50,6 +50,7 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lte,
   sql,
   type SQL,
   type SQLWrapper,
@@ -75,6 +76,9 @@ import {
   sets,
 } from '../../db/schema';
 import { imagePick, resolveImage, type ImagePick } from './image';
+
+/** Sets per game in `listNewSets` (VB-83): the home page shows a row, not a release list. */
+const NEW_SETS_PER_GAME = 8;
 
 type Ids = Record<string, unknown>;
 
@@ -354,15 +358,29 @@ export class DrizzleCardStore implements CardStore {
 
   async listNewSets(lang: string, since: string, today: string): Promise<NewSetsResponse['sets']> {
     // An undated set counts by its import date, but not when it came with the game's first
-    // import: right after a new database's first import every set would be "new".
-    const rows = await this.setSummaries(lang)
-      .innerJoin(games, eq(games.id, sets.gameId))
+    // import: right after a new database's first import every set would be "new". At most
+    // NEW_SETS_PER_GAME per game, newest first.
+    // ponytail: tokens and art series count as sets here; filter them by kind if they crowd out.
+    const ranked = this.catalog
+      .select({
+        id: sets.id,
+        n: sql<number>`row_number() over (partition by ${sets.gameId}
+          order by ${sets.releasedOn} desc nulls last, ${sets.createdAt} desc, ${sets.code})`.as(
+          'n',
+        ),
+      })
+      .from(sets)
       .where(
         sql`(${sets.releasedOn} between ${since}::date and ${today}::date
           or (${sets.releasedOn} is null and ${sets.createdAt} >= ${since}::date
             and ${sets.createdAt} > interval '1 day' + (
               select min(f.created_at) from sets f where f.game_id = ${sets.gameId})))`,
       )
+      .as('ranked');
+    const rows = await this.setSummaries(lang)
+      .innerJoin(games, eq(games.id, sets.gameId))
+      .innerJoin(ranked, eq(ranked.id, sets.id))
+      .where(lte(ranked.n, NEW_SETS_PER_GAME))
       .orderBy(games.sort, sql`${sets.releasedOn} desc nulls last`, sets.code);
     return rows.map((r) => ({ ...r.summary, game: r.game as Game }));
   }
