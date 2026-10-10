@@ -1,0 +1,67 @@
+{
+  "cardCount": {
+    "firstEd": 103,
+    "holo": 64,
+    "normal": 351,
+    "official": 102,
+    "reverse": 0,
+    "total": 102
+  },
+  "cards": [
+    {
+      "id": "base1-1",
+      "localId": "1",
+      "name": "Simsala"
+    },
+    {
+      "id": "base1-2",
+      "localId": "2",
+      "name": "Turtok"
+    },
+    {
+      "id": "base1-3",
+      "localId": "3",
+      "name": "Chaneira"
+    },
+    {
+      "id": "base1-4",
+      "localId": "4",
+      "name": "Glurak"
+    },
+    {
+      "id": "base1-5",
+      "localId": "5",
+      "name": "Piepi"
+    },
+    {
+      "id": "base1-6",
+      "localId": "6",
+      "name": "Garados"
+    },
+    {
+      "id": "base1-96",
+      "localId": "96",
+      "name": "Doppelte farblose Energie"
+    },
+    {
+      "id": "base1-102",
+      "localId": "102",
+      "name": "Wasserenergie"
+    }
+  ],
+  "id": "base1",
+  "legal": {
+    "expanded": false,
+    "standard": false
+  },
+  "name": "Grundset",
+  "releaseDate": "1999-01-09",
+  "serie": {
+    "id": "base",
+    "name": "Grund"
+  },
+  "tcgOnline": "BS",
+  "abbreviation": {
+    "official": "BS"
+  }
+}

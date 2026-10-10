@@ -1,11 +1,22 @@
 import { createApp, type App } from './app';
 import { CRON_SOURCES } from './import/schedule';
-import { appDeps, startScryfallImport, startYgoprodeckImport } from './platform/cloudflare';
+import {
+  appDeps,
+  startScryfallImport,
+  startTcgdexCron,
+  startYgoprodeckImport,
+} from './platform/cloudflare';
 
 export { ScryfallImportWorkflow } from './workflows/scryfall-import';
+export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
 export { YgoprodeckImportWorkflow } from './workflows/ygoprodeck-import';
 
-const START = { scryfall: startScryfallImport, ygoprodeck: startYgoprodeckImport };
+const START = {
+  scryfall: startScryfallImport,
+  ygoprodeck: startYgoprodeckImport,
+  // Skips the start while a TCGdex run is still going (a full run outlasts a day).
+  tcgdex: startTcgdexCron,
+};
 
 let app: App | undefined;
 

@@ -1,0 +1,80 @@
+{
+  "category": "Pokemon",
+  "id": "swshp-SWSH006",
+  "illustrator": "Kouki Saitou",
+  "image": "https://assets.tcgdex.net/en/swsh/swshp/SWSH006",
+  "localId": "SWSH006",
+  "name": "Rillaboom",
+  "rarity": "Promo",
+  "set": {
+    "cardCount": {
+      "official": 307,
+      "total": 307
+    },
+    "id": "swshp",
+    "logo": "https://assets.tcgdex.net/en/swsh/swshp/logo",
+    "name": "SWSH Black Star Promos",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "holo",
+      "size": "standard",
+      "stamp": ["set-logo"],
+      "thirdParty": {
+        "cardmarket": 437154,
+        "tcgplayer": 208261
+      },
+      "variantId": "555jb0efopmyclvkikic41"
+    },
+    {
+      "type": "holo",
+      "size": "standard",
+      "stamp": ["set-logo", "staff"],
+      "thirdParty": {
+        "tcgplayer": 208260
+      },
+      "variantId": "2fnyg4g5382k6pl1ij0u1km1pdn"
+    }
+  ],
+  "dexId": [812],
+  "hp": 170,
+  "types": ["Grass"],
+  "evolveFrom": "Thwackey",
+  "description": "By drumming, it taps into the power of its special tree stump. The roots of the stump follow its direction in battle.",
+  "stage": "Stage2",
+  "abilities": [
+    {
+      "type": "Ability",
+      "name": "Voltage Beat",
+      "effect": "Once during your turn, you may search your deck for up to 2 {G} Energy cards and attach them to 1 of your Pokémon. Then, shuffle your deck."
+    }
+  ],
+  "attacks": [
+    {
+      "cost": ["Grass", "Grass", "Grass", "Colorless"],
+      "name": "Hammer In",
+      "damage": 140
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Fire",
+      "value": "×2"
+    }
+  ],
+  "retreat": 3,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-09-03T15:19:07Z"
+}

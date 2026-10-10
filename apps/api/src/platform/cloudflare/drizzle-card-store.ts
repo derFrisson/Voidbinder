@@ -236,10 +236,12 @@ export class DrizzleCardStore implements CardStore {
       const externalIds = { ...p.externalIds };
       delete externalIds.scryfall_images;
       delete externalIds.scryfall_back_images;
-      delete externalIds.image_url;
-      delete externalIds.image_url_small;
+      // The other sources' image URLs (VB-57 serves the images from R2) and TCGdex's
+      // low-confidence marketplace guess (VB-30 does the matching) stay internal too.
       delete externalIds.tcgdex_images;
       delete externalIds.tcgdex_marketplace;
+      delete externalIds.image_url;
+      delete externalIds.image_url_small;
       return {
         id: p.id,
         cardId: p.cardId,

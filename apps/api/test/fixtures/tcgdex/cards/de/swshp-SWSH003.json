@@ -1,0 +1,72 @@
+{
+  "category": "Pokémon",
+  "id": "swshp-SWSH003",
+  "illustrator": "Mizue",
+  "image": "https://assets.tcgdex.net/de/swsh/swshp/SWSH003",
+  "localId": "SWSH003",
+  "name": "Memmeon",
+  "rarity": "Promo",
+  "set": {
+    "cardCount": {
+      "official": 307,
+      "total": 307
+    },
+    "id": "swshp",
+    "logo": "https://assets.tcgdex.net/de/swsh/swshp/logo",
+    "name": "SCSC Promokarten",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swshp/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": true,
+    "normal": false,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Holo",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 427091,
+        "tcgplayer": 200302
+      },
+      "variantId": "jr7oetx1mqug9"
+    },
+    {
+      "type": "Holo",
+      "size": "Jumbo",
+      "stamp": ["25. Jubiläum"],
+      "thirdParty": {
+        "cardmarket": 547476,
+        "tcgplayer": 231468
+      },
+      "variantId": "29252prgmnb5rnr8wrd7ziqyxtx"
+    }
+  ],
+  "dexId": [816],
+  "hp": 60,
+  "types": ["Wasser"],
+  "stage": "Basis",
+  "attacks": [
+    {
+      "cost": ["Wasser", "Farblos"],
+      "name": "Klammergriff",
+      "effect": "Wirf 1 Münze. Bei Kopf ist das Aktive Pokémon deines Gegners jetzt paralysiert.",
+      "damage": 20
+    }
+  ],
+  "weaknesses": [
+    {
+      "type": "Elektro",
+      "value": "×2"
+    }
+  ],
+  "retreat": 1,
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-09-03T15:19:07Z"
+}

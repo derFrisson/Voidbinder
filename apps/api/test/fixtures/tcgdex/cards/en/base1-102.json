@@ -1,0 +1,71 @@
+{
+  "category": "Energy",
+  "id": "base1-102",
+  "illustrator": "Keiji Kinebuchi",
+  "image": "https://assets.tcgdex.net/en/base/base1/102",
+  "localId": "102",
+  "name": "Water Energy",
+  "rarity": "Common",
+  "set": {
+    "cardCount": {
+      "official": 102,
+      "total": 102
+    },
+    "id": "base1",
+    "logo": "https://assets.tcgdex.net/en/base/base1/logo",
+    "name": "Base Set"
+  },
+  "variants": {
+    "firstEdition": true,
+    "holo": false,
+    "normal": true,
+    "reverse": false,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "normal",
+      "subtype": "unlimited",
+      "size": "standard",
+      "thirdParty": {
+        "cardmarket": 273797,
+        "tcgplayer": 42350
+      },
+      "variantId": "3a83wf50tz7q114spsx7dw6v5"
+    },
+    {
+      "type": "normal",
+      "subtype": "shadowless",
+      "size": "standard",
+      "stamp": ["1st-edition"],
+      "thirdParty": {
+        "tcgplayer": 107098,
+        "cardmarket": 660096
+      },
+      "variantId": "gx8bq2hefwadd3utcibq3oc56sjf4jqdz709e"
+    },
+    {
+      "type": "normal",
+      "subtype": "shadowless",
+      "size": "standard",
+      "thirdParty": {
+        "tcgplayer": 107098,
+        "cardmarket": 660096
+      },
+      "variantId": "2tszcx1bpt4e79y5us0p570b9n"
+    },
+    {
+      "type": "normal",
+      "subtype": "1999-2000-copyright",
+      "size": "standard",
+      "variantId": "qi4g3e7tzbkcyhfflvx7zmvunxwjcq3pvp"
+    }
+  ],
+  "stage": "Basic",
+  "energyType": "Normal",
+  "legal": {
+    "standard": true,
+    "expanded": true
+  },
+  "updated": "2026-08-20T08:25:49+01:00"
+}

@@ -1,0 +1,54 @@
+{
+  "category": "Trainer",
+  "id": "swsh3-171",
+  "illustrator": "Ryo Ueda",
+  "image": "https://assets.tcgdex.net/de/swsh/swsh3/171",
+  "localId": "171",
+  "name": "Kampfhandschuhe",
+  "rarity": "Ungewöhnlich",
+  "set": {
+    "cardCount": {
+      "official": 189,
+      "total": 201
+    },
+    "id": "swsh3",
+    "logo": "https://assets.tcgdex.net/de/swsh/swsh3/logo",
+    "name": "Flammende Finsternis",
+    "symbol": "https://assets.tcgdex.net/univ/swsh/swsh3/symbol"
+  },
+  "variants": {
+    "firstEdition": false,
+    "holo": false,
+    "normal": true,
+    "reverse": true,
+    "wPromo": false
+  },
+  "variants_detailed": [
+    {
+      "type": "Normal",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 483734,
+        "tcgplayer": 219287
+      },
+      "variantId": "endfynwn4n10gzq"
+    },
+    {
+      "type": "Reverse",
+      "size": "Standard",
+      "thirdParty": {
+        "cardmarket": 483734,
+        "tcgplayer": 219287
+      },
+      "variantId": "cm4kqul3x1bwlz1f"
+    }
+  ],
+  "effect": "Wenn das Pokémon, an das diese Karte angelegt ist, eine Schwäche gegen den Typ des Aktiven Pokémon deines Gegners hat, fügen seine Attacken dem Aktiven Pokémon deines Gegners 30 Schadenspunkte mehr zu (bevor Schwäche und Resistenz verrechnet werden).",
+  "trainerType": "Pokémon-Ausrüstung",
+  "regulationMark": "D",
+  "legal": {
+    "standard": false,
+    "expanded": true
+  },
+  "updated": "2026-07-01T21:27:44+01:00"
+}
