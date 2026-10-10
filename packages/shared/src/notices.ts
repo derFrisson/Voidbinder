@@ -37,3 +37,15 @@ export const SCRYFALL_ATTRIBUTION: Record<Locale, string> = {
   en: 'Magic card data and images via Scryfall. Voidbinder is not endorsed by Scryfall.',
   de: 'Magic-Kartendaten und -bilder über Scryfall. Voidbinder wird nicht von Scryfall befürwortet.',
 };
+
+/**
+ * Yugipedia's attribution (VB-93): the Yu-Gi-Oh! names and texts YGOPRODeck lacks come from
+ * Yugipedia under CC BY-SA 4.0, so wherever they appear the source and the licence are named and
+ * linked (the app's footer and the Yu-Gi-Oh! card page, the offline module's `meta`).
+ */
+export const YUGIPEDIA_ATTRIBUTION: Record<Locale, string> = {
+  en: 'Yu-Gi-Oh! card names and texts in other languages: Yugipedia (CC BY-SA 4.0)',
+  de: 'Yu-Gi-Oh!-Kartennamen und -texte in weiteren Sprachen: Yugipedia (CC BY-SA 4.0)',
+};
+export const YUGIPEDIA_URL = 'https://yugipedia.com';
+export const CC_BY_SA_URL = 'https://creativecommons.org/licenses/by-sa/4.0/';

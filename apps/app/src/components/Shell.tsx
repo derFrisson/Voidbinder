@@ -25,6 +25,7 @@ import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
 import { SearchLead, useTypeahead } from './Typeahead';
 import { usePalette } from './palette';
+import { YugipediaCredit } from './ui';
 import { Toaster } from './Toast';
 
 /**
@@ -356,6 +357,7 @@ export function Footer() {
         <Text className="font-body text-xs leading-5 text-ink-3">
           {SCRYFALL_ATTRIBUTION[locale]}
         </Text>
+        <YugipediaCredit className="font-body text-xs leading-5 text-ink-3" />
       </View>
       <View className="flex-row flex-wrap items-center gap-x-5 gap-y-2">
         <Text className="font-body text-sm text-ink-3">

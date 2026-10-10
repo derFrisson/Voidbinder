@@ -215,6 +215,14 @@ describe('card page', () => {
     expect(screen.getByText(/^BLGG DE024 · DE · EN/)).toBeTruthy();
     const stage = container.querySelector('[style*="aspect-ratio"]') as HTMLElement;
     expect(stage.style.aspectRatio).toBe(`${59 / 86} / 1`);
+    // VB-93: the German name as the title, Yugipedia credited with source and licence linked.
+    expect(screen.getByRole('heading', { name: 'Geistertrick-Engel' })).toBeTruthy();
+    expect(
+      screen.getByText(/^Yu-Gi-Oh!-Kartennamen und -texte in weiteren Sprachen:/),
+    ).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'CC BY-SA 4.0' }).getAttribute('href')).toBe(
+      'https://creativecommons.org/licenses/by-sa/4.0/',
+    );
   });
 
   it('says under the image when it is in another language or of another print', async () => {
