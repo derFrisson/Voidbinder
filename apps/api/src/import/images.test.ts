@@ -125,6 +125,20 @@ describe('sourceUrl', () => {
     expect(sourceUrl('onepiece', ids)).toBeNull();
   });
 
+  it("takes pokemontcg.io's large picture only when TCGdex has none (VB-118)", () => {
+    const tcgdex = { high: 'https://assets.tcgdex.net/en/swsh/swsh3/136/high.webp' };
+    const ptcg = {
+      small: 'https://images.pokemontcg.io/swsh3/136.png',
+      large: 'https://images.pokemontcg.io/swsh3/136_hires.png',
+    };
+    expect(sourceUrl('pokemon', { tcgdex_images: tcgdex, pokemontcg_images: ptcg })).toBe(
+      tcgdex.high,
+    );
+    expect(sourceUrl('pokemon', { tcgdex: 'swsh3-136', pokemontcg_images: ptcg })).toBe(ptcg.large);
+    // The key keeps the TCGdex card id, so a later TCGdex picture lands next to it.
+    expect(sourceId('pokemon', { tcgdex: 'swsh3-136' }, ptcg.large)).toBe('swsh3-136');
+  });
+
   it('reads the extension from the path only', () => {
     expect(extension('https://cards.scryfall.io/large/a.jpg?1562')).toBe('jpg');
     expect(extension('https://x.test/a.JPEG')).toBe('jpg');
@@ -738,5 +752,61 @@ describe.skipIf(!databaseUrl)('image mirror gone sources (Postgres)', () => {
     const changed = await mirror([url('1')]);
     expect(changed.fetched).toEqual([url('1b')]);
     expect(changed.stats).toMatchObject({ uploaded: 1, gone: 0, failed: 0 });
+  });
+});
+
+describe.skipIf(!databaseUrl)('image mirror pokemontcg.io pictures (Postgres, VB-118)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  const PTCG = 'https://images.pokemontcg.io/mcd21/';
+  beforeAll(async () => {
+    ({ db, drop } = await freshDatabase());
+    // 1 and 2 have only the pokemontcg.io picture; 3 has both; 4 none.
+    await db.execute(sql`
+      with s as (insert into sets (game_id, code, name) values ('pokemon', '2021swsh', 'McD') returning id),
+        c as (insert into cards (game_id, name, oracle_key) values ('pokemon', 'Card', 'o') returning id)
+      insert into prints (card_id, set_id, number, external_ids)
+      select c.id, s.id, n::text, jsonb_build_object('tcgdex', '2021swsh-' || n)
+        || case when n < 4 then jsonb_build_object('pokemontcg_images',
+             jsonb_build_object('large', ${PTCG} || n || '_hires.png')) else '{}' end
+        || case when n = 3 then jsonb_build_object('tcgdex_images',
+             jsonb_build_object('high', 'https://assets.tcgdex.net/en/x/2021swsh/3/high.webp')) else '{}' end
+      from s, c, generate_series(1, 4) n`);
+  });
+  afterAll(() => drop());
+
+  it('mirrors the pokemontcg.io picture under the TCGdex id and records a 404 as gone', async () => {
+    const gone = `${PTCG}2_hires.png`;
+    const fake = fakeDeps({
+      resize: false,
+      fetch: async (u) =>
+        new Response(u === gone ? null : JPEG, {
+          status: u === gone ? 404 : 200,
+          headers: { 'content-type': 'image/png' },
+        }),
+    });
+    const stats = await mirrorImages(
+      fake.deps,
+      db,
+      { game: 'pokemon', retryGone: false },
+      { concurrency: 1, verify: false },
+    );
+    expect(stats).toMatchObject({ rows: 3, images: 3, uploaded: 2, gone: 1, failed: 0 });
+    expect(fake.fetched.sort()).toEqual([
+      'https://assets.tcgdex.net/en/x/2021swsh/3/high.webp',
+      `${PTCG}1_hires.png`,
+      gone,
+    ]);
+    const { rows } = await db.execute<{ number: string; image_key: string | null }>(
+      sql`select number, image_key from prints order by number`,
+    );
+    expect(rows).toEqual([
+      { number: '1', image_key: 'images/pokemon/2021swsh-1/en/orig.png' },
+      { number: '2', image_key: null },
+      { number: '3', image_key: 'images/pokemon/2021swsh-3/en/orig.webp' },
+      { number: '4', image_key: null },
+    ]);
+    // The gone picture is not asked for again.
+    expect(await pendingRows(db, { game: 'pokemon' })).toEqual([]);
   });
 });

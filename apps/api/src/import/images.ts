@@ -26,18 +26,26 @@ export const IMAGE_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
 /**
  * Requests per second per source: Scryfall's file hosts have no limit (be polite), YGOPRODeck
- * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API.
+ * allows 20, TCGdex asks to be considerate; Yugipedia's scans (VB-106) one a second, as its API;
+ * pokemontcg.io's pictures (VB-118, the Pokémon backup) a few a second.
  */
 export const SOURCE_RATES: Record<string, number> = {
   mtg: 20,
   yugioh: 15,
   pokemon: 8,
   yugipedia: 1,
+  pokemontcg: 4,
 };
 
-/** The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan. */
-const sourceOf = (game: string, url: string) =>
-  new URL(url).hostname.endsWith('yugipedia.com') ? 'yugipedia' : game;
+/**
+ * The rate limiter (SOURCE_RATES key) of an image URL: its game's, Yugipedia's for a wiki scan,
+ * pokemontcg.io's for its pictures.
+ */
+const sourceOf = (game: string, url: string) => {
+  const host = new URL(url).hostname;
+  if (host.endsWith('yugipedia.com')) return 'yugipedia';
+  return host === 'images.pokemontcg.io' ? 'pokemontcg' : game;
+};
 
 const CONTENT_TYPES: Record<string, string> = {
   jpg: 'image/jpeg',
@@ -72,6 +80,7 @@ export const IMAGE_ID_FIELDS = [
   'image_url',
   'tcgdex',
   'tcgdex_images',
+  'pokemontcg_images',
   'artwork',
 ] as const;
 
@@ -89,7 +98,8 @@ export function lowresScan(game: string, ids: Record<string, unknown>): boolean 
  * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
  * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
  * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106), else YGOPRODeck's
- * `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`), else
+ * pokemontcg.io's `pokemontcg_images.large` (VB-118, a print TCGdex has no picture for).
  */
 export function sourceUrl(
   game: string,
@@ -108,7 +118,10 @@ export function sourceUrl(
         https((ids.artwork as Record<string, unknown> | undefined)?.url) ?? https(ids.image_url)
       );
     case 'pokemon':
-      return https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high);
+      return (
+        https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high) ??
+        https((ids.pokemontcg_images as Record<string, unknown> | undefined)?.large)
+      );
     default:
       return null;
   }
@@ -459,7 +472,8 @@ const needsWork = (
   const mirrorable = sql`((${sets.gameId} = 'mtg' and (${highres}${lowres}))
     or (${sets.gameId} = 'yugioh' and (${ids} ->> 'image_url' is not null
       or ${ids} -> 'artwork' ->> 'url' is not null))
-    or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
+    or (${sets.gameId} = 'pokemon' and (${ids} -> 'tcgdex_images' ->> 'high' is not null
+      or ${ids} -> 'pokemontcg_images' ->> 'large' is not null)))`;
   // A Yugipedia scan (VB-106) the key does not name yet: the row keeps its old key until then.
   // The id is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case).
   const scan = sql`regexp_replace(${ids} -> 'artwork' ->> 'url', '^.*/|[.][^./]*$', '', 'g')`;
@@ -469,7 +483,8 @@ const needsWork = (
     or (${sets.gameId} = 'yugioh' and position('/' || ${scan} || '/' in ${key}) = 0))`;
   // The URL `sourceUrl` picks, to look up in `image_sources_gone`.
   const url = sql`case ${sets.gameId}
-    when 'pokemon' then ${ids} -> 'tcgdex_images' ->> 'high'
+    when 'pokemon' then coalesce(${ids} -> 'tcgdex_images' ->> 'high',
+      ${ids} -> 'pokemontcg_images' ->> 'large')
     when 'yugioh' then coalesce(${ids} -> 'artwork' ->> 'url', ${ids} ->> 'image_url')
     else coalesce(${ids} -> 'scryfall_images' ->> 'large', ${ids} -> 'scryfall_images' ->> 'normal',
       ${ids} -> 'scryfall_images' ->> 'png') end`;
