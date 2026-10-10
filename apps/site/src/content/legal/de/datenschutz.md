@@ -40,30 +40,24 @@ Speicherdauer: Wir selbst erhalten und speichern diese Logdaten nicht. Cloudflar
 
 ## Reichweitenmessung mit Plausible
 
-<!-- TODO Max: Dieser Abschnitt ersetzt Cloudflare Web Analytics. Er stimmt erst, wenn die Website ohne PUBLIC_CF_ANALYTICS_TOKEN gebaut wird und Plausible auf Website und Web-App live ist (VB-74). -->
+Wir messen auf der Website und in der Web-App, wie viele Menschen sie nutzen, welche Seiten sie aufrufen und woher sie kommen. Dafür nutzen wir Plausible Analytics, eine quelloffene Software, die auf einem von uns betriebenen Server läuft. Die Daten gehen an keinen anderen Anbieter als unseren Hoster, auch nicht an die Firma hinter Plausible.
 
-Wir messen auf der Website und in der Web-App, wie viele Menschen sie nutzen, welche Seiten sie aufrufen und woher sie kommen. Dafür nutzen wir Plausible Analytics, eine quelloffene Software, die auf einem von uns betriebenen Server läuft. Die Daten gehen an keinen anderen Anbieter, auch nicht an die Firma hinter Plausible.
-
-<!-- TODO Max: Standort/Hoster des Plausible-Servers web-analytics.voidcom.app eintragen und prüfen, ob die Adresse über Cloudflare (Proxy oder Tunnel) erreichbar ist. Falls ja, Cloudflare hier als Empfänger nennen. -->
+Der Server ist ein virtueller Server der Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, in einem Rechenzentrum in Deutschland. Hetzner handelt als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Weder Cloudflare noch ein anderer Dienst ist dazwischengeschaltet, Ihr Browser verbindet sich direkt mit diesem Server.
 
 Bei jedem Seitenaufruf schickt Ihr Browser an web-analytics.voidcom.app:
 
-- die aufgerufene Adresse und die verweisende Seite (Referrer); in der Web-App ohne Suchparameter und ohne den Teil nach „#“,
+- die aufgerufene Adresse und die verweisende Seite (Referrer),
 - den User-Agent Ihres Browsers und Ihre IP-Adresse.
 
-<!-- TODO Max: prüfen, ob auch das Skript der Website (VB-74) Suchparameter entfernt, sonst „in der Web-App“ streichen bzw. anpassen. -->
+In der Web-App entfernt das Skript schon in Ihrem Browser die Suchparameter und den Teil nach „#“ aus Adresse und Referrer und ersetzt die Kennung eines Decks in der Adresse durch einen Platzhalter. Das Skript der Website schickt die vollständige Adresse mit Suchparametern und dem Teil nach „#“. Plausible speichert von Adresse und Referrer nur Domain und Pfad und verwirft den Teil nach „#“ und die Suchparameter. Ausgenommen sind die Kampagnenangaben utm_source, utm_medium, utm_campaign, utm_content, utm_term, source und ref, die Plausible als Herkunft des Besuchs speichert. Enthält die Adresse eine Klick-Kennung eines Werbenetzwerks (zum Beispiel gclid oder fbclid), speichert Plausible nur, welche es war, nicht ihren Wert.
 
 Plausible leitet daraus Browser, Betriebssystem, Gerätetyp sowie Land, Region und Stadt ab. IP-Adresse und User-Agent werden nicht gespeichert. Plausible bildet aus ihnen zusammen mit der Domain und einem zufälligen Wert (Salt), der alle 24 Stunden gewechselt und gelöscht wird, einen Prüfwert (Hash). Damit lassen sich Besuche an einem Tag zählen, aber nicht über mehrere Tage oder Websites hinweg verbinden, und die IP-Adresse lässt sich daraus nicht zurückrechnen. Einzelheiten beschreibt Plausible unter https://plausible.io/data-policy.
 
 Plausible setzt keine Cookies und erstellt kein Profil von Ihnen. Die Skripte auf der Website und in der Web-App schreiben nichts in den Speicher Ihres Browsers. Sie lesen dort nur einen Eintrag „plausible_ignore“, mit dem wir unsere eigenen Besuche aus der Zählung nehmen; bei Ihnen gibt es diesen Eintrag nicht. Nach unserer Einschätzung ist deshalb keine Einwilligung nach § 25 TDDDG nötig.
 
-<!-- TODO Max: rechtlich prüfen lassen, ob das Lesen von „plausible_ignore“ unter § 25 TDDDG fällt. Alternative: das Skript ohne diese Prüfung ausliefern. -->
-
 Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist, die Reichweite von Website und Web-App zu kennen und sie zu verbessern. Sie können der Verarbeitung jederzeit widersprechen (siehe Ihre Rechte), zum Beispiel auch, indem Sie das Skript mit einem Inhaltsblocker sperren.
 
-Speicherdauer: Gespeichert werden nur die abgeleiteten Angaben und der Tages-Hash, keine IP-Adressen. Den Salt löscht Plausible nach 24 Stunden.
-
-<!-- TODO Max: Aufbewahrungsdauer der Statistik in Plausible festlegen (die selbst betriebene Version löscht nichts von selbst) und hier eintragen. -->
+Speicherdauer: Gespeichert werden nur die abgeleiteten Angaben und der Tages-Hash, keine IP-Adressen. Den Salt löscht Plausible nach 24 Stunden. Danach lässt sich die Statistik keiner Person mehr zuordnen und enthält keine personenbezogenen Daten. Wir bewahren sie dauerhaft auf.
 
 ## Warteliste
 
@@ -99,7 +93,7 @@ Im Profil können Sie außerdem einen Anzeigenamen, die Sprache Ihrer Mails und 
 
 **Trainingsdaten.** Bei der Registrierung und im Profil können Sie erlauben, dass Ihre Scans als Trainingsdaten für die Kartenerkennung genutzt werden. Die Einstellung ist aus, bis Sie sie einschalten. Derzeit speichern wir nur Ihre Wahl. Scans gibt es in der Web-App noch nicht, es werden also keine verarbeitet. Rechtsgrundlage für eine spätere Nutzung ist Ihre Einwilligung nach Art. 6 Abs. 1 lit. a DSGVO, die Sie im Profil jederzeit widerrufen können.
 
-<!-- TODO Max: Sobald Scans hochgeladen werden (Handy-App), braucht diese Erklärung einen eigenen Abschnitt: welche Bilder, wo gespeichert, wie lange, wer trainiert. -->
+<!-- scans: own section once the phone app uploads scans -->
 
 **Zweck und Rechtsgrundlage.** Wir brauchen diese Daten, um Ihnen das Konto bereitzustellen (Art. 6 Abs. 1 lit. b DSGVO). Ohne E-Mail-Adresse und Passwort können Sie kein Konto anlegen.
 
@@ -110,8 +104,6 @@ Im Profil können Sie außerdem einen Anzeigenamen, die Sprache Ihrer Mails und 
 Wenn Sie sich anmelden, legen wir eine Sitzung an. Zu jeder Sitzung speichern wir eine zufällige Kennung, den Zeitpunkt der Anmeldung und des Ablaufs, Ihre IP-Adresse und den User-Agent Ihres Browsers. IP-Adresse und User-Agent helfen uns, einen Missbrauch Ihres Kontos zu erkennen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO für die Sitzung selbst und Art. 6 Abs. 1 lit. f DSGVO für IP-Adresse und User-Agent, unser berechtigtes Interesse ist die Sicherheit Ihres Kontos.
 
 Eine Sitzung gilt 7 Tage und verlängert sich, solange Sie die Web-App nutzen. Melden Sie sich ab, endet die Sitzung auf diesem Gerät sofort. Setzen Sie Ihr Passwort zurück, enden alle Ihre Sitzungen spätestens nach fünf Minuten.
-
-<!-- TODO Max: Abgelaufene Sitzungen löscht Better Auth nur, wenn sie noch einmal benutzt werden; ein Aufräumjob fehlt. Entweder einen Job einplanen oder hier eine Frist nennen, die tatsächlich eingehalten wird. -->
 
 Die Web-App speichert die Sitzung in Cookies, die nur über HTTPS übertragen werden und für Skripte nicht lesbar sind:
 
@@ -134,9 +126,9 @@ Bei der Registrierung, beim Anfordern eines neuen Passworts, beim erneuten Sende
 
 Das Ergebnis ist ein Token, den Ihr Browser mit dem Formular an uns schickt. Unser Server lässt den Token zusammen mit Ihrer IP-Adresse von Cloudflare prüfen. Wir speichern weder den Token noch das Ergebnis. Schlägt die Prüfung fehl, protokollieren wir nur den Fehlercode von Cloudflare.
 
-Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist der Schutz vor automatisch angelegten Konten, Missbrauch des Mailversands und Spam. Die Prüfung ist für den Dienst, den Sie gerade nutzen wollen, unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Anbieter ist Cloudflare, Inc. (Anschrift oben), es gelten dieselben Garantien für Übermittlungen in die USA. Einzelheiten beschreibt Cloudflare im Turnstile Privacy Addendum unter https://www.cloudflare.com/turnstile-privacy-policy/.
+Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Unser berechtigtes Interesse ist der Schutz vor automatisch angelegten Konten, Missbrauch des Mailversands und Spam. Anbieter ist Cloudflare, Inc. (Anschrift oben). Cloudflare führt die Prüfung als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung durch, es gelten dieselben Garantien für Übermittlungen in die USA. Nach dem Turnstile Privacy Addendum nutzt Cloudflare die Angaben außerdem in eigener Verantwortung, um die Bot-Erkennung von Turnstile zu verbessern.
 
-<!-- TODO Max: Nach dem Turnstile Privacy Addendum klären, ob Cloudflare die Daten nur als Auftragsverarbeiter verarbeitet oder teilweise als eigener Verantwortlicher, und ob das Widget Cookies oder lokalen Speicher nutzt. Den Text danach anpassen. -->
+Turnstile setzt selbst keine Cookies. Den Cookie „cf_clearance“, der eine bestandene Prüfung für weitere Aufrufe festhält, setzt es nur bei eingeschalteter Vorab-Freigabe (Pre-Clearance), die wir nicht nutzen. Die Prüfung ist für den Dienst, den Sie gerade nutzen wollen, unbedingt erforderlich (§ 25 Abs. 2 Nr. 2 TDDDG). Eine Einwilligung ist dafür nicht nötig. Einzelheiten beschreibt Cloudflare im Turnstile Privacy Addendum unter https://www.cloudflare.com/turnstile-privacy-policy/.
 
 ### E-Mails
 
@@ -146,63 +138,52 @@ Wir schicken Ihnen Mails, die zum Konto gehören: den Link zur Bestätigung Ihre
 
 Was Sie in der Web-App anlegen, speichern wir zu Ihrem Konto: Ihre Mappen (Name, Spiel, Reihenfolge, Farbe), die Einträge Ihrer Sammlung (Karte und Druck, Anzahl, Sprache, Zustand, Ausführung, Kaufpreis und Währung, Notiz), Ihre Wunschliste (Karte, Anzahl, gewünschte Sprache, Ausführung und Mindestzustand, Höchstpreis, Notiz) und Ihre Decks (Name, Spiel, Format, Beschreibung, Karten). Dazu kommen jeweils die Zeitpunkte des Anlegens und der letzten Änderung. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO. Diese Daten sieht nur Ihr Konto, wir geben sie an niemanden weiter.
 
-Löschen Sie einen Eintrag, eine Mappe oder ein Deck, markieren wir ihn als gelöscht, statt ihn sofort zu entfernen. So können Ihre anderen Geräte die Löschung übernehmen. Gelöschte Einträge zeigen wir nicht mehr an. Endgültig entfernt werden sie mit Ihrem Konto.
-
-<!-- TODO Max: Soll es eine kürzere Frist für als gelöscht markierte Einträge geben? Der Code entfernt sie derzeit nur mit dem Konto. -->
+Löschen Sie einen Eintrag, eine Mappe oder ein Deck, markieren wir ihn als gelöscht, statt ihn sofort zu entfernen, und zeigen ihn nicht mehr an. Gelöschte Einträge bleiben höchstens 30 Tage als Löschmarkierung gespeichert, damit Ihre anderen Geräte die Löschung übernehmen, und werden dann endgültig entfernt.
 
 ### Abgleich zwischen Geräten
 
 Nutzen Sie Voidbinder auf mehreren Geräten, gleicht die App Ihre Sammlung, Mappen, Wunschliste und Decks über unseren Server ab. Dabei übertragen wir dieselben Daten wie oben und den Zeitpunkt jeder Änderung nach der Uhr Ihres Geräts. Eine Kennung Ihres Geräts speichern wir dafür nicht. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO.
 
-<!-- TODO Max: Die Sync-Schnittstelle ist live (VB-32). Sobald die Handy-App erscheint, prüfen, ob sie zusätzliche Daten auf dem Gerät oder auf dem Server speichert. -->
+<!-- recheck with the phone app -->
 
 ### Konto löschen
 
 Im Profil können Sie Ihr Konto löschen. Sie werden dann auf diesem Gerät sofort abgemeldet, auf anderen Geräten spätestens nach fünf Minuten. Nach Ablauf einer Frist von 30 Tagen löschen wir Ihr Konto mit allen Daten: Profil, Sitzungen, Zwei-Faktor-Daten, Sammlung, Wunschliste und Decks. Melden Sie sich vor Ablauf der Frist wieder an, nehmen Sie die Löschung damit zurück und alles bleibt erhalten. Aus der Datensicherung verschwinden die Daten spätestens, wenn die letzte Sicherung mit ihnen abläuft (siehe Speicherdauer).
 
-<!-- TODO Max: Frist festlegen (hier 30 Tage angenommen). Der Code speichert bisher nur den Löschantrag und beendet die Sitzungen; der Löschlauf nach Ablauf der Frist kommt mit VB-45. Bis dahin müssen beantragte Löschungen von Hand ausgeführt werden. -->
-
 ### Support per E-Mail
 
-Wenn Sie uns an hello@voidbinder.de schreiben, verarbeiten wir Ihre E-Mail-Adresse, Ihren Namen, soweit Sie ihn angeben, und den Inhalt Ihrer Nachricht, um Ihre Anfrage zu beantworten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, wenn es um Ihr Konto geht, sonst Art. 6 Abs. 1 lit. f DSGVO (unser berechtigtes Interesse, Anfragen zu beantworten). Wir löschen die Nachrichten, wenn die Anfrage erledigt ist und keine gesetzliche Aufbewahrungspflicht entgegensteht.
-
-<!-- TODO Max: Bei welchem Anbieter liegt das Postfach von hello@voidbinder.de (zum Beispiel Cloudflare Email Routing mit Weiterleitung an ein anderes Postfach)? Diesen Anbieter hier nennen und eine konkrete Löschfrist eintragen. -->
+Wenn Sie uns an hello@voidbinder.de schreiben, verarbeiten wir Ihre E-Mail-Adresse, Ihren Namen, soweit Sie ihn angeben, und den Inhalt Ihrer Nachricht, um Ihre Anfrage zu beantworten. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, wenn es um Ihr Konto geht, sonst Art. 6 Abs. 1 lit. f DSGVO (unser berechtigtes Interesse, Anfragen zu beantworten). Das Postfach liegt bei der Proton AG, Route de la Galaise 32, 1228 Plan-les-Ouates, Schweiz, die als Auftragsverarbeiter nach unseren Weisungen handelt. Für die Schweiz besteht ein Angemessenheitsbeschluss der EU-Kommission. Wir löschen den Schriftwechsel, sobald die Anfrage erledigt ist, soweit keine gesetzliche Aufbewahrungspflicht entgegensteht.
 
 ### Server-Logs der Web-App
 
-Die Web-App und ihre Schnittstelle laufen auf Cloudflare Workers. Für den Betrieb und die Fehlersuche schreiben wir zu jeder Anfrage eine Logzeile mit einer Anfrage-Kennung, Methode, Pfad ohne Suchparameter, Status, Dauer und dem Cloudflare-Rechenzentrum, das die Anfrage bearbeitet hat. IP-Adressen, E-Mail-Adressen oder Passwörter schreiben wir nicht in diese Zeilen. Cloudflare speichert diese Logs zusammen mit eigenen Angaben zum Aufruf in Workers Logs und löscht sie nach 7 Tagen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, unser berechtigtes Interesse ist ein sicherer und fehlerfreier Betrieb.
-
-<!-- TODO Max: Im Cloudflare-Dashboard prüfen, welche Felder Workers Logs selbst zu jedem Aufruf speichert (zum Beispiel Request-Header mit IP-Adresse) und ob das Konto auf dem Workers-Paid-Plan bleibt (7 Tage; auf dem Free-Plan 3 Tage). -->
+Die Web-App und ihre Schnittstelle laufen auf Cloudflare Workers. Für den Betrieb und die Fehlersuche schreiben wir zu jeder Anfrage an die Schnittstelle eine Logzeile mit Zeitpunkt, einer Anfrage-Kennung, Methode, Pfad ohne Suchparameter, Status, Dauer und dem Cloudflare-Rechenzentrum, das die Anfrage bearbeitet hat, bei einem Fehler außerdem die Fehlermeldung. IP-Adressen, Ihre Nutzerkennung, E-Mail-Adressen oder Passwörter schreiben wir nicht in diese Zeilen. Zusätzlich legt Cloudflare zu jedem Aufruf selbst einen Eintrag an: Methode und Adresse der Anfrage, die Kopfzeilen der Anfrage, darunter Ihre IP-Adresse und der User-Agent Ihres Browsers (Cookies und Kopfzeilen mit Zugangsdaten ersetzt Cloudflare durch „REDACTED“), von Cloudflare abgeleitete Angaben zur Verbindung wie Land, Stadt und Netzbetreiber, den Status der Antwort sowie die Rechenzeit. Cloudflare speichert beides in Workers Logs und löscht es nach 7 Tagen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO, unser berechtigtes Interesse ist ein sicherer und fehlerfreier Betrieb.
 
 ### Hosting der Web-App
 
 - **Cloudflare** (Anschrift oben) liefert die Web-App aus, betreibt die Schnittstelle (Cloudflare Workers) und verbindet sie über Hyperdrive und einen verschlüsselten Tunnel mit unserer Datenbank. Hyperdrive hält nur Antworten zum Kartenkatalog und zu Preisen kurz im Zwischenspeicher, keine Kontodaten. Kartenbilder liegen in Cloudflare R2 mit Speicherort in der EU. Dort liegen nur öffentliche Kartenbilder, keine Daten von Ihnen.
 - **OVH SAS** (Anschrift oben) stellt den Server im Rechenzentrum Gravelines (Frankreich), auf dem wir die PostgreSQL-Datenbank mit Ihren Kontodaten und Ihrer Sammlung betreiben.
-- **Backblaze, Inc.**, 201 Baldwin Avenue, San Mateo, CA 94401, USA, speichert unsere verschlüsselten Datensicherungen der Datenbank in der Region EU Central (Niederlande).
+- **Backblaze, Inc.**, 201 Baldwin Avenue, San Mateo, CA 94401, USA, speichert unsere verschlüsselten Datensicherungen der Datenbank in der Region EU Central (Rechenzentrum Amsterdam, Niederlande).
 
-<!-- TODO Max: bestätigen, dass die Sicherung zu Backblaze B2 (EU Central) eingerichtet ist, der Vertrag zur Auftragsverarbeitung mit Backblaze abgeschlossen ist und welche Garantie für den US-Anbieter gilt (Data Privacy Framework oder Standardvertragsklauseln). Anschrift prüfen. -->
-
-Alle drei Anbieter handeln als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Für Übermittlungen in die USA gelten die EU-Standardvertragsklauseln und, soweit der Anbieter danach zertifiziert ist, das EU-US Data Privacy Framework.
+Alle drei Anbieter handeln als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Für Übermittlungen in die USA gelten bei Cloudflare die EU-Standardvertragsklauseln und, soweit Cloudflare danach zertifiziert ist, das EU-US Data Privacy Framework. Backblaze ist nach dem EU-US Data Privacy Framework zertifiziert, für das ein Angemessenheitsbeschluss der EU-Kommission besteht. Zusätzlich enthält unser Vertrag mit Backblaze die EU-Standardvertragsklauseln.
 
 ### Speicherdauer
 
-| Daten                                                                                                                | Wie lange                                                                                  |
-| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Konto und Profil (E-Mail-Adresse, Name, Anzeigename, Sprache, Währung, Einstellung zu Trainingsdaten, Passwort-Hash) | bis zur Löschung Ihres Kontos                                                              |
-| Sammlung, Mappen, Wunschliste, Decks, auch als gelöscht markierte Einträge                                           | bis zur Löschung Ihres Kontos                                                              |
-| Sitzung mit IP-Adresse und User-Agent                                                                                | bis zur Abmeldung, sonst 7 Tage nach der letzten Nutzung                                   |
-| Gemerktes Gerät für die Zwei-Faktor-Anmeldung                                                                        | 30 Tage, oder bis Sie die Zwei-Faktor-Anmeldung ändern oder Ihr Passwort zurücksetzen      |
-| Geheimnis und Backup-Codes der Zwei-Faktor-Anmeldung                                                                 | bis Sie die Zwei-Faktor-Anmeldung ausschalten oder Ihr Konto löschen                       |
-| Links zur Bestätigung der E-Mail-Adresse und zum Zurücksetzen des Passworts                                          | 1 Stunde gültig                                                                            |
-| Zähler gegen Missbrauch mit IP-Adresse                                                                               | wenige Minuten                                                                             |
-| Turnstile-Token                                                                                                      | wird nicht gespeichert                                                                     |
-| Server-Logs in Workers Logs                                                                                          | 7 Tage                                                                                     |
-| Reichweitenmessung mit Plausible                                                                                     | keine IP-Adressen; der Salt für den Tages-Hash 24 Stunden                                  |
-| Support-Mails                                                                                                        | bis die Anfrage erledigt ist                                                               |
-| Datensicherungen der Datenbank                                                                                       | bis zu etwa elf Wochen (bis zu fünf Wochen Sicherungen, danach bis zu 45 Tage Löschsperre) |
-| Zuletzt angesehene Karten im Browser                                                                                 | bis Sie sie in Ihrem Browser löschen                                                       |
-
-<!-- TODO Max: Zeile Datensicherungen gegen die eingerichtete pgBackRest-Aufbewahrung und die Object-Lock-Frist (docs/guides/database-vps.md, Abschnitt 7) prüfen. -->
+| Daten                                                                                                                | Wie lange                                                                                             |
+| -------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Konto und Profil (E-Mail-Adresse, Name, Anzeigename, Sprache, Währung, Einstellung zu Trainingsdaten, Passwort-Hash) | bis zur Löschung Ihres Kontos                                                                         |
+| Sammlung, Mappen, Wunschliste, Decks                                                                                 | bis zur Löschung Ihres Kontos                                                                         |
+| Als gelöscht markierte Einträge                                                                                      | höchstens 30 Tage                                                                                     |
+| Sitzung mit IP-Adresse und User-Agent                                                                                | bis zur Abmeldung, sonst 7 Tage nach der letzten Nutzung                                              |
+| Gemerktes Gerät für die Zwei-Faktor-Anmeldung                                                                        | 30 Tage, oder bis Sie die Zwei-Faktor-Anmeldung ändern oder Ihr Passwort zurücksetzen                 |
+| Geheimnis und Backup-Codes der Zwei-Faktor-Anmeldung                                                                 | bis Sie die Zwei-Faktor-Anmeldung ausschalten oder Ihr Konto löschen                                  |
+| Links zur Bestätigung der E-Mail-Adresse und zum Zurücksetzen des Passworts                                          | 1 Stunde gültig                                                                                       |
+| Zähler gegen Missbrauch mit IP-Adresse                                                                               | wenige Minuten                                                                                        |
+| Turnstile-Token                                                                                                      | wird nicht gespeichert                                                                                |
+| Server-Logs in Workers Logs                                                                                          | 7 Tage                                                                                                |
+| Reichweitenmessung mit Plausible                                                                                     | keine IP-Adressen; der Salt für den Tages-Hash 24 Stunden; die Statistik ohne Personenbezug dauerhaft |
+| Support-Mails                                                                                                        | bis die Anfrage erledigt ist                                                                          |
+| Datensicherungen der Datenbank                                                                                       | bis zu etwa elf Wochen (bis zu fünf Wochen Sicherungen, danach bis zu 45 Tage Löschsperre)            |
+| Zuletzt angesehene Karten im Browser                                                                                 | bis Sie sie in Ihrem Browser löschen                                                                  |
 
 ## Externe Links
 
@@ -210,13 +191,13 @@ Die Website verlinkt auf Twitch, GitHub und voidcom.app. Beim Anklicken verlasse
 
 ## Cookies und lokaler Speicher auf der Website
 
-Die Website setzt keine Cookies und schreibt nichts in localStorage oder sessionStorage Ihres Browsers; das Plausible-Skript liest dort nur den Eintrag „plausible_ignore“ (siehe oben). Ihre Sprachwahl steckt in der Adresse der Seite (/de/ oder /en/) und wird nicht gespeichert. Rufen Sie die Startseite ohne Sprachangabe auf, wählen wir die Sprache nach der Spracheinstellung Ihres Browsers und speichern diese Angabe nicht. Was die Web-App speichert, steht im Abschnitt „Sitzungen und Cookies“.
+Die Website setzt keine Cookies und schreibt nichts in localStorage oder sessionStorage Ihres Browsers; das Plausible-Skript liest dort nur den Eintrag „plausible_ignore“ (siehe oben). Welche Cookies Cloudflare Turnstile im Formular der Warteliste setzen kann, steht im Abschnitt zu Turnstile. Ihre Sprachwahl steckt in der Adresse der Seite (/de/ oder /en/) und wird nicht gespeichert. Rufen Sie die Startseite ohne Sprachangabe auf, wählen wir die Sprache nach der Spracheinstellung Ihres Browsers und speichern diese Angabe nicht. Was die Web-App speichert, steht im Abschnitt „Sitzungen und Cookies“.
 
 ## Kinder
 
-Voidbinder richtet sich nicht an Kinder unter 16 Jahren. Bitte legen Sie erst ab 16 Jahren ein Konto an.
+Voidbinder richtet sich nicht an Kinder unter 12 Jahren. Für ein Konto müssen Sie mindestens 12 Jahre alt sein.
 
-<!-- TODO Max: Altersgrenze bestätigen. Die Web-App fragt das Alter derzeit nicht ab. -->
+<!-- lawyer: age 12 vs. Art. 8 DSGVO (16 for consent) and § 104 ff. BGB; consent-based today: waitlist (Art. 6 (1) (a)) and the training-data opt-in -->
 
 ## Ihre Rechte
 
