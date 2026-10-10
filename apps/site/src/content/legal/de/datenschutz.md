@@ -197,7 +197,7 @@ Die Website setzt keine Cookies und schreibt nichts in localStorage oder session
 
 Voidbinder richtet sich nicht an Kinder unter 12 Jahren. Für ein Konto müssen Sie mindestens 12 Jahre alt sein.
 
-<!-- lawyer: age 12 vs. Art. 8 DSGVO (16, consent only) and § 104 ff. BGB; no consent-based processing today -->
+<!-- lawyer: age 12 vs. Art. 8 DSGVO (16 for consent) and § 104 ff. BGB; consent-based today: waitlist (Art. 6 (1) (a)) and the training-data opt-in -->
 
 ## Ihre Rechte
 

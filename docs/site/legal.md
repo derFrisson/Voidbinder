@@ -82,7 +82,9 @@ cookie Cloudflare's edge might add.
 
 ## Before launch
 
-- Have the texts reviewed, including the age limit of 12 (comment `lawyer:` in both privacy files).
+- Have the texts reviewed, including the age limit of 12 (comment `lawyer:` in both privacy files). Germany uses 16 as the
+  default age under Art. 8 GDPR, and the waitlist sign-up (Art. 6 (1) (a)) and the training-data opt-in rest on
+  consent, so ask whether sign-ups from 12 to 15 need a parent's consent.
 - The privacy text promises that tombstones go after 30 days (VB-75) and accounts 30 days after the
   deletion request (VB-45). Until those jobs run, carry both out by hand.
 - Check that the Turnstile widgets have pre-clearance off; the text says `cf_clearance` is not used.

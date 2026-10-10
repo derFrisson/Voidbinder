@@ -199,7 +199,7 @@ This website sets no cookies and writes nothing to your browser's localStorage o
 
 Voidbinder is not meant for children under 12. You must be at least 12 years old to create an account.
 
-<!-- lawyer: age 12 vs. Art. 8 DSGVO (16, consent only) and § 104 ff. BGB; no consent-based processing today -->
+<!-- lawyer: age 12 vs. Art. 8 DSGVO (16 for consent) and § 104 ff. BGB; consent-based today: waitlist (Art. 6 (1) (a)) and the training-data opt-in -->
 
 ## Your rights
 
