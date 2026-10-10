@@ -92,3 +92,20 @@ export function useSearch(state: SearchState) {
     staleTime: 5 * 60_000,
   });
 }
+
+/**
+ * The typeahead of the search box (`GET /catalog/search/suggest`, VB-79). A newer `q` aborts the
+ * request in flight (the query's signal); the previous suggestions stay while the next load. No
+ * retry: a failed suggestion is dropped silently.
+ */
+export function useSuggest(q: string, lang: Locale, enabled = true) {
+  const query = { q: q.trim(), lang };
+  return useQuery({
+    queryKey: ['catalog', 'suggest', query],
+    queryFn: ({ signal }) => read(api.catalog.search.suggest.$get({ query }, { init: { signal } })),
+    enabled: enabled && searchable(q),
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}

@@ -21,6 +21,10 @@ export const de = {
     search: 'Karte, Set oder Nummer suchen',
     scanPile: 'Scan-Stapel',
     scanPileHint: 'Der Scan-Stapel kommt mit der Handy-App.',
+    suggestions: 'Vorschläge',
+    suggestOne: '1 Vorschlag',
+    suggestCount: '{count} Vorschläge',
+    suggestNone: 'Keine Treffer',
   },
   state: {
     loading: 'Lädt …',

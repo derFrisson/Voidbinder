@@ -22,6 +22,10 @@ export const en: Dict = {
     search: 'Search a card, set or number',
     scanPile: 'Scan pile',
     scanPileHint: 'The scan pile comes with the phone app.',
+    suggestions: 'Suggestions',
+    suggestOne: '1 suggestion',
+    suggestCount: '{count} suggestions',
+    suggestNone: 'No matches',
   },
   state: {
     loading: 'Loading …',
