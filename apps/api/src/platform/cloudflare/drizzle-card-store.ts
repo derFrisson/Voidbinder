@@ -221,7 +221,7 @@ const prefixPattern = (q: string) => `${q.replace(/[\\%_]/g, '\\$&')}%`;
  * The name filter of `?names=` (VB-79): `all` matches the English card name and every
  * localization; a language its localizations alone (`localization` adds the language condition).
  */
-function nameScope(names: string) {
+function nameScope(names: SearchQuery['names']) {
   const all = names === 'all';
   return {
     /** `branch union all` when the card name counts, else nothing. */

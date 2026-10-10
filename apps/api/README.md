@@ -130,7 +130,8 @@ PostgreSQL: full-text search, `pg_trgm` and two key functions of migration `0010
 - **Name languages (`names`):** `all` (the default) matches the English card and every
   localization whatever `lang` is, so a German name finds its print while the names show in
   English. A language code (`names=de`) matches only the localizations in it (name and text):
-  prints without one drop out, and the typeahead shows the newest print that has one. `lang`
+  prints without one drop out, and the typeahead shows the newest print that has one (before
+  VB-79 the typeahead matched names in `lang` only). `lang`
   stays the language the names are shown in. Set codes and numbers match either way. The
   language is compared as `lang || ''`, so the planner keeps the GIN indexes on the name and
   does not skip-scan the primary key `(print_id, lang)` for every name in that language.
