@@ -32,7 +32,7 @@ checked on the day; the backup finding was read from the VPS afterwards (read-on
    does not purge the edge cache, so an incremental import has to follow.
 3. **Image keys.** The VPS mirror, run as `--verify --sm --concurrency 16`, did about 180 rows/s:
    Magic's 105k rows took about 10 minutes, Yu-Gi-Oh! likewise. A Workflow instance that shows
-   `Waiting` after its steps are done is the 7-minute purge sleep (VB-71), not a stuck run.
+   `Waiting` after its catalog steps is the 7-minute purge sleep (VB-71), not a stuck run.
 4. **There are no backups.** `docker exec voidbinder-db pgbackrest … backup` failed with
    `unable to open missing file /etc/pgbackrest/pgbackrest.conf`. Reading the VPS showed why:
    [database-vps.md section 7](database-vps.md#7-backups-with-pgbackrest-to-backblaze-b2) was
@@ -411,7 +411,7 @@ docker exec voidbinder-db psql -U postgres -d voidbinder -XA -c \
 ```
 
 and per Workflow `CLOUDFLARE_ACCOUNT_ID=152a1fcd0eebb96d1bc30d14b5a6af58 pnpm --filter api exec wrangler workflows instances list voidbinder-scryfall-import`
-(likewise `-ygoprodeck-`, `-tcgdex-`). An instance in `Waiting` after its steps are done is the
+(likewise `-ygoprodeck-`, `-tcgdex-`). An instance in `Waiting` after its catalog steps is the
 7-minute purge sleep (VB-71), not a problem. Done when `scryfall` and `ygoprodeck` each have an
 `ok` row, `scryfall`/`prices` is `ok`, the Pokémon copy is in and a `tcgdex` incremental run has
 finished. `https://app.voidbinder.de/mtg` shows sets.
@@ -430,9 +430,10 @@ step 11 and before the URL is shared** (order rule above). Start it
 mirror holds the lock, and the second one stops with "another image mirror is running"). Pokémon
 goes last, after TCGdex.
 
-Check first that the mirror step of both Workflows is done (a `Waiting` instance is the 7-minute
-purge sleep, VB-71; it is past the mirror step) (the instance status is `complete`; the
-`import_runs` `ok` row only says the catalog is written):
+Check first that the mirror step of both Workflows is done: the instance status must be
+`complete`. A `Waiting` instance is still in the 7-minute purge sleep (VB-71) and its mirror step
+comes next, so wait for `complete` before starting the VPS mirror. The `import_runs` `ok` row only
+says the catalog is written:
 
 ```sh
 for w in scryfall ygoprodeck; do
