@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { displayCode, displayNumber, matchLanguage, typedLanguage } from './index.js';
+import {
+  displayCode,
+  displayNumber,
+  matchLanguage,
+  printNumbers,
+  typedLanguage,
+  typedToken,
+} from './index.js';
 
 const ygo = ['en', 'de', 'fr', 'it', 'es', 'pt', 'ja'];
 
@@ -64,6 +71,46 @@ describe('typedLanguage', () => {
     expect(typedLanguage('yugioh', 'blggxx024', 'blgg', 'EN024')).toBeNull();
     expect(typedLanguage('yugioh', null, 'blgg', 'EN024')).toBeNull();
     expect(typedLanguage('mtg', 'midde123', 'mid', 'EN123')).toBeNull();
+  });
+});
+
+describe('typedToken (VB-102)', () => {
+  it('reads the token after the set code, with or without a number', () => {
+    expect(typedToken('yugioh', 'lc01en', 'lc01')).toBe('en');
+    expect(typedToken('yugioh', 'lc01en0', 'lc01')).toBe('en');
+    expect(typedToken('yugioh', 'lc01de004', 'lc01')).toBe('de');
+    expect(typedToken('yugioh', 'lc01sp', 'lc01')).toBe('es');
+    expect(typedToken('yugioh', 'lc01jp', 'lc01')).toBe('ja');
+    expect(typedToken('yugioh', 'lobde', 'lob')).toBe('de');
+  });
+
+  it('is null without a known token, for other sets and games', () => {
+    expect(typedToken('yugioh', 'lc01', 'lc01')).toBeNull();
+    expect(typedToken('yugioh', 'lc01004', 'lc01')).toBeNull();
+    expect(typedToken('yugioh', 'lc01xx', 'lc01')).toBeNull();
+    expect(typedToken('yugioh', 'lc01ende', 'lc01')).toBeNull();
+    expect(typedToken('yugioh', 'lds3de', 'lc01')).toBeNull();
+    expect(typedToken('yugioh', null, 'lc01')).toBeNull();
+    expect(typedToken('mtg', 'midde', 'mid')).toBeNull();
+  });
+
+  it('picks the language of a print without claiming it (matchedCode needs the number)', () => {
+    const lc01 = { game: 'yugioh' as const, setCode: 'lc01', number: 'EN004', cardCount: 6 };
+    expect(matchLanguage(lc01, [], 'de', 'lc01en')).toBe('en');
+    expect(matchLanguage(lc01, [], 'en', 'lc01de0')).toBe('de');
+    expect(matchLanguage(lc01, [], 'de', 'lc01')).toBe('de');
+    expect(matchLanguage(lc01, [], 'de', 'lc01004')).toBe('de');
+    expect(printNumbers(lc01, 'de', true, 'lc01en')).toEqual({
+      displayNumber: 'EN004',
+      displayCode: 'LC01-EN004',
+    });
+    expect(printNumbers(lc01, 'en', false, 'lc01jp')).toEqual({
+      displayNumber: 'JP004',
+      displayCode: 'LC01-JP004',
+    });
+    expect(printNumbers(lc01, 'de', true, 'lc01en4')).toMatchObject({
+      matchedCode: 'LC01-EN004',
+    });
   });
 });
 

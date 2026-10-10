@@ -51,10 +51,26 @@ export function displayCode(
   return `${set} ${number}`;
 }
 
+/** `s` in lower case, letters and digits only. */
+const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * The language of the Yu-Gi-Oh! token a code search types after a print's set code, with or
+ * without (part of) a number (`lc01en`, `lc01de0`, `blggde024` → `en`, `de`, `de`), null for
+ * anything else: which print the code names is `typedLanguage`'s question, not this one. `code` is
+ * the query as the search normalizes it: lower case, letters and digits only.
+ */
+export function typedToken(game: Game, code: string | null, setCode: string): string | null {
+  const set = key(setCode);
+  if (game !== 'yugioh' || !code?.startsWith(set)) return null;
+  const rest = code.slice(set.length);
+  return /^[a-z]{2}\d*$/.test(rest) ? (TYPED[rest.slice(0, 2)] ?? null) : null;
+}
+
 /**
  * The language whose token a code search names for a Yu-Gi-Oh! print stored with the English one
- * (`blggde024` for BLGG `EN024` → `de`), null for anything else. `code` is the query as the
- * search normalizes it: lower case, letters and digits only.
+ * when it names that print by its full number (`blggde024` for BLGG `EN024` → `de`), null for
+ * anything else.
  */
 export function typedLanguage(
   game: Game,
@@ -62,24 +78,20 @@ export function typedLanguage(
   setCode: string,
   number: string,
 ): string | null {
-  if (game !== 'yugioh' || !code || !ENGLISH.test(number)) return null;
-  const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const token = typedToken(game, code, setCode);
+  if (!token || !code || !ENGLISH.test(number)) return null;
   // Without leading zeros, like catalog_number_key: `de24` names EN024 as `de024` does.
   const digits = (s: string) => key(s).replace(/^0+/, '');
-  const set = key(setCode);
-  const rest = code.slice(set.length);
-  // A typed tail is required: `lobde` alone must not claim LOB-EN000.
-  return code.startsWith(set) &&
-    rest.length > 2 &&
-    digits(rest.slice(2)) === digits(number.slice(2))
-    ? (TYPED[rest.slice(0, 2)] ?? null)
-    : null;
+  const rest = code.slice(key(setCode).length + 2);
+  // A typed number is required: `lobde` alone must not claim LOB-EN000.
+  return rest && digits(rest) === digits(number.slice(2)) ? token : null;
 }
 
 /**
  * `displayNumber` and `displayCode` of a print in `lang` (VB-97); `localized` says whether it has a
- * localization in `lang`. `code` (a search's query as `parseCodeQuery` normalizes it) wins when it names the print
- * with a Yu-Gi-Oh! language token, and the hit then carries it as `matchedCode`.
+ * localization in `lang`. A Yu-Gi-Oh! language token in `code` (a search's query as `parseCodeQuery`
+ * normalizes it, `typedToken`) wins; when `code` names the print by its full number the hit
+ * carries it as `matchedCode`.
  */
 export function printNumbers(
   print: { game: Game; setCode: string; number: string; cardCount: number | null },
@@ -88,8 +100,9 @@ export function printNumbers(
   code: string | null = null,
 ): { displayNumber: string; displayCode: string; matchedCode?: string } {
   const typed = typedLanguage(print.game, code, print.setCode, print.number);
-  const shown = typed
-    ? displayNumber(print.game, print.number, typed, [typed])
+  const token = typedToken(print.game, code, print.setCode);
+  const shown = token
+    ? displayNumber(print.game, print.number, token, [token])
     : displayNumber(print.game, print.number, lang, localized ? [lang] : []);
   const printed = displayCode(print.game, print.setCode, shown, print.cardCount);
   return {
@@ -112,7 +125,7 @@ export function nameLanguage(matched: readonly string[], requested: string): str
 
 /**
  * The language a search hit or suggestion is shown in (VB-102): the language of what matched,
- * never a fixed one. A Yu-Gi-Oh! code with a language token (`typedLanguage`) names it; else the
+ * never a fixed one. A Yu-Gi-Oh! code with a language token (`typedToken`, number or not) names it; else the
  * names that matched (`nameLanguage`). A match without either (a code without a token, a set)
  * leaves `requested`, the user's language, as the only signal.
  */
@@ -122,7 +135,5 @@ export function matchLanguage(
   requested: string,
   code: string | null = null,
 ): string {
-  return (
-    typedLanguage(print.game, code, print.setCode, print.number) ?? nameLanguage(matched, requested)
-  );
+  return typedToken(print.game, code, print.setCode) ?? nameLanguage(matched, requested);
 }
