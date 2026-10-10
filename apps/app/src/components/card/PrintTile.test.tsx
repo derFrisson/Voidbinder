@@ -20,13 +20,13 @@ const hit = (marketPrice: SearchHit['marketPrice']): SearchHit => ({
   game: 'mtg',
   setCode: 'mid',
   setName: 'Innistrad: Midnight Hunt',
+  lang: 'de',
 });
 
 describe('PrintTile', () => {
   it('shows the market price with its source and the day it was observed, like the set page', () => {
     renderApp(
       <PrintTile
-        lang="en"
         hit={hit({
           source: 'tcgplayer',
           finish: 'normal',
@@ -50,17 +50,35 @@ describe('PrintTile', () => {
       cents: 334,
       observedAt: '2026-10-10T03:00:00.000Z',
     };
-    const { unmount } = renderApp(<PrintTile hit={hit(price)} lang="de" />);
+    const { unmount } = renderApp(<PrintTile hit={hit(price)} />);
     expect(screen.getByLabelText('Preis für EN-Karten').textContent).toBe('EN');
     unmount();
-    renderApp(<PrintTile hit={hit({ ...price, lang: 'de' })} lang="de" />);
+    renderApp(<PrintTile hit={hit({ ...price, lang: 'de' })} />);
     expect(screen.queryByLabelText(/Preis für/)).toBeNull();
     expect(screen.queryByText('DE')).toBeNull();
   });
 
   it('shows no number for a print without a price', () => {
-    renderApp(<PrintTile hit={hit(null)} lang="en" />);
+    renderApp(<PrintTile hit={hit(null)} />);
     expect(screen.queryByText(/€|\$/)).toBeNull();
+  });
+});
+
+describe('PrintTile links (VB-102)', () => {
+  const href = () => screen.getByRole('link').getAttribute('href');
+
+  it('opens the card in the language the hit matched when it is not the user’s', () => {
+    renderApp(<PrintTile hit={{ ...hit(null), lang: 'en' }} />);
+    expect(href()).toBe(
+      '/cards/2d112e72-f8b2-48e0-9798-208873db6761?print=59fab2d4-9883-4683-ad59-075a5bce6120&lang=en',
+    );
+  });
+
+  it('adds no ?lang= for the user’s own language', () => {
+    renderApp(<PrintTile hit={hit(null)} />);
+    expect(href()).toBe(
+      '/cards/2d112e72-f8b2-48e0-9798-208873db6761?print=59fab2d4-9883-4683-ad59-075a5bce6120',
+    );
   });
 });
 
@@ -68,7 +86,6 @@ describe('PrintTile, Yu-Gi-Oh! (VB-97)', () => {
   it('shows the number in the language searched for and boxes the picture at 59:86', () => {
     const { container } = renderApp(
       <PrintTile
-        lang="en"
         hit={{
           ...hit(null),
           game: 'yugioh',

@@ -221,17 +221,18 @@ function Results({
           {prints.map((hit) =>
             me ? (
               <View key={hit.id} className="gap-2">
-                <PrintTile hit={hit} lang={state.lang} />
+                <PrintTile hit={hit} />
                 <QuickAdd
                   printId={hit.id}
                   cardId={hit.cardId}
                   name={hit.name}
                   finish={hit.finishes[0] ?? 'normal'}
                   binderId={binder}
+                  lang={hit.lang}
                 />
               </View>
             ) : (
-              <PrintTile key={hit.id} hit={hit} lang={state.lang} />
+              <PrintTile key={hit.id} hit={hit} />
             ),
           )}
         </Grid>

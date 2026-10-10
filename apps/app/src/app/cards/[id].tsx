@@ -12,11 +12,15 @@ import { CollectButtons } from '../../components/collection/CollectButtons';
 import { PricePanel, PriceStrip } from '../../components/card/PricePanel';
 import { Page, useWide, type Crumb } from '../../components/Shell';
 import { QueryState } from '../../components/ui';
+import { useBrowsingLanguage } from '../../hooks/browsing-language';
 import { fmt, useLocale, useT } from '../../i18n';
 
-/** What the page shows of a card: the selected print and the names and text in the user's language. */
+/**
+ * What the page shows of a card: the selected print and the names and text in the browsing
+ * language (`?lang=`, a search hit's match, VB-102), else the user's.
+ */
 function useView(data: CardResponse | undefined, printId: string | undefined) {
-  const locale = useLocale();
+  const locale = useBrowsingLanguage();
   if (!data) return undefined;
   const { prints } = data;
   // The print from the URL, else the newest one with an image of its own.
@@ -42,6 +46,7 @@ function useView(data: CardResponse | undefined, printId: string | undefined) {
 function CardView({ data, printId }: { data: CardResponse; printId: string | undefined }) {
   const t = useT();
   const locale = useLocale();
+  const browsing = useBrowsingLanguage();
   const wide = useWide();
   const width = useWindowDimensions().width;
   const view = useView(data, printId);
@@ -67,7 +72,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
           {print && (
             <Text className="font-display text-[13px] font-semibold text-ink-2">
               {print.set.name} ·{' '}
-              <Text className="font-mono">{inLanguage(print, locale).displayCode}</Text>
+              <Text className="font-mono">{inLanguage(print, browsing).displayCode}</Text>
             </Text>
           )}
         </View>
@@ -99,10 +104,10 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
     </View>
   );
 
-  // What the image is when it is not the print's in the user's language (VB-86/VB-87).
+  // What the image is when it is not the print's in the language shown (VB-86/VB-87).
   const note = [
     view.imageLang &&
-      view.imageLang !== locale &&
+      view.imageLang !== browsing &&
       fmt(t.card.imageLang, { lang: view.imageLang.toUpperCase() }),
     view.imageFrom === 'sibling' && t.card.imageSibling,
   ]

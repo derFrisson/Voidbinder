@@ -44,6 +44,7 @@ describe('createApiClient', () => {
         name: 'Legendary Duelists: Season 3',
         game: 'yugioh',
         set: { code: 'lds3', name: 'Legendary Duelists: Season 3' },
+        lang: 'en',
       },
     ];
     const app = testApp({

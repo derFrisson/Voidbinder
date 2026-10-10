@@ -17,6 +17,7 @@ import Collection from '../../app/(protected)/collection';
 import CardPage from '../../app/cards/[id]';
 import { useOwnedPrints } from '../catalog/seams';
 import { moveId } from './Binders';
+import { session } from './AddDialog';
 import { QuickAdd } from './CollectButtons';
 import { parseCents } from './format';
 
@@ -544,6 +545,22 @@ describe('adding from the search', () => {
       ]);
     },
   );
+
+  it('QuickAdd on a hit adds in the hit’s language, not the user’s (VB-102)', async () => {
+    session.language = undefined;
+    const calls = fakeApi(signedIn, (c) => {
+      if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(['en', 'de']));
+      if (c.method === 'POST' && c.path === '/collection/entries')
+        return json({ entries: [] }, 201);
+      return undefined;
+    });
+    renderApp(<QuickAdd printId={PRINT} cardId={CARD} name="Adeline" finish="normal" lang="en" />);
+    fireEvent.click(await screen.findByRole('button', { name: /Adeline/ }));
+    await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+    expect(calls.find((c) => c.method === 'POST')?.body).toEqual([
+      expect.objectContaining({ printId: PRINT, language: 'en' }),
+    ]);
+  });
 
   it('a retried add sends the same client id; a new one after it went through', async () => {
     let fail = true;

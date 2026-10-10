@@ -2,7 +2,8 @@ import type { SearchHit } from '@voidbinder/shared/api';
 import { cardAspect } from '@voidbinder/shared';
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
-import { useT } from '../../i18n';
+import { hitHref } from '../../hooks/browsing-language';
+import { useLocale, useT } from '../../i18n';
 import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
@@ -11,17 +12,18 @@ import { numberLabel } from './game';
 
 /**
  * A search result: image, name, set code and number in mono, set name, market price. Opens the
- * card page. `lang`: the language the hit is shown in (its price says when it is another's).
+ * card page in the language the hit shows (VB-102); its price says when it is another's (VB-103).
  */
-export function PrintTile({ hit, lang }: { hit: SearchHit; lang: string }) {
+export function PrintTile({ hit }: { hit: SearchHit }) {
   const t = useT();
+  const locale = useLocale();
   const set = hit.setCode.toUpperCase();
   const code = `${set} ${hit.displayNumber}`;
   // VB-81: the TCG ban list status of a Yu-Gi-Oh! hit.
   const ban = useBanStatus(hit.game, hit.cardId);
   const banLabel = useBanLabel();
   return (
-    <Link href={`/cards/${hit.cardId}?print=${hit.id}`} asChild>
+    <Link href={hitHref(hit, locale)} asChild>
       <Pressable
         aria-label={`${hit.name}, ${set} ${numberLabel(t.card.numberIn, hit)}${ban ? `, ${banLabel(ban)}` : ''}`}
         className="gap-2 rounded-xl"
@@ -47,7 +49,7 @@ export function PrintTile({ hit, lang }: { hit: SearchHit; lang: string }) {
           <Text numberOfLines={1} className="font-body text-xs text-ink-3">
             {hit.setName}
           </Text>
-          <Price price={priceTag(hit.marketPrice, lang)} />
+          <Price price={priceTag(hit.marketPrice, hit.lang)} />
         </View>
       </Pressable>
     </Link>

@@ -3,6 +3,7 @@ import { banLimit, type CardPrint, type PrintDetail } from '@voidbinder/shared/a
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { hitHref, useBrowsingLanguage } from '../../hooks/browsing-language';
 import { fmt, useLocale, useT } from '../../i18n';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
@@ -26,6 +27,7 @@ export function PrintsTable({
 }) {
   const t = useT();
   const locale = useLocale();
+  const browsing = useBrowsingLanguage();
   const [all, setAll] = useState(false);
   // ponytail: the first 12 rows, then all on request (basic lands have hundreds of prints).
   const shown = all ? prints : prints.slice(0, 12);
@@ -61,7 +63,7 @@ export function PrintsTable({
         </View>
         {shown.map((p) => {
           const on = p.id === current;
-          const { displayNumber } = inLanguage(p, locale);
+          const { displayNumber } = inLanguage(p, browsing);
           const langs = p.localizations.map((l) => l.lang.toUpperCase()).join(' · ');
           const finishes = p.finishes.map((f) => label(t.card.finishes, f)).join(', ');
           const rarity = p.rarity ? label(t.card.rarities, p.rarity) : '';
@@ -74,7 +76,8 @@ export function PrintsTable({
             >
               <View role="cell" className={`${setCol} min-w-0 gap-0.5`}>
                 <Link
-                  href={`/cards/${cardId}?print=${p.id}`}
+                  // Another print, in the same language.
+                  href={hitHref({ cardId, id: p.id, lang: browsing }, locale)}
                   numberOfLines={wide ? 1 : 2}
                   className="font-display text-[14.5px] font-semibold text-ink underline"
                 >
@@ -220,11 +223,11 @@ export function CardText({
   className?: string | undefined;
 }) {
   const t = useT();
-  const locale = useLocale();
+  const browsing = useBrowsingLanguage();
   const meta: [string, string | null | undefined][] = [
     [t.card.meta.artist, print?.artist],
     [t.card.meta.set, print && `${print.set.name} (${print.set.code.toUpperCase()})`],
-    [t.card.meta.number, print && inLanguage(print, locale).displayNumber],
+    [t.card.meta.number, print && inLanguage(print, browsing).displayNumber],
   ];
   return (
     <Section

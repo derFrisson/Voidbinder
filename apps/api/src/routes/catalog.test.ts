@@ -302,10 +302,11 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       expect(await names('q=cathar -commando')).not.toContain('Cathar Commando');
     });
 
-    it('matches the localized names and shows them in ?lang=, English otherwise', async () => {
-      expect(await names('q=strahlende')).toEqual(['Adeline, Resplendent Cathar']);
+    it('matches the localized names and shows the language that matched (VB-102)', async () => {
+      // A German name shows in German whatever ?lang=, an English one in English.
+      expect(await names('q=strahlende')).toEqual(['Adeline, strahlende Katharerin']);
       expect(await names('q=strahlende&lang=de')).toEqual(['Adeline, strahlende Katharerin']);
-      // Without a German name the English one shows.
+      expect(await names('q=resplendent&lang=de')).toEqual(['Adeline, Resplendent Cathar']);
       expect(await names('q=commando&lang=de')).toEqual(['Cathar Commando']);
     });
 
