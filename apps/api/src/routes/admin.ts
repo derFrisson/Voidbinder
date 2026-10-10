@@ -44,11 +44,15 @@ export function adminRoutes(adminToken: string | undefined, importEnv = 'local')
       .post(
         '/import/tcgdex',
         // `?mode=full` refetches every set; the default only the new, incomplete and recent ones.
+        // `?pokemontcg=true` (or `1`) adds the pokemontcg.io pictures (VB-118) on any day.
         importRoute('tcgdex', 'TCGdex', (c) => {
           const mode = c.req.query('mode') ?? 'incremental';
           if (mode !== 'incremental' && mode !== 'full')
             throw new HTTPException(400, { message: 'mode must be incremental or full' });
-          return { mode };
+          return {
+            mode,
+            ...(['true', '1'].includes(c.req.query('pokemontcg') ?? '') && { pokemontcg: true }),
+          };
         }),
       )
       .post(
