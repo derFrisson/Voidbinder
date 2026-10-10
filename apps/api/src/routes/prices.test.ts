@@ -58,7 +58,10 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     const adeline = await printId('mid', '1');
     const res = await app.request(`/catalog/prints/${adeline}/prices`);
     expect(res.status).toBe(200);
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=60, s-maxage=600');
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
+    );
+    expect(res.headers.get('Cache-Tag')).toBe('catalog,prices');
     expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
     const body = PrintPricesResponseSchema.parse(await res.json());
     expect(body.prices).toHaveLength(4);
