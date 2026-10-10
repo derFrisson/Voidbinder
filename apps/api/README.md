@@ -853,9 +853,9 @@ Gold, Gold Secret, Premium Gold, Mosaic, Starfoil and Shatterfoil Rare, the Duel
 of DT07. A product only takes prints of the set its number names, when that set is a candidate.
 
 Two products that claim one print with the same confidence are both left unmapped, and so is a
-TCGplayer id Scryfall gives more than one print. Products of one number and rarity that differ by
-name are resolved per print (VB-113): the one with the print's name wins (LOB-012 is Trial of
-Nightmare and its misprint Trial of Hell); artwork variants (`Harpie Lady (Original Artwork)` and
+TCGplayer id Scryfall gives more than one print. Yu-Gi-Oh! products of one number and rarity that
+differ by name are resolved per print (VB-113; Pokémon keeps the tie): the one with the print's
+name wins (LOB-012 is Trial of Nightmare and its misprint Trial of Hell); artwork variants (`Harpie Lady (Original Artwork)` and
 `(New Artwork)`, MRD-008) go to the original, or to the other one when Yugipedia gives the print an
 alternate-art code (`AA`, `AA2`, `Alt` in `external_ids.artwork.alt`, VB-106; none when several
 other artworks are listed), at confidence 65 with an INFO line `artwork variant

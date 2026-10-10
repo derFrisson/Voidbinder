@@ -246,8 +246,8 @@ const isRegional = (number: string) => /^(?:A|E|AE)?\d/.test(ownNumber(number));
 const productName = (name: string) => normName(name.replace(/\s+\(.*\)$|\s+-\s+.*$/, ''));
 
 /** TCGplayer's artwork suffix: `(Original Artwork)`, `(New Artwork)`, `(Alternate Art)`. */
-const ARTWORK = /\s+\([^()]*\bArt(?:work)?\)$/i;
-const ORIGINAL = /\(Original Art(?:work)?\)$/i;
+const ARTWORK = /\s+\((?:[^()]*\bArtwork|Alternate Art)\)$/i;
+const ORIGINAL = /\(Original Artwork\)$/i;
 /**
  * Yugipedia's alt codes that mean another artwork (`AA`, `AA2`, `Alt`); the others (`EA`, `B`, `C`,
  * `ReprintB`: further scans of one number; `L`, `S`, `K`: deck letters) are the print's own.
@@ -288,10 +288,10 @@ function pickArtwork(products: readonly TcgProduct[], print: CandidatePrint) {
 /**
  * Matches the products of one group to the prints of its set. `byId`: Magic, where Scryfall gives
  * the product ids; otherwise number, then a name unique in the set. A print claimed by more than
- * one product at the same best confidence is ambiguous and left unmatched, except products of one
- * number and rarity that differ by name: the one with the print's name wins (`Trial of Hell`, a
- * misprint listed as LOB-012), or artwork variants (`pickArtwork`, 65). `regional` (Yu-Gi-Oh!):
- * rarities through `rarityKey`, so one product prices a number's `Common`, `Short Print` and
+ * one product at the same best confidence is ambiguous and left unmatched. `regional` (Yu-Gi-Oh!):
+ * products of one number and rarity that differ by name are resolved per print, the one with the
+ * print's name wins (`Trial of Hell`, a misprint listed as LOB-012), or artwork variants
+ * (`pickArtwork`, 65); rarities through `rarityKey`, so one product prices a number's `Common`, `Short Print` and
  * `Super Short Print`; a product numbered with a candidate set's code takes that set's prints only
  * (LC03's group lists `LCYW-EN…` and `LC03-EN…`); a regional print no product claimed takes the one
  * product of its name and rarity, so one product may price several prints.
@@ -371,8 +371,9 @@ export function matchProducts(
   };
 
   const cards = products.filter(isCard);
+  // Yu-Gi-Oh! only: elsewhere two products of one number tie and stay unmapped.
   const family = (p: TcgProduct) => {
-    const number = extended(p, 'Number');
+    const number = regional && extended(p, 'Number');
     return number
       ? `${setOf(p)}|${number}|${rarityKey(extended(p, 'Rarity') ?? '')}`
       : String(p.productId);

@@ -360,6 +360,23 @@ describe('matchProducts', () => {
     );
     expect(matches.map((m) => [m.productId, m.method])).toEqual([[1, 'number_match']]);
   });
+
+  it('leaves a Pokémon print out that two products of its number claim', () => {
+    const p = (productId: number, name: string): TcgProduct => ({
+      productId,
+      name,
+      extendedData: [
+        { name: 'Number', value: '25/102' },
+        { name: 'Rarity', value: 'Common' },
+      ],
+    });
+    const pikachu = [print('pikachu', '25', 'Pikachu')];
+    expect(matchProducts([p(1, 'Pikachu'), p(2, 'Raichu')], pikachu, { byId: false })).toEqual([]);
+    // `(Full Art)` is no artwork suffix, not even for Yu-Gi-Oh!.
+    const fullArt = [p(1, 'Pikachu'), p(2, 'Pikachu (Full Art)')];
+    expect(matchProducts(fullArt, pikachu, { byId: false })).toEqual([]);
+    expect(matchProducts(fullArt, pikachu, { byId: false, regional: true })).toEqual([]);
+  });
 });
 
 describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
