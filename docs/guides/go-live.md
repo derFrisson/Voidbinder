@@ -61,13 +61,8 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
   `hello@` → his inbox, confirm the destination address from the mail Cloudflare sends) or Proton
   (a `protonmail-verification` TXT is already on the zone; add Proton's MX, SPF and DKIM records).
   Use one or the other, not both, because both need the apex MX.
-- **B3. The prod `ADMIN_TOKEN` value is not stored where the orchestrator can read it.** The
-  secret is set on the stub, but `~/.config/voidbinder/api-secrets.env` on the VPS and the session
-  scratchpad hold only the test user. Without the token the first imports cannot be started by
-  hand, and the crons would only start them at 03:00 UTC. If no copy turns up, rotate it in step 2.
-  That is safe because nothing uses the prod token yet.
-- **B4. The prod database state was not read.** The audit was not allowed to query prod. Step 3
-  starts with the read-only checks that settle it: whether the API journal
+- **B4. The prod database state was not read.** The audit was not allowed to query prod; the
+  orchestrator runs these queries himself as the first action of step 3. They settle: whether the API journal
   `drizzle.__drizzle_migrations_api` exists (expected: no, prod has had only the site's waitlist
   migration so far), whether `timescaledb` is installed in `voidbinder`, and whether
   `hyperdrive_prod` and `voidbinder_mirror` can connect.
@@ -149,17 +144,12 @@ secrets and two site secrets, and no DNS answer for `api.` / `app.`.
 **If not:** stop. A DNS record on `api.` or `app.` must be deleted in the dashboard first,
 otherwise the custom domain cannot be created.
 
-### 2. Admin token for prod (B3, 2 min, only if no copy exists)
+### 2. Admin token for prod (nothing to do)
 
-```sh
-umask 077; mkdir -p ~/.config/voidbinder
-openssl rand -base64 32 | tr -d '\n' > ~/.config/voidbinder/admin-token-prod
-(cd apps/api && pnpm exec wrangler secret put ADMIN_TOKEN --env prod < ~/.config/voidbinder/admin-token-prod)
-```
-
-**Verify:** `wrangler secret list --env prod` still shows four names; store the value in the
-password manager (`Voidbinder ADMIN_TOKEN prod`).
-**Rollback:** not needed; nothing reads the prod token before step 7.
+The prod `ADMIN_TOKEN` is already set on the Worker and the orchestrator holds the value (session
+scratchpad `api-secrets.env` as `ADMIN_TOKEN_prod`, backup on the VPS in
+`~/.config/voidbinder/api-secrets.env`; never write the value into a file in the repo). Steps 7 and
+9 read it with `read -rs TOKEN`. Do not rotate it.
 
 ### 3. Prod database: check, then migrate the API (10 min)
 
@@ -289,7 +279,7 @@ The three catalog imports may run side by side (dev did: Scryfall and TCGdex ove
 problems). Start them from the workstation:
 
 ```sh
-TOKEN=$(cat ~/.config/voidbinder/admin-token-prod)
+read -rs TOKEN   # paste ADMIN_TOKEN_prod
 for src in scryfall ygoprodeck 'tcgdex?mode=full'; do
   curl -sS -X POST -H "Authorization: Bearer $TOKEN" "https://api.voidbinder.de/admin/import/$src"; echo
 done
@@ -297,7 +287,7 @@ unset TOKEN
 ```
 
 **Expect:** `202 {"status":"started"}` three times. `409 import_running` means one is already
-running; `404` means `ADMIN_TOKEN` is not set (step 2).
+running; `404` means `ADMIN_TOKEN` is not set on the Worker.
 
 Durations measured on dev (`import_runs`, 2026-10-09/10), each plus the 7-minute wait before
 the cache purge (VB-71):
@@ -389,7 +379,7 @@ today. The cron then reads `last-updated.txt`, sees the same build and ends afte
 TCGCSV asks for one pull a day: do not also run a manual dev pull on the same day.
 
 ```sh
-TOKEN=$(cat ~/.config/voidbinder/admin-token-prod)
+read -rs TOKEN   # paste ADMIN_TOKEN_prod
 curl -sS -X POST -H "Authorization: Bearer $TOKEN" https://api.voidbinder.de/admin/import/tcgcsv; echo
 unset TOKEN
 ```
