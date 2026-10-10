@@ -116,9 +116,10 @@ function RailSignOut() {
     <Pressable
       role="button"
       aria-label={t.profile.signOut}
+      aria-busy={signOut.isPending}
       disabled={signOut.isPending}
       onPress={() => signOut.mutate(undefined, { onSuccess: () => router.replace('/sign-in') })}
-      className="w-16 items-center rounded-xl py-1.5"
+      className={`w-16 items-center rounded-xl py-1.5 ${signOut.isPending ? 'opacity-50' : ''}`}
     >
       <Text className="font-display text-[11.5px] font-semibold text-ink-3 underline">
         {t.profile.signOut}
