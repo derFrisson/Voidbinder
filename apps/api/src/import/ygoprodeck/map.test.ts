@@ -175,6 +175,20 @@ describe('YGOPRODeck print mapping', () => {
     );
   });
 
+  it("leaves YGOPRODeck's placeholder rarity unknown, the print still its own (VB-117)", () => {
+    // Recorded 2026-10-10: MAMO's Extended Art Ultra Rare of each Grand Master Rare card is `New`.
+    const mamo = (JSON.parse(fixture('cardinfo_mamo.json')) as { data: YgoCard[] }).data;
+    const servant = mamo.find((c) => c.name === "Dark Magician, the Pharaoh's Servant");
+    expect(
+      mapPrints(servant as YgoCard).map((p) => [p.print.number, p.print.variant, p.print.rarity]),
+    ).toEqual([
+      ['EN001', 'grand-master-rare', 'Grand Master Rare'],
+      ['EN001', 'new', null],
+      ['EN001', 'starlight-rare', 'Starlight Rare'],
+      ['EN001', 'ultra-rare', 'Ultra Rare'],
+    ]);
+  });
+
   it.each([
     ['Secret Rare', 'secret-rare'],
     ['Quarter Century Secret Rare', 'quarter-century-secret-rare'],

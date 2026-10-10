@@ -29,17 +29,28 @@ const rank = (lang: SQLWrapper | string, ownIsRequested: boolean) => sql`
     else coalesce(array_position(${LANG_ORDER}, c.lang), 8) end,
   c.key like '%-lowres.%'`;
 
-/** The keyed images of print `p`: its own key (the English scan) and its localizations' keys. */
-const candidates = (id: SQLWrapper, imageKey: SQLWrapper) => sql`(
-  select 'en' as lang, ${imageKey} as key, true as own where ${imageKey} is not null
+/**
+ * A row whose key is another rarity's scan of the same artwork (`artwork.sibling`, VB-117: the
+ * gallery import's stand-in for a missing scan): its image is a sibling print's.
+ */
+export const SIBLING_SCAN = (ids: SQLWrapper) =>
+  sql`coalesce(${ids} -> 'artwork' ->> 'sibling' = 'true', false)`;
+
+/**
+ * The keyed images of print `p`: its own key (the English scan) and its localizations' keys, each
+ * with whether it is a sibling's scan (`sib`).
+ */
+const candidates = (id: SQLWrapper, imageKey: SQLWrapper, ids: SQLWrapper) => sql`(
+  select 'en' as lang, ${imageKey} as key, true as own, ${SIBLING_SCAN(ids)} as sib
+  where ${imageKey} is not null
   union all
-  select il.lang, il.image_key, false from print_localizations il
+  select il.lang, il.image_key, false, ${SIBLING_SCAN(sql`il.external_ids`)} from print_localizations il
   where il.print_id = ${id} and il.image_key is not null
 ) c`;
 
 /**
  * The R2 image print `p` shows in `lang`, as json `{ key, lang, sibling }`, null without any:
- * the print's own chain (`rank`), else the same chain on another print of its card (same set
+ * the print's own chain (`rank`; `sibling` when its key is another rarity's scan), else the same chain on another print of its card (same set
  * first, then the newest by the print's date, else its set's). Two correlated subqueries on
  * print_localizations' primary key and prints_card_id_idx; the sibling one only runs for a print
  * without any key (COALESCE).
@@ -48,18 +59,24 @@ const candidates = (id: SQLWrapper, imageKey: SQLWrapper) => sql`(
  * fine for the few keyless prints; store a per-card best key if keyless prints of such cards grow.
  */
 export function imagePick(
-  p: { id: SQLWrapper; cardId: SQLWrapper; setId: SQLWrapper; imageKey: SQLWrapper },
+  p: {
+    id: SQLWrapper;
+    cardId: SQLWrapper;
+    setId: SQLWrapper;
+    imageKey: SQLWrapper;
+    externalIds: SQLWrapper;
+  },
   lang: SQLWrapper | string,
 ): SQL<ImagePick | null> {
   const own = sql`(
-    select json_build_object('key', c.key, 'lang', c.lang, 'sibling', false)
-    from ${candidates(p.id, p.imageKey)}
+    select json_build_object('key', c.key, 'lang', c.lang, 'sibling', c.sib)
+    from ${candidates(p.id, p.imageKey, p.externalIds)}
     order by ${rank(lang, true)}, c.own, c.lang
     limit 1)`;
   const sibling = sql`(
     select json_build_object('key', c.key, 'lang', c.lang, 'sibling', true)
     from prints sp join sets ss on ss.id = sp.set_id
-    cross join lateral ${candidates(sql`sp.id`, sql`sp.image_key`)}
+    cross join lateral ${candidates(sql`sp.id`, sql`sp.image_key`, sql`sp.external_ids`)}
     where sp.card_id = ${p.cardId} and sp.id <> ${p.id}
     order by ${rank(lang, false)}, sp.set_id = ${p.setId} desc,
       coalesce(sp.released_on, ss.released_on) desc nulls last, sp.id, c.own, c.lang

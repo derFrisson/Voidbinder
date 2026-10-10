@@ -18,11 +18,13 @@ import {
   parseGalleryTitle,
   planArtworks,
   rarityAbbr,
+  resolveRarities,
   runGalleryImport,
   planSets,
   setNameKey,
   type GalleryPage,
 } from './galleries';
+import { importCardLines } from '../ygoprodeck/write';
 import { writeLocalizations, type ImportDeps } from './pipeline';
 import { CRAWL_DELAY_MS, USER_AGENT } from './source';
 
@@ -195,6 +197,7 @@ Glory of the King's Hand
           artworks: null,
           langs: [],
           language: null,
+          alt: null,
         },
         {
           id: 'dragoon-str',
@@ -203,6 +206,7 @@ Glory of the King's Hand
           artworks: null,
           langs: [],
           language: null,
+          alt: null,
         },
         // One artwork, no alt code: the passcode image is right.
         {
@@ -212,35 +216,58 @@ Glory of the King's Hand
           artworks: null,
           langs: [],
           language: null,
+          alt: null,
         },
-        { id: 'dm', number: 'EN083', rarity: 'Ultra Rare', artworks: 9, langs: [], language: null },
+        {
+          id: 'dm',
+          number: 'EN083',
+          rarity: 'Ultra Rare',
+          artworks: 9,
+          langs: [],
+          language: null,
+          alt: null,
+        },
         // A rarity the gallery lacks: no guess.
-        { id: 'dm-cr', number: 'EN083', rarity: 'Common', artworks: 9, langs: [], language: null },
+        {
+          id: 'dm-cr',
+          number: 'EN083',
+          rarity: 'Common',
+          artworks: 9,
+          langs: [],
+          language: null,
+          alt: null,
+        },
       ],
       [gallery(RA05)],
     );
     expect(ra05).toEqual([
+      // Its Starlight scan may not stand in: a fancier foil than the print's.
       {
         printId: 'dragoon-ur',
         lang: 'en',
         alt: 'EA',
-        files: [
-          'RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png',
-          'RedEyesDarkDragoon-RA05-EN-StR-1E-EA.png',
-        ],
+        ownArt: false,
+        files: ['RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png'],
+        siblings: [],
       },
       // Its Starlight scan is missing on the wiki: the same EA artwork in Ultra Rare next.
       {
         printId: 'dragoon-str',
         lang: 'en',
         alt: 'EA',
-        files: [
-          'RedEyesDarkDragoon-RA05-EN-StR-1E-EA.png',
-          'RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png',
-        ],
+        ownArt: false,
+        files: ['RedEyesDarkDragoon-RA05-EN-StR-1E-EA.png'],
+        siblings: ['RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png'],
       },
       // No alt code: another rarity may be another artwork, so no fallback.
-      { printId: 'dm', lang: 'en', alt: '', files: ['DarkMagician-RA05-EN-UR-1E.png'] },
+      {
+        printId: 'dm',
+        lang: 'en',
+        alt: '',
+        ownArt: false,
+        files: ['DarkMagician-RA05-EN-UR-1E.png'],
+        siblings: [],
+      },
     ]);
     const ra04 = planArtworks(
       'ra04',
@@ -252,6 +279,7 @@ Glory of the King's Hand
           artworks: null,
           langs: ['de', 'fr'],
           language: null,
+          alt: null,
         },
       ],
       [gallery(RA04_DE), gallery(RA04_EN)],
@@ -269,6 +297,7 @@ Glory of the King's Hand
             artworks: 2,
             langs: [],
             language: 'de',
+            alt: null,
           },
         ],
         [gallery(RA04_DE), gallery(RA04_EN)],
@@ -278,24 +307,28 @@ Glory of the King's Hand
         printId: 'aleister-de',
         lang: 'en',
         alt: '',
+        ownArt: false,
         files: ['AleistertheInvoker-RA04-DE-PlScR-1E.png'],
+        siblings: [],
       },
     ]);
     expect(ra04).toEqual([
+      // Quarter Century Secret Rare is a plainer foil than Platinum Secret Rare.
       {
         printId: 'aleister',
         lang: 'en',
         alt: 'AA',
-        files: [
-          'AleistertheInvoker-RA04-EN-PlScR-1E-AA.png',
-          'AleistertheInvoker-RA04-EN-QCScR-1E-AA.png',
-        ],
+        ownArt: false,
+        files: ['AleistertheInvoker-RA04-EN-PlScR-1E-AA.png'],
+        siblings: ['AleistertheInvoker-RA04-EN-QCScR-1E-AA.png'],
       },
       {
         printId: 'aleister',
         lang: 'de',
         alt: '',
+        ownArt: false,
         files: ['AleistertheInvoker-RA04-DE-PlScR-1E.png'],
+        siblings: [],
       },
     ]);
   });
@@ -422,7 +455,14 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
   it('plans nothing before the YGOPRODeck import has written the artwork counts', async () => {
     await db.execute(sql`update prints set external_ids = external_ids - 'artworks'`);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect((await run()).stats).toEqual({ sets: 0, pages: 0, planned: 0, found: 0, written: 0 });
+    expect((await run()).stats).toEqual({
+      sets: 0,
+      pages: 0,
+      planned: 0,
+      found: 0,
+      written: 0,
+      rarities: 0,
+    });
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('run the YGOPRODeck import first'));
     warn.mockRestore();
     expect(requests).toEqual([]);
@@ -437,7 +477,7 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
 
   it('gives each print the scan of its artwork and lets the mirror copy it', async () => {
     const { stats } = await run();
-    expect(stats).toEqual({ sets: 2, pages: 3, planned: 5, found: 4, written: 4 });
+    expect(stats).toEqual({ sets: 2, pages: 3, planned: 5, found: 4, written: 4, rarities: 0 });
     // The listing, RA04's English and German and RA05's English gallery in one request, the files in one.
     expect(requests).toHaveLength(3);
     expect(requests.every((u) => u.startsWith('https://yugipedia.com/api.php?action=query&'))).toBe(
@@ -454,26 +494,25 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
           .from(prints)
           .where(eq(prints.id, id))
       )[0];
+    // Its own Starlight scan is missing: the plainer Ultra Rare one of the same artwork stands in.
     expect((await row(ids.dragoonStr ?? ''))?.ids.artwork).toEqual({
       file: 'RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png',
       url: 'https://ms.yugipedia.com//b/bf/RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png',
       alt: 'EA',
+      sibling: true,
     });
     // The old key serves until the mirror has stored the new scan, and the mirror plans the row.
     expect((await row(ids.dragoonStr ?? ''))?.key).toBe(passcodeKey(37818794));
-    expect(
-      (await pendingRows(db, { game: 'yugioh' }))
-        .filter((r) => r.table === 'prints')
-        .map((r) => [r.printId, r.key]),
-    ).toEqual(
-      expect.arrayContaining([
-        [ids.dragoonStr, passcodeKey(37818794)],
-        [ids.dm, passcodeKey(46986414)],
-      ]),
-    );
+    const pending = (await pendingRows(db, { game: 'yugioh' }))
+      .filter((r) => r.table === 'prints')
+      .map((r) => r.printId);
+    expect(pending).toContain(ids.dragoonStr);
+    // A row without an alt code is the standard artwork (VB-117): its scan is recorded, the
+    // passcode render stays.
     expect((await row(ids.dm ?? ''))?.ids.artwork).toMatchObject({
       file: 'DarkMagician-RA05-EN-UR-1E.png',
     });
+    expect(pending).not.toContain(ids.dm);
     expect((await row(ids.aleister ?? ''))?.ids.artwork).toMatchObject({ alt: 'AA' });
     // One artwork, no alt code: untouched.
     expect(await row(ids.psy ?? '')).toMatchObject({ key: passcodeKey(49036338) });
@@ -520,7 +559,7 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
       { game: 'yugioh' },
       { concurrency: 1, verify: false },
     );
-    expect(mirrored).toMatchObject({ images: 3, uploaded: 3, failed: 0 });
+    expect(mirrored).toMatchObject({ images: 2, uploaded: 2, failed: 0 });
     expect(
       fetched.every(
         ([url, headers]) =>
@@ -528,7 +567,7 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
           (headers as Record<string, string>)['User-Agent'] === USER_AGENT,
       ),
     ).toBe(true);
-    expect(slept).toEqual([1000, 2000]);
+    expect(slept).toEqual([1000]);
     expect((await row(ids.dragoonUr ?? ''))?.key).toBe(
       'images/yugioh/RedEyesDarkDragoon-RA05-EN-UR-1E-EA/en/orig.png',
     );
@@ -548,6 +587,15 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
       lang: 'en',
       sibling: false,
     });
+    expect((await row(ids.dm ?? ''))?.key).toBe(passcodeKey(46986414));
+    // The Starlight print shows the Ultra Rare's scan: the API says whose.
+    const app = testApp({
+      cardStore: new DrizzleCardStore(db, { imageBaseUrl: 'https://img.test' }),
+    });
+    const shown = async (id: string) =>
+      PrintResponseSchema.parse(await (await app.request(`/catalog/prints/${id}`)).json()).print;
+    expect(await shown(ids.dragoonStr ?? '')).toMatchObject({ imageFrom: 'sibling' });
+    expect(await shown(ids.dragoonUr ?? '')).toMatchObject({ imageFrom: 'print' });
   });
 
   it('labels the Extended Art prints in the catalog API and keeps the scan internal', async () => {
@@ -596,6 +644,7 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
       planned: 0,
       found: 0,
       written: 0,
+      rarities: 0,
     });
     // The listing only.
     expect(requests).toHaveLength(1);
@@ -604,8 +653,8 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
     const [p] = await db
       .select({ key: prints.imageKey })
       .from(prints)
-      .where(eq(prints.id, ids.dm ?? ''));
-    expect(p?.key).toBe('images/yugioh/DarkMagician-RA05-EN-UR-1E/en/orig.png');
+      .where(eq(prints.id, ids.dragoonUr ?? ''));
+    expect(p?.key).toBe('images/yugioh/RedEyesDarkDragoon-RA05-EN-UR-1E-EA/en/orig.png');
   });
 
   it('finds the gallery of a set the wiki names otherwise (VB-109)', async () => {
@@ -616,5 +665,306 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
     });
     const title = 'Set Card Galleries:Blazing Vortex (TCG-EN-1E)';
     expect(await planSets(db, [title], '2026-10-10')).toEqual([{ code: 'blvo', titles: [title] }]);
+  });
+});
+
+// Recorded 2026-10-10 (VB-117): MAMO's English gallery and the files of MAMO-EN001 to EN003
+// (Kuriboh - Multiply!'s Grand Master Rare and every Starlight Rare scan are missing on the wiki),
+// and YGOPRODeck's three cards, each with `New` for the Extended Art Ultra Rare.
+const MAMO = 'Set Card Galleries:Magnificent Monsters (TCG-EN-1E)';
+const mamoPage = page(MAMO);
+const mamoRows = () => {
+  const answer = JSON.parse(fixture('galleries_mamo_revisions.json')) as {
+    query: { pages: Record<string, { revisions: { '*': string }[] }> };
+  };
+  return parseGallery(Object.values(answer.query.pages)[0]?.revisions[0]?.['*'] ?? '', mamoPage);
+};
+const mamoPrint = (id: string, rarity: string | null, alt: string | null = null) => ({
+  id,
+  number: 'EN001',
+  rarity,
+  alt,
+  artworks: 4,
+  langs: [],
+  language: null,
+});
+
+describe('Yugipedia galleries: placeholder rarities and scan stand-ins (VB-117)', () => {
+  it("names YGOPRODeck's `New` after the one row no other print of the number has", () => {
+    const gallery = [{ page: mamoPage, rows: mamoRows() }];
+    const known = [
+      mamoPrint('gmr', 'Grand Master Rare'),
+      mamoPrint('str', 'Starlight Rare'),
+      mamoPrint('ur', 'Ultra Rare'),
+    ];
+    expect(resolveRarities('mamo', [...known, mamoPrint('new', null)], gallery)).toEqual([
+      { printId: 'new', rarity: 'Ultra Rare', abbr: 'UR', alt: 'EA' },
+    ]);
+    // Resolved before: its row is taken, nothing left to name.
+    expect(
+      resolveRarities('mamo', [...known, mamoPrint('new', 'Ultra Rare', 'EA')], gallery),
+    ).toEqual([]);
+    // Two placeholders of one number, or two rows left: no guess.
+    expect(
+      resolveRarities('mamo', [...known, mamoPrint('a', null), mamoPrint('b', null)], gallery),
+    ).toEqual([]);
+    expect(
+      resolveRarities(
+        'mamo',
+        [mamoPrint('gmr', 'Grand Master Rare'), mamoPrint('new', null)],
+        gallery,
+      ),
+    ).toEqual([]);
+  });
+
+  it('shows the scan of an artwork other than the standard one, a sibling only one way', () => {
+    const gallery = [{ page: mamoPage, rows: mamoRows() }];
+    const plan = planArtworks(
+      'mamo',
+      [
+        mamoPrint('gmr', 'Grand Master Rare'),
+        mamoPrint('str', 'Starlight Rare'),
+        mamoPrint('ur', 'Ultra Rare'),
+        mamoPrint('ea', 'Ultra Rare', 'EA'),
+      ],
+      gallery,
+    );
+    expect(plan).toEqual([
+      // A Grand Master Rare is its own artwork, shown; the Extended Art Ultra Rare may stand in.
+      {
+        printId: 'gmr',
+        lang: 'en',
+        alt: '',
+        ownArt: true,
+        files: ['DarkMagicianthePharaohsServant-MAMO-EN-GMR-1E.png'],
+        siblings: ['DarkMagicianthePharaohsServant-MAMO-EN-UR-1E-EA.png'],
+      },
+      // No alt code: the standard artwork, recorded, not shown, no stand-in.
+      {
+        printId: 'str',
+        lang: 'en',
+        alt: '',
+        ownArt: false,
+        files: ['DarkMagicianthePharaohsServant-MAMO-EN-StR-1E.png'],
+        siblings: [],
+      },
+      {
+        printId: 'ur',
+        lang: 'en',
+        alt: '',
+        ownArt: false,
+        files: ['DarkMagicianthePharaohsServant-MAMO-EN-UR-1E.png'],
+        siblings: [],
+      },
+      // The Extended Art never takes the Grand Master Rare's scan.
+      {
+        printId: 'ea',
+        lang: 'en',
+        alt: 'EA',
+        ownArt: false,
+        files: ['DarkMagicianthePharaohsServant-MAMO-EN-UR-1E-EA.png'],
+        siblings: [],
+      },
+    ]);
+  });
+});
+
+describe.skipIf(!databaseUrl)('Yugipedia gallery import of MAMO (Postgres, VB-117)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  beforeAll(async () => ({ db, drop } = await freshDatabase()));
+  afterAll(() => drop());
+
+  const lines = (
+    JSON.parse(
+      readFileSync(
+        new URL('../../../test/fixtures/ygoprodeck/cardinfo_mamo.json', import.meta.url).pathname,
+        'utf8',
+      ),
+    ) as { data: unknown[] }
+  ).data.map((c) => JSON.stringify(c));
+  const fakeMamo = async (url: string): Promise<Response> => {
+    const params = new URL(url).searchParams;
+    return new Response(
+      params.get('list') === 'allpages'
+        ? JSON.stringify({ query: { allpages: [{ title: MAMO }] } })
+        : fixture(
+            params.get('prop') === 'revisions'
+              ? 'galleries_mamo_revisions.json'
+              : 'galleries_mamo_imageinfo.json',
+          ),
+    );
+  };
+  const blobs = new MemoryBlobStore();
+  const galleries = (date: string) =>
+    runGalleryImport(
+      { fetch: fakeMamo, raw: blobs, withDb: (fn) => fn(db) } satisfies ImportDeps,
+      (_name, fn) => fn(),
+      { env: 'dev', date, delayMs: 0 },
+    );
+  const mirror = () =>
+    mirrorImages(
+      {
+        fetch: async () =>
+          new Response(new Uint8Array([1]), { headers: { 'content-type': 'image/png' } }),
+        store: { put: (k, b, o) => blobs.put(k, b, o), head: (k) => blobs.head(k) },
+        log: () => undefined,
+        clock: { now: () => 0, sleep: async () => undefined },
+      },
+      db,
+      { game: 'yugioh' },
+      { concurrency: 1, verify: false },
+    );
+  const mamo = async () =>
+    (
+      await db.execute<{
+        id: string;
+        number: string;
+        variant: string;
+        rarity: string | null;
+        image_key: string | null;
+        ids: Record<string, unknown>;
+      }>(sql`select p.id, p.number, p.variant, p.rarity, p.image_key, p.external_ids as ids
+        from prints p join sets s on s.id = p.set_id where s.code = 'mamo'
+        order by p.number, p.variant`)
+    ).rows;
+  const of = async (number: string, variant: string) =>
+    (await mamo()).find((p) => p.number === number && p.variant === variant);
+  const render = (passcode: number) => `images/yugioh/${passcode}/en/orig.jpg`;
+
+  it('keeps `New` off the rarity chips until the gallery names it', async () => {
+    await importCardLines(db, lines);
+    expect((await of('EN001', 'new'))?.rarity).toBeNull();
+    await mirror();
+    // The state VB-106 left on dev: the plain Ultra Rare showed its standard-artwork scan.
+    await db.execute(sql`update prints set image_key =
+        'images/yugioh/DarkMagicianthePharaohsServant-MAMO-EN-UR-1E/en/orig.png',
+      external_ids = external_ids || '{"artwork":{"file":"DarkMagicianthePharaohsServant-MAMO-EN-UR-1E.png","url":"https://ms.yugipedia.com//3/35/DarkMagicianthePharaohsServant-MAMO-EN-UR-1E.png"}}'
+      where id = ${(await of('EN001', 'ultra-rare'))?.id}`);
+    const app = testApp({ cardStore: new DrizzleCardStore(db) });
+    const facet = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/yugioh/mamo')).json(),
+    ).facets.rarities;
+    expect(facet.map((r) => r.rarity).sort()).toEqual([
+      'Grand Master Rare',
+      'Starlight Rare',
+      'Ultra Rare',
+    ]);
+    expect(facet.find((r) => r.rarity === 'Ultra Rare')?.count).toBe(3);
+  });
+
+  it('names it, shows only the scans of other artworks, and reverts a standard one', async () => {
+    const { stats } = await galleries('2026-10-10');
+    expect(stats).toMatchObject({ sets: 1, rarities: 3 });
+    const ea = await of('EN001', 'new');
+    expect(ea).toMatchObject({ rarity: 'Ultra Rare' });
+    expect(ea?.ids).toMatchObject({
+      gallery_rarity: { rarity: 'UR', alt: 'EA' },
+      artwork: { file: 'DarkMagicianthePharaohsServant-MAMO-EN-UR-1E-EA.png', alt: 'EA' },
+    });
+    // Kuriboh's Grand Master Rare scan is missing: its Extended Art Ultra Rare stands in.
+    expect((await of('EN002', 'grand-master-rare'))?.ids.artwork).toEqual({
+      file: 'KuribohMultiply-MAMO-EN-UR-1E-EA.png',
+      url: 'https://ms.yugipedia.com//4/46/KuribohMultiply-MAMO-EN-UR-1E-EA.png',
+      own_art: true,
+      sibling: true,
+    });
+
+    await mirror();
+    const keys = Object.fromEntries(
+      (await mamo()).map((p) => [`${p.number} ${p.variant}`, p.image_key]),
+    );
+    expect(keys).toEqual({
+      'EN001 grand-master-rare':
+        'images/yugioh/DarkMagicianthePharaohsServant-MAMO-EN-GMR-1E/en/orig.png',
+      'EN001 new': 'images/yugioh/DarkMagicianthePharaohsServant-MAMO-EN-UR-1E-EA/en/orig.png',
+      // The standard artwork: the passcode render, also where a scan was shown before.
+      'EN001 starlight-rare': render(88570003),
+      'EN001 ultra-rare': render(88570003),
+      'EN002 grand-master-rare': 'images/yugioh/KuribohMultiply-MAMO-EN-UR-1E-EA/en/orig.png',
+      'EN002 new': 'images/yugioh/KuribohMultiply-MAMO-EN-UR-1E-EA/en/orig.png',
+      'EN002 starlight-rare': render(14965712),
+      'EN002 ultra-rare': render(14965712),
+      'EN003 grand-master-rare': 'images/yugioh/DarkMagicalCurtain-MAMO-EN-GMR-1E/en/orig.png',
+      'EN003 new': 'images/yugioh/DarkMagicalCurtain-MAMO-EN-UR-1E-EA/en/orig.png',
+      'EN003 starlight-rare': render(41350417),
+      'EN003 ultra-rare': render(41350417),
+    });
+    // The scan stays recorded on the plain print.
+    expect((await of('EN001', 'ultra-rare'))?.ids.artwork).toMatchObject({
+      file: 'DarkMagicianthePharaohsServant-MAMO-EN-UR-1E.png',
+    });
+
+    const app = testApp({
+      cardStore: new DrizzleCardStore(db, { imageBaseUrl: 'https://img.test' }),
+    });
+    const shown = async (id: string | undefined) =>
+      PrintResponseSchema.parse(await (await app.request(`/catalog/prints/${id}`)).json()).print;
+    expect(await shown((await of('EN002', 'grand-master-rare'))?.id)).toMatchObject({
+      imageFrom: 'sibling',
+    });
+    expect(await shown((await of('EN001', 'grand-master-rare'))?.id)).toMatchObject({
+      imageFrom: 'print',
+    });
+  });
+
+  it('keeps the named rarity through the daily YGOPRODeck import', async () => {
+    const stats = await importCardLines(db, lines);
+    expect(stats.prints).toMatchObject({ inserted: 0, updated: 0 });
+    expect(await of('EN001', 'new')).toMatchObject({ rarity: 'Ultra Rare' });
+    // Changed at the source: rewritten, the gallery's rarity and artwork kept.
+    await db.execute(sql`update prints set source_hash = 'x' where variant = 'new'`);
+    expect((await importCardLines(db, lines)).prints).toMatchObject({ updated: 3 });
+    expect(await of('EN001', 'new')).toMatchObject({
+      rarity: 'Ultra Rare',
+      ids: { gallery_rarity: { alt: 'EA' }, artwork: { alt: 'EA' } },
+    });
+  });
+
+  it('migrates the scans written before (drizzle/0017_ygo_render_default.sql)', async () => {
+    const gmr = (await of('EN001', 'grand-master-rare'))?.id ?? '';
+    const ur = (await of('EN001', 'ultra-rare'))?.id ?? '';
+    // As VB-106 left them: a Grand Master Rare scan without `own_art`, a German scan of the
+    // standard artwork keyed, an Extended Art one keyed.
+    await db.execute(sql`update prints set external_ids = external_ids #- '{artwork,own_art}'
+      where id = ${gmr}`);
+    await db.insert(printLocalizations).values([
+      {
+        printId: ur,
+        lang: 'de',
+        name: 'x',
+        imageKey: 'images/yugioh/DE-UR/de/orig.png',
+        externalIds: { artwork: { file: 'DE-UR.png', url: 'https://x.test/DE-UR.png' } },
+      },
+      {
+        printId: (await of('EN001', 'new'))?.id ?? '',
+        lang: 'de',
+        name: 'x',
+        imageKey: 'images/yugioh/DE-EA/de/orig.png',
+        externalIds: { artwork: { file: 'DE-EA.png', url: 'https://x.test/DE-EA.png', alt: 'EA' } },
+      },
+    ]);
+    const migration = readFileSync(
+      new URL('../../../drizzle/0017_ygo_render_default.sql', import.meta.url).pathname,
+      'utf8',
+    );
+    for (const statement of migration.split('--> statement-breakpoint'))
+      await db.execute(sql.raw(statement));
+    expect((await of('EN001', 'grand-master-rare'))?.ids.artwork).toMatchObject({ own_art: true });
+    const keys = await db
+      .select({ key: printLocalizations.imageKey })
+      .from(printLocalizations)
+      .where(eq(printLocalizations.lang, 'de'))
+      .orderBy(printLocalizations.imageKey);
+    expect(keys.map((k) => k.key)).toEqual(['images/yugioh/DE-EA/de/orig.png', null]);
+  });
+
+  it('looks at a set with a print without rarity again the next day', async () => {
+    const titles = [MAMO];
+    expect(await planSets(db, titles, '2026-10-11')).toEqual([]);
+    await db.execute(
+      sql`update prints set rarity = null where variant = 'new' and number = 'EN003'`,
+    );
+    expect(await planSets(db, titles, '2026-10-11')).toEqual([{ code: 'mamo', titles }]);
   });
 });

@@ -875,6 +875,7 @@ export class DrizzleCardStore implements CardStore {
               cardId: sql`page.card_id`,
               setId: sql`page.set_id`,
               imageKey: sql`page.image_key`,
+              externalIds: sql`page.external_ids`,
             },
             sql`page.lang`,
           )} as image,
@@ -1350,7 +1351,13 @@ export class DrizzleCardStore implements CardStore {
         number: rep.number,
         setCode: rep.code,
         image: imagePick(
-          { id: rep.id, cardId: cards.id, setId: rep.setId, imageKey: rep.imageKey },
+          {
+            id: rep.id,
+            cardId: cards.id,
+            setId: rep.setId,
+            imageKey: rep.imageKey,
+            externalIds: rep.externalIds,
+          },
           lang,
         ),
         externalIds: rep.externalIds,
