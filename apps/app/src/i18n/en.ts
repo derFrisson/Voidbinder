@@ -68,7 +68,7 @@ export const en: Dict = {
     finish: 'Finish',
     all: 'All',
     sort: 'Sort',
-    sorts: { number: 'Number', name: 'Name', rarity: 'Rarity' },
+    sorts: { number: 'Number', name: 'Name', rarity: 'Rarity', price: 'Price' },
     view: 'View',
     grid: 'Grid',
     listView: 'List',
@@ -161,12 +161,11 @@ export const en: Dict = {
     asOf: 'as of {date}',
     condition: 'Condition',
     estimates:
-      'EX and GD are estimates from the NM price with the usual discounts, not real offers.',
-    history: 'History, Cardmarket trend',
+      'Based on {basis}. EX and GD are estimates from the NM price with the usual discounts, not real offers.',
+    history: 'History',
     noHistory: 'There is no history for this period yet.',
     range: 'Period',
     days: { '30': '30 d', '90': '90 d', '365': '1 y' },
-    today: 'today',
   },
   search: {
     title: 'Search',

@@ -2,11 +2,11 @@ import type { Locale } from '@voidbinder/shared';
 import { useState, type ReactNode } from 'react';
 import { Text, View } from 'react-native';
 import {
+  SOURCE_NAME,
   usePriceHistory,
   usePrintPrices,
   type Price,
-  type PricePoint,
-  type PrintPrices,
+  type PrintPricesResponse,
 } from '../../api/queries/cards';
 import { fmt, useLocale, useT } from '../../i18n';
 import { Segmented } from '../ui';
@@ -27,15 +27,11 @@ const SOURCES = [
   { name: 'TCGplayer', match: ['tcgplayer', 'tcgplayer_scryfall'] },
 ] as const;
 
-const LANGS: Locale[] = ['de', 'en'];
-
-const pick = (prices: PrintPrices | null, i: 0 | 1, finish: string, lang: Locale) =>
-  prices?.prices.find(
-    (p) =>
-      (SOURCES[i].match as readonly string[]).includes(p.source) &&
-      p.finish === finish &&
-      p.lang === lang,
-  );
+// `tcgplayer` (TCGCSV, with a low price) before `tcgplayer_scryfall`: the API lists them alphabetically.
+const pick = (prices: PrintPricesResponse | null, i: 0 | 1, finish: string) =>
+  SOURCES[i].match
+    .map((source) => prices?.prices.find((p) => p.source === source && p.finish === finish))
+    .find(Boolean);
 
 /** A panel of the card page (the mockup's `.panel`): heading, optional controls, content. */
 export function Section({
@@ -69,7 +65,9 @@ function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
     <View className="min-w-[220px] flex-1 gap-3 rounded-2xl bg-surface-2 p-4">
       <View className="flex-row items-baseline justify-between">
         <Text className="font-display text-sm font-semibold text-ink">{SOURCES[i].name}</Text>
-        <Text className="font-mono text-xs text-ink-3">{i === 0 ? 'EUR' : 'USD'}</Text>
+        <Text className="font-mono text-xs text-ink-3">
+          {price?.currency ?? (i === 0 ? 'EUR' : 'USD')}
+        </Text>
       </View>
       {price ? (
         <>
@@ -91,7 +89,7 @@ function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
           )}
           <Text className="border-t border-line pt-2.5 font-body text-[12.5px] text-ink-3">
             {[
-              price.lang.toUpperCase(),
+              price.sourceLabel,
               label(t.card.finishes, price.finish),
               t.prices.nearMint,
               fmt(t.prices.asOf, { date: dateTime(price.observedAt, locale) }),
@@ -105,11 +103,12 @@ function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
   );
 }
 
-function History({ printId }: { printId: string }) {
+function History({ printId, finish }: { printId: string; finish: string }) {
   const t = useT();
   const locale = useLocale();
   const [days, setDays] = useState<'30' | '90' | '365'>('90');
-  const points: PricePoint[] = usePriceHistory(printId, Number(days)) ?? [];
+  const series = usePriceHistory(printId, Number(days), finish);
+  const points = series?.points ?? [];
   const first = points[0];
   const last = points.at(-1);
   return (
@@ -121,6 +120,9 @@ function History({ printId }: { printId: string }) {
           className="font-display text-[14.5px] font-semibold text-ink"
         >
           {t.prices.history}
+          {series && (
+            <Text className="font-normal text-ink-3"> · {SOURCE_NAME[series.source]}</Text>
+          )}
         </Text>
         <Segmented
           label={t.prices.range}
@@ -132,15 +134,15 @@ function History({ printId }: { printId: string }) {
           }))}
         />
       </View>
-      {first && last && points.length > 1 ? (
+      {series && first && last && points.length > 1 ? (
         <>
           <PriceLine points={points} />
           <View className="flex-row justify-between">
             <Text className="font-mono text-[12.5px] text-ink-3">
-              {formatDate(first.date, locale)} · {money(first.cents, 'EUR', locale)}
+              {formatDate(first.date, locale)} · {money(first.cents, series.currency, locale)}
             </Text>
             <Text className="font-mono text-[12.5px] text-ink">
-              {t.prices.today} · {money(last.cents, 'EUR', locale)}
+              {formatDate(last.date, locale)} · {money(last.cents, series.currency, locale)}
             </Text>
           </View>
         </>
@@ -154,35 +156,28 @@ function History({ printId }: { printId: string }) {
 /**
  * The price panel: Cardmarket and TCGplayer side by side with source, finish, condition and
  * time, the condition row (NM observed, EX and GD estimated, marked ≈) and the history line.
- * Without prices (VB-30 not merged, or none for this print) it says so and shows no number.
+ * Without prices it says so and shows no number.
  */
 export function PricePanel({ printId, finishes }: { printId: string; finishes: string[] }) {
   const t = useT();
   const locale = useLocale();
-  const prices = usePrintPrices(printId);
   const [finish, setFinish] = useState(finishes[0] ?? 'normal');
-  const [lang, setLang] = useState<Locale>(locale);
+  const prices = usePrintPrices(printId, finish);
+  const display = prices?.display;
+  // NM, EX and GD only: the lower grades are not offered on the mockup's row.
+  const conditions = prices?.conditions.filter((c) => ['NM', 'EX', 'GD'].includes(c.condition));
   return (
     <Section
       title={t.prices.title}
       aside={
-        prices && (
-          <View className="flex-row flex-wrap items-end gap-3">
-            {finishes.length > 1 && (
-              <Segmented
-                label={t.card.table.finish}
-                value={finish}
-                onChange={setFinish}
-                options={finishes.map((f) => ({ value: f, label: label(t.card.finishes, f) }))}
-              />
-            )}
-            <Segmented
-              label={t.card.table.languages}
-              value={lang}
-              onChange={setLang}
-              options={LANGS.map((l) => ({ value: l, label: l.toUpperCase() }))}
-            />
-          </View>
+        prices &&
+        finishes.length > 1 && (
+          <Segmented
+            label={t.card.table.finish}
+            value={finish}
+            onChange={setFinish}
+            options={finishes.map((f) => ({ value: f, label: label(t.card.finishes, f) }))}
+          />
         )
       }
     >
@@ -191,10 +186,10 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
       ) : (
         <>
           <View className="flex-row flex-wrap gap-3">
-            <SourceColumn i={0} price={pick(prices, 0, finish, lang)} />
-            <SourceColumn i={1} price={pick(prices, 1, finish, lang)} />
+            <SourceColumn i={0} price={pick(prices, 0, finish)} />
+            <SourceColumn i={1} price={pick(prices, 1, finish)} />
           </View>
-          {prices.conditions.length > 0 && (
+          {display && conditions && conditions.length > 0 && (
             <View className="gap-2 border-t border-line pt-3">
               <View
                 role="group"
@@ -204,25 +199,29 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
                 <Text className="font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3">
                   {t.prices.condition}
                 </Text>
-                {prices.conditions.map((c) => (
+                {conditions.map((c) => (
                   <View
                     key={c.condition}
-                    className={`min-w-[120px] flex-1 flex-row items-baseline justify-between gap-2 rounded-xl px-3.5 py-2.5 ${c.condition === 'NM' ? 'border-[1.5px] border-ink' : 'border border-line'}`}
+                    className={`min-w-[120px] flex-1 flex-row items-baseline justify-between gap-2 rounded-xl px-3.5 py-2.5 ${c.factor === 1 ? 'border-[1.5px] border-ink' : 'border border-line'}`}
                   >
                     <Text className="font-display text-[13px] font-semibold text-ink">
                       {c.condition}
                     </Text>
                     <Text className="font-mono text-[15px] font-semibold text-ink">
-                      {c.condition === 'NM' ? '' : '≈ '}
-                      {money(c.cents, prices.currency, locale)}
+                      {c.factor === 1 ? '' : '≈ '}
+                      {money(c.cents, display.currency, locale)}
                     </Text>
                   </View>
                 ))}
               </View>
-              <Text className="font-body text-[12.5px] text-ink-3">{t.prices.estimates}</Text>
+              <Text className="font-body text-[12.5px] text-ink-3">
+                {fmt(t.prices.estimates, {
+                  basis: `${SOURCE_NAME[display.source]}, ${label(t.card.finishes, display.finish)}`,
+                })}
+              </Text>
             </View>
           )}
-          <History printId={printId} />
+          <History printId={printId} finish={finish} />
         </>
       )}
     </Section>
@@ -233,11 +232,11 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
 export function PriceStrip({ printId, finish }: { printId: string; finish: string }) {
   const t = useT();
   const locale = useLocale();
-  const prices = usePrintPrices(printId);
+  const prices = usePrintPrices(printId, finish);
   return (
     <View className="flex-row gap-2">
       {([0, 1] as const).map((i) => {
-        const p = pick(prices, i, finish, locale);
+        const p = pick(prices, i, finish);
         return (
           <View
             key={i}

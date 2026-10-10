@@ -6,7 +6,7 @@ import {
 } from '@voidbinder/shared/api';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { conditionMultipliers, pricesDaily, prints, sets } from '../db/schema';
+import { conditionMultipliers, pricesCurrent, pricesDaily, prints, sets } from '../db/schema';
 import { runScryfallImport, type ImportDeps } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -156,6 +156,35 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     // A foil-only print is priced by its only finish.
     const champion = (await page('?page=1&sort=number')).prints.find((p) => p.number === '385');
     expect(champion?.marketPrice).toMatchObject({ finish: 'foil', cents: 76 });
+  });
+
+  it('sorts a set page by market price, unpriced prints last', async () => {
+    const page = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/mtg/mid?sort=price')).json(),
+    );
+    const cents = page.prints.map((p) => p.marketPrice?.cents ?? null);
+    const priced = cents.filter((c): c is number => c !== null);
+    expect(priced.length).toBeGreaterThan(1);
+    expect(priced).toEqual([...priced].sort((a, b) => b - a));
+    // Nothing priced follows an unpriced print.
+    expect(cents.slice(priced.length).every((c) => c === null)).toBe(true);
+    expect(cents[0]).toBe(Math.max(...priced));
+
+    // A print with only a USD price sorts after every print priced in EUR, whatever its cents.
+    const adeline = await printId('mid', '1');
+    const eurRows = await db
+      .delete(pricesCurrent)
+      .where(and(eq(pricesCurrent.printId, adeline), eq(pricesCurrent.currency, 'EUR')))
+      .returning();
+    const again = SetPageResponseSchema.parse(
+      await (await app.request('/catalog/sets/mtg/mid?sort=price')).json(),
+    );
+    const currencies = again.prints.map((p) => p.marketPrice?.currency ?? null);
+    const lastEur = currencies.lastIndexOf('EUR');
+    const firstUsd = currencies.indexOf('USD');
+    expect(firstUsd).toBeGreaterThan(lastEur);
+    expect(again.prints[firstUsd]?.id).toBe(adeline);
+    await db.insert(pricesCurrent).values(eurRows);
   });
 
   it('adds the same market price to the search hits', async () => {

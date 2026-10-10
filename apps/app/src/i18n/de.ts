@@ -72,7 +72,7 @@ export const de = {
     finish: 'Ausführung',
     all: 'Alle',
     sort: 'Sortierung',
-    sorts: { number: 'Nummer', name: 'Name', rarity: 'Seltenheit' },
+    sorts: { number: 'Nummer', name: 'Name', rarity: 'Seltenheit', price: 'Preis' },
     view: 'Ansicht',
     grid: 'Raster',
     listView: 'Liste',
@@ -178,12 +178,11 @@ export const de = {
     asOf: 'Stand {date}',
     condition: 'Zustand',
     estimates:
-      'EX und GD sind Schätzungen aus dem NM-Preis mit üblichen Abschlägen, keine echten Angebote.',
-    history: 'Verlauf, Cardmarket-Trend',
+      'Basis: {basis}. EX und GD sind Schätzungen aus dem NM-Preis mit üblichen Abschlägen, keine echten Angebote.',
+    history: 'Verlauf',
     noHistory: 'Für diesen Zeitraum gibt es noch keinen Verlauf.',
     range: 'Zeitraum',
     days: { '30': '30 T', '90': '90 T', '365': '1 J' },
-    today: 'heute',
   },
   search: {
     title: 'Suche',
