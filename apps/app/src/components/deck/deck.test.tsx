@@ -374,7 +374,11 @@ describe('deck screen', () => {
     fireEvent.change(await screen.findByLabelText('Karte suchen'), {
       target: { value: 'nebel' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' }));
+    // The search waits out its 250 ms debounce first: on a loaded CI runner that and the answer
+    // take longer than findBy's default second.
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' }, { timeout: 5000 }),
+    );
     await waitFor(() =>
       expect(putBody(calls)).toContainEqual({
         cardId: id(5),
@@ -398,7 +402,11 @@ describe('deck screen', () => {
     fireEvent.change(await screen.findByLabelText('Karte suchen'), {
       target: { value: 'nebel' },
     });
-    const addHit = await screen.findByRole('button', { name: 'Nebelschwinge hinzufügen' });
+    const addHit = await screen.findByRole(
+      'button',
+      { name: 'Nebelschwinge hinzufügen' },
+      { timeout: 5000 },
+    );
     fireEvent.click(addHit);
     fireEvent.click(addHit);
     fireEvent.click(screen.getByRole('button', { name: 'Nebeldrache hinzufügen' }));
