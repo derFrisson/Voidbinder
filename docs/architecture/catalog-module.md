@@ -32,6 +32,14 @@ Sizes (2026-10-10): Yu-Gi-Oh! on `dev` (44,266 prints, 48,801 prices) 68 MB unpa
 gzipped, built in 9 s; Magic from a local catalog with almost no prices (103,435 prints) 145 MB,
 37 MB gzipped, most of it `cards` (legalities and attributes).
 
+Delta size (Yu-Gi-Oh! on `dev`, 2026-10-10): two builds in a row gave the same `catalog_version`
+(9), so the delta is empty (27 bytes). `dev` holds one price day per source, so no real second
+version exists yet; the bound is a delta in which every one of the 48,801 price rows changed:
+16.0 MB unpacked, 1.0 MB gzipped (5 % of the module's 19.8 MB). A daily import re-observes every
+price (`observed_at` moves even when the cents do not), so the price rows are the whole delta.
+Follow-up: emit a price row only when `cents` or `source` changes, and let `observed_at` lag
+until then.
+
 ## Manifest
 
 `ModuleManifestSchema` in `packages/shared/src/api/modules.ts`; `GET /catalog/modules` answers
