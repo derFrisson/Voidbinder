@@ -343,6 +343,18 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
       return { res, body: (await res.json()) as { twoFactorRedirect?: boolean } };
     }
 
+    /** A browser that passed the code step with "remember this device", then signed out. */
+    async function trustedDevice(email: string, secret: string) {
+      const device = browser();
+      await signInStep(device, email);
+      const verify = await device.request('/auth/two-factor/verify-totp', {
+        body: { code: totp(secret), trustDevice: true },
+      });
+      expect(verify.status).toBe(200);
+      await device.request('/auth/sign-out', { body: {} });
+      return device;
+    }
+
     async function twoFactorRow(email: string) {
       const [row] = await db
         .select({ enabled: user.twoFactorEnabled, tf: twoFactor })
@@ -524,10 +536,23 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
       expect((await app.request('/me')).status).toBe(200);
     });
 
-    it('keeps 2FA through a password reset', async () => {
-      const { b, email } = await signedIn('en');
+    it('forgets every trusted device when 2FA is turned off and on again elsewhere', async () => {
+      const { b, email } = await signedIn();
+      const { secret } = await enable(b);
+      const device = await trustedDevice(email, secret);
+      expect((await signInStep(device, email)).body.twoFactorRedirect).toBeUndefined();
+      await device.request('/auth/sign-out', { body: {} });
+
+      const off = await b.request('/auth/two-factor/disable', { body: { password: PASSWORD } });
+      expect(off.status).toBe(200);
       await enable(b);
-      const other = browser();
+      expect((await signInStep(device, email)).body.twoFactorRedirect).toBe(true);
+    });
+
+    it('keeps 2FA through a password reset and forgets the trusted devices', async () => {
+      const { b, email } = await signedIn('en');
+      const { secret } = await enable(b);
+      const other = await trustedDevice(email, secret);
       await other.request('/auth/request-password-reset', { body: { email } });
       const reset = await other.request('/auth/reset-password', {
         body: {

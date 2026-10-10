@@ -3,7 +3,7 @@ import type { Locale } from '@voidbinder/shared';
 import { betterAuth, type BetterAuthPlugin } from 'better-auth';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { bearer, TWO_FACTOR_ERROR_CODES, twoFactor } from 'better-auth/plugins';
-import { and, eq, isNotNull } from 'drizzle-orm';
+import { and, eq, isNotNull, like } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema/auth';
 import { log } from '../middleware/log';
@@ -88,6 +88,8 @@ export function createAuth(config: AuthConfig, req: AuthRequest) {
       minPasswordLength: 10,
       resetPasswordTokenExpiresIn: LINK_TTL_SECONDS,
       revokeSessionsOnPasswordReset: true,
+      // A reset takes back every "remember this device" along with the sessions.
+      onPasswordReset: async ({ user }) => forgetTrustedDevices(req.db, user.id),
       sendResetPassword: async ({ user, token }) => {
         sendMail(
           'resetPassword',
@@ -186,6 +188,8 @@ export function createAuth(config: AuthConfig, req: AuthRequest) {
  *   so the password alone cannot withdraw it.
  * - A wrong backup code answers like a wrong TOTP code (401 `INVALID_CODE`), so the answer does
  *   not tell which factor an attacker is guessing.
+ * - Turning 2FA off or setting up a new secret forgets every trusted device of the user, not only
+ *   the one the request came from (the plugin's own disable does just that one).
  */
 function voidbinderHooks(db: NodePgDatabase) {
   return {
@@ -204,6 +208,14 @@ function voidbinderHooks(db: NodePgDatabase) {
           }),
         },
         {
+          matcher: (ctx) => ctx.path === '/two-factor/disable' || ctx.path === '/two-factor/enable',
+          handler: createAuthMiddleware(async (ctx) => {
+            const userId = ctx.context.session?.user.id;
+            if (!userId || isAPIError(ctx.context.returned)) return;
+            await forgetTrustedDevices(db, userId);
+          }),
+        },
+        {
           matcher: (ctx) => ctx.path === '/two-factor/verify-backup-code',
           handler: createAuthMiddleware(async (ctx) => {
             const returned: unknown = ctx.context.returned;
@@ -218,6 +230,21 @@ function voidbinderHooks(db: NodePgDatabase) {
       ],
     },
   } satisfies BetterAuthPlugin;
+}
+
+/**
+ * Deletes the user's "Dieses Gerät 30 Tage merken" records. better-auth 1.7.7 keeps one
+ * `verification` row per trusted device: identifier `trust-device-<random>`, value the user id.
+ */
+async function forgetTrustedDevices(db: NodePgDatabase, userId: string) {
+  await db
+    .delete(schema.verification)
+    .where(
+      and(
+        like(schema.verification.identifier, 'trust-device-%'),
+        eq(schema.verification.value, userId),
+      ),
+    );
 }
 
 export type Auth = ReturnType<typeof createAuth>;
