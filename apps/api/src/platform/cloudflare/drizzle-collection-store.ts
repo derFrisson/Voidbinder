@@ -72,6 +72,7 @@ type Factors = Map<string, { condition: Condition; factor: number }[]>;
 type PriceRow = {
   source: PriceSource;
   finish: string;
+  lang: string;
   currency: Currency;
   market: number;
   observedAt: string;
@@ -224,6 +225,7 @@ export class DrizzleCollectionStore implements CollectionStore {
               printId: pricesCurrent.printId,
               source: pricesCurrent.source,
               finish: pricesCurrent.finish,
+              lang: pricesCurrent.lang,
               currency: pricesCurrent.currency,
               market: pricesCurrent.centsMarket,
               observedAt: pricesCurrent.observedAt,
@@ -238,6 +240,7 @@ export class DrizzleCollectionStore implements CollectionStore {
       list.push({
         source: r.source as PriceSource,
         finish: r.finish,
+        lang: r.lang,
         currency: r.currency as Currency,
         market: r.market,
         observedAt: r.observedAt.toISOString(),
@@ -253,15 +256,18 @@ export class DrizzleCollectionStore implements CollectionStore {
     return { byPrint, factors };
   }
 
+  /** One copy's price; `lang` is the copy's language (a wish for any language: English). */
   private priceOf(
     ctx: { byPrint: Map<string, PriceRow[]>; factors: Factors },
     r: { printId: string; game: string; finishes: string[] },
     finish: string | null,
     condition: CollectionCondition,
     currency: Currency,
+    lang: string,
   ): EntryPrice | null {
     return priceEntry(ctx.byPrint.get(r.printId) ?? [], {
       currency,
+      lang,
       finish,
       finishes: r.finishes,
       condition,
@@ -453,7 +459,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         createdAt: e.createdAt.toISOString(),
         updatedAt: e.updatedAt.toISOString(),
         print: this.toPrint(r, e.language),
-        price: this.priceOf(ctx, r, e.finish, condition, currency),
+        price: this.priceOf(ctx, r, e.finish, condition, currency, e.language),
       };
     });
   }
@@ -632,6 +638,7 @@ export class DrizzleCollectionStore implements CollectionStore {
           w.finish,
           minCondition ?? 'NM',
           (w.currency as Currency | null) ?? currency,
+          w.language ?? 'en',
         ),
       };
     });
@@ -774,6 +781,7 @@ export class DrizzleCollectionStore implements CollectionStore {
           quantity: collectionEntries.quantity,
           condition: collectionEntries.condition,
           finish: collectionEntries.finish,
+          language: collectionEntries.language,
           game: sets.gameId,
           finishes: prints.finishes,
         })
@@ -787,6 +795,7 @@ export class DrizzleCollectionStore implements CollectionStore {
           quantity: wishlistEntries.quantity,
           minCondition: wishlistEntries.minCondition,
           finish: wishlistEntries.finish,
+          language: wishlistEntries.language,
           maxPriceCents: wishlistEntries.maxPriceCents,
           currency: wishlistEntries.currency,
           game: sets.gameId,
@@ -801,7 +810,14 @@ export class DrizzleCollectionStore implements CollectionStore {
     ]);
     const valued = entries.map((e) => ({
       ...e,
-      price: this.priceOf(ctxEntries, e, e.finish, e.condition as CollectionCondition, currency),
+      price: this.priceOf(
+        ctxEntries,
+        e,
+        e.finish,
+        e.condition as CollectionCondition,
+        currency,
+        e.language,
+      ),
     }));
     const wished = wishes.map((w) => {
       const wishCurrency = (w.currency as Currency | null) ?? currency;
@@ -811,6 +827,7 @@ export class DrizzleCollectionStore implements CollectionStore {
         w.finish,
         (w.minCondition as CollectionCondition | null) ?? 'NM',
         wishCurrency,
+        w.language ?? 'en',
       );
       return {
         ...w,

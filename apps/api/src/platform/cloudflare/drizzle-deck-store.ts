@@ -189,6 +189,7 @@ export class DrizzleDeckStore implements DeckStore {
               printId: pricesCurrent.printId,
               source: pricesCurrent.source,
               finish: pricesCurrent.finish,
+              lang: pricesCurrent.lang,
               currency: pricesCurrent.currency,
               market: pricesCurrent.centsMarket,
               observedAt: pricesCurrent.observedAt,
@@ -249,6 +250,7 @@ export class DrizzleDeckStore implements DeckStore {
       list.push({
         source: p.source as PriceSource,
         finish: p.finish,
+        lang: p.lang,
         currency: p.currency as Currency,
         market: p.market,
         observedAt: p.observedAt.toISOString(),
@@ -282,7 +284,11 @@ export class DrizzleDeckStore implements DeckStore {
     const localName = new Map(localRows.map((l) => [l.cardId, l.name]));
     const owned = new Map(ownedRows.map((o) => [`${o.game}:${o.name}`, o.n]));
     const cheapest = new Map(
-      cardIds.map((id) => [id, cheapestPrice(printsByCard.get(id) ?? [], opts.currency)]),
+      // Deck lines have no language of their own: prices in the user's (VB-103).
+      cardIds.map((id) => [
+        id,
+        cheapestPrice(printsByCard.get(id) ?? [], opts.currency, opts.lang),
+      ]),
     );
 
     return rows.map((deck) => {
@@ -320,6 +326,7 @@ export class DrizzleDeckStore implements DeckStore {
             : shown
               ? priceEntry(shown.prices, {
                   currency: opts.currency,
+                  lang: opts.lang,
                   finishes: shown.finishes,
                   condition: 'NM',
                 })

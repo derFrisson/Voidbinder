@@ -24,6 +24,7 @@ import {
   type Currency,
   type DisplayPrice,
   type GameSummary,
+  type PriceHistoryQuery,
   type PriceHistoryResponse,
   type PriceSource,
   type PricesQuery,
@@ -100,6 +101,13 @@ const finishRank = (finish: SQLWrapper, finishes: SQLWrapper) =>
   sql`case when ${finish} = case when 'normal' = any(${finishes}) or cardinality(${finishes}) = 0 then 'normal' else (${finishes})[1] end then 0 else coalesce(array_position(${finishes}, ${finish}), 98) + 1 end`;
 const DAY_MS = 86_400_000;
 
+/**
+ * core's `langRank` as an ORDER BY term (smallest first): a price in `wanted` (the language of
+ * the card shown, VB-103), then `en`, then any; `lang` last breaks the tie as core does.
+ */
+const langRank = (lang: SQLWrapper, wanted: SQLWrapper | string) =>
+  sql`case when ${lang} = ${wanted} then 0 when ${lang} = 'en' then 1 else 2 end`;
+
 /** `currency`'s preferred source first (core's SOURCE_PREFERENCE), as an ORDER BY term. */
 const sourceOrder = (currency: Currency) =>
   sql`case ${pricesCurrent.source} ${sql.join(
@@ -113,16 +121,18 @@ function displayPrice(m: {
   currency: string | null;
   source: string | null;
   finish: string | null;
+  lang: string | null;
   /** A Date from the query builder, the driver's text from raw SQL. */
   observedAt: Date | string | null;
 }): DisplayPrice | null {
-  return m.cents == null || !m.currency || !m.source || !m.finish || !m.observedAt
+  return m.cents == null || !m.currency || !m.source || !m.finish || !m.lang || !m.observedAt
     ? null
     : {
         cents: m.cents,
         currency: m.currency as Currency,
         source: m.source as PriceSource,
         finish: m.finish,
+        lang: m.lang,
         observedAt: new Date(m.observedAt).toISOString(),
       };
 }
@@ -336,15 +346,18 @@ export class DrizzleCardStore implements CardStore {
 
   /**
    * One cheap lateral lookup per print on prices_current's primary key: the print's `marketPrice`
-   * (`finishRank`, then `sourceOrder`), joined with `leftJoinLateral(market, sql`true`)`.
+   * (`finishRank`, `langRank`, then `sourceOrder`: core's pickDisplayPrice), joined with
+   * `leftJoinLateral(market, sql`true`)`. `lang`: the language of the card shown, a value or a
+   * column of the outer query.
    */
-  private marketLateral(currency: Currency) {
+  private marketLateral(currency: Currency, lang: SQLWrapper | string) {
     return this.catalog
       .select({
         cents: pricesCurrent.centsMarket,
         currency: pricesCurrent.currency,
         source: pricesCurrent.source,
         finish: pricesCurrent.finish,
+        lang: pricesCurrent.lang,
         observedAt: pricesCurrent.observedAt,
       })
       .from(pricesCurrent)
@@ -352,18 +365,21 @@ export class DrizzleCardStore implements CardStore {
       .orderBy(
         finishRank(pricesCurrent.finish, prints.finishes),
         pricesCurrent.finish,
+        langRank(pricesCurrent.lang, lang),
         sourceOrder(currency),
+        pricesCurrent.lang,
       )
       .limit(1)
       .as('market');
   }
 
-  /** `marketPrice` per print id, for the prints of a card. */
+  /** `marketPrice` per print id, for the prints of a card shown in `lang`. */
   private async marketPrices(
     ids: string[],
     currency: Currency,
+    lang: string,
   ): Promise<Map<string, DisplayPrice>> {
-    const market = this.marketLateral(currency);
+    const market = this.marketLateral(currency, lang);
     const rows = ids.length
       ? await this.catalog
           .select({
@@ -373,6 +389,7 @@ export class DrizzleCardStore implements CardStore {
               currency: market.currency,
               source: market.source,
               finish: market.finish,
+              lang: market.lang,
               observedAt: market.observedAt,
             },
           })
@@ -408,7 +425,7 @@ export class DrizzleCardStore implements CardStore {
     const name = sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`;
 
     const inSet = eq(prints.setId, setId);
-    const market = this.marketLateral(query.currency);
+    const market = this.marketLateral(query.currency, query.lang);
 
     // The variants of a number follow each other (sorted by number or name).
     const order = {
@@ -449,6 +466,7 @@ export class DrizzleCardStore implements CardStore {
             currency: market.currency,
             source: market.source,
             finish: market.finish,
+            lang: market.lang,
             observedAt: market.observedAt,
           },
         })
@@ -624,6 +642,7 @@ export class DrizzleCardStore implements CardStore {
     const market = await this.marketPrices(
       details.map((p) => p.id),
       query.currency,
+      query.lang,
     );
     return {
       card,
@@ -698,6 +717,7 @@ export class DrizzleCardStore implements CardStore {
       price_currency: Currency | null;
       price_source: DisplayPrice['source'] | null;
       price_finish: string | null;
+      price_lang: string | null;
       price_observed_at: Date | string | null;
       type_line: string | null;
       game: Game;
@@ -741,7 +761,7 @@ export class DrizzleCardStore implements CardStore {
             query.lang,
           )} as image,
           market.cents as price_cents, market.currency as price_currency,
-          market.source as price_source, market.finish as price_finish,
+          market.source as price_source, market.finish as price_finish, market.lang as price_lang,
           market.observed_at as price_observed_at, page.type_line, page.game, page.set_code, coalesce(set_l.name, page.set_name) as set_name,
           page.card_count, g.card_format, localized.print_id is not null as localized
         from page
@@ -755,11 +775,14 @@ export class DrizzleCardStore implements CardStore {
         left join lateral (
           select ${pricesCurrent.centsMarket} as cents, ${pricesCurrent.currency} as currency,
             ${pricesCurrent.source} as source, ${pricesCurrent.finish} as finish,
-            ${pricesCurrent.observedAt} as observed_at
+            ${pricesCurrent.lang} as lang, ${pricesCurrent.observedAt} as observed_at
           from ${pricesCurrent}
           where ${pricesCurrent.printId} = page.id
+          -- The hit's price in the language shown (VB-103). ponytail: ?lang= for every hit; the
+          -- hit's own match language (VB-102) goes in its place as a column of page.
           order by ${finishRank(pricesCurrent.finish, sql`page.finishes`)}, ${pricesCurrent.finish},
-            ${sourceOrder(query.currency)}
+            ${langRank(pricesCurrent.lang, query.lang)}, ${sourceOrder(query.currency)},
+            ${pricesCurrent.lang}
           limit 1
         ) market on true
         order by page.rank desc, page.card_name, page.released_on desc nulls last, page.set_code,
@@ -791,6 +814,7 @@ export class DrizzleCardStore implements CardStore {
           currency: r.price_currency,
           source: r.price_source,
           finish: r.price_finish,
+          lang: r.price_lang,
           observedAt: r.price_observed_at,
         }),
         typeLine: r.type_line,
@@ -995,12 +1019,21 @@ export class DrizzleCardStore implements CardStore {
     const print = await this.printInfo(id);
     if (!print) return null;
     const [rows, factors] = await Promise.all([
+      // Per source and finish the price in `?lang=`, else `en`, else another (VB-103).
       this.catalog
-        .select({ price: pricesCurrent, sourceLabel: priceSources.name })
+        .selectDistinctOn([pricesCurrent.source, pricesCurrent.finish], {
+          price: pricesCurrent,
+          sourceLabel: priceSources.name,
+        })
         .from(pricesCurrent)
         .innerJoin(priceSources, eq(priceSources.id, pricesCurrent.source))
         .where(eq(pricesCurrent.printId, id))
-        .orderBy(pricesCurrent.source, pricesCurrent.finish),
+        .orderBy(
+          pricesCurrent.source,
+          pricesCurrent.finish,
+          langRank(pricesCurrent.lang, query.lang),
+          pricesCurrent.lang,
+        ),
       this.catalog
         .select({ condition: conditionMultipliers.condition, factor: conditionMultipliers.factor })
         .from(conditionMultipliers)
@@ -1011,6 +1044,7 @@ export class DrizzleCardStore implements CardStore {
       source: p.source as PriceSource,
       sourceLabel,
       finish: p.finish,
+      lang: p.lang,
       currency: p.currency as Currency,
       market: p.centsMarket,
       low: p.centsLow,
@@ -1038,22 +1072,32 @@ export class DrizzleCardStore implements CardStore {
 
   async getPriceHistory(
     id: string,
-    days: number,
+    query: PriceHistoryQuery,
     today: string,
   ): Promise<PriceHistoryResponse | null> {
     if (!(await this.printInfo(id))) return null;
+    const { days, lang } = query;
     const from = new Date(Date.parse(`${today}T00:00:00Z`) - days * DAY_MS);
+    // Per source, finish and day the price in `lang`, else `en`, else another (VB-103): a
+    // language's history starts where its feed does, English fills the days before.
     const rows = await this.catalog
-      .select({
+      .selectDistinctOn([pricesDaily.source, pricesDaily.finish, pricesDaily.observedAt], {
         observedAt: pricesDaily.observedAt,
         source: pricesDaily.source,
         finish: pricesDaily.finish,
+        lang: pricesDaily.lang,
         currency: pricesDaily.currency,
         cents: pricesDaily.centsMarket,
       })
       .from(pricesDaily)
       .where(and(eq(pricesDaily.printId, id), gte(pricesDaily.observedAt, from)))
-      .orderBy(pricesDaily.source, pricesDaily.finish, pricesDaily.observedAt);
+      .orderBy(
+        pricesDaily.source,
+        pricesDaily.finish,
+        pricesDaily.observedAt,
+        langRank(pricesDaily.lang, lang),
+        pricesDaily.lang,
+      );
     const series = new Map<string, PriceHistoryResponse['series'][number]>();
     for (const r of rows) {
       const key = `${r.source}|${r.finish}|${r.currency}`;
@@ -1067,7 +1111,11 @@ export class DrizzleCardStore implements CardStore {
         };
         series.set(key, s);
       }
-      s.points.push({ date: r.observedAt.toISOString().slice(0, 10), cents: r.cents });
+      s.points.push({
+        date: r.observedAt.toISOString().slice(0, 10),
+        cents: r.cents,
+        lang: r.lang,
+      });
     }
     return {
       printId: id,

@@ -45,7 +45,7 @@ export function priceRoutes() {
         const today = new Date().toISOString().slice(0, 10);
         const history = await c.var.platform.cardStore.getPriceHistory(
           id,
-          c.req.valid('query').days,
+          c.req.valid('query'),
           today,
         );
         const body: PriceHistoryResponse = found(history);

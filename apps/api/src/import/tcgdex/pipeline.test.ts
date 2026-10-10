@@ -250,7 +250,7 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
       .update(prints)
       .set({ externalIds: sql`${prints.externalIds} || ${JSON.stringify(extra)}::jsonb` })
       .where(eq(prints.id, print.id));
-    const body = await new DrizzleCardStore(db).getCard(furret.id, { currency: 'EUR' });
+    const body = await new DrizzleCardStore(db).getCard(furret.id, { currency: 'EUR', lang: 'en' });
     expect(body?.prints[0]?.externalIds).toEqual({ tcgdex: 'swsh3-136' });
     await db
       .update(prints)
