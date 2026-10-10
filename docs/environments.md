@@ -139,8 +139,8 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
 - **Web app analytics (not a secret):** `EXPO_PUBLIC_PLAUSIBLE_HOST` (the self-hosted Plausible,
   `https://plausible.voidbinder.de`) and `EXPO_PUBLIC_PLAUSIBLE_DOMAIN` (`app.voidbinder.de`, as
   registered in Plausible) are inlined by `expo export` and admitted by the CSP's `connect-src`.
-  Both unset means the tracker is never loaded (local builds, CI, `deploy:dev`); `pnpm --filter app
-deploy:prod` sets both, overridable from the shell. See [apps/app/README.md](../apps/app/README.md).
+  Both unset means the tracker is never loaded (local builds, CI, `deploy:dev`); the app's `deploy:prod`
+  sets both, overridable from the shell. See [apps/app/README.md](../apps/app/README.md).
 - **GitHub:** no secrets are needed yet. CI does not deploy; a scoped Cloudflare API token is added
   only when CI deploys are introduced.
 
