@@ -10,6 +10,7 @@ import type { Db } from '../scryfall/write';
 import { writeArtworks } from '../yugipedia/galleries';
 import { artworkFlag, runTcgcsvImport } from './pipeline';
 import { results, type TcgProduct } from './tcgcsv';
+import { writeArtworkFlags } from './write';
 import { fakeTcgcsv, tcgcsvFixture } from './test-fixtures';
 
 // VB-119: TCGplayer's `(Extended Art)` / `(Alternate Art)` products flag their prints' artwork,
@@ -77,7 +78,14 @@ describe.skipIf(!databaseUrl)('Extended Art from TCGplayer (Postgres, VB-119)', 
         withDb: (fn) => fn(db),
       },
       (_name, fn) => fn(),
-      { env: 'dev', date: '2026-10-10', delayMs: 0, games: ['yugioh'], force: true },
+      {
+        env: 'dev',
+        date: '2026-10-10',
+        delayMs: 0,
+        games: ['yugioh'],
+        force: true,
+        tcgplayerImages: true,
+      },
     );
   const artwork = async (id: string) =>
     (await db.select().from(prints).where(eq(prints.id, id)))[0]?.externalIds.artwork;
@@ -280,5 +288,18 @@ describe.skipIf(!databaseUrl)('Extended Art from TCGplayer (Postgres, VB-119)', 
     });
     expect(await artwork(exceedQcr)).toMatchObject({ alt: 'EA', tcgplayer_product: 719879 });
     expect(await artwork(banditQcr)).toMatchObject({ alt: 'EA', tcgplayer_product: 719866 });
+  });
+
+  it('writes no product image without TCGPLAYER_IMAGES', async () => {
+    const url = `${CDN}/1_in_1000x1000.jpg`;
+    const flag = { printId: ids.artmage ?? '', alt: 'AA', productId: 1, url };
+    expect(await writeArtworkFlags(db, [flag], { setId: null, images: false })).toBe(1);
+    expect(await artwork(ids.artmage ?? '')).toEqual({
+      alt: 'AA',
+      alt_source: 'tcgplayer',
+      tcgplayer_product: 1,
+    });
+    expect(await writeArtworkFlags(db, [flag], { setId: null, images: true })).toBe(1);
+    expect(await artwork(ids.artmage ?? '')).toHaveProperty('url', url);
   });
 });

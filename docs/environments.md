@@ -92,7 +92,11 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   with the source's image URL), `SCRYFALL_LANGUAGES` (print languages the Scryfall import keeps,
   `en,de`; English always comes from `default_cards`, the others from `all_cards`), `IMPORT_ENV`
   (prefix of the import's R2 keys, `raw/<env>/…` and `work/<env>/…`: `local`, `dev`, `prod`, so the
-  environments sharing the bucket never touch each other's dumps), `VERSION`.
+  environments sharing the bucket never touch each other's dumps), `VERSION`, and
+  `TCGPLAYER_IMAGES` (VB-119, unset in every environment = off: `1` / `true` lets the TCGCSV price
+  import take a TCGplayer product image as the scan of a Yu-Gi-Oh! Extended / Alternate Art print
+  without a Yugipedia scan; off until the licence of those images is settled. The EA / AA flag is
+  written either way).
 - **API bindings** besides `HYPERDRIVE`, `HYPERDRIVE_CACHED` (catalog reads only, see Database) and
   two R2 buckets (EU jurisdiction, shared by all environments): `CATALOG` → `voidbinder-catalog`,
   public through `img.voidbinder.de` and written with `images/` keys only (the Worker refuses any

@@ -240,16 +240,21 @@ export interface ArtworkFlag {
  * image mirror shows it (`showsScan`). The galleries' writes replace it, keeping a code theirs
  * lacks (`writeArtworks`); the importers keep it (`keepArtwork`). A flag of `setId`'s prints that
  * this run's rows no longer give (its product now prices another print) is removed in the same
- * transaction: `alt`, `alt_source`, `tcgplayer_product` and, without a `file`, `url`. Returns the
- * prints changed.
+ * transaction: `alt`, `alt_source`, `tcgplayer_product` and, without a `file`, `url`. The `url`
+ * is written only with `images` (`TCGPLAYER_IMAGES`). Returns the prints changed.
  */
 export async function writeArtworkFlags(
   db: Db,
   rows: ArtworkFlag[],
-  setId: string | null,
+  { setId, images }: { setId: string | null; images: boolean },
 ): Promise<number> {
-  // One per print: the first product's (a Map keeps the last of a key, so from the end).
-  const unique = [...new Map(rows.toReversed().map((r) => [r.printId, r])).values()];
+  // One per print: the first product's (a Map keeps the last of a key, so from the end). The
+  // product image only with `TCGPLAYER_IMAGES` (its licence is open).
+  const unique = [
+    ...new Map(
+      rows.toReversed().map((r) => [r.printId, images ? r : { ...r, url: null }]),
+    ).values(),
+  ];
   const artwork = sql`(${prints.externalIds} -> 'artwork')`;
   // What a stale flag leaves: the gallery's keys (its `url` only with its `file`).
   const left = sql`${artwork} - (array['alt', 'alt_source', 'tcgplayer_product']

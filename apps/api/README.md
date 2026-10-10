@@ -824,15 +824,18 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    Yu-Gi-Oh! products whose number names another set (LC03's group lists Legendary Collection 3's
    mega pack `LCYW-EN…`, SJMP the `JMP` and `JMPS` promos) are matched to that set's prints when it
    has no group of its own. A Yu-Gi-Oh! product named `… (Extended Art)` or `… (Alternate Art)` /
-   `(Alternate Artwork)` flags the prints it prices (VB-119, `artworkFlag`): `external_ids.artwork.alt`
-   `EA` / `AA` with `alt_source: 'tcgplayer'` and `tcgplayer_product`, on a print without a gallery
-   alt code (Yugipedia's galleries lag new sets; BETB's has no code on BETB-EN027's Starlight Rare
-   row), and, when the gallery gave no scan (`artwork.file`, its own or a sibling's) and the product
-   has an image (`imageCount` > 0, else the CDN answers 403), `artwork.url` =
-   `https://tcgplayer-cdn.tcgplayer.com/product/<id>_in_1000x1000.jpg` (a 703×1000 JPEG of the
-   card). The label (`extendedArt`) and the shown scan (`showsScan`) follow the flag as they
-   follow a gallery's; a gallery write replaces it and keeps the code when its row has none. A flag of the set's prints that the run no longer gives (its product now prices another print) is removed in the same transaction (`alt`, `alt_source`, `tcgplayer_product`, and `url` when there is no `file`).
-   `(Original Artwork)` / `(New Artwork)` pairs stay VB-113's artwork variants.
+   `(Alternate Artwork)` flags the prints it prices (VB-119, `artworkFlag`):
+   `external_ids.artwork.alt` `EA` / `AA` with `alt_source: 'tcgplayer'` and `tcgplayer_product`, on
+   a print without a gallery alt code (Yugipedia's galleries lag new sets; BETB's has no code on
+   BETB-EN027's Starlight Rare row), and, when the gallery gave no scan (`artwork.file`, its own or
+   a sibling's) and the product has an image (`imageCount` > 0, else the CDN answers 403) and the
+   var `TCGPLAYER_IMAGES` is `1` / `true` (unset by default: the images' licence is open),
+   `artwork.url` = `https://tcgplayer-cdn.tcgplayer.com/product/<id>_in_1000x1000.jpg` (a 703×1000
+   JPEG of the card). The label (`extendedArt`) and the shown scan (`showsScan`) follow the flag as
+   they follow a gallery's; a gallery write replaces it and keeps the code when its row has none. A
+   flag of the set's prints that the run no longer gives (its product now prices another print) is
+   removed in the same transaction (`alt`, `alt_source`, `tcgplayer_product`, and `url` when there
+   is no `file`). `(Original Artwork)` / `(New Artwork)` pairs stay VB-113's artwork variants.
 4. `coverage <game>` after each game (VB-111, VB-114, `src/import/prices/coverage.ts`): per set
    the prints with a current price from any source, per source (`tcgplayer`, `cardmarket`,
    `tcgplayer_scryfall`) and from none, the groups that matched no set and the sets that have a

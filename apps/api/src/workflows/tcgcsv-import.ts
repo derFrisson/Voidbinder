@@ -39,6 +39,10 @@ export class TcgcsvImportWorkflow extends WorkflowEntrypoint<Env, TcgcsvImportPa
       date: event.timestamp.toISOString().slice(0, 10),
       // The cron starts the Workflow without a payload.
       force: event.payload?.force === true,
+      // Unset in wrangler.jsonc: off until the licence of TCGplayer's images is settled.
+      tcgplayerImages: ['1', 'true'].includes(
+        String((this.env as Env & { TCGPLAYER_IMAGES?: string }).TCGPLAYER_IMAGES),
+      ),
     });
     if (!('games' in result.stats && result.stats.games.yugioh?.artworks)) return result;
     const images = await mirrorStepFor('yugioh')(this.env, step);

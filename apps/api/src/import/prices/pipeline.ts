@@ -55,6 +55,11 @@ export interface PriceImportOptions {
    * `POST /admin/import/tcgcsv?force=true`).
    */
   force?: boolean;
+  /**
+   * `TCGPLAYER_IMAGES`: a Yu-Gi-Oh! print flagged by its product's name takes the product's
+   * image as its scan (VB-119). Off unless the var is `1` / `true` (licence pending).
+   */
+  tcgplayerImages?: boolean;
 }
 
 export interface GameStats {
@@ -184,7 +189,13 @@ export async function importGroups(
   deps: ImportDeps,
   game: PricedGame,
   groups: GroupImport[],
-  opts: { raw: string; delayMs: number; observedAt: string; grouped?: ReadonlySet<string> },
+  opts: {
+    raw: string;
+    delayMs: number;
+    observedAt: string;
+    grouped?: ReadonlySet<string>;
+    tcgplayerImages?: boolean;
+  },
 ) {
   const category = CATEGORIES[game];
   const byId = game === 'mtg';
@@ -313,7 +324,10 @@ export async function importGroups(
         written,
         noMarket,
         // Only Yu-Gi-Oh!'s products flag; its stale flags go with this set's run.
-        artworks: await writeArtworkFlags(db, flags, regional ? setId : null),
+        artworks: await writeArtworkFlags(db, flags, {
+          setId: regional ? setId : null,
+          images: opts.tcgplayerImages === true,
+        }),
       };
     });
 
@@ -408,7 +422,13 @@ export async function runTcgcsvImport(
         let r;
         try {
           r = await step(name, () =>
-            importGroups(deps, game, groups, { raw, delayMs, observedAt, grouped }),
+            importGroups(deps, game, groups, {
+              raw,
+              delayMs,
+              observedAt,
+              grouped,
+              tcgplayerImages: opts.tcgplayerImages === true,
+            }),
           );
         } catch (err) {
           // VB-116: still failing after the Workflow's retries. An isolated failure: the other
