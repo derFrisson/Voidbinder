@@ -303,7 +303,7 @@ export default function Search() {
     <Page title={t.search.title} catalog>
       <Heading>{t.search.title}</Heading>
       {/* The input is the whole box, so the focus ring is the box. */}
-      <View className="relative z-10 justify-center">
+      <View className="relative z-10 max-w-content justify-center">
         <TextInput
           value={text}
           {...typeahead.inputProps}

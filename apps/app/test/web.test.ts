@@ -965,6 +965,18 @@ describe('web build', () => {
     }
   });
 
+  it('keeps the search field to the content width on the catalog width', async () => {
+    const { context, page } = await open({ width: 2048, height: 1000 });
+    try {
+      await page.goto(`${origin}/search?q=adeline`);
+      const field = page.getByLabel('Karten suchen');
+      await field.waitFor();
+      expect((await rect(field)).width).toBeLessThanOrEqual(1240);
+    } finally {
+      await context.close();
+    }
+  });
+
   // WCAG 2.2 AA, automated, like the site (apps/site/test/a11y.test.ts).
   const cases = (['light', 'dark'] as const).flatMap((scheme) => [
     ...[
