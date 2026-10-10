@@ -1,8 +1,9 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   appMeta,
   cards,
+  importRuns,
   priceMappings,
   pricesCurrent,
   pricesDaily,
@@ -137,6 +138,12 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
           noMarket: 0,
         },
       },
+      // VB-116: per game of the `tcgplayer` source (counts in coverage.test.ts).
+      freshness: [
+        expect.objectContaining({ game: 'mtg', source: 'tcgplayer', priced: 3 }),
+        expect.objectContaining({ game: 'yugioh', source: 'tcgplayer', priced: 0, share: null }),
+        expect.objectContaining({ game: 'pokemon', source: 'tcgplayer', priced: 0, share: null }),
+      ],
     });
     expect(steps).toEqual([
       'start run',
@@ -148,6 +155,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'coverage yugioh',
       'groups pokemon',
       'coverage pokemon',
+      'freshness',
       'finish run',
       'purge cache',
     ]);
@@ -445,6 +453,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'finish run',
       'prices: start run',
       ...cards.map((s) => s.replace('cards', 'prices')),
+      'prices: freshness',
       'prices: finish run',
       'purge cache',
       'clean up chunks',
@@ -511,6 +520,179 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'purge cache',
       'clean up chunks',
     ]);
+  });
+
+  // VB-116: a build counts as imported only after a run that pulled all of it ended `ok`.
+  const pulled = (requests: string[]) => requests.some((r) => r.endsWith('/products'));
+  const failing =
+    (failName: string, steps: string[] = []) =>
+    <T>(name: string, fn: () => Promise<T>) => {
+      steps.push(name);
+      return name === failName ? Promise.reject(new Error('HTTP 429')) : fn();
+    };
+  const plain = (lastUpdated: string, step = failing(''), files: Record<string, string> = {}) =>
+    runTcgcsvImport(deps(fakeTcgcsv({ lastUpdated, files })), step, {
+      env: 'dev',
+      date: '2026-10-10',
+      delayMs: 0,
+    });
+  // 25 groups per set code (no files: a group without products), so each set is one
+  // `prices mtg` step.
+  const groupIds = (set: number) => Array.from({ length: 25 }, (_, i) => 100_000 + set * 100 + i);
+  const groupsOf = (codes: string[]) => ({
+    '1/groups': JSON.stringify({
+      success: true,
+      errors: [],
+      results: codes.flatMap((abbreviation, set) =>
+        groupIds(set).map((groupId) => ({ groupId, name: `Group ${groupId}`, abbreviation })),
+      ),
+    }),
+  });
+
+  it('lists a group step that still fails, goes on, and pulls the build again next time', async () => {
+    const build = '2026-10-10T20:05:19+0000';
+    const steps: string[] = [];
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Magic's two fixture sets: two steps.
+    const { runId, stats } = await plain(
+      build,
+      failing('prices mtg 001', steps),
+      groupsOf(['MID', 'NEO']),
+    );
+    const warnings = warned.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
+    warned.mockRestore();
+    // The other groups, games and the finish still run; the run is `ok` and names the groups.
+    expect(steps.slice(steps.indexOf('prices mtg 001'))).toEqual([
+      'prices mtg 001',
+      'coverage mtg',
+      'groups yugioh',
+      'coverage yugioh',
+      'groups pokemon',
+      'coverage pokemon',
+      'freshness',
+      'finish run',
+      'purge cache',
+    ]);
+    expect(stats).toMatchObject({
+      failedGroups: [{ game: 'mtg', groupIds: groupIds(1), error: 'Error: HTTP 429' }],
+      games: { mtg: { matchedGroups: 50 } },
+    });
+    expect(warnings).toContainEqual(
+      expect.objectContaining({ message: 'price groups failed', runId, game: 'mtg' }),
+    );
+    const [row] = await db.select().from(importRuns).where(eq(importRuns.id, runId));
+    expect(row?.status).toBe('ok');
+
+    // The late run pulls the same build again; after that full run, the build is imported.
+    const again: string[] = [];
+    const second = await runTcgcsvImport(
+      deps(fakeTcgcsv({ lastUpdated: build, requests: again })),
+      failing(''),
+      {
+        env: 'dev',
+        date: '2026-10-10',
+        delayMs: 0,
+      },
+    );
+    expect(pulled(again)).toBe(true);
+    expect(second.stats).not.toHaveProperty('failedGroups');
+    const third: string[] = [];
+    const skipped = await runTcgcsvImport(
+      deps(fakeTcgcsv({ lastUpdated: build, requests: third })),
+      failing(''),
+      {
+        env: 'dev',
+        date: '2026-10-10',
+        delayMs: 0,
+      },
+    );
+    quiet.mockRestore();
+    expect(pulled(third)).toBe(false);
+    expect(skipped.stats).toMatchObject({
+      skipped: expect.any(String),
+      freshness: expect.any(Array),
+    });
+  });
+
+  it('fails the run when the group steps fail systemically', async () => {
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const latest = async () =>
+      (await db.select().from(importRuns).orderBy(desc(importRuns.startedAt)).limit(1))[0];
+    // Two more Magic sets: four steps.
+    await db.insert(sets).values([
+      { gameId: 'mtg', code: 'zza', name: 'Test Set A' },
+      { gameId: 'mtg', code: 'zzb', name: 'Test Set B' },
+    ]);
+    const fourSteps = groupsOf(['MID', 'NEO', 'ZZA', 'ZZB']);
+    const every =
+      (steps: string[]) =>
+      <T>(name: string, fn: () => Promise<T>) =>
+        failing(name.startsWith('prices ') ? name : '', steps)(name, fn);
+
+    // Three failed steps in a row: the fourth is never tried.
+    const steps: string[] = [];
+    await expect(plain('2026-10-10T21:05:19+0000', every(steps), fourSteps)).rejects.toThrow(
+      'price groups failed: mtg, 3 step(s) in a row',
+    );
+    expect(steps.filter((s) => s.startsWith('prices '))).toEqual([
+      'prices mtg 000',
+      'prices mtg 001',
+      'prices mtg 002',
+    ]);
+    expect(steps.slice(-1)).toEqual(['fail run']);
+    expect(await latest()).toMatchObject({ status: 'failed' });
+
+    // Every step of a game failed (here its only one).
+    await expect(plain('2026-10-10T21:15:19+0000', every([]))).rejects.toThrow(
+      'price groups failed: mtg, 1 step(s) in a row',
+    );
+    expect(await latest()).toMatchObject({ status: 'failed' });
+
+    // Two failures apart are isolated: the run is `ok` and lists both.
+    const apart = await plain(
+      '2026-10-10T21:25:19+0000',
+      (name, fn) =>
+        failing(name === 'prices mtg 000' || name === 'prices mtg 002' ? name : '')(name, fn),
+      fourSteps,
+    );
+    expect(apart.stats).toMatchObject({
+      failedGroups: [
+        { game: 'mtg', groupIds: groupIds(0) },
+        { game: 'mtg', groupIds: groupIds(2) },
+      ],
+    });
+    expect(await latest()).toMatchObject({ status: 'ok' });
+    quiet.mockRestore();
+    warned.mockRestore();
+  });
+
+  it('pulls a build again after a failed run or one that never finished', async () => {
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const build = '2026-10-11T20:05:19+0000';
+    await expect(plain(build, failing('groups yugioh'))).rejects.toThrow('HTTP 429');
+    expect(
+      (await db.select().from(importRuns).orderBy(desc(importRuns.startedAt)).limit(1))[0]?.status,
+    ).toBe('failed');
+    // A run of the next build that died mid-way stays `running`.
+    const dead = '2026-10-12T20:05:19+0000';
+    await db.insert(importRuns).values({
+      source: 'tcgcsv',
+      kind: 'prices',
+      status: 'running',
+      stats: { lastUpdated: new Date(Date.parse('2026-10-12T20:05:19Z')).toISOString() },
+    });
+    for (const b of [build, dead]) {
+      const requests: string[] = [];
+      await runTcgcsvImport(deps(fakeTcgcsv({ lastUpdated: b, requests })), failing(''), {
+        env: 'dev',
+        date: '2026-10-11',
+        delayMs: 0,
+      });
+      expect(pulled(requests)).toBe(true);
+    }
+    quiet.mockRestore();
   });
 });
 

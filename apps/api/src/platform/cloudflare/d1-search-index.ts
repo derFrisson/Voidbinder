@@ -218,6 +218,8 @@ interface ImageCandidate {
   lang: string;
   key: string;
   own: number;
+  /** 1 for another rarity's scan (`image_sibling`, VB-117). */
+  sib: number | null;
 }
 
 const cmp = (x: number | string, y: number | string) => (x < y ? -1 : x > y ? 1 : 0);
@@ -240,7 +242,7 @@ function pickImage(lang: string, target: string, rows: ImageCandidate[]): ImageP
         cmp(a.own, b.own) ||
         cmp(a.lang, b.lang),
     );
-  if (own) return { key: own.key, lang: own.lang, sibling: false };
+  if (own) return { key: own.key, lang: own.lang, sibling: Boolean(own.sib) };
   const [sibling] = mine
     .filter((c) => c.print_id !== target)
     .sort(
@@ -566,10 +568,17 @@ export class D1SearchIndex implements SearchIndex {
     if (!printIds.length && !setIds.length)
       return { prints: new Map(), sets: new Map(), images: [] };
     // Siblings only for a print without a key of its own, as imagePick's COALESCE.
-    const candidates = (own: string, lang: string, key: string, join: string, keyed: string) => `
+    const candidates = (
+      own: string,
+      lang: string,
+      key: string,
+      sib: string,
+      join: string,
+      keyed: string,
+    ) => `
       select t.id as target, sp.id as print_id, sp.set_id = t.set_id as same_set,
         coalesce(sp.released_on, s.released_on) as released, ${lang} as lang, ${key} as key,
-        ${own} as own
+        ${own} as own, ${sib} as sib
       from prints t join prints sp on sp.card_id = t.card_id join sets s on s.id = sp.set_id ${join}
       where t.id in (select value from json_each(?1)) and ${keyed} and (sp.id = t.id or (
         t.image_key is null and not exists (
@@ -598,9 +607,9 @@ export class D1SearchIndex implements SearchIndex {
         .bind(JSON.stringify(setIds), lang),
       session
         .prepare(
-          `${candidates('1', `'en'`, 'sp.image_key', '', 'sp.image_key is not null')}
+          `${candidates('1', `'en'`, 'sp.image_key', 'sp.image_sibling', '', 'sp.image_key is not null')}
           union all
-          ${candidates('0', 'n.lang', 'n.image_key', 'join names n on n.print_id = sp.id', `n.image_key is not null and n.lang <> ''`)}`,
+          ${candidates('0', 'n.lang', 'n.image_key', 'n.image_sibling', 'join names n on n.print_id = sp.id', `n.image_key is not null and n.lang <> ''`)}`,
         )
         .bind(JSON.stringify(printIds)),
     ]);

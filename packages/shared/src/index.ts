@@ -75,3 +75,5 @@ export function isFoil(
   if (game === 'pokemon') return r !== '' && !PLAIN_POKEMON.has(r);
   return false;
 }
+
+export * from './yugioh-rarities.js';

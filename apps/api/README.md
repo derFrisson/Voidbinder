@@ -475,9 +475,10 @@ Migrate before deploying code that needs the new schema.
 Every run is an `import_runs` row (`running`, then `ok` or `failed` with `stats` and `error`).
 `GET /admin/imports` (bearer `ADMIN_TOKEN`) lists the last 30 per source, newest first, with the
 duration and the counts, plus `health`; `GET /admin/imports/health` answers the `health` block
-alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …`) and per scheduled source its
-cadence, last success and the flags `missing` (no `ok` run within the cadence plus 2 hours) and
-`failed` (the newest finished run failed). The cadences are `IMPORT_CADENCE` in
+alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …; stale: …; failed groups: …`) and per scheduled
+source its cadence, last success and the flags `missing` (no `ok` run within the cadence plus 2
+hours), `failed` (the newest finished run failed) and `stale` (VB-116: the newest price run left
+prices stale, see Prices). The cadences are `IMPORT_CADENCE` in
 `src/import/health.ts`: wrangler.jsonc's crons (schedule.test.ts checks they agree) and the VPS
 image mirror, listed as `image-mirror` (its `images` rows carry `stats.query.sm`; the Workflows'
 own image steps stay `images`). `IMPORT_ENV=dev` leaves TCGCSV out (no dev cron). Both answer
@@ -681,7 +682,7 @@ alt // options`. Module:Card collection/modules/Set gallery/handlers builds the 
 `png` unless `// extension::jpg`, `// file::` replaces it): the image name is the English name
 without its `(…)` disambiguation and without `#,.:'"?!&@%=[]<>/☆★・-` and spaces
 (Module:Card image name), the rarity abbreviation comes from Module:Data/static/rarity/data
-(`StR`, `UR`, `QCScR`, `PlScR`, … copied into `galleries.ts`). The alt code is a free file name
+(`StR`, `UR`, `QCScR`, `PlScR`, … copied into `@voidbinder/shared` `YUGIOH_RARITIES`). The alt code is a free file name
 suffix, not a fixed set of flags: `EA` (Extended Art), `AA`, `AA2`, `Alt` (alternate artworks),
 `B`/`C`/`D` and `ReprintB` (several scans of one number, LCKC-EN001 in four Blue-Eyes artworks),
 `L`/`S`/`K`/`J` (deck letters), `2`/`3` (copies). It is each gallery's own: RA04's English page
@@ -701,21 +702,36 @@ while a names or a gallery run is `running`, one lock for one crawl rate; `impor
 written `external_ids.artworks` on some print, so on a fresh database run the YGOPRODeck import
 first; then it lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
 gallery and not read in the last 30 days (`app_meta` map `yugipedia_galleries_checked`, set code →
-day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
+day; a set with a print without rarity changed since its last read the next day) and writes them to R2 in chunks of 20; `galleries 00000` … read each set's pages in the
 languages its prints have (`revisions`, 50 titles a request), pick the prints and languages to
 resolve, and ask `imageinfo` for their candidate files (50 a request): a print is resolved when its
 card has several artworks (`external_ids.artworks`, which the YGOPRODeck import now writes) or a
 row of its number carries an alt code; the first row of its number and rarity in the best page of
-the language (`EN` before `NA`/`EU`, 1st Edition before Unlimited) names the file, and when that
-scan is missing the same alt code in another rarity of the page (RA05's Starlight Rare Dragoon
-takes the Ultra Rare `EA` scan, the same artwork); without an alt code there is no fallback
-(another rarity may be another artwork) and a print without a row or a scan keeps the passcode
-image. The result goes to `external_ids.artwork = { file, url, alt? }` of the print (English) or
-its localization; the row keeps its `image_key` until the mirror (Card images) has copied
-`artwork.url` under `images/yugioh/<file name>/<lang>/…` (one request a second): a Yu-Gi-Oh! key
-that does not name the scan's file is pending, and a key of another source id replaces it whatever
-its rank (`writeKeys`). The Workflow purges the `catalog` cache once, after its mirror step. The YGOPRODeck and
-Yugipedia name upserts keep `artwork` (`keepArtwork` on prints, `keepYugipedia` on localizations). `extendedArt: true` on the set page's prints
+the language (`EN` before `NA`/`EU`, 1st Edition before Unlimited) names the file. A print
+YGOPRODeck lists with a placeholder instead of a rarity (VB-117: `New` for MAMO's 18 Extended Art
+Ultra Rares, also `2`, `Reprint`, `European debut`; anything `yugiohRarityAbbr` does not know) has
+`rarity` null (no rarity chip, the set page's facet skips it; the variant stays the placeholder's
+slug, `new`) until its gallery names it: the one row (rarity and alt code) of its number no other
+print of the number has becomes its `rarity` and `external_ids.gallery_rarity = { rarity, alt }`
+(`resolveRarities`; two placeholders or two free rows: no guess), and its artwork follows in the
+same run; the YGOPRODeck upsert keeps both. **What is shown** (VB-117): the passcode render, unless
+the artwork is not the standard one, a row with an alt code or a rarity printed with an artwork of
+its own (`YUGIOH_RARITY_ARTWORK`: Grand Master Rare is the `EA` artwork, `own_art: true`); the
+other scans are recorded, never mirrored. A shown scan that is missing falls back to the same
+artwork (alt code) in another rarity of the page whose foil tier is the same or plainer
+(`yugiohScanBacks`, tiers in `YUGIOH_FOIL_TIERS`): RA05's Starlight Rare Dragoon takes the Ultra Rare
+`EA` scan, Kuriboh - Multiply!'s Grand Master Rare its Extended Art Ultra Rare, never the other
+way round; such an artwork has `sibling: true` and the API answers `imageFrom: 'sibling'` (D1:
+`image_sibling`). A print without a row or a scan keeps the passcode image. The result goes to
+`external_ids.artwork = { file, url, alt?, own_art?, sibling? }` of the print (English) or its
+localization; the row keeps its `image_key` until the mirror (Card images) has copied the image
+`sourceUrl` picks (`artwork.url` when shown, else YGOPRODeck's `image_url`) under
+`images/yugioh/<file name>/<lang>/…` (one request a second): a Yu-Gi-Oh! key that does not name
+that image is pending, so a print showing a scan of the standard artwork goes back to the render
+by itself, and a key of another source id replaces it whatever its rank (`writeKeys`); migration
+0017 flagged the Grand Master Rare scans written before and dropped the localizations' keys of
+standard-artwork scans. The Workflow purges the `catalog` cache once, after its mirror step (also when only rarities changed). The YGOPRODeck and
+Yugipedia name upserts keep `artwork` and `gallery_rarity` (`keepArtwork` on prints, `keepYugipedia` on localizations). `extendedArt: true` on the set page's prints
 and on `PrintDetail` marks a print whose row says `EA`; the app labels it "Extended Art". Raw
 answers: `raw/<env>/yugipedia/galleries/<date>/titles.json` and `sets-<n>.json`. A full run is
 about 15 + 96 page requests plus a few hundred `imageinfo` requests (some minutes), then the
@@ -814,22 +830,37 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    group but no `tcgplayer` price, from the group list the run just kept. Magic's groups without a
    set are imported all the same (step 2), so its `unmatchedGroups` are informational, not a gap.
    Logged in the step as one line `price coverage` per game (`game`, `sets`, `setsWithGroup`,
-   `setsPriced`, `prints`, `priced`, `sources`, `unpriced`, `unmatchedGroups`, `unpricedSets`) and
-   a WARN `set has a TCGplayer group and no price` per such set. Never fatal: a failure is a WARN
-   `price coverage failed` and the run goes on (the prices are written by then).
-5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
+   `setsPriced`, `prints`, `priced`, `sources`, `unpriced`, `unmatchedGroups`, `unpricedSets`,
+   `stale`) and a WARN `set has a TCGplayer group and no price` per such set. Never fatal: a
+   failure is a WARN `price coverage failed` and the run goes on (the prices are written by then).
+5. `freshness` (VB-116, `runFreshness` in `coverage.ts`, also on a run that skips the build): per
+   game of `tcgplayer` the `prints`, the `mapped` ones (a mapping or a current price), `unmapped`,
+   `priced`, `fresh` (newest price younger than 24 h), `stale` (older than 36 h) and `share`
+   (`fresh / priced`). One SQL per source (about 0.2 s for 120,000 prints and 720,000 price rows);
+   logged as one line `price freshness`, a failure is a WARN and `null`.
+6. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
    (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
-   run's `RAW` prefix) and `catalog_version` + 1.
+   run's `RAW` prefix), `freshness` and `catalog_version` + 1.
+
+A `prices <game> …` step that still fails after the Workflow's three retries does not end the run
+(VB-116): its groups go into `stats.failedGroups` (`game`, `groupIds`, `error`), a WARN `price
+groups failed` is logged and the other groups and games go on. A systemic failure (TCGCSV down or
+rate-limiting, the database unreachable) does end it: after three failed steps in a row, or when
+every step of a game failed, the run is `failed` (`price groups failed: <game>, …`). The build
+counts as imported (the next run skips it) only after a run that pulled all of it ended `ok`: a
+failed run, one still `running` and one with `failedGroups` do not count, so the 22:30 run pulls the
+build again. A TCGCSV run `running` for more than an hour is taken as dead and no longer blocks the
+next one (other sources: 6 hours); a run that fails fast takes about 25 minutes at most.
 
 A full run is about 2,700 requests (VB-114: every Magic group); the first local run for Magic
-(2026-10-10) matched 352 of 454 groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
-gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/` (`groups.json.gz`,
-`<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a `marketPrice` (too few
-sales) are not written. The cron runs on prod only: dev would be a second pull of the same build,
-so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs). A second
-prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that landed late: when the
-20:30 run imported the build it reads `last-updated.txt` and ends without bumping
-`catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
+(2026-10-10) matched 352 of 454 groups and mapped 92,990 of 104,595 card products in 2 min 23 s.
+Every answer is kept gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/`
+(`groups.json.gz`, `<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a
+`marketPrice` (too few sales) are not written. The cron runs on prod only: dev would be a second
+pull of the same build, so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while
+one runs). A second prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that
+landed late: when the 20:30 run imported the build it reads `last-updated.txt` and ends without
+bumping `catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
 
 **Forced re-import.** `POST /admin/import/tcgcsv?force=true` (or `?force=1`; any other value is
 a plain run) imports the build even when the last run did: groups and products are matched anew,
@@ -858,16 +889,29 @@ since 2026-10-10); run it under `systemd-run` as in the runbook.
 `GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
 the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced` by any
 source, `sources` per source, `unpriced` by none, `groups`, `groupMatched` and `rules`, the
-`matchGroups` rule of each group: `scryfall-id`, `abbreviation`, `name` or `alias`),
+`matchGroups` rule of each group: `scryfall-id`, `abbreviation`, `name` or `alias`, and `stale`),
 `unmatchedGroups` (`groupId`, `name`, `abbreviation`), `unpricedSets` (a group, no `tcgplayer`
-price) and `totals` (the counts of the log line); 404 before such a run or when its group list is
-gone from `RAW`, 400 for another game.
+price), `totals` (the counts of the log line), `freshness` (the game's counts per price source, as
+the run's `stats.freshness`, computed now) and `failedGroups` (the group ids that failed in that
+run); 404 before such a run or when its group list is gone from `RAW`, 400 for another game.
+
+`GET /admin/imports/health` folds the newest `ok` price run's `freshness` in (VB-116): a source is
+`stale` when fewer than 95 % of a game's priced prints were refreshed in 24 h, or when the stale
+prints grew since the newest run at least 20 hours older by more than 25 or 0.5 % of the priced
+prints, whichever is more (a few a day are everyday churn); the message names them
+(`stale: tcgplayer/pokemon 81.2% refreshed in 24 h, tcgplayer/mtg 1412 stale (was 380)`), so the
+Kuma push (`scripts/vps/import-health.sh`) reports it unchanged. A mapped print never priced (no
+market price yet) is coverage (`priced`), not freshness. The newest `ok` TCGCSV run's
+`failedGroups` go in as well (`failed groups: tcgplayer/mtg 2864 2965`), so the health stays red
+while groups keep failing, not just for the day they first did. Steps when it fires:
+`docs/guides/go-live.md`.
 
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
-of the `cards` steps, read back from `RAW`, never a second download) and `prices: finish run`; each
-writes `cardmarket` and `tcgplayer_scryfall` rows per finish and is idempotent, so a retried step
-is safe. A failure there is logged and leaves the catalog import `ok`.
+of the `cards` steps, read back from `RAW`, never a second download), `prices: freshness`
+(VB-116: the `cardmarket` and `tcgplayer_scryfall` counts of Magic, as above) and
+`prices: finish run`; each writes `cardmarket` and `tcgplayer_scryfall` rows per finish and is
+idempotent, so a retried step is safe. A failure there is logged and leaves the catalog import `ok`.
 
 **Mapping** (`price_mappings`, `src/import/prices/match.ts`): which external product and finish
 is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`Normal` and

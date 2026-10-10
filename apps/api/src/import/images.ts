@@ -84,12 +84,23 @@ export function lowresScan(game: string, ids: Record<string, unknown>): boolean 
 }
 
 /**
+ * Whether a Yu-Gi-Oh! print or localization shows its Yugipedia scan (`artwork`, VB-106) instead
+ * of the passcode render (VB-117): only for an artwork other than the standard one, a gallery row
+ * with an alt code (`EA`, `AA`) or a rarity printed with an artwork of its own (`own_art`, Grand
+ * Master Rare). The SQL twin is `shownScan` in `needsWork`.
+ */
+export const showsScan = (artwork: unknown): boolean => {
+  const a = (artwork ?? {}) as Record<string, unknown>;
+  return Boolean(a.alt) || a.own_art === true;
+};
+
+/**
  * The URL of the image to mirror from a print's or localization's `external_ids`, null when it
  * has none: Scryfall `large` (JPEG, 672 px), then `normal`, then `png`, for a high-res scan
  * (`highres_image`) and, with `lowres` (prints only), a `lowres` one; a placeholder or missing
  * image stays keyless, so the API keeps Scryfall's URL, and never its "missing image"
- * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106), else YGOPRODeck's
- * `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
+ * placeholder; Yu-Gi-Oh!: the print's own Yugipedia scan (`artwork.url`, VB-106) when it shows it
+ * (`showsScan`), else YGOPRODeck's `image_url` (the card's first artwork); TCGdex `tcgdex_images.high` (`<image>/high.webp`).
  */
 export function sourceUrl(
   game: string,
@@ -105,7 +116,8 @@ export function sourceUrl(
     }
     case 'yugioh':
       return (
-        https((ids.artwork as Record<string, unknown> | undefined)?.url) ?? https(ids.image_url)
+        (showsScan(ids.artwork) ? https((ids.artwork as Record<string, unknown>).url) : null) ??
+        https(ids.image_url)
       );
     case 'pokemon':
       return https((ids.tcgdex_images as Record<string, unknown> | undefined)?.high);
@@ -456,21 +468,26 @@ const needsWork = (
       ? sql` or (${ids} -> 'scryfall_images' ->> 'image_status' = 'lowres'
           and (${key} is null or ${key} like '%-lowres.%'))`
       : sql``;
+  // Yu-Gi-Oh!: the URL `sourceUrl` picks, the shown scan (`showsScan`) or the passcode render.
+  const shownScan = sql`(coalesce(${ids} -> 'artwork' ->> 'alt', '') <> ''
+    or ${ids} -> 'artwork' ->> 'own_art' = 'true')`;
+  const ygoUrl = sql`coalesce(case when ${shownScan} then ${ids} -> 'artwork' ->> 'url' end,
+    ${ids} ->> 'image_url')`;
   const mirrorable = sql`((${sets.gameId} = 'mtg' and (${highres}${lowres}))
-    or (${sets.gameId} = 'yugioh' and (${ids} ->> 'image_url' is not null
-      or ${ids} -> 'artwork' ->> 'url' is not null))
+    or (${sets.gameId} = 'yugioh' and ${ygoUrl} is not null)
     or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
-  // A Yugipedia scan (VB-106) the key does not name yet: the row keeps its old key until then.
-  // The id is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case).
-  const scan = sql`regexp_replace(${ids} -> 'artwork' ->> 'url', '^.*/|[.][^./]*$', '', 'g')`;
+  // An image the key does not name: a shown Yugipedia scan (VB-106) not mirrored yet, or a scan
+  // no longer shown (VB-117) whose render comes back. The row keeps its old key until then. The id
+  // is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case).
+  const ygoId = sql`regexp_replace(${ygoUrl}, '^.*/|[.][^./]*$', '', 'g')`;
   const todo = sql`(${key} is null
     ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}
     or (${key} like '%-lowres.%' and ${highres})
-    or (${sets.gameId} = 'yugioh' and position('/' || ${scan} || '/' in ${key}) = 0))`;
+    or (${sets.gameId} = 'yugioh' and position('/' || ${ygoId} || '/' in ${key}) = 0))`;
   // The URL `sourceUrl` picks, to look up in `image_sources_gone`.
   const url = sql`case ${sets.gameId}
     when 'pokemon' then ${ids} -> 'tcgdex_images' ->> 'high'
-    when 'yugioh' then coalesce(${ids} -> 'artwork' ->> 'url', ${ids} ->> 'image_url')
+    when 'yugioh' then ${ygoUrl}
     else coalesce(${ids} -> 'scryfall_images' ->> 'large', ${ids} -> 'scryfall_images' ->> 'normal',
       ${ids} -> 'scryfall_images' ->> 'png') end`;
   const fresh = retryGone

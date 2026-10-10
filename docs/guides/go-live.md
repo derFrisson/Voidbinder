@@ -599,9 +599,14 @@ go, but before the URL is shared widely.
   `prod dev`).
 - Import health (VB-83): install the daily check on the VPS (database-vps.md section 8,
   "Import health") and its Kuma push monitor. It reports a source as `missing` when it had no
-  `ok` run within its cadence plus 2 hours and `failed` when its newest finished run failed.
+  `ok` run within its cadence plus 2 hours and `failed` when its newest finished run failed, and
+  (VB-116) `stale: <source>/<game> …` when a price run refreshed fewer than 95 % of a game's priced
+  prints in 24 h or left more prints stale (newest price older than 36 h) than the day before,
+  by more than 25 or 0.5 % of the priced prints, and `failed groups: tcgplayer/<game> <ids>` while
+  the newest TCGCSV run left groups out.
 - **Re-running a failed import by hand.** See what failed first, then start the source again
-  (202 `started`; 409 `import_running` while a run of it, younger than 6 hours, is `running`):
+  (202 `started`; 409 `import_running` while a run of it, younger than 6 hours (TCGCSV: 1 hour), is
+  `running`):
 
   ```sh
   read -rs TOKEN   # paste ADMIN_TOKEN_prod
@@ -625,6 +630,35 @@ go, but before the URL is shared widely.
   catalog modules run on the VPS: `systemctl --user start image-mirror` (then `catalog-modules`),
   logs with `journalctl --user -u image-mirror -n 50`. The next morning's check (or a
   `systemctl --user start import-health`) turns the Kuma monitor green again.
+
+- **When the health says `stale`** (VB-116). The message names source and game, for example
+  `stale: tcgplayer/pokemon 81.2% refreshed in 24 h` or `tcgplayer/mtg 1412 stale (was 380)`.
+  `tcgplayer` is the TCGCSV import, `cardmarket` and `tcgplayer_scryfall` (Magic only) the
+  Scryfall import. Find the gap first, with the token from above:
+
+  ```sh
+  # the newest TCGCSV run: failedGroups (groups that still failed after the retries), freshness
+  curl -sS -H "Authorization: Bearer $TOKEN" https://api.voidbinder.de/admin/imports \
+    | jq '.runs.tcgcsv[0] | {status, stats: (.stats | {lastUpdated, skipped, failedGroups, freshness})}'
+  # per set: stale prints, and the failed groups of the last run, of one game
+  curl -sS -H "Authorization: Bearer $TOKEN" \
+    "https://api.voidbinder.de/admin/prices/coverage?game=pokemon" \
+    | jq '{freshness, failedGroups, sets: [.sets[] | select(.stale > 0) | {code, prints, priced, stale}]}'
+  ```
+
+  - `skipped` on every run of the last day, `lastUpdated` older than a day: TCGCSV published no
+    new build. Nothing to re-run; check tcgcsv.com and wait for the next build.
+  - `failedGroups` listed: the next run (22:30, or the next day's 20:30) pulls the build again by
+    itself. To do it now: `post import/tcgcsv` (no `force`: a run with failed groups never counts as
+    the build imported).
+  - Stale prints in a few sets and no failed group: the source dropped the group or the mapping
+    was lost (the set's `groups` on the coverage route is empty, or `unmatchedGroups` lists it).
+    That is a matching fix; after it, `post "import/tcgcsv?force=true"`.
+  - `cardmarket` / `tcgplayer_scryfall`: `post import/scryfall` (the whole Scryfall import; its
+    prices come from the same dump).
+
+  Confirm with the coverage route (`stale` back to 0 for the sets) and `GET /admin/imports/health`
+  (the run stores its freshness, so the health turns green after the re-run, not before).
 
 - Disk: the prod catalog roughly doubles the database size (dev today is most of the 8.2 GB on
   `/var/lib/postgresql`, 39 GB free), and the price history grows by about 0.5 million rows a day
