@@ -156,7 +156,7 @@ export default function Profile() {
             <Text className="font-body text-base font-semibold text-ink">{me.email}</Text>
           </View>
           <Button
-            variant="ghost"
+            variant="danger"
             label={t.profile.signOut}
             busy={signOut.isPending}
             onPress={() =>
