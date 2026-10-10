@@ -57,6 +57,16 @@ export async function gameSets(db: Db, game: string): Promise<CatalogSet[]> {
   return rows.map(({ group, ...s }) => ({ ...s, tcgplayerGroupId: group ? Number(group) : null }));
 }
 
+/** The ids of a game's sets with these (lowercase) codes. */
+export async function setIdsByCode(db: Db, game: string, codes: string[]): Promise<string[]> {
+  if (!codes.length) return [];
+  const rows = await db
+    .select({ id: sets.id })
+    .from(sets)
+    .where(and(eq(sets.gameId, game), inArray(sets.code, codes)));
+  return rows.map((r) => r.id);
+}
+
 /**
  * The prints a group's products may be: the prints of its sets, and with `productIds` (Magic)
  * every print that carries one of those TCGplayer ids, whichever set it is in.
@@ -76,6 +86,7 @@ export async function candidatePrints(
   return db
     .select({
       id: prints.id,
+      setCode: sets.code,
       number: prints.number,
       variant: prints.variant,
       name: cards.name,
@@ -85,6 +96,7 @@ export async function candidatePrints(
     })
     .from(prints)
     .innerJoin(cards, eq(cards.id, prints.cardId))
+    .innerJoin(sets, eq(sets.id, prints.setId))
     .where(where);
 }
 

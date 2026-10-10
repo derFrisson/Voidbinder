@@ -31,6 +31,9 @@ export interface CatalogSet {
 
 export interface CandidatePrint {
   id: string;
+  /** Lowercase code of the print's set (`mrd`); a Yu-Gi-Oh! product only takes prints of the set
+   * its number names when that set is a candidate (VB-113). */
+  setCode?: string;
   number: string;
   /** '' or the Yu-Gi-Oh! rarity slug. */
   variant: string;
@@ -64,8 +67,9 @@ export const normName = (name: string) =>
     .replace(/[^a-z0-9]/g, '');
 
 /**
- * Groups no rule matches, by TCGplayer group id: the catalog (TCGdex) set code. Derived from
- * TCGCSV's Pokémon groups against TCGdex's sets (2026-10-10, VB-111).
+ * Groups no rule matches, by TCGplayer group id: the catalog set code. Derived from TCGCSV's
+ * Pokémon groups against TCGdex's sets (2026-10-10, VB-111) and its Yu-Gi-Oh! groups against
+ * YGOPRODeck's (VB-113).
  */
 export const GROUP_ALIASES: Readonly<Record<number, string>> = {
   1375: 'ecard1', // Expedition
@@ -94,6 +98,9 @@ export const GROUP_ALIASES: Readonly<Record<number, string>> = {
   3150: '2022swsh',
   23306: '2023sv',
   24163: '2024sv',
+  // Yu-Gi-Oh!: Shonen Jump Magazine Promos, mostly `JUMP-EN…`; its `JMP`/`JMPS` products go to
+  // their own sets (`matchProducts`, `setCode`).
+  281: 'jump',
 };
 
 /**
@@ -154,8 +161,8 @@ function uniqueMap<K>(pairs: [K, string][]): Map<K, string | null> {
 /**
  * The catalog set of each group, or none: Scryfall's group id first, then the abbreviation (TCGdex's
  * official one, where it and the group's are each unique and the group's name holds the set's),
- * the abbreviation as set code (`regional`, Yu-Gi-Oh!: also without a trailing region token,
- * `LOB-EN` → `lob`), the name (`groupNames`) and last `GROUP_ALIASES`. A group matches at most one
+ * the abbreviation as set code (`regional`, Yu-Gi-Oh!: also its code before a dash or slash,
+ * `LOB-EN` → `lob`, `MVP1-ENG` → `mvp1`), the name (`groupNames`) and last `GROUP_ALIASES`. A group matches at most one
  * set; several groups may share one set (LOB: `LOB`, the North American prints, and two `LOB-EN`).
  */
 export function matchGroups(
@@ -190,9 +197,11 @@ export function matchGroups(
     const setId = key && groupAbbreviations.get(key) ? byAbbreviation.get(key) : undefined;
     return setId && normName(g.name).includes(setNames.get(setId) ?? '\0') ? setId : undefined;
   };
+  // Yu-Gi-Oh!: the code before a dash or slash (`LOB-EN`, `MVP1-ENG`, `YS15-ENL`, `RATE-SE`,
+  // `DPCT/DPC5`): editions, regions and decks of one set code.
   const byAbbreviationCode = (abbreviation: string) =>
     byCode.get(abbreviation.toLowerCase()) ??
-    (regional ? byCode.get(abbreviation.toLowerCase().replace(/-(?:en|e|a|ae)$/, '')) : undefined);
+    (regional ? byCode.get(abbreviation.toLowerCase().split(/[-/]/)[0] ?? '') : undefined);
   const alias = (groupId: number) => {
     const code = GROUP_ALIASES[groupId];
     return code === undefined ? undefined : byCode.get(code);
@@ -240,6 +249,12 @@ const productName = (name: string) => normName(name.replace(/\s+\(.*\)$|\s+-\s+.
 const ARTWORK = /\s+\([^()]*\bArt(?:work)?\)$/i;
 const ORIGINAL = /\(Original Art(?:work)?\)$/i;
 
+/** The set code a Yu-Gi-Oh! number starts with (`LCGX-EN001` → `lcgx`), '' without a dash. */
+export const codeOf = (number: string) => {
+  const dash = number.indexOf('-');
+  return dash > 0 ? number.slice(0, dash).toLowerCase() : '';
+};
+
 /** Products that look like single cards: TCGCSV's own test is a `Number` or `Rarity`. */
 export const isCard = (p: TcgProduct) =>
   extended(p, 'Number') !== null || extended(p, 'Rarity') !== null;
@@ -271,7 +286,8 @@ function pickArtwork(products: readonly TcgProduct[], print: CandidatePrint) {
  * number and rarity that differ by name: the one with the print's name wins (`Trial of Hell`, a
  * misprint listed as LOB-012), or artwork variants (`pickArtwork`, 65). `regional` (Yu-Gi-Oh!):
  * rarities through `rarityKey`, so one product prices a number's `Common`, `Short Print` and
- * `Super Short Print`; a regional print no product claimed takes the one
+ * `Super Short Print`; a product numbered with a candidate set's code takes that set's prints only
+ * (LC03's group lists `LCYW-EN…` and `LC03-EN…`); a regional print no product claimed takes the one
  * product of its name and rarity, so one product may price several prints.
  */
 export function matchProducts(
@@ -307,13 +323,30 @@ export function matchProducts(
     return unambiguous(found);
   }
 
-  const byNumber = groupBy(prints, (p) => normNumber(p.number));
-  const printsByName = groupBy(prints, (p) => normName(p.name));
+  const codes = new Set(prints.flatMap((p) => (p.setCode ? [p.setCode] : [])));
+  /** The candidate set a product's number names, '' for none (or not Yu-Gi-Oh!). */
+  const setOf = (product: TcgProduct) => {
+    const code = regional ? codeOf(extended(product, 'Number') ?? '') : '';
+    return codes.has(code) ? code : '';
+  };
+  const indexes = new Map<string, ReturnType<typeof index>>();
+  const index = (code: string) => {
+    const pool = code ? prints.filter((p) => p.setCode === code) : prints;
+    return {
+      byNumber: groupBy(pool, (p) => normNumber(p.number)),
+      byName: groupBy(pool, (p) => normName(p.name)),
+    };
+  };
+  const indexOf = (product: TcgProduct) => {
+    const code = setOf(product);
+    if (!indexes.has(code)) indexes.set(code, index(code));
+    return indexes.get(code) as ReturnType<typeof index>;
+  };
   /** The prints of a product's number (and rarity). */
   const numbered = (product: TcgProduct) => {
     const number = extended(product, 'Number');
     const rarity = extended(product, 'Rarity');
-    let same = number ? (byNumber.get(normNumber(number)) ?? []) : [];
+    let same = number ? (indexOf(product).byNumber.get(normNumber(number)) ?? []) : [];
     // `LOB-001` and `LOB-EN001` read the same: the print with the product's own number wins.
     const exact = same.filter((p) => number && ownNumber(p.number) === ownNumber(number));
     if (same.length > 1 && exact.length) same = exact;
@@ -321,11 +354,11 @@ export function matchProducts(
     if (same.length > 1 && rarity)
       same = same.filter((p) => rarityKey(p.variant) === rarityKey(rarity));
     // One TCGplayer rarity, several of YGOPRODeck's (`Common`, `Short Print`): one card.
-    const one = new Set(same.map((p) => ownNumber(p.number))).size === 1;
+    const one = new Set(same.map((p) => `${p.setCode}|${ownNumber(p.number)}`)).size === 1;
     return same.length === 1 || (regional && rarity && one) ? same : [];
   };
   const byName = (product: TcgProduct) => {
-    const named = printsByName.get(productName(product.name)) ?? [];
+    const named = indexOf(product).byName.get(productName(product.name)) ?? [];
     const [print] = named;
     if (print && named.length === 1)
       found.push({ productId: product.productId, printId: print.id, ...method('name_match') });
@@ -334,7 +367,9 @@ export function matchProducts(
   const cards = products.filter(isCard);
   const family = (p: TcgProduct) => {
     const number = extended(p, 'Number');
-    return number ? `${number}|${rarityKey(extended(p, 'Rarity') ?? '')}` : String(p.productId);
+    return number
+      ? `${setOf(p)}|${number}|${rarityKey(extended(p, 'Rarity') ?? '')}`
+      : String(p.productId);
   };
   for (const same of groupBy(cards, family).values()) {
     const [first] = same;
@@ -366,7 +401,7 @@ export function matchProducts(
         });
     }
   }
-  if (regional) found.push(...regionalMatches(cards, prints, found));
+  if (regional) found.push(...regionalMatches(cards, prints, found, setOf));
   return unambiguous(found);
 }
 
@@ -381,6 +416,7 @@ function regionalMatches(
   products: readonly TcgProduct[],
   prints: readonly CandidatePrint[],
   claimed: readonly ProductMatch[],
+  setOf: (product: TcgProduct) => string,
 ): ProductMatch[] {
   // A unique name (40) is a weaker claim than name and rarity.
   const taken = new Set(claimed.flatMap((m) => (m.method === 'name_match' ? [] : [m.printId])));
@@ -388,7 +424,7 @@ function regionalMatches(
     products.filter((p) => extended(p, 'Rarity') !== null),
     (p) => `${productName(p.name)}|${rarityKey(extended(p, 'Rarity') ?? '')}`,
   );
-  const card = (p: CandidatePrint) => `${normName(p.name)}|${rarityKey(p.variant)}`;
+  const card = (p: CandidatePrint) => `${p.setCode}|${normName(p.name)}|${rarityKey(p.variant)}`;
   const printOf = new Map(prints.map((p) => [p.id, p]));
   const siblings = new Map<string, Set<number>>();
   for (const m of claimed) {
@@ -398,7 +434,9 @@ function regionalMatches(
   }
   return prints.flatMap((print) => {
     if (taken.has(print.id) || !isRegional(print.number)) return [];
-    let fit = byNameRarity.get(`${normName(print.name)}|${rarityKey(print.variant)}`) ?? [];
+    let fit = (
+      byNameRarity.get(`${normName(print.name)}|${rarityKey(print.variant)}`) ?? []
+    ).filter((p) => !setOf(p) || !print.setCode || setOf(p) === print.setCode);
     const number = (p: TcgProduct) => extended(p, 'Number') ?? '';
     if (fit.length > 1) fit = fit.filter((p) => ownNumber(number(p)).startsWith('EN'));
     if (fit.length > 1) fit = fit.filter((p) => digits(number(p)) === digits(print.number));

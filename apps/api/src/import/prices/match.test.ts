@@ -472,4 +472,62 @@ describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
       ['lob-EN070-ultra-rare', 476395, 'number_match', 70],
     ]);
   });
+
+  it('matches a product to the prints of the set its number names', () => {
+    // LC03's group holds LC03-EN001 (the box promo) and the mega pack's LCYW-EN001.
+    const product = (productId: number, number: string, name: string): TcgProduct => ({
+      productId,
+      name,
+      extendedData: [
+        { name: 'Number', value: number },
+        { name: 'Rarity', value: 'Ultra Rare' },
+      ],
+    });
+    const lc03 = [
+      product(1, 'LC03-EN001', 'The Seal of Orichalcos'),
+      product(2, 'LCYW-EN001', 'Dark Magician'),
+    ];
+    const prints = [
+      ygo('lc03', 'EN001', 'The Seal of Orichalcos', 'ultra-rare'),
+      ygo('lcyw', 'EN001', 'Dark Magician', 'ultra-rare'),
+    ];
+    expect(rows(matchProducts(lc03, prints, regional))).toEqual([
+      ['lc03-EN001-ultra-rare', 1, 'number_match', 70],
+      ['lcyw-EN001-ultra-rare', 2, 'number_match', 70],
+    ]);
+  });
+
+  it('matches special editions, decks and Shonen Jump promos to their set (VB-113)', () => {
+    const sets = [
+      set('lob', 'Legend of Blue Eyes White Dragon'),
+      set('mrd', 'Metal Raiders'),
+      set('lc03', "Legendary Collection 3: Yugi's World"),
+      set('jump', 'Shonen Jump May 2006 subscription bonus'),
+      set('ys15', '2-Player Starter Deck: Yuya & Declan'),
+      set('mvp1', 'Yu-Gi-Oh! The Dark Side of Dimensions Movie Pack'),
+      set('lart', 'The Lost Art Promotion A'),
+    ];
+    const code = new Map(sets.map((s) => [s.id, s.code]));
+    expect(
+      matchGroups(results<TcgGroup>(tcgcsvFixture('2/groups-vb113.json'), 'groups'), sets, {
+        regional: true,
+      }).map((m) => [m.groupId, code.get(m.setId)]),
+    ).toEqual([
+      [330, 'lob'],
+      [22881, 'lob'],
+      [23050, 'lob'],
+      [255, 'mrd'],
+      [22882, 'mrd'],
+      [23052, 'mrd'],
+      [584, 'lc03'],
+      [281, 'jump'],
+      [1544, 'ys15'],
+      [1545, 'ys15'],
+      [1877, 'mvp1'],
+      [2577, 'mvp1'],
+      [2322, 'mvp1'],
+      [1820, 'mvp1'],
+      [2196, 'lart'],
+    ]);
+  });
 });
