@@ -1,4 +1,4 @@
-import type { BlobStore, CardStore, JobQueue } from '@voidbinder/core';
+import type { BlobStore, CardStore, CollectionStore, JobQueue } from '@voidbinder/core';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
@@ -10,12 +10,15 @@ import { notFound, onError } from './middleware/errors';
 import { noStoreByDefault } from './middleware/headers';
 import { adminRoutes } from './routes/admin';
 import { catalogRoutes } from './routes/catalog';
+import { collectionRoutes } from './routes/collection';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 
 /** The platform seams one request works with (ADR 0001). */
 export interface Platform {
   cardStore: CardStore;
+  /** The signed-in user's collection (VB-31), on the cache-disabled pool. */
+  collectionStore: CollectionStore;
   blobStore: BlobStore;
   jobQueue: JobQueue;
   /** Drizzle on the cache-disabled pool (ADR 0004): auth, profile, everything read after a write. */
@@ -93,6 +96,7 @@ export function createApp(deps: AppDeps) {
       .on(['GET', 'POST'], '/auth/*', (c) => c.var.auth().handler(c.req.raw))
       .route('/me', meRoutes())
       .route('/catalog', catalogRoutes())
+      .route('/collection', collectionRoutes())
       .route('/admin', adminRoutes(deps.adminToken))
       .notFound(notFound)
       .onError(onError)

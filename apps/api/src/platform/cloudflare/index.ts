@@ -7,6 +7,7 @@ import type { ImportDeps as TcgdexDeps } from '../../import/tcgdex/pipeline';
 import { TcgdexClient } from '../../import/tcgdex/source';
 import { log } from '../../middleware/log';
 import { DrizzleCardStore } from './drizzle-card-store';
+import { DrizzleCollectionStore } from './drizzle-collection-store';
 import { bindingMailSender } from './mail-sender';
 import { R2BlobStore } from './r2-blob-store';
 import { WorkflowJobQueue } from './workflow-job-queue';
@@ -53,6 +54,7 @@ export function createPlatform(env: Env): Platform {
       catalogDb: drizzle(cachedPool),
       imageBaseUrl: env.IMAGE_BASE_URL,
     }),
+    collectionStore: new DrizzleCollectionStore(db, env.IMAGE_BASE_URL),
     blobStore: catalogImages(env),
     jobQueue: new WorkflowJobQueue({
       'scryfall-import': env.SCRYFALL_IMPORT,

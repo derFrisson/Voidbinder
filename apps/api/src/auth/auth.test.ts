@@ -20,6 +20,7 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
     ...deps,
     openPlatform: () => ({
       cardStore: {} as never,
+      collectionStore: {} as never,
       blobStore: {} as never,
       jobQueue: {} as never,
       db,
