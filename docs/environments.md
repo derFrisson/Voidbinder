@@ -83,6 +83,10 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put <NAME> --env dev|prod`. Both
   are under `secrets.required`, so `wrangler deploy` fails while one is unset; a Worker without
   `ADMIN_TOKEN` answers 404 on `/admin/**`, and changing `BETTER_AUTH_SECRET` signs every user out.
+  Also `TWO_FACTOR_ENCRYPTION_KEY` (32 bytes in base64, `openssl rand -base64 32`, same command):
+  encrypts the two-factor secrets and backup codes at rest (AES-256-GCM, VB-68). It is under
+  `secrets.required` as well; never change it after users enrolled, their second factor becomes
+  unreadable.
 - **API settings** are `vars` in `apps/api/wrangler.jsonc`: `APP_URL` (CORS and the auth mail
   links), `API_URL`, `CORS_EXTRA_ORIGINS` (the Expo web dev origin, locally and in `dev` only),
   `IMAGE_BASE_URL` (base of the R2 card images; until VB-57 fills `image_key` the catalog answers
