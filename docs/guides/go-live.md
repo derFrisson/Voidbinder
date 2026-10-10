@@ -376,8 +376,8 @@ done
 unset TOKEN
 ```
 
-**Expect:** `202 {"status":"started"}` twice (the `-o /dev/stdout -w` form prints the body and the
-status on one line, as above). `409 import_running` means one is already running; `404` means
+**Expect:** `{"status":"started"} 202` twice (the `-o /dev/stdout -w` form prints the body, then the
+status, on one line). `409 import_running` means one is already running; `404` means
 `ADMIN_TOKEN` is not set on the Worker.
 
 **Pokémon, the copy (default).** On the VPS, from `voidbinder_dev` into `voidbinder`. The script
@@ -509,7 +509,7 @@ curl -sS -o /dev/stdout -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $
 unset TOKEN
 ```
 
-**Expect:** `202`; on dev the run took 18 min, plus the 7-minute purge wait.
+**Expect:** `{"status":"started"} 202`; on dev the run took 18 min, plus the 7-minute purge wait.
 **Verify:** `import_runs` has `tcgcsv`/`prices` `ok`, and
 `select source, count(*) from prices_current group by 1` shows `tcgplayer`, `cardmarket` and
 `tcgplayer_scryfall` (dev: 498,747 rows in total). A card page in the app shows a price with its
