@@ -771,7 +771,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
   });
 
   // Last in this describe: the horizon it raises is global (app_meta), and it removes it after.
-  it('sweeps log entries older than 30 days and asks a device behind them to pull everything again', async () => {
+  it('sweeps log entries older than 29 days and asks a device behind them to pull everything again', async () => {
     const brock = as(await signUp());
     const [b1, b2, b3] = [binder(), binder(), binder()];
     await push(brock, [{ table: 'binders', rows: [b1, b2, b3] }]);
@@ -785,7 +785,7 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
         .set({ loggedAt: new Date(Date.now() - days * day) })
         .where(eq(syncDeletions.id, id));
     await age(b1.id, SYNC_DELETION_RETENTION_DAYS + 1);
-    await age(b2.id, SYNC_DELETION_RETENTION_DAYS - 1);
+    await age(b2.id, SYNC_DELETION_RETENTION_DAYS - 2);
     const left = async () =>
       (
         await db
@@ -796,8 +796,9 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     try {
       expect(await sweepSyncDeletions(db)).toBe(1);
       expect(new Set(await left())).toEqual(new Set([b2.id, b3.id]));
-      // Two days on, b2 is older than 30 days too (the injectable now).
-      expect(await sweepSyncDeletions(db, new Date(Date.now() + 2 * day))).toBe(1);
+      // A day and a half on, b2 is 29.5 days old (the injectable now): gone, so that with a daily
+      // sweep no entry outlives 30 days.
+      expect(await sweepSyncDeletions(db, new Date(Date.now() + 1.5 * day))).toBe(1);
       expect(await left()).toEqual([b3.id]);
 
       // The cursor from before the deletes may have missed b1 and b2: pull everything again.

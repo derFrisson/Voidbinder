@@ -652,7 +652,7 @@ delete's time `deleted_at` (a pushed delete's device clock, else now) and the se
 Deleting again refreshes the entry. A deck's entries go with the deck (only the deck is logged).
 The daily Scryfall cron of every environment also sweeps the log (`sweepSyncDeletions`): rows
 with `logged_at` older than `SYNC_DELETION_RETENTION_DAYS` (30, `packages/shared/src/api/sync.ts`)
-go in batches of 1000, logged as `sync deletions swept` with the count, and the highest `sync_seq`
+less one day, so that no entry outlives 30 days, go in batches of 1000, logged as `sync deletions swept` with the count, and the highest `sync_seq`
 removed becomes the horizon in `app_meta` (`sync_deletions_horizon`).
 
 **Pull.** `GET /sync/pull?since=<cursor>&limit=` (`since` 0 = everything, `limit` 1 to 500, default

@@ -532,11 +532,12 @@ const SWEEP_BATCH = 1000;
 
 /**
  * The daily sweep of the deletion log (VB-75): removes entries the server wrote more than
- * `SYNC_DELETION_RETENTION_DAYS` before `now`, in batches, and raises the horizon below which a
+ * `SYNC_DELETION_RETENTION_DAYS` - 1 days before `now` (with a daily run every entry is gone
+ * within `SYNC_DELETION_RETENTION_DAYS`), in batches, and raises the horizon below which a
  * pull answers `resync_required` to the highest `sync_seq` it removed. Returns the count.
  */
 export async function sweepSyncDeletions(db: NodePgDatabase, now = new Date()): Promise<number> {
-  const cutoff = new Date(now.getTime() - SYNC_DELETION_RETENTION_DAYS * 86_400_000);
+  const cutoff = new Date(now.getTime() - (SYNC_DELETION_RETENTION_DAYS - 1) * 86_400_000);
   let total = 0;
   for (;;) {
     const removed = await db.transaction(async (tx) => {
