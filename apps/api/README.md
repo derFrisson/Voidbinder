@@ -811,11 +811,12 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
 4. `coverage <game>` after each game (VB-111, VB-114, `src/import/prices/coverage.ts`): per set
    the prints with a current price from any source, per source (`tcgplayer`, `cardmarket`,
    `tcgplayer_scryfall`) and from none, the groups that matched no set and the sets that have a
-   group but no `tcgplayer` price, from the group list the run just kept. Logged in the step as
-   one line `price coverage` per game (`game`, `sets`, `setsWithGroup`, `setsPriced`, `prints`,
-   `priced`, `sources`, `unpriced`, `unmatchedGroups`, `unpricedSets`) and a WARN `set has a
-TCGplayer group and no price` per such set. Never fatal: a failure is a WARN `price coverage failed` and the run goes
-   on (the prices are written by then).
+   group but no `tcgplayer` price, from the group list the run just kept. Magic's groups without a
+   set are imported all the same (step 2), so its `unmatchedGroups` are informational, not a gap.
+   Logged in the step as one line `price coverage` per game (`game`, `sets`, `setsWithGroup`,
+   `setsPriced`, `prints`, `priced`, `sources`, `unpriced`, `unmatchedGroups`, `unpricedSets`) and
+   a WARN `set has a TCGplayer group and no price` per such set. Never fatal: a failure is a WARN
+   `price coverage failed` and the run goes on (the prices are written by then).
 5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
    (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
    run's `RAW` prefix) and `catalog_version` + 1.
