@@ -1,8 +1,10 @@
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   check,
   index,
   integer,
+  pgSequence,
   pgTable,
   text,
   timestamp,
@@ -16,6 +18,19 @@ import { games, prints } from './catalog';
 // server sets `updated_at` on every write, and a delete sets `deleted_at` (a tombstone) instead
 // of removing the row. Reads filter `deleted_at is null`.
 
+/**
+ * The sync cursor (VB-32, ADR 0005): every insert and update of a synced row takes the next value
+ * in the trigger `sync_stamp()` (drizzle/0008_sync.sql), so `GET /sync/pull?since=` finds what
+ * changed. The trigger also holds a per-user lock that `pull` waits on (see the migration).
+ */
+export const syncSeq = pgSequence('sync_seq');
+
+/** `sync_seq` of a synced table; the trigger overwrites the default on every write. */
+export const syncSeqColumn = () =>
+  bigint('sync_seq', { mode: 'number' })
+    .notNull()
+    .default(sql`nextval('sync_seq')`);
+
 const syncColumns = {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id')
@@ -24,6 +39,7 @@ const syncColumns = {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp('deleted_at', { withTimezone: true }),
+  syncSeq: syncSeqColumn(),
 };
 
 const CONDITIONS = sql.raw(`('MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO')`);
@@ -39,6 +55,7 @@ export const binders = pgTable(
     colour: text('colour'),
   },
   (t) => [
+    index('binders_user_id_sync_seq_idx').on(t.userId, t.syncSeq),
     uniqueIndex('binders_user_id_name_live_key')
       .on(t.userId, t.name)
       .where(sql`${t.deletedAt} is null`),
@@ -62,6 +79,7 @@ export const collectionEntries = pgTable(
     note: text('note'),
   },
   (t) => [
+    index('collection_entries_user_id_sync_seq_idx').on(t.userId, t.syncSeq),
     index('collection_entries_user_id_print_id_idx').on(t.userId, t.printId),
     index('collection_entries_binder_id_idx').on(t.binderId),
     check('collection_entries_quantity_check', sql`${t.quantity} > 0`),
@@ -92,6 +110,7 @@ export const wishlistEntries = pgTable(
     note: text('note'),
   },
   (t) => [
+    index('wishlist_entries_user_id_sync_seq_idx').on(t.userId, t.syncSeq),
     // One live wish per print, language and finish; null ("any") counts as one value.
     uniqueIndex('wishlist_entries_user_print_lang_finish_live_key')
       .on(t.userId, t.printId, sql`coalesce(${t.language}, '')`, sql`coalesce(${t.finish}, '')`)

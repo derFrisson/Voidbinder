@@ -8,8 +8,8 @@ import { USER_AGENT, type Fetch } from '../scryfall/source';
 // products and prices of the groups that match a catalog set: about 2,500 requests. Prices are
 // USD, per product and `subTypeName` (the printing), never per condition.
 //
-// The price archive (one 7z per day) answers 403 "temporarily removed" since 2026; there is no
-// history backfill until it returns (apps/api/README.md, Prices).
+// The price archive (one 7z per day) is read by the history backfill on the VPS, not here
+// (backfill.ts, apps/api/README.md, Prices).
 
 const BASE = 'https://tcgcsv.com';
 

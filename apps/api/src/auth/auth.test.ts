@@ -5,6 +5,8 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createApp } from '../app';
 import { rateLimit, session, twoFactor, user } from '../db/schema';
+import { DrizzleCollectionStore } from '../platform/cloudflare/drizzle-collection-store';
+import { DrizzleDeckStore } from '../platform/cloudflare/drizzle-deck-store';
 import { databaseUrl, freshDatabase, testDeps } from '../test-helpers';
 import { AUTH_RATE_LIMITS } from './index';
 import type { MailMessage } from './mail';
@@ -34,8 +36,8 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
     ...deps,
     openPlatform: () => ({
       cardStore: {} as never,
-      collectionStore: {} as never,
-      deckStore: {} as never,
+      collectionStore: new DrizzleCollectionStore(db),
+      deckStore: new DrizzleDeckStore(db),
       blobStore: {} as never,
       jobQueue: {} as never,
       db,
@@ -218,6 +220,33 @@ describe.skipIf(!databaseUrl)('auth and /me (Postgres)', () => {
     const byBearer = await native.request('/me');
     expect(byBearer.status).toBe(200);
     expect(MeResponseSchema.parse(await byBearer.json()).email).toBe(email);
+  });
+
+  // Workers Caching (VB-71) stores whatever says `public`; these answers belong to one user.
+  it('never lets a shared cache store /me, /collection, /decks or /auth answers', async () => {
+    const { b, bearerToken } = await signedIn();
+    const native = browser();
+    native.useBearer(bearerToken);
+    const paths = [
+      '/me',
+      '/auth/get-session',
+      '/collection/binders',
+      '/collection/summary',
+      '/collection/export.csv',
+      '/decks',
+    ];
+    for (const [who, client] of [
+      ['cookie', b],
+      ['bearer', native],
+      ['signed out', browser()],
+    ] as const) {
+      for (const path of paths) {
+        const res = await client.request(path);
+        expect(res.status, `${who} ${path}`).toBeLessThan(500);
+        if (who !== 'signed out') expect(res.status, `${who} ${path}`).toBe(200);
+        expect(res.headers.get('Cache-Control'), `${who} ${path}`).toBe('no-store');
+      }
+    }
   });
 
   it('validates PATCH /me and updates the profile', async () => {

@@ -33,6 +33,35 @@ describe('built site', () => {
     expect(html).not.toContain('challenges.cloudflare.com/turnstile/v0/api.js');
   });
 
+  // The build's own environment (flattened by the adapter) decides the app URL and Plausible, so
+  // these hold for a local, a dev and a prod build alike (VB-74).
+  const vars = (
+    JSON.parse(readFileSync(new URL('../server/wrangler.json', client), 'utf8')) as {
+      vars: { PUBLIC_APP_URL: string; PLAUSIBLE_HOST?: string };
+    }
+  ).vars;
+
+  it.each(['de', 'en'])('links the web app from the %s header and hero', (locale) => {
+    const html = readFileSync(new URL(`${locale}/index.html`, client), 'utf8');
+    expect(vars.PUBLIC_APP_URL).toMatch(/^https?:\/\//);
+    expect(html.split(`href="${vars.PUBLIC_APP_URL}"`).length - 1).toBe(2);
+  });
+
+  it('renders the Plausible script and its CSP entry exactly when PLAUSIBLE_HOST is set', () => {
+    const headers = readFileSync(new URL('_headers', client), 'utf8');
+    const host = vars.PLAUSIBLE_HOST;
+    for (const { file, html } of pages) {
+      const scripts = html.match(/<script\b[^>]*data-domain=[^>]*>/g) ?? [];
+      expect(scripts, file).toHaveLength(host ? 1 : 0);
+      if (host) {
+        expect(scripts[0], file).toContain(`src="https://${host}/js/script.js"`);
+        expect(scripts[0], file).toContain('data-domain="voidbinder.de"');
+      }
+    }
+    expect(headers.includes(`https://${host}`)).toBe(Boolean(host));
+    expect(headers).not.toContain('cloudflareinsights');
+  });
+
   // The strict CSP (VB-19) forbids inline style attributes; <style> elements are hashed instead.
   it('has no inline style attributes', () => {
     expect(pages.length).toBeGreaterThan(0);

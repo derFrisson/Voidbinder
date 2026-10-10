@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runScryfallImport, type StepRunner } from '../import/scryfall/pipeline';
 import { scryfallImportDeps } from '../platform/cloudflare';
+import { edgeCacheDeps } from '../platform/cloudflare/cache';
 import { mirrorStepFor } from './mirror-images';
 
 /** Every step: three retries with backoff; the downloads of the bulk files take a few minutes. */
@@ -21,7 +22,7 @@ const STEP = {
  */
 export class ScryfallImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
-    const deps = scryfallImportDeps(this.env);
+    const deps = { ...scryfallImportDeps(this.env), ...edgeCacheDeps(step) };
     // Every step result is plain JSON (counts, keys); Workflows persists it.
     const run: StepRunner = (name, fn) => step.do(name, STEP, fn as () => Promise<never>);
     const { runId, stats, prices } = await runScryfallImport(deps, run, {

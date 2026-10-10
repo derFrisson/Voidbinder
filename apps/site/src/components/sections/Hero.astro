@@ -3,7 +3,8 @@
 // snaps green with "Erkannt", the price sheet slides up, the offline note pops in. Every step only
 // animates transform and opacity from a `from` keyframe, so the resting state is the final frame:
 // that is what reduced motion shows, and nothing shifts the layout.
-import { amount, links, money, t, type Locale } from '../../i18n';
+import { env } from 'cloudflare:workers';
+import { amount, money, t, type Locale } from '../../i18n';
 import Card from '../art/Card.astro';
 import Phone from '../art/Phone.astro';
 import Icon from '../Icon.astro';
@@ -13,6 +14,8 @@ interface Props {
 }
 const { locale } = Astro.props;
 const d = t(locale).hero;
+// The web app of the build's environment (wrangler var PUBLIC_APP_URL).
+const appUrl = env.PUBLIC_APP_URL;
 const trustColors = ['blue', 'pk', 'ok', 'op'];
 const deck = [
   { q: '4×', thumb: '', name: 'Glimmerfuchs', set: 'Funkenflug', price: 12.8 },
@@ -30,9 +33,10 @@ const deck = [
       <h1>{d.title} <span class="accent">{d.accent}</span></h1>
       <p class="lead">{d.lede}</p>
       <div class="cta">
-        <a class="btn btn--primary" href="#waitlist">{d.primary}<Icon name="arrow" /></a>
-        <a class="btn btn--ghost" href={links.github}><Icon name="code" />{d.secondary}</a>
+        <a class="btn btn--primary" href={appUrl}>{d.primary}<Icon name="arrow" /></a>
+        <a class="btn btn--ghost" href="#waitlist">{d.secondary}</a>
       </div>
+      <p class="app-note">{d.appNote}</p>
       <ul class="trust" aria-label={d.trustLabel}>
         {d.trust.map((item, i) => <li class={`trust--${trustColors[i]}`}>{item}</li>)}
       </ul>
@@ -158,6 +162,12 @@ const deck = [
     flex-wrap: wrap;
     gap: 12px;
     margin-top: 34px;
+  }
+
+  .app-note {
+    margin: 14px 0 0;
+    color: var(--ink-2);
+    font: 500 14.5px/1.4 var(--f-body);
   }
 
   .trust {

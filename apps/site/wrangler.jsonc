@@ -23,6 +23,9 @@
     // Turnstile on the waitlist form (VB-72): the widget's public sitekey, one widget for every
     // hostname; locally Cloudflare's always-passes test key. The secret is TURNSTILE_SECRET.
     "TURNSTILE_SITE_KEY": "1x00000000000000000000AA",
+    // The web app the "open the web app" buttons link to (VB-74); locally the Expo dev server.
+    "PUBLIC_APP_URL": "http://localhost:8081",
+    // Plausible (self-hosted) is set in prod only: no PLAUSIBLE_HOST, no script, no CSP entry.
   },
   // Daily retention purge of the waitlist (docs/site/waitlist.md). UTC.
   "triggers": { "crons": ["17 3 * * *"] },
@@ -49,6 +52,7 @@
         "WAITLIST_PENDING_RETENTION_DAYS": 30,
         "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
         "TURNSTILE_SITE_KEY": "0x4AAAAAAFS5R7qPne3TN2Nz",
+        "PUBLIC_APP_URL": "https://voidbinder-app-dev.frisson.workers.dev",
       },
       "triggers": { "crons": ["17 3 * * *"] },
       "secrets": { "required": ["UNSUBSCRIBE_SECRET", "TURNSTILE_SECRET"] },
@@ -76,6 +80,8 @@
         "WAITLIST_PENDING_RETENTION_DAYS": 30,
         "WAITLIST_UNSUBSCRIBED_RETENTION_DAYS": 365,
         "TURNSTILE_SITE_KEY": "0x4AAAAAAFS5R7qPne3TN2Nz",
+        "PUBLIC_APP_URL": "https://app.voidbinder.de",
+        "PLAUSIBLE_HOST": "web-analytics.voidcom.app",
       },
       "triggers": { "crons": ["17 3 * * *"] },
       "secrets": { "required": ["UNSUBSCRIBE_SECRET", "TURNSTILE_SECRET"] },

@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runYgoprodeckImport } from '../import/ygoprodeck/pipeline';
 import { ygoprodeckImportDeps } from '../platform/cloudflare';
+import { edgeCacheDeps } from '../platform/cloudflare/cache';
 import { mirrorStepFor } from './mirror-images';
 
 /** Every step: three retries with backoff; a download is one request of a few MB. */
@@ -25,7 +26,7 @@ const LANGUAGES = ['en', 'de'];
 export class YgoprodeckImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
     const { runId, stats } = await runYgoprodeckImport(
-      ygoprodeckImportDeps(this.env),
+      { ...ygoprodeckImportDeps(this.env), ...edgeCacheDeps(step) },
       // Every step result is plain JSON (counts, keys); Workflows persists it.
       (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
       {

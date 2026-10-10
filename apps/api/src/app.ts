@@ -16,6 +16,7 @@ import { deckRoutes } from './routes/decks';
 import { healthRoutes } from './routes/health';
 import { meRoutes } from './routes/me';
 import { moduleRoutes } from './routes/modules';
+import { syncRoutes } from './routes/sync';
 
 /** The platform seams one request works with (ADR 0001). */
 export interface Platform {
@@ -111,6 +112,7 @@ export function createApp(deps: AppDeps) {
       .route('/catalog', catalogRoutes())
       .route('/collection', collectionRoutes())
       .route('/decks', deckRoutes())
+      .route('/sync', syncRoutes())
       .route('/admin', adminRoutes(deps.adminToken))
       .notFound(notFound)
       .onError(onError)
