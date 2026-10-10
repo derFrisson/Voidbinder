@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "deploy:dev": "EXPO_PUBLIC_TURNSTILE_SITE_KEY=${EXPO_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAAAAFS5R7qPne3TN2Nz} pnpm run build && wrangler deploy --env dev",
-    "deploy:prod": "EXPO_PUBLIC_PLAUSIBLE_HOST=${EXPO_PUBLIC_PLAUSIBLE_HOST:-https://plausible.voidbinder.de} EXPO_PUBLIC_PLAUSIBLE_DOMAIN=${EXPO_PUBLIC_PLAUSIBLE_DOMAIN:-app.voidbinder.de} EXPO_PUBLIC_TURNSTILE_SITE_KEY=${EXPO_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAAAAFS5R7qPne3TN2Nz} pnpm run build && wrangler deploy --env prod"
+    "deploy:prod": "EXPO_PUBLIC_PLAUSIBLE_HOST=${EXPO_PUBLIC_PLAUSIBLE_HOST:-https://web-analytics.voidcom.app} EXPO_PUBLIC_PLAUSIBLE_DOMAIN=${EXPO_PUBLIC_PLAUSIBLE_DOMAIN:-app.voidbinder.de} EXPO_PUBLIC_TURNSTILE_SITE_KEY=${EXPO_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAAAAFS5R7qPne3TN2Nz} pnpm run build && wrangler deploy --env prod"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",

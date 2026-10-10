@@ -148,7 +148,7 @@ fonts the same way, and neither can carry a nonce. Images: self, `data:` and `im
 
 **Analytics (VB-74):** the web build reports pageviews to the self-hosted Plausible
 (`@plausible-analytics/tracker`, `src/analytics.ts`, started once from the root layout). It is
-configured at build time by `EXPO_PUBLIC_PLAUSIBLE_HOST` (`https://plausible.voidbinder.de`) and
+configured at build time by `EXPO_PUBLIC_PLAUSIBLE_HOST` (`https://web-analytics.voidcom.app`) and
 `EXPO_PUBLIC_PLAUSIBLE_DOMAIN` (`app.voidbinder.de`); with either unset, and on native, the tracker is
 never loaded. `deploy:prod` sets both, `deploy:dev` neither. Expo Router navigates with
 `history.pushState`, which the tracker hooks, so each route change is a pageview. The tracker sends
