@@ -21,7 +21,7 @@ import {
   useUpdateEntry,
 } from '../../api/queries/collection';
 import { ApiError } from '../../api/queries/http';
-import { useBrowsingLanguage } from '../../hooks/browsing-language';
+import { useBrowsingLanguage, useExplicitLanguage } from '../../hooks/browsing-language';
 import { useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { useWide } from '../Shell';
@@ -48,9 +48,18 @@ export function languageOptions(game: Game | undefined, langs: readonly string[]
 /** The language last added in, for the next add; lives as long as the tab (this session). */
 export const session: { language: string | undefined } = { language: undefined };
 
-/** The first of: the last used language, the browsing language, English, that the print has. */
-export const defaultLanguage = (options: readonly string[], browsing: string) =>
-  [session.language, browsing, 'en'].find((l) => l !== undefined && options.includes(l)) ??
+/**
+ * The first of: the language the page or tile names explicitly (the set page's chip, a search
+ * hit's match), the last used language, the browsing language, English, that the print has.
+ */
+export const defaultLanguage = (
+  options: readonly string[],
+  browsing: string,
+  explicit?: string | undefined,
+) =>
+  [explicit, session.language, browsing, 'en'].find(
+    (l) => l !== undefined && options.includes(l),
+  ) ??
   options[0] ??
   'en';
 
@@ -145,6 +154,7 @@ function Form({ printId, kind, edit, binderId, onClose, data }: Props & { data: 
   const t = useT();
   const wide = useWide();
   const browsing = useBrowsingLanguage();
+  const explicit = useExplicitLanguage();
   const insets = useSafeAreaInsets();
   const binders = useBinders();
   const add = useAddEntries();
@@ -158,7 +168,7 @@ function Form({ printId, kind, edit, binderId, onClose, data }: Props & { data: 
   const languages = [...new Set([...options.languages, ...(start ? [start.language] : [])])];
   const finishes = [...new Set([...options.finishes, ...(start ? [start.finish] : [])])];
   const [language, setLanguage] = useState(
-    start?.language ?? (wish ? ANY : defaultLanguage(languages, browsing)),
+    start?.language ?? (wish ? ANY : defaultLanguage(languages, browsing, explicit)),
   );
   const [finish, setFinish] = useState(start?.finish ?? (wish ? ANY : (finishes[0] ?? 'normal')));
   const [condition, setCondition] = useState<string>(start?.condition ?? (wish ? ANY : 'NM'));
