@@ -74,13 +74,12 @@ describe('resolvePush', () => {
       updatedAt: t(20),
     });
     expect(resolvePush(deleted, pushed({ updatedAt: t(12) }))).toEqual({ action: 'conflict' });
-    // The device saw the delete and edits again: that edit is newer by definition.
-    expect(resolvePush(deleted, pushed({ baseUpdatedAt: t(15) })).action).toBe('insert');
-    // A device clock behind the delete still lands after it.
-    expect(resolvePush(deleted, pushed({ updatedAt: t(5), baseUpdatedAt: t(15) }))).toEqual({
-      action: 'insert',
-      updatedAt: '2026-10-10T10:15:00.001Z',
+    // A base at or after the delete (a skewed clock stamped the row's last edit later than the
+    // delete) proves nothing: only the edit and delete times count.
+    expect(resolvePush(deleted, pushed({ updatedAt: t(12), baseUpdatedAt: t(16) }))).toEqual({
+      action: 'conflict',
     });
+    expect(resolvePush(deleted, pushed({ baseUpdatedAt: t(16) })).action).toBe('insert');
   });
 
   it('writes nothing for a delete of a deleted row (a retried delete)', () => {

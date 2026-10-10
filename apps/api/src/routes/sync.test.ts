@@ -402,6 +402,25 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(await db.select().from(deckEntries).where(eq(deckEntries.deckId, d.id))).toHaveLength(1);
   });
 
+  it('weighs an edit against a logged delete by time alone, whatever the base', async () => {
+    // A fast device clock (within the allowance) stamps the row 4 minutes ahead.
+    const now = Date.now();
+    const ahead = new Date(now + 4 * 60_000).toISOString();
+    const b = binder({ updatedAt: ahead });
+    await push(ash, [{ table: 'binders', rows: [b] }]);
+    // A REST delete at now(): logged before the row's last edit.
+    expect((await ash(`/collection/binders/${b.id}`, { method: 'DELETE' })).status).toBe(204);
+    // A device that pulled the row (base: the fast stamp) and edited it before the delete loses.
+    const edit = { ...b, name: 'Offline', updatedAt: new Date(now - 60_000).toISOString() };
+    const res = await push(ash, [{ table: 'binders', rows: [{ ...edit, baseUpdatedAt: ahead }] }]);
+    expect(res.body).toEqual({
+      applied: [],
+      conflicts: [],
+      deletions: [{ table: 'binders', id: b.id }],
+    });
+    expect(await db.select().from(binders).where(eq(binders.id, b.id))).toEqual([]);
+  });
+
   it('moves entries out of a deleted binder', async () => {
     const adeline = await print('mid', '1');
     const b = binder();

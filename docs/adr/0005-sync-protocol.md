@@ -68,7 +68,8 @@ native client runs the same code.
   device replaces its copy. Two exceptions, both decided by the edit times: a delete newer than
   the stored edit still wins, and an edit newer than a logged delete brings the row back (it is
   inserted again and its log row goes). A row that is gone answers with its log row: an edit
-  older than the delete is a conflict, returned in `deletions` (the device drops its copy), and a
+  older than the delete is a conflict whatever its base (a logged delete's time can lie before
+  the row's last edit, so a base at or after it proves nothing), returned in `deletions` (the device drops its copy), and a
   delete is applied without writing anything. A row that already equals the stored one writes
   nothing, so a retried push is harmless. An applied
   row's `updatedAt` never goes back in time (a device clock behind the stored edit gets the

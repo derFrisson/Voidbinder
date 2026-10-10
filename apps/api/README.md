@@ -687,7 +687,7 @@ pull.
 returns it in `conflicts` (a deck with its list), and the device replaces its copy. Except: a delete
 newer than the stored edit wins, and an edit newer than a logged delete brings the row back (it is
 inserted again and its log entry goes). For a row that is gone, its log entry stands in: an older
-edit is answered in `deletions` (`[{ table, id }]`: drop the local copy), a delete is applied
+edit is answered in `deletions` whatever its base (`[{ table, id }]`: drop the local copy), a delete is applied
 without writing anything. A row equal to the stored one writes nothing (a retried push changes
 nothing). `applied` lists the
 `updatedAt` the server holds for every other pushed row: the device's next `baseUpdatedAt`. An

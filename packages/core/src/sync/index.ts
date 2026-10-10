@@ -44,7 +44,8 @@ const ms = (t: string) => Date.parse(t);
  *   retry);
  * - the device saw the stored row (`stored.updatedAt <= baseUpdatedAt`): apply;
  * - else someone changed it meanwhile: a delete newer than that change still wins, an edit newer
- *   than the stored delete brings the row back (an insert), anything else is a conflict.
+ *   than the stored delete brings the row back (an insert, whatever the base), anything else is
+ *   a conflict.
  *
  * An applied row's `updatedAt` never goes back: a device clock behind the stored edit gets the
  * stored time plus a millisecond, so the next device's base comparison still holds.
@@ -58,7 +59,13 @@ export function resolvePush(stored: StoredStamp | null, pushed: PushedStamp): Sy
     action: stored.deletedAt ? 'insert' : 'apply',
     updatedAt: new Date(Math.max(ms(pushed.updatedAt), ms(stored.updatedAt) + 1)).toISOString(),
   });
-  if (pushed.baseUpdatedAt !== null && ms(stored.updatedAt) <= ms(pushed.baseUpdatedAt))
+  // A logged delete's time may lie before the row's last edit, so a base proves nothing there: a
+  // device that pulled the delete dropped its copy, a base at or after it only comes from skew.
+  if (
+    !stored.deletedAt &&
+    pushed.baseUpdatedAt !== null &&
+    ms(stored.updatedAt) <= ms(pushed.baseUpdatedAt)
+  )
     return write();
   if (pushed.deletedAt && ms(pushed.deletedAt) > ms(stored.updatedAt)) return write();
   if (stored.deletedAt && !pushed.deletedAt && ms(pushed.updatedAt) > ms(stored.deletedAt))
