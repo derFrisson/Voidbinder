@@ -23,6 +23,7 @@ describe('search params', () => {
           set: 'MID',
           rarity: 'rare',
           lang: 'en',
+          names: 'de',
           finish: 'foil',
           page: '3',
         },
@@ -34,6 +35,7 @@ describe('search params', () => {
       set: 'mid',
       rarity: 'rare',
       lang: 'en',
+      names: 'de',
       finish: 'foil',
       page: 3,
     });
@@ -46,6 +48,7 @@ describe('search params', () => {
       finish: undefined,
       page: 1,
     });
+    expect(fromParams({ names: 'all' }, 'de').names).toBeUndefined();
     expect(fromParams({ page: '1.5' }, 'de').page).toBe(1);
   });
 
@@ -56,11 +59,25 @@ describe('search params', () => {
       set: undefined,
       rarity: undefined,
       lang: undefined,
+      names: undefined,
       finish: undefined,
       page: undefined,
     });
-    const full: SearchState = { ...base, game: 'mtg', set: 'mid', lang: 'en', page: 2 };
-    expect(toParams(full, 'de')).toMatchObject({ game: 'mtg', set: 'mid', lang: 'en', page: '2' });
+    const full: SearchState = {
+      ...base,
+      game: 'mtg',
+      set: 'mid',
+      lang: 'en',
+      names: 'en',
+      page: 2,
+    };
+    expect(toParams(full, 'de')).toMatchObject({
+      game: 'mtg',
+      set: 'mid',
+      lang: 'en',
+      names: 'en',
+      page: '2',
+    });
     const params = Object.fromEntries(
       Object.entries(toParams(full, 'de')).filter(([, v]) => v !== undefined),
     );
@@ -102,9 +119,18 @@ describe('useSearch', () => {
       game: 'mtg',
       set: 'mid',
       lang: 'de',
+      names: 'all',
       currency: 'EUR',
       page: '1',
     });
+  });
+
+  it('sends names=en when the English chip is on', async () => {
+    const calls = fakeApi((c) => (c.path.startsWith('/catalog/search') ? json(answer) : undefined));
+    const { result } = renderHook(() => useSearch({ ...base, names: 'en' }), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual(answer));
+    const path = calls.find((c) => c.path.startsWith('/catalog/'))?.path ?? '';
+    expect(new URL(`http://x${path}`).searchParams.get('names')).toBe('en');
   });
 
   it('sends nothing below two characters', async () => {
