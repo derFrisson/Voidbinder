@@ -160,8 +160,22 @@ describe('printNumbers with a stored localized code (VB-94)', () => {
 
   it('reads the code from a localization’s external_ids', () => {
     expect(storedCode({ set_code: 'LON-G065', set_code_source: 'yugipedia' })).toBe('LON-G065');
-    expect(storedCode({ set_code_source: 'yugipedia' })).toBeNull();
+    // Verified absent: the language has no such print.
+    expect(storedCode({ set_code_source: 'yugipedia' })).toBe('');
+    expect(storedCode({ set_code_source: 'rule' })).toBeNull();
     expect(storedCode(null)).toBeNull();
+  });
+
+  it('shows the stored number for a language the set lists dropped', () => {
+    const blgg = { game: 'yugioh' as const, setCode: 'blgg', number: 'EN024', cardCount: 100 };
+    expect(printNumbers({ ...blgg, localizedCode: '' }, 'pt', true)).toEqual({
+      displayNumber: 'EN024',
+      displayCode: 'BLGG-EN024',
+    });
+    // The rule without the drop.
+    expect(printNumbers({ ...blgg, localizedCode: null }, 'pt', true).displayCode).toBe(
+      'BLGG-PT024',
+    );
   });
 });
 

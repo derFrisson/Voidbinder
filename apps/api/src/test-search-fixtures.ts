@@ -52,6 +52,17 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
     await print(lds3, 'yugioh', `Duelist Filler ${n}`, `EN${n}`);
   const blgg = await set('yugioh', 'blgg', 'Battles of Legend: Chapter 1', '2024-01-11', 100);
   await print(blgg, 'yugioh', 'Ghostrick Angel of Mischief', 'EN024');
+  // VB-94: a language the set lists dropped (no Portuguese print): shown as `BLGG-EN024`.
+  const [ghostrick] = await db
+    .select({ id: prints.id })
+    .from(prints)
+    .where(and(eq(prints.setId, blgg), eq(prints.number, 'EN024')));
+  await db.insert(printLocalizations).values({
+    printId: ghostrick?.id ?? '',
+    lang: 'pt',
+    name: 'Anjo Fantasmagórico da Travessura',
+    externalIds: { set_code_source: 'yugipedia' },
+  });
   // VB-102: a name search shows the language that matched.
   await print(blgg, 'yugioh', 'Lev Shaddoll', 'EN025', 'Lev-Schattenpuppen');
   // VB-102: a typed language token without a number names the language of a set's prints.

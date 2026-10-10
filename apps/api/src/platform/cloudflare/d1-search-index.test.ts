@@ -128,7 +128,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
           (select count(*) from names) as names`,
       )
       .first();
-    expect(counts).toEqual({ sets: 11, prints: 36, names: 46 });
+    expect(counts).toEqual({ sets: 11, prints: 36, names: 47 });
     expect(await refresh()).toMatchObject({ status: 'ok', setsWritten: 0, setsRemoved: 0 });
   });
 
@@ -215,6 +215,8 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     ['lon g'],
     ['lon de065'],
     ['lon'],
+    ['anjo fantasm'],
+    ['blgg pt024'],
   ])('suggest %j%s: same answer as Postgres', async (q, extra = '') => {
     const query = SearchSuggestQuerySchema.parse({
       q,
@@ -238,6 +240,8 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
       ['LON-G065', '&lang=en', 'de LON-G065 Dunkler Nekrofeind'],
       ['ldc-f065', '', 'fr LDC-F065 Nécrofear Sombre'],
       ['dunkler nekro', '', 'de LON-G065 Dunkler Nekrofeind'],
+      // A dropped language shows the English code.
+      ['anjo fantasm', '', 'pt BLGG-EN024 Anjo Fantasmagórico da Travessura'],
     ] as const) {
       const query = SearchSuggestQuerySchema.parse({
         q,

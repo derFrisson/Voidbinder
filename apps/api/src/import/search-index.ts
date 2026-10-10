@@ -221,7 +221,9 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         code_alnum: string | null;
       }>(sql`select pl.print_id, pl.lang, pl.name, pl.image_key,
           pl.external_ids #>> '{scryfall_images,normal}' as image_src,
-          pl.external_ids ->> 'set_code' as code,
+          -- storedCode: '' for a language the set lists dropped (VB-94).
+          coalesce(nullif(pl.external_ids ->> 'set_code', ''),
+            case when pl.external_ids ->> 'set_code_source' = 'yugipedia' then '' end) as code,
           regexp_replace(lower(pl.external_ids ->> 'set_code'), '[^a-z0-9]+', '', 'g') as code_alnum
         from print_localizations pl join prints p on p.id = pl.print_id
         where p.set_id = any(${list}::uuid[])`),

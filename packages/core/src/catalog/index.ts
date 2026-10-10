@@ -86,18 +86,24 @@ export function typedLanguage(
   return rest && digits(rest) === digits(number.slice(2)) ? token : null;
 }
 
-/** A Yu-Gi-Oh! localization's own code (`external_ids.set_code`, VB-94: `BLGG-DE024`), else null. */
+/**
+ * A Yu-Gi-Oh! localization's own code (`external_ids.set_code`, VB-94: `BLGG-DE024`); '' when the
+ * set lists verified the language has no such print (`set_code_source: 'yugipedia'`, no code);
+ * null when nothing is stored (the rule applies).
+ */
 export function storedCode(
   ids: Readonly<Record<string, unknown>> | null | undefined,
 ): string | null {
   const code = ids?.set_code;
-  return typeof code === 'string' && code ? code : null;
+  if (typeof code === 'string' && code) return code;
+  return ids?.set_code_source === 'yugipedia' ? '' : null;
 }
 
 /**
  * `displayNumber` and `displayCode` of a print in `lang` (VB-97); `localized` says whether it has a
  * localization in `lang`, `localizedCode` is that localization's stored code (`storedCode`, VB-94),
- * which wins over the rule (`LON-065` in German is `LON-G065`). A Yu-Gi-Oh! language token in
+ * which wins over the rule (`LON-065` in German is `LON-G065`); a verified absent code ('') shows
+ * the number as stored (`BLGG-EN024`: there is no Portuguese print). A Yu-Gi-Oh! language token in
  * `code` (a search's query as `parseCodeQuery` normalizes it, `typedToken`) wins over `lang`; when
  * `code` names the print by its full number, or is the stored code, the hit carries it as
  * `matchedCode`.
@@ -120,11 +126,13 @@ export function printNumbers(
   const stored = print.game === 'yugioh' && (!token || token === lang) ? print.localizedCode : null;
   const shown = stored
     ? stored.slice(stored.indexOf('-') + 1)
-    : token
-      ? displayNumber(print.game, print.number, token, [token])
-      : displayNumber(print.game, print.number, lang, localized ? [lang] : []);
+    : stored === ''
+      ? print.number
+      : token
+        ? displayNumber(print.game, print.number, token, [token])
+        : displayNumber(print.game, print.number, lang, localized ? [lang] : []);
   // As stored: a localized code may start with another set code (French LON is `LDC-F065`).
-  const printed = stored ?? displayCode(print.game, print.setCode, shown, print.cardCount);
+  const printed = stored || displayCode(print.game, print.setCode, shown, print.cardCount);
   return {
     displayNumber: shown,
     displayCode: printed,
