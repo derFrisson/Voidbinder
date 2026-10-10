@@ -1,0 +1,34 @@
+{
+  "totalItems": 3,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "groupId": 604,
+      "name": "Base Set",
+      "abbreviation": "BS",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 3
+    },
+    {
+      "groupId": 2675,
+      "name": "SWSH03: Darkness Ablaze",
+      "abbreviation": "SWSH03",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 3
+    },
+    {
+      "groupId": 24831,
+      "name": "ME06: Delta Reign",
+      "abbreviation": "DLR",
+      "isSupplemental": false,
+      "publishedOn": "2021-09-24T00:00:00",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "categoryId": 3
+    }
+  ]
+}

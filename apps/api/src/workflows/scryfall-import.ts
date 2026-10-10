@@ -4,7 +4,7 @@ import {
   type WorkflowStep,
   type WorkflowStepConfig,
 } from 'cloudflare:workers';
-import { runScryfallImport } from '../import/scryfall/pipeline';
+import { runScryfallImport, type StepRunner } from '../import/scryfall/pipeline';
 import { scryfallImportDeps } from '../platform/cloudflare';
 import { mirrorStepFor } from './mirror-images';
 
@@ -21,20 +21,20 @@ const STEP = {
  */
 export class ScryfallImportWorkflow extends WorkflowEntrypoint<Env> {
   override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
-    const { runId, stats } = await runScryfallImport(
-      scryfallImportDeps(this.env),
-      // Every step result is plain JSON (counts, keys); Workflows persists it.
-      (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
-      {
-        env: this.env.IMPORT_ENV,
-        date: event.timestamp.toISOString().slice(0, 10),
-        languages: this.env.SCRYFALL_LANGUAGES.split(',')
-          .map((l) => l.trim())
-          .filter(Boolean),
-      },
-    );
+    const deps = scryfallImportDeps(this.env);
+    // Every step result is plain JSON (counts, keys); Workflows persists it.
+    const run: StepRunner = (name, fn) => step.do(name, STEP, fn as () => Promise<never>);
+    const { runId, stats, prices } = await runScryfallImport(deps, run, {
+      env: this.env.IMPORT_ENV,
+      date: event.timestamp.toISOString().slice(0, 10),
+      languages: this.env.SCRYFALL_LANGUAGES.split(',')
+        .map((l) => l.trim())
+        .filter(Boolean),
+      // VB-30: the dump's Cardmarket EUR and TCGplayer USD prices, one step per chunk.
+      pricesObservedAt: event.timestamp.toISOString(),
+    });
     // Last step (VB-57): the oldest pending Magic images, at most 2000.
     const images = await mirrorStepFor('mtg')(this.env, step);
-    return { runId, stats, images };
+    return { runId, stats, prices, images };
   }
 }

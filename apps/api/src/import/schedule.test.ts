@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { CRON_SOURCES } from './schedule';
+import { CRON_SOURCES, cronInstanceId } from './schedule';
 
 describe('CRON_SOURCES', () => {
   it('maps every cron of wrangler.jsonc to an import', () => {
@@ -10,5 +10,12 @@ describe('CRON_SOURCES', () => {
     );
     expect(crons.length).toBeGreaterThan(0);
     for (const cron of crons) expect(CRON_SOURCES, cron).toHaveProperty([cron as string]);
+  });
+
+  it('gives the late TCGCSV cron its own instance id', () => {
+    const at = Date.parse('2026-10-10T20:30:00Z');
+    expect(cronInstanceId('30 20 * * *', 'tcgcsv', at)).toBe('tcgcsv-2026-10-10');
+    expect(cronInstanceId('30 22 * * *', 'tcgcsv', at + 7_200_000)).toBe('tcgcsv-2026-10-10-late');
+    expect(cronInstanceId('0 3 * * *', 'scryfall', at)).toBe('scryfall-2026-10-10');
   });
 });

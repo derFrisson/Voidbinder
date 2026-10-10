@@ -89,17 +89,23 @@ export async function startRun(db: Db, kind: 'full' | 'delta' | 'images'): Promi
 }
 
 /**
- * Marks the run ok and bumps `catalog_version` in one transaction (ADR 0004). Idempotent: a
+ * Marks the run ok and bumps `catalog_version` in one transaction (ADR 0004; `bump: false` for a
+ * run that changed nothing). Idempotent: a
  * retried step finds the run no longer `running` and bumps nothing.
  */
-export async function finishRun(db: Db, runId: string, stats: Record<string, unknown>) {
+export async function finishRun(
+  db: Db,
+  runId: string,
+  stats: Record<string, unknown>,
+  { bump = true }: { bump?: boolean } = {},
+) {
   await db.transaction(async (tx) => {
     const finished = await tx
       .update(importRuns)
       .set({ status: 'ok', finishedAt: sql`now()`, stats })
       .where(and(eq(importRuns.id, runId), eq(importRuns.status, 'running')))
       .returning({ id: importRuns.id });
-    if (!finished.length) return;
+    if (!finished.length || !bump) return;
     await tx
       .update(appMeta)
       .set({ value: sql`(${appMeta.value}::bigint + 1)::text`, updatedAt: sql`now()` })

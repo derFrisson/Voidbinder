@@ -106,7 +106,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     const beyond = SetPageResponseSchema.parse((await get('/sets/mtg/mid?page=2')).body);
     expect(beyond).toMatchObject({ page: 2, total: 22, prints: [] });
-    const query = { lang: 'en', sort: 'number', page: 2 } as const;
+    const query = { lang: 'en', sort: 'number', currency: 'EUR', page: 2 } as const;
     const second = await store.getSetPage('mtg', 'mid', query, 5);
     expect(second?.prints.map((p) => p.number)).toEqual(['6', '7', '8', '9', '10']);
 

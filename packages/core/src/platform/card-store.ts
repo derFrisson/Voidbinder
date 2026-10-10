@@ -2,6 +2,9 @@ import type { Game } from '@voidbinder/shared';
 import type {
   CardResponse,
   GameSummary,
+  PriceHistoryResponse,
+  PricesQuery,
+  PrintPricesResponse,
   PrintResponse,
   SetPageQuery,
   SetPageResponse,
@@ -29,6 +32,13 @@ export interface CardStore {
   ): Promise<SetPageResponse | null>;
   getCard(id: string): Promise<CardResponse | null>;
   getPrint(id: string): Promise<PrintResponse | null>;
+  /** Current prices of a print with the display price and condition estimates; null: no print. */
+  getPrintPrices(id: string, query: PricesQuery): Promise<PrintPricesResponse | null>;
+  /**
+   * Daily market prices of the `days` days before `today` (a UTC date the caller passes, so the
+   * query stays cacheable), thinned to weekly before the last 180 days; null when no such print.
+   */
+  getPriceHistory(id: string, days: number, today: string): Promise<PriceHistoryResponse | null>;
   /**
    * True while an import run of `source` is `running` and started less than 6 h ago (an older
    * one is taken as dead). Reads fresh, never from the catalog cache.

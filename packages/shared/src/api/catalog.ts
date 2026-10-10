@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { GameSchema } from '../index.js';
+import { CurrencySchema } from './me.js';
+import { DisplayPriceSchema } from './prices.js';
 
 // Catalog read API (`/catalog/**`, VB-26). Every response carries an ETag that includes the
 // catalog_version (ADR 0004).
@@ -45,6 +47,8 @@ export const SetPageQuerySchema = z.object({
   rarity: z.string().max(32).optional(),
   finish: z.string().max(32).optional(),
   sort: z.enum(['number', 'name', 'rarity']).default('number'),
+  /** Picks the source of each print's `marketPrice` (EUR → Cardmarket first, USD → TCGplayer). */
+  currency: CurrencySchema.default('EUR'),
   page: z.coerce.number().int().min(1).max(10_000).default(1),
 });
 export type SetPageQuery = z.infer<typeof SetPageQuerySchema>;
@@ -60,6 +64,8 @@ export const PrintSummarySchema = z.object({
   rarity: z.string().nullable(),
   finishes: z.array(z.string()),
   imageUrl: z.url().nullable(),
+  /** Market price of the `normal` finish (the first finish without one), null without a price. */
+  marketPrice: DisplayPriceSchema.nullable(),
 });
 export type PrintSummary = z.infer<typeof PrintSummarySchema>;
 

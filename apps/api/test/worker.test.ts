@@ -10,15 +10,20 @@ declare module 'vitest' {
 }
 
 describe('Worker', () => {
-  it.skipIf(!inject('databaseUrl'))('answers /health through Hyperdrive', async () => {
-    const res = await exports.default.fetch('http://api.test/health');
-    expect(res.status).toBe(200);
-    expect(HealthResponseSchema.parse(await res.json())).toEqual({
-      status: 'ok',
-      db: 'ok',
-      version: 'local',
-    });
-  });
+  // The first request loads the whole Worker in workerd, which takes over 5 s on CI runners.
+  it.skipIf(!inject('databaseUrl'))(
+    'answers /health through Hyperdrive',
+    { timeout: 30_000 },
+    async () => {
+      const res = await exports.default.fetch('http://api.test/health');
+      expect(res.status).toBe(200);
+      expect(HealthResponseSchema.parse(await res.json())).toEqual({
+        status: 'ok',
+        db: 'ok',
+        version: 'local',
+      });
+    },
+  );
 
   it('round-trips a blob through R2', async () => {
     const store = new R2BlobStore(env.CATALOG);

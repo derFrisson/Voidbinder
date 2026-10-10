@@ -71,6 +71,8 @@ export interface TestAppOptions {
   /** Overrides the in-memory card store (e.g. a DrizzleCardStore on the test database). */
   cardStore?: CardStore;
   jobQueue?: JobQueue;
+  /** The cache-disabled database (admin writes); unavailable otherwise. */
+  db?: NodePgDatabase;
   adminToken?: string;
   extraOrigins?: string[];
 }
@@ -85,7 +87,7 @@ export function testApp(opts: TestAppOptions = {}) {
       }),
     blobStore: unavailable<BlobStore>('blob store'),
     jobQueue: opts.jobQueue ?? unavailable<JobQueue>('job queue'),
-    db: unavailable<NodePgDatabase>('database'),
+    db: opts.db ?? unavailable<NodePgDatabase>('database'),
     close: async () => undefined,
   };
   return createApp({
