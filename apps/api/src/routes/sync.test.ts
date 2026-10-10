@@ -271,6 +271,29 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(row?.name).toBe('Server wins');
   });
 
+  it('never moves updated_at back, so a REST write behind a fast device clock still conflicts', async () => {
+    // Device A's clock runs 10 minutes fast: its row is stored with a future updatedAt.
+    const ahead = new Date(Date.now() + 10 * 60_000).toISOString();
+    const b = binder({ updatedAt: ahead });
+    await push(ash, [{ table: 'binders', rows: [b] }]);
+    // A REST edit at the real time (now(), before A's stamp) still lands after it.
+    const patched = await ash(`/collection/binders/${b.id}`, {
+      method: 'PATCH',
+      body: { name: 'Web edit' },
+    });
+    const web = (await patched.json()) as { updatedAt: string };
+    expect(Date.parse(web.updatedAt)).toBe(Date.parse(ahead) + 1);
+
+    // A edits again from its old base: it never saw the web edit, so it conflicts.
+    const later = new Date(Date.parse(ahead) + 60_000).toISOString();
+    const edit = { ...b, name: 'Device A', updatedAt: later, baseUpdatedAt: ahead };
+    const res = await push(ash, [{ table: 'binders', rows: [edit] }]);
+    expect(res.body.applied).toEqual([]);
+    expect(res.body.conflicts).toMatchObject([
+      { table: 'binders', rows: [{ id: b.id, name: 'Web edit', updatedAt: web.updatedAt }] },
+    ]);
+  });
+
   it('lets a newer delete win, a newer edit resurrect, and keeps a deck’s list on conflict', async () => {
     const adeline = await print('mid', '1');
     const e = entry(adeline.printId);

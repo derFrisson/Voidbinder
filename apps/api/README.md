@@ -562,7 +562,9 @@ returns it in `conflicts` (a deck with its list), and the device replaces its co
 newer than the stored edit wins, and an edit newer than a stored delete brings the row back. A row
 equal to the stored one writes nothing (a retried push changes nothing). `applied` lists the
 `updatedAt` the server holds for every other pushed row: the device's next `baseUpdatedAt`. An
-applied `updatedAt` never goes back (a device clock behind gets the stored time plus 1 ms).
+`updated_at` never goes back: `sync_stamp()` stores at least the old value plus 1 ms on every
+update (REST, sync, the binder-delete fan-out), to the millisecond, so a REST edit behind a device
+whose clock ran fast still conflicts with that device's next push.
 
 ```http
 POST /sync/push

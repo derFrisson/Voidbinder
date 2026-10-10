@@ -13,6 +13,10 @@ CREATE INDEX "decks_user_id_sync_seq_idx" ON "decks" USING btree ("user_id","syn
 -- shared per-user lock until the transaction ends; `GET /sync/pull` takes the same lock
 -- exclusively, so it waits for every write of the user in flight and no row can commit later
 -- with a number below the cursor it hands out.
+-- It also keeps `updated_at` from going back in time: whatever a writer sets (a REST `now()`
+-- behind a device clock that ran fast, say), an update stores at least the old value plus 1 ms,
+-- so a device's base comparison (`stored <= baseUpdatedAt`) cannot miss a later write. Stored to
+-- the millisecond, as the ISO strings clients see.
 CREATE FUNCTION "sync_stamp"() RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   uid text;
@@ -21,6 +25,11 @@ BEGIN
     SELECT "user_id" INTO uid FROM "decks" WHERE "id" = NEW."deck_id";
   ELSE
     uid := NEW."user_id";
+    NEW."updated_at" := date_trunc('milliseconds', NEW."updated_at");
+    IF TG_OP = 'UPDATE' THEN
+      NEW."updated_at" := greatest(NEW."updated_at",
+        date_trunc('milliseconds', OLD."updated_at") + interval '1 millisecond');
+    END IF;
   END IF;
   PERFORM pg_advisory_xact_lock_shared(hashtextextended('voidbinder.sync:' || uid, 0));
   NEW."sync_seq" := nextval('sync_seq');

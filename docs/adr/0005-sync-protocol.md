@@ -45,7 +45,10 @@ native client runs the same code.
   the stored edit still wins, and an edit newer than a stored delete brings the row back. A row
   that already equals the stored one writes nothing, so a retried push is harmless. An applied
   row's `updatedAt` never goes back in time (a device clock behind the stored edit gets the
-  stored time plus a millisecond); the answer lists the `updatedAt` the server holds for every
+  stored time plus a millisecond). The trigger enforces the same for every writer: an update
+  stores at least the old `updated_at` plus 1 ms, to the millisecond, so a REST `now()` behind a
+  device clock that ran fast cannot slip under a device's base and be overwritten unseen. The
+  answer lists the `updatedAt` the server holds for every
   pushed row, the device's next base.
 - **Ownership.** An id of another user, or a print, card or binder that does not exist, answers
   404 and the whole push writes nothing.
