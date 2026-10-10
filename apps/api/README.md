@@ -510,13 +510,23 @@ prices per edition, `first_edition`, while the print says `normal`), preferred s
 only without any price row. The display price, condition
 estimates, collection value and the history thinning are in `packages/core/src/prices`.
 
-**History backfill: none (decided 2026-10-10).** TCGCSV's daily price archive
-(`https://tcgcsv.com/archive/tcgplayer/prices-<date>.ppmd.7z`, history from 2024-02-08) is offline:
-it answers 403 "temporarily removed due to rising server costs" (checked 2026-10-10). History
-starts with the first daily run. A backfill is a follow-up ticket for when the archive returns: 7z
-(PPMd) cannot be unpacked in a Worker, so it would be a Node script on the VPS, like the image
-mirror, writing `prices_daily` only through `writePrices`. Dev has no TCGCSV cron (TCGCSV asks for
-one pull a day, which prod makes); dev imports on demand.
+**History backfill** (VB-63, `scripts/backfill-prices.ts`, logic in
+`src/import/prices/backfill.ts`). TCGCSV keeps a daily price archive from 2024-02-08 on:
+`https://tcgcsv.com/archive/tcgplayer/prices-<YYYY-MM-DD>.ppmd.7z`, one 7z (PPMd) per day whose
+`<day>/<category>/<group>/prices` files are the same JSON as the live prices files; it holds no
+products or groups. 7z cannot be unpacked in a Worker, so the backfill is a Node script on the VPS
+([runbook](../../docs/guides/database-vps.md#13-price-history-backfill)). Per day it downloads the
+archive (descriptive User-Agent, one day at a time, 2 s between days), unpacks only categories 1,
+2 and 3, maps every price through `price_mappings` (`tcgplayer`; a product the daily import never
+mapped is skipped, an `etched` mapping takes the product whatever its printing, as in the daily
+import), inserts the day's `prices_daily` rows in one transaction with `ON CONFLICT DO NOTHING`
+and deletes the files. It never writes `prices_current` (an archived day is never the current
+price) or the mappings, and a day that already has `tcgplayer` rows is skipped, so the daily
+import's rows always win. A day without an archive (404) is logged and recorded as missing; any
+other answer (403: the archive is switched off) stops the run. As of 2026-10-10 the archive
+answers 403 "temporarily removed due to rising server costs" for every day, so no history has been
+backfilled yet; history starts with the first daily run until it returns. Dev has no TCGCSV cron
+(TCGCSV asks for one pull a day, which prod makes); dev imports on demand.
 
 ## Collection
 
