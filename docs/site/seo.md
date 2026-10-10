@@ -74,7 +74,7 @@ needed. It is an external script, so it needs no nonce or hash, only the host in
 because it reports to the origin it was loaded from, in `connect-src`. `src/security-headers.ts`
 takes the host (`contentSecurityPolicy(host)`): the Worker passes `env.PLAUSIBLE_HOST`, the build
 integration reads it from the flattened `dist/server/wrangler.json`, so `_headers` and the Worker
-agree. This is the classic `data-domain` snippet; the web app uses the
+agree. This is the classic `data-domain` snippet; the web app (VB-74 app part) uses the
 `@plausible-analytics/tracker` package instead.
 
 ## Security headers
