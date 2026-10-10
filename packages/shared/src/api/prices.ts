@@ -62,6 +62,21 @@ export const PricesQuerySchema = z.object({
 });
 export type PricesQuery = z.infer<typeof PricesQuerySchema>;
 
+/** The marketplaces the card page links to (VB-115). */
+export const MarketplaceSchema = z.enum(['tcgplayer', 'cardmarket', 'ebay']);
+export type Marketplace = z.infer<typeof MarketplaceSchema>;
+
+/**
+ * A link to the print at a marketplace, built by the API: a product page where a mapping knows
+ * the product, else a search by name. `finish` when the product is that finish's alone.
+ */
+export const MarketplaceLinkSchema = z.object({
+  portal: MarketplaceSchema,
+  url: z.url(),
+  finish: z.string().optional(),
+});
+export type MarketplaceLink = z.infer<typeof MarketplaceLinkSchema>;
+
 export const PrintPricesResponseSchema = z.object({
   printId: z.uuid(),
   /** Every current price, per source and finish, in `?lang=` (else `en`, else another). */
@@ -71,6 +86,8 @@ export const PrintPricesResponseSchema = z.object({
   /** The display price per condition: estimates (`condition_multipliers`), labelled as such. */
   conditions: z.array(ConditionEstimateSchema),
   conditionsAreEstimates: z.literal(true),
+  /** Where to buy the print (VB-115), one per product; empty when there is nothing to link. */
+  links: z.array(MarketplaceLinkSchema),
 });
 export type PrintPricesResponse = z.infer<typeof PrintPricesResponseSchema>;
 

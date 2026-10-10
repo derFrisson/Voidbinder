@@ -27,7 +27,7 @@ import {
   type MappedPrint,
 } from './map';
 import type { YgoCard, YgoSet } from './types';
-import { keepArtwork, withoutArtwork } from '../yugipedia/pipeline';
+import { keepArtwork, keepYugipedia } from '../yugipedia/pipeline';
 
 // Database writes of the YGOPRODeck import. Every write is an upsert keyed on a unique constraint
 // that leaves the row (and its updated_at) alone when the source hash is unchanged. The run
@@ -96,11 +96,11 @@ async function upsertLocalizations(tx: Tx, rows: (LocalizationRow & { printId: s
         set: {
           name: excluded('name'),
           text: excluded('text'),
-          // The Yugipedia gallery's scan (VB-106) is not YGOPRODeck's to drop.
-          externalIds: keepArtwork(printLocalizations.externalIds),
+          // The Yugipedia gallery's scan (VB-106) and set list code (VB-94) are not YGOPRODeck's.
+          externalIds: keepYugipedia(printLocalizations.externalIds),
         },
-        setWhere: sql`(${printLocalizations.name}, ${printLocalizations.text}, ${withoutArtwork(printLocalizations.externalIds)})
-          is distinct from (excluded.name, excluded.text, excluded.external_ids)`,
+        setWhere: sql`(${printLocalizations.name}, ${printLocalizations.text}, ${printLocalizations.externalIds})
+          is distinct from (excluded.name, excluded.text, ${keepYugipedia(printLocalizations.externalIds)})`,
       })
       .returning({ printId: printLocalizations.printId });
     written += returned.length;
@@ -359,7 +359,9 @@ export function matchLocalizedCards(
 
 /**
  * Imports `cardinfo?language=<lang>` lines: the card's name and text in that language, as a
- * localization of every print of the card (the translation is the card's, not the print's). Every
+ * localization of every print of the card (the translation is the card's, not the print's), with
+ * the print's code in that language by rule (`ruleCode`, VB-94) unless the Yugipedia set lists
+ * verified one (`keepYugipedia`). Every
  * run upserts the rows of every print, so a print added later gets its translation the next day.
  */
 export async function importLocalizationLines(
@@ -382,7 +384,11 @@ export async function importLocalizationLines(
       stats.noCard += source.length - new Set(matched.values()).size;
       const owned = matched.size
         ? await tx
-            .select({ id: prints.id, cardId: prints.cardId })
+            .select({
+              id: prints.id,
+              cardId: prints.cardId,
+              code: sql<string | null>`${prints.externalIds} ->> 'set_code'`,
+            })
             .from(prints)
             .where(inArray(prints.cardId, [...matched.keys()]))
         : [];
@@ -390,12 +396,12 @@ export async function importLocalizationLines(
       const rows = owned.map((p) => {
         const card = matched.get(p.cardId);
         if (!card) throw new Error(`card of print ${p.id} missing`);
-        const row = { ...mapLocalization(card, lang), printId: p.id };
+        const row = { ...mapLocalization(card, lang, p.code), printId: p.id };
         // Matched by artwork: the entry's id is the card's real passcode (Dark Magician's
         // 46986414), which the Yugipedia import accepts on a page found by title.
         return String(card.id) === keyOf.get(p.cardId)
           ? row
-          : { ...row, externalIds: { ygoprodeck: card.id } };
+          : { ...row, externalIds: { ...row.externalIds, ygoprodeck: card.id } };
       });
       stats.written += await upsertLocalizations(tx, rows);
     });

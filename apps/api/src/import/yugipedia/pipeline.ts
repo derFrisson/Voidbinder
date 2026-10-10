@@ -5,6 +5,7 @@ import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { chunkKey, deletePrefix, readChunk } from '../scryfall/source';
 import { BATCH_SIZE, excluded, failRun, finishRun, type Db } from '../scryfall/write';
 import { batches, purgeEdgeCache } from '../util';
+import { ruleCodeIds } from '../ygoprodeck/map';
 import {
   ask,
   ASK_BATCH,
@@ -113,8 +114,18 @@ export const ARTWORK = 'artwork';
 export const keepArtwork = (column: SQLWrapper) =>
   sql`excluded.external_ids || jsonb_strip_nulls(jsonb_build_object(${ARTWORK}::text, ${column} -> ${ARTWORK}::text))`;
 
-/** `external_ids` without the artwork, for a setWhere that compares it with `excluded`'s. */
-export const withoutArtwork = (column: SQLWrapper) => sql`(${column} - ${ARTWORK}::text)`;
+/**
+ * A localization's `excluded.external_ids` with what Yugipedia owns on the row kept: the scan
+ * (`artwork`) and a code the set lists verified (`set_code_source: 'yugipedia'`, set-lists.ts,
+ * also when they dropped it), which the rule's code (`ruleCode`) must not replace. The upsert's
+ * `set`, and its setWhere's comparison with the row.
+ */
+export const keepYugipedia = (column: SQLWrapper) => sql`(case
+    when ${column} ->> 'set_code_source' = 'yugipedia'
+      then (excluded.external_ids - 'set_code' - 'set_code_source') || jsonb_strip_nulls(
+        jsonb_build_object('set_code', ${column} -> 'set_code', 'set_code_source', 'yugipedia'))
+    else excluded.external_ids end)
+  || jsonb_strip_nulls(jsonb_build_object(${ARTWORK}::text, ${column} -> ${ARTWORK}::text))`;
 
 /**
  * The pages' localizations for every print of their cards. Inserts, or updates a row this importer
@@ -126,7 +137,11 @@ export async function writeLocalizations(
 ): Promise<number> {
   if (!pages.size) return 0;
   const owned = await db
-    .select({ id: prints.id, key: cards.oracleKey })
+    .select({
+      id: prints.id,
+      key: cards.oracleKey,
+      code: sql<string | null>`${prints.externalIds} ->> 'set_code'`,
+    })
     .from(prints)
     .innerJoin(cards, eq(cards.id, prints.cardId))
     .where(and(eq(cards.gameId, 'yugioh'), inArray(cards.oracleKey, [...pages.keys()])));
@@ -137,7 +152,7 @@ export async function writeLocalizations(
       lang: l.lang,
       name: l.name,
       text: l.text,
-      externalIds: { yugipedia: page?.title },
+      externalIds: { yugipedia: page?.title, ...ruleCodeIds(p.code, l.lang) },
     }));
   });
   let written = 0;
@@ -150,11 +165,11 @@ export async function writeLocalizations(
         set: {
           name: excluded('name'),
           text: excluded('text'),
-          externalIds: keepArtwork(printLocalizations.externalIds),
+          externalIds: keepYugipedia(printLocalizations.externalIds),
         },
         setWhere: sql`${printLocalizations.externalIds} ? 'yugipedia'
-          and (${printLocalizations.name}, ${printLocalizations.text}, ${withoutArtwork(printLocalizations.externalIds)})
-          is distinct from (excluded.name, excluded.text, excluded.external_ids)`,
+          and (${printLocalizations.name}, ${printLocalizations.text}, ${printLocalizations.externalIds})
+          is distinct from (excluded.name, excluded.text, ${keepYugipedia(printLocalizations.externalIds)})`,
       })
       .returning({ printId: printLocalizations.printId });
     written += returned.length;

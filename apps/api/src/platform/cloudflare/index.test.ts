@@ -104,8 +104,8 @@ describe('startTcgcsvCron', () => {
 });
 
 describe('startYugipediaCron', () => {
-  it('starts the weekly instance unless a Yugipedia names or gallery run is going', async () => {
-    for (const running of [null, 'yugipedia', 'yugipedia-galleries']) {
+  it('starts the weekly instance unless a Yugipedia names, gallery or set list run is going', async () => {
+    for (const running of [null, 'yugipedia', 'yugipedia-galleries', 'yugipedia-set-lists']) {
       const create = vi.fn(async () => ({ id: 'i1' }));
       const asked: string[] = [];
       const platform = {

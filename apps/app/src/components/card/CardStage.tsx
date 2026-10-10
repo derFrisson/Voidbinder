@@ -7,7 +7,7 @@ import { fmt, useLocale, useT } from '../../i18n';
 import { usePalette } from '../palette';
 import { YugipediaCredit } from '../ui';
 import { CardImage } from './CardImage';
-import { fieldClass, fieldColor } from './game';
+import { fieldClass, fieldColor, printFoil } from './game';
 
 /** The game's colour as a dotted circle, partly off the stage (the mockup's `.field`). */
 function FieldShape({ game }: { game: Game }) {
@@ -29,7 +29,8 @@ function FieldShape({ game }: { game: Game }) {
 
 /**
  * The selected print's image on the game's tinted field; `note` is the quiet line under it when the
- * image is in another language or of another print (VB-86/VB-87).
+ * image is in another language or of another print (VB-86/VB-87). A `foil` print's sheen follows
+ * the pointer (VB-112).
  */
 export function CardStage({
   game,
@@ -38,6 +39,7 @@ export function CardStage({
   label,
   wide,
   note,
+  foil,
 }: {
   game: Game;
   format: CardFormat | undefined;
@@ -45,6 +47,7 @@ export function CardStage({
   label: string;
   wide: boolean;
   note?: string | null;
+  foil: boolean;
 }) {
   return (
     <View
@@ -52,7 +55,7 @@ export function CardStage({
     >
       <FieldShape game={game} />
       <View className="-rotate-2 rounded-lg shadow-lg">
-        <CardImage uri={uri} label={label} format={format} />
+        <CardImage uri={uri} label={label} format={format} foil={foil} live />
       </View>
       {note && (
         <Text className="mt-3 text-center font-body text-[12.5px] leading-5 text-ink-3">
@@ -94,7 +97,12 @@ export function PrintThumbs({
           onPress={() => onPick(p.id)}
           className={`w-12 rounded-[10px] p-1 ${p.id === current ? 'border-2 border-blue' : 'border-2 border-transparent'}`}
         >
-          <CardImage uri={p.imageUrl} format={p.cardFormat} className="rounded" />
+          <CardImage
+            uri={p.imageUrl}
+            format={p.cardFormat}
+            foil={printFoil(p.set.game, p)}
+            className="rounded"
+          />
         </Pressable>
       ))}
     </View>

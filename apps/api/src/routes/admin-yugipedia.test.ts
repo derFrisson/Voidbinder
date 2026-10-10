@@ -20,6 +20,12 @@ describe('POST /admin/import/yugipedia[-galleries]', () => {
   it('answers 409 while the other Yugipedia import runs', async () => {
     expect(await post('yugipedia-galleries', 'yugipedia')).toEqual({ status: 409, sent: [] });
     expect(await post('yugipedia', 'yugipedia-galleries')).toEqual({ status: 409, sent: [] });
+    // VB-94: the set list run of the same Workflow.
+    expect(await post('yugipedia', 'yugipedia-set-lists')).toEqual({ status: 409, sent: [] });
+    expect(await post('yugipedia-galleries', 'yugipedia-set-lists')).toEqual({
+      status: 409,
+      sent: [],
+    });
     expect(await post('yugipedia-galleries', 'tcgdex')).toEqual({
       status: 202,
       sent: [{ type: 'yugipedia-galleries-import', payload: { galleries: 'only' } }],

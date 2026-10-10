@@ -1,3 +1,4 @@
+import { and, eq, inArray } from 'drizzle-orm';
 import { cards, printLocalizations, prints, sets } from './db/schema';
 import type { Db } from './import/scryfall/write';
 
@@ -51,6 +52,17 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
     await print(lds3, 'yugioh', `Duelist Filler ${n}`, `EN${n}`);
   const blgg = await set('yugioh', 'blgg', 'Battles of Legend: Chapter 1', '2024-01-11', 100);
   await print(blgg, 'yugioh', 'Ghostrick Angel of Mischief', 'EN024');
+  // VB-94: a language the set lists dropped (no Portuguese print): shown as `BLGG-EN024`.
+  const [ghostrick] = await db
+    .select({ id: prints.id })
+    .from(prints)
+    .where(and(eq(prints.setId, blgg), eq(prints.number, 'EN024')));
+  await db.insert(printLocalizations).values({
+    printId: ghostrick?.id ?? '',
+    lang: 'pt',
+    name: 'Anjo Fantasmagórico da Travessura',
+    externalIds: { set_code_source: 'yugipedia' },
+  });
   // VB-102: a name search shows the language that matched.
   await print(blgg, 'yugioh', 'Lev Shaddoll', 'EN025', 'Lev-Schattenpuppen');
   // VB-102: a typed language token without a number names the language of a set's prints.
@@ -58,6 +70,40 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
   await print(lc01, 'yugioh', 'Blue-Eyes White Dragon', 'EN004', 'Blauäugiger w. Drache');
   await print(lc01, 'yugioh', 'Dark Magician', 'EN005', 'Dunkler Magier');
   await print(lc01, 'yugioh', 'Red-Eyes Black Dragon', 'EN006', 'Rotäugiger schwarzer Drache');
+  // VB-94: localized codes the rule does not derive from `LON-065`, verified on Yugipedia.
+  const lon = await set('yugioh', 'lon', 'Labyrinth of Nightmare', '2002-03-01', 105);
+  await print(lon, 'yugioh', 'Dark Necrofear', '065', 'Dunkler Nekrofeind', 'Nécrofear Sombre');
+  for (const [lang, code] of [
+    ['de', 'LON-G065'],
+    ['fr', 'LDC-F065'],
+  ] as const)
+    await db
+      .update(printLocalizations)
+      .set({ externalIds: { set_code: code, set_code_source: 'yugipedia' } })
+      .where(
+        and(
+          eq(printLocalizations.lang, lang),
+          inArray(
+            printLocalizations.printId,
+            db.select({ id: prints.id }).from(prints).where(eq(prints.setId, lon)),
+          ),
+        ),
+      );
+  // VB-94: a modern set's stored code, matched by the code index rather than the token rule.
+  const ys15 = await set('yugioh', 'ys15', 'Starter Deck 2015', '2015-05-07', 43);
+  await print(ys15, 'yugioh', 'Kaiser Glider', 'ENF27', 'Kaiser-Gleiter');
+  await db
+    .update(printLocalizations)
+    .set({ externalIds: { set_code: 'YS15-DEF27', set_code_source: 'yugipedia' } })
+    .where(
+      and(
+        eq(printLocalizations.lang, 'de'),
+        inArray(
+          printLocalizations.printId,
+          db.select({ id: prints.id }).from(prints).where(eq(prints.setId, ys15)),
+        ),
+      ),
+    );
   const sv01 = await set('pokemon', 'sv01', 'Scarlet & Violet', '2023-03-31', 198);
   await print(sv01, 'pokemon', 'Pineco', '001', 'Tannza');
   await print(sv01, 'pokemon', 'Forretress ex', '005');

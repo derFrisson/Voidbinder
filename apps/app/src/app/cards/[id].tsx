@@ -8,7 +8,7 @@ import { CardBanBadges } from '../../components/banlist/BanBadge';
 import { attributeChips } from '../../components/card/attributes';
 import { CardText, Legality, PrintsTable } from '../../components/card/CardPanels';
 import { CardStage, PrintThumbs, RightsNotice } from '../../components/card/CardStage';
-import { fieldClass, inLanguage } from '../../components/card/game';
+import { fieldClass, inLanguage, printFoil } from '../../components/card/game';
 import { CollectButtons } from '../../components/collection/CollectButtons';
 import { PricePanel, PriceStrip } from '../../components/card/PricePanel';
 import { Page, useWide, type Crumb } from '../../components/Shell';
@@ -122,6 +122,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
       label={view.name}
       wide={wide}
       note={note}
+      foil={!!print && printFoil(game, print)}
     />
   );
   const notice = <RightsNotice game={game} artist={print?.artist} copyright={data.copyright} />;

@@ -464,7 +464,7 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
     const [angelPrint] = await db
       .insert(prints)
       .values([
-        { cardId: angel.id, setId: set.id, number: 'EN024' },
+        { cardId: angel.id, setId: set.id, number: 'EN024', rarity: 'Ultra Rare' },
         { cardId: ghost.id, setId: set.id, number: 'EN025' },
       ])
       .returning();
@@ -488,6 +488,11 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
       ['EN025', 'BLGG-EN025'],
     ]);
     expect(d.entries.every((e) => e.print?.cardFormat === 'japanese')).toBe(true);
+    // The print's rarity and finishes for the image's foil sheen (VB-112).
+    expect(d.entries.map((e) => [e.print?.rarity, e.print?.finishes])).toEqual([
+      ['Ultra Rare', []],
+      [null, []],
+    ]);
     expect(d.analysis.missing.map((m) => m.displayNumber)).toEqual(['DE024', 'EN025']);
   });
 });

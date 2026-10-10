@@ -2,6 +2,7 @@ import {
   inBudget,
   priceEntry,
   printNumbers,
+  storedCode,
   valueBy,
   valueOf,
   type CollectionStore,
@@ -199,7 +200,11 @@ export class DrizzleCollectionStore implements CollectionStore {
       setName: r.setName,
       number: r.number,
       // The copy is in its language, localization row or not (a wish for any language: English).
-      ...printNumbers({ ...r, game }, language ?? 'en', true),
+      ...printNumbers(
+        { ...r, game, localizedCode: storedCode(r.localizedIds) },
+        language ?? 'en',
+        true,
+      ),
       cardFormat: r.cardFormat as CardFormat,
       name: r.localizedName ?? r.englishName ?? r.cardName,
       rarity: r.rarity,

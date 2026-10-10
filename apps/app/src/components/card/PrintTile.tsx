@@ -8,7 +8,7 @@ import { BanBadge, useBanLabel, useBanStatus } from '../banlist/BanBadge';
 import { Price } from '../catalog/Cards';
 import { priceTag } from '../catalog/seams';
 import { CardImage } from './CardImage';
-import { numberLabel } from './game';
+import { numberLabel, printFoil } from './game';
 
 /**
  * A search result: image, name, set code and number in mono, set name, market price. Opens the
@@ -29,7 +29,7 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
         className="gap-2 rounded-xl"
       >
         <View>
-          <CardImage uri={hit.imageUrl} format={hit.cardFormat} />
+          <CardImage uri={hit.imageUrl} format={hit.cardFormat} foil={printFoil(hit.game, hit)} />
           {ban && (
             <View className="absolute left-1.5 top-1.5">
               <BanBadge status={ban} />

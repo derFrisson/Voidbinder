@@ -2,9 +2,11 @@ import {
   conditionEstimate,
   DEFAULT_CONDITION_FACTORS,
   downsampleHistory,
+  marketplaceLinks,
   matchLanguage,
   pickDisplayPrice,
   printNumbers,
+  storedCode,
   SOURCE_PREFERENCE,
   type CardStore,
 } from '@voidbinder/core';
@@ -67,6 +69,7 @@ import {
   games,
   importRuns,
   legalityChanges,
+  priceMappings,
   priceSources,
   pricesCurrent,
   pricesDaily,
@@ -201,7 +204,7 @@ const alnum = (number: SQLWrapper) => sql`regexp_replace(lower(${number}), '[^a-
 export const NUMBER_HITS = 50;
 
 /**
- * `(print_id, rank)` of the prints `q` names by code (VB-79), null when `q` cannot be one. Every
+ * `(print_id, rank, lang)` of the prints `q` names by code (VB-79), null when `q` cannot be one. Every
  * prefix of the normalized query is tried as a set code (catalog_code_key, sets_code_key_idx),
  * the rest as a number in that set: 300 the number as stored (a Yu-Gi-Oh! language code such as
  * `DE024` also finds `EN024`: German copies are localizations of the English print), 200 the same
@@ -210,7 +213,10 @@ export const NUMBER_HITS = 50;
  * matches of /search). A split where the user typed a separator ranks 10 higher, a longer set code
  * among those slightly higher still (`swsh1 25` is swsh1 #25, not swsh12 #5; `sv03.5 12` splits
  * after `sv035`). A pure number matches within every set or, as `001/128`, within the sets
- * of that size (300, else 200), newest first, at most NUMBER_HITS.
+ * of that size (300, else 200), newest first, at most NUMBER_HITS. A Yu-Gi-Oh! localization's
+ * stored code (VB-94: `LON-G065` and `LDC-F065`, which no rule derives from `LON-065`) ranks 300
+ * (310 with a typed separator) as a whole and 150 by its start after the print's set code, with
+ * the localization's `lang`; every other branch's is null.
  */
 function codeHits(q: string, game: Game | undefined): SQL | null {
   const { code, splits, number } = parseCodeQuery(q);
@@ -220,27 +226,45 @@ function codeHits(q: string, game: Game | undefined): SQL | null {
     const stored = alnum(prints.number);
     // A Yu-Gi-Oh! language token, alone or before a number, reads as the stored English one.
     const english = sql`regexp_replace(r.rest, '^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9]|$)', 'en')`;
+    const typedSplits = sql`(
+        select left(${code}, i) as part, substr(${code}, i + 1) as rest,
+          case when i = any(${`{${splits.join(',')}}`}::int[]) then 10 + i / 100.0 else 0 end as typed
+        from generate_series(1, length(${code})) i
+      ) r`;
     branches.push(sql`select ${prints.id} as print_id, (case
         when r.rest = '' then 0
         when ${stored} = r.rest or (${sets.gameId} = 'yugioh' and ${stored} = ${english})
           then 300 + r.typed
         when catalog_number_key(${prints.number}) = catalog_number_key(r.rest) then 200 + r.typed
-        else 150 + r.typed end)::real as rank
-      from (
-        select left(${code}, i) as part, substr(${code}, i + 1) as rest,
-          case when i = any(${`{${splits.join(',')}}`}::int[]) then 10 + i / 100.0 else 0 end as typed
-        from generate_series(1, length(${code})) i
-      ) r
+        else 150 + r.typed end)::real as rank, null::text as lang
+      from ${typedSplits}
       join ${sets} on catalog_code_key(${sets.code}) = catalog_code_key(r.part) ${inGame}
       join ${prints} on ${prints.setId} = ${sets.id}
       where r.rest = '' or ${stored} like r.rest || '%'
         or (${sets.gameId} = 'yugioh' and ${stored} like ${english} || '%')
         or catalog_number_key(${prints.number}) like catalog_number_key(r.rest) || '%'`);
+    // A stored code whole, whatever set code it starts with (print_localizations_set_code_idx:
+    // French LON is `LDC-F065`), and by its start where the query starts with the print's set.
+    const localized = alnum(sql`${printLocalizations.externalIds} ->> 'set_code'`);
+    branches.push(sql`select ${printLocalizations.printId} as print_id,
+        ${300 + (splits.length ? 10 : 0)}::real as rank, ${printLocalizations.lang} as lang
+      from ${printLocalizations}
+      join ${prints} on ${prints.id} = ${printLocalizations.printId}
+      join ${sets} on ${sets.id} = ${prints.setId} ${inGame}
+      where ${printLocalizations.externalIds} ? 'set_code' and ${localized} = ${code}`);
+    branches.push(sql`select ${prints.id} as print_id, (150 + r.typed)::real as rank,
+        ${printLocalizations.lang} as lang
+      from ${typedSplits}
+      join ${sets} on catalog_code_key(${sets.code}) = catalog_code_key(r.part)
+        and ${sets.gameId} = 'yugioh' ${inGame}
+      join ${prints} on ${prints.setId} = ${sets.id}
+      join ${printLocalizations} on ${printLocalizations.printId} = ${prints.id}
+      where r.rest <> '' and ${localized} like ${code} || '%'`);
   }
   if (number) {
     const sized = number.total == null ? sql`` : sql`and ${sets.cardCount} = ${number.total}`;
     branches.push(sql`(select ${prints.id} as print_id,
-        ${number.total == null ? 200 : 300}::real as rank
+        ${number.total == null ? 200 : 300}::real as rank, null::text as lang
       from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
       where catalog_number_key(${prints.number}) = catalog_number_key(${number.number})
         ${sized} ${inGame}
@@ -546,7 +570,13 @@ export class DrizzleCardStore implements CardStore {
         cardId: r.cardId,
         number: r.number,
         ...printNumbers(
-          { game, setCode: set.code, number: r.number, cardCount: set.cardCount },
+          {
+            game,
+            setCode: set.code,
+            number: r.number,
+            cardCount: set.cardCount,
+            localizedCode: storedCode(r.localizedIds),
+          },
           query.lang,
           r.localizedLang !== null,
         ),
@@ -615,9 +645,15 @@ export class DrizzleCardStore implements CardStore {
       .orderBy(printLocalizations.lang);
 
     return rows.map(({ print: p, set, cardCount, cardFormat, image }) => {
-      const shown = (lang: string) =>
+      const shown = (lang: string, ids: Ids | null = null) =>
         printNumbers(
-          { game: set.game as Game, setCode: set.code, number: p.number, cardCount },
+          {
+            game: set.game as Game,
+            setCode: set.code,
+            number: p.number,
+            cardCount,
+            localizedCode: storedCode(ids),
+          },
           lang,
           true,
         );
@@ -654,7 +690,7 @@ export class DrizzleCardStore implements CardStore {
             lang: l.lang,
             name: l.name,
             text: l.text,
-            ...shown(l.lang),
+            ...shown(l.lang, l.externalIds),
             ...resolveImage(this.imageBaseUrl, l.image, [
               { lang: l.lang, ids: l.externalIds },
               { lang: 'en', ids: p.externalIds },
@@ -724,7 +760,7 @@ export class DrizzleCardStore implements CardStore {
         from ${printLocalizations}
         where ${printLocalizations.search} @@ ${tsq} ${names.localization}
       ),
-      code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
+      code as (${code ?? sql`select null::uuid as print_id, null::real as rank, null::text as lang where false`}),
       fuzzy as (
         ${names.card(sql`select ${prints.id} as print_id, similarity(${cards.name}, ${query.q}) as rank,
           'en'::text as lang
@@ -744,7 +780,7 @@ export class DrizzleCardStore implements CardStore {
           select *, max(rank) filter (where lang is not null) over (partition by print_id) as top
           from (
             select print_id, rank, lang from ts
-            union all select print_id, rank, null from code
+            union all select print_id, rank, lang from code
             union all select print_id, rank, lang from fuzzy
           ) h
         ) h group by print_id
@@ -876,7 +912,13 @@ export class DrizzleCardStore implements CardStore {
         cardId: r.card_id,
         number: r.number,
         ...printNumbers(
-          { game: r.game, setCode: r.set_code, number: r.number, cardCount: r.card_count },
+          {
+            game: r.game,
+            setCode: r.set_code,
+            number: r.number,
+            cardCount: r.card_count,
+            localizedCode: storedCode(r.localized_ids),
+          },
           r.lang,
           r.localized,
           typed,
@@ -967,15 +1009,18 @@ export class DrizzleCardStore implements CardStore {
     const top = await this.catalog.execute<{
       kind: 'print' | 'set';
       id: string;
-      /** The matched names' language (matchLanguage), null for codes and sets. */
+      /** The matched names' or stored code's language (matchLanguage), null for other codes and sets. */
       lang: string | null;
       game: Game;
       set_code: string;
       number: string | null;
     }>(sql`
-      with code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
+      with code as (${code ?? sql`select null::uuid as print_id, null::real as rank, null::text as lang where false`}),
       code_ranked as (
-        select code.print_id, max(code.rank) as rank, min(${sets.releasedOn}) as released_on,
+        select code.print_id, max(code.rank) as rank,
+          -- A stored localized code's language (VB-94) when it ranks best.
+          (array_agg(code.lang order by code.rank desc, code.lang nulls last))[1] as lang,
+          min(${sets.releasedOn}) as released_on,
           min(${NUMBER_VALUE}) as number_value, min(${prints.number}) as number
         from code join ${prints} on ${prints.id} = code.print_id
         join ${sets} on ${sets.id} = ${prints.setId}
@@ -988,7 +1033,7 @@ export class DrizzleCardStore implements CardStore {
             partition by rank > 0
             order by rank desc, released_on desc nulls last, number_value nulls last, number,
               print_id
-          ) as ord, null::text as lang
+          ) as ord, lang
         from code_ranked
       ),
       set_cands as (
@@ -1109,7 +1154,13 @@ export class DrizzleCardStore implements CardStore {
           lang: r.lang,
           number: r.number ?? '',
           ...printNumbers(
-            { game: r.game, setCode: r.set_code, number: r.number ?? '', cardCount: r.card_count },
+            {
+              game: r.game,
+              setCode: r.set_code,
+              number: r.number ?? '',
+              cardCount: r.card_count,
+              localizedCode: storedCode(r.localized_ids),
+            },
             r.lang,
             r.localized,
             key,
@@ -1143,12 +1194,18 @@ export class DrizzleCardStore implements CardStore {
     return Boolean(run);
   }
 
-  /** Game and finishes of a print, null when it does not exist. */
+  /** Game, finishes, card name and set code of a print, null when it does not exist. */
   private async printInfo(id: string) {
     const [row] = await this.catalog
-      .select({ game: sets.gameId, finishes: prints.finishes })
+      .select({
+        game: sets.gameId,
+        finishes: prints.finishes,
+        name: cards.name,
+        setCode: sets.code,
+      })
       .from(prints)
       .innerJoin(sets, eq(sets.id, prints.setId))
+      .innerJoin(cards, eq(cards.id, prints.cardId))
       .where(eq(prints.id, id));
     return row ?? null;
   }
@@ -1156,7 +1213,7 @@ export class DrizzleCardStore implements CardStore {
   async getPrintPrices(id: string, query: PricesQuery): Promise<PrintPricesResponse | null> {
     const print = await this.printInfo(id);
     if (!print) return null;
-    const [rows, factors] = await Promise.all([
+    const [rows, factors, mappings] = await Promise.all([
       // Per source and finish the price in `?lang=`, else `en`, else another (VB-103).
       this.catalog
         .selectDistinctOn([pricesCurrent.source, pricesCurrent.finish], {
@@ -1177,6 +1234,16 @@ export class DrizzleCardStore implements CardStore {
         .from(conditionMultipliers)
         .where(eq(conditionMultipliers.gameId, print.game))
         .orderBy(sql`${conditionMultipliers.factor} desc`),
+      // The products of the marketplace links (VB-115), in a stable order.
+      this.catalog
+        .selectDistinct({
+          source: priceMappings.source,
+          externalId: priceMappings.externalId,
+          finish: priceMappings.finish,
+        })
+        .from(priceMappings)
+        .where(eq(priceMappings.printId, id))
+        .orderBy(priceMappings.source, priceMappings.externalId, priceMappings.finish),
     ]);
     const prices = rows.map(({ price: p, sourceLabel }) => ({
       source: p.source as PriceSource,
@@ -1205,6 +1272,7 @@ export class DrizzleCardStore implements CardStore {
           ).map((f) => ({ ...f, cents: conditionEstimate(display.cents, f.factor) }))
         : [],
       conditionsAreEstimates: true,
+      links: marketplaceLinks({ ...print, game: print.game as Game, mappings }),
     };
   }
 
@@ -1279,6 +1347,7 @@ export class DrizzleCardStore implements CardStore {
         number: prints.number,
         imageKey: prints.imageKey,
         externalIds: prints.externalIds,
+        rarity: prints.rarity,
         code: sets.code,
         cardCount: sets.cardCount,
       })
@@ -1310,6 +1379,7 @@ export class DrizzleCardStore implements CardStore {
         game: cards.gameId,
         cardCount: rep.cardCount,
         cardFormat: games.cardFormat,
+        rarity: rep.rarity,
       })
       .from(cards)
       .innerJoin(games, eq(games.id, cards.gameId))
@@ -1340,12 +1410,14 @@ export class DrizzleCardStore implements CardStore {
                     setCode: r.setCode,
                     number: r.number,
                     cardCount: r.cardCount,
+                    localizedCode: storedCode(r.localizedIds),
                   },
                   lang,
                   r.localizedLang !== null,
                 ).displayNumber
               : null,
           cardFormat: r.cardFormat as CardFormat,
+          rarity: r.rarity,
         },
       ]),
     );

@@ -154,6 +154,9 @@ export const DeckEntrySchema = z.object({
       displayNumber: z.string(),
       displayCode: z.string(),
       cardFormat: CardFormatSchema,
+      /** As on PrintSummary: the image's foil sheen (VB-112). */
+      rarity: z.string().nullable(),
+      finishes: z.array(z.string()),
       imageUrl: z.url().nullable(),
       ...ImageInfoSchema.shape,
     })
