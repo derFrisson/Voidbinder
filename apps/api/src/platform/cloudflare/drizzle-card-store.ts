@@ -124,9 +124,10 @@ function searchTsQuery(q: string): SQL {
 /** What the code lookup reads from a search query (VB-79). */
 export interface CodeQuery {
   /**
-   * Lower case without spaces, `-`, `/`, `_`, `.` and non-ASCII characters (`97★` → `97`, as the
-   * SQL side strips them); null unless 2 to 16 letters and digits, so other ASCII punctuation
-   * (websearch syntax, `Black Lotus!`) is no code.
+   * Lower case without spaces, `-`, `/`, `_`, `.` and non-ASCII characters other than letters and
+   * digits (`97★` → `97`, as the SQL side strips them); null unless 2 to 16 ASCII letters and
+   * digits, so other ASCII punctuation (websearch syntax, `Black Lotus!`) and non-ASCII letters
+   * (`Pokémon`, `ポケモンGX`) are no code.
    */
   code: string | null;
   /** Where `code` had a separator between letters or digits (`sv1 01` → [3]); empty without code. */
@@ -139,7 +140,7 @@ export interface CodeQuery {
 export function parseCodeQuery(q: string): CodeQuery {
   const parts = q
     .toLowerCase()
-    .split(/[\s\-/_.\u0080-\u{10ffff}]+/u)
+    .split(/[\s\-/_.]+|[^\p{L}\p{N}\p{ASCII}]+/u)
     .filter(Boolean);
   const code = parts.join('');
   const valid = /^[a-z0-9]{2,16}$/.test(code);
