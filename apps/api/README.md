@@ -17,7 +17,7 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`                   |
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations              |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                 |
-| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck); see Importers                                         |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices             |
 | `src/workflows/`             | Cloudflare Workflows that run the importers                                                     |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                      |
 | `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`             |
@@ -49,6 +49,8 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | `GET /catalog/sets/:game/:code?lang=&rarity=&finish=&sort=&page=` | Set header and 60 prints per page (`sort`: number, name, rarity) |
 | `GET /catalog/cards/:id`                                          | Card, legalities and every print with localizations              |
 | `GET /catalog/prints/:id`                                         | One print with its card                                          |
+| `GET /catalog/prints/:id/prices?currency=&finish=`                | Current prices, display price, condition estimates (see Prices)  |
+| `GET /catalog/prints/:id/prices/history?days=`                    | Daily market prices per source and finish (see Prices)           |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
 image is in R2 (VB-57) and the source's URL until then. Every 200 carries
@@ -300,6 +302,98 @@ rarity another card already holds (the first keeps it); the first 50 of those ar
 `stats.codeConflicts` (`<code> <rarity>: <card id>`) for cleaning by hand. Follow-up: when the
 source moves a code to another card, the print stays with the old one until it is moved by hand.
 Locally, `POST /admin/import/ygoprodeck` as for Scryfall.
+
+## Prices
+
+Prices are stored, never looked up live ([ADR 0003](../../docs/adr/0003-price-history-storage.md)):
+integer cents with a currency on every row, the source and the time the source observed the
+price. Nothing is converted between currencies. Neither TCGplayer nor Cardmarket gives API
+access, and neither site is ever scraped; the prices come from two republishers.
+
+| Source (`price_sources`) | Where from                                            | Currency | When                     |
+| ------------------------ | ----------------------------------------------------- | -------- | ------------------------ |
+| `tcgplayer`              | [TCGCSV](https://tcgcsv.com/docs): TCGplayer's prices | USD      | daily, 20:30 UTC (prod)  |
+| `cardmarket`             | Scryfall `default_cards` (`prices.eur*`), Magic only  | EUR      | with the Scryfall import |
+| `tcgplayer_scryfall`     | Scryfall `default_cards` (`prices.usd*`), Magic only  | USD      | with the Scryfall import |
+
+**Tables** (`src/db/schema/prices.ts`, `drizzle/0004_prices.sql`): `prices_current` holds the
+latest price per print, finish and source (market, low, mid, high; an older observation never
+replaces a newer one); `prices_daily` one row per print, finish, source and UTC day (market, low,
+high). Where the `timescaledb` extension is installed (the VPS), the migration turns `prices_daily`
+into a hypertable with monthly chunks compressed after 30 days; plain PostgreSQL (CI, Docker)
+skips that and logs a notice. `condition_multipliers` holds the share of the near-mint price per
+condition and game (NM 1.0, EX 0.85, GD 0.7, LP 0.6, PL 0.45, PO 0.3): estimates, labelled as
+such in every response, until real per-condition prices exist.
+
+**TCGCSV import** (`src/import/prices/`, Workflow `src/workflows/tcgcsv-import.ts`, binding
+`TCGCSV_IMPORT`). TCGCSV rebuilds once a day around 20:00 UTC and asks for a descriptive
+User-Agent, about 100 ms between requests, one pull a day and under 10,000 requests a day. A run:
+
+1. `last updated`: `last-updated.txt`; when it is the build the last run imported, the run ends
+   (`stats.skipped`) without another request.
+2. `groups <game>` for Magic (category 1), Yu-Gi-Oh! (2) and Pokémon (3): the groups (TCGplayer's
+   sets), matched to catalog sets by Scryfall's `tcgplayer_id`, then abbreviation = set code, then
+   the name without TCGplayer's series prefix.
+3. `prices <game> 000` …: products and prices of 25 matched groups per step, mapped to prints
+   (below) and written to `prices_current` and `prices_daily`.
+4. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
+   (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`) and
+   `catalog_version` + 1.
+
+A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
+groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
+gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/` (`groups.json.gz`,
+`<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a `marketPrice` (too few
+sales) are not written. The cron runs on prod only: dev would be a second pull of the same build,
+so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs).
+
+**Scryfall prices**: the Scryfall import Workflow ends with three steps (`prices: start run`,
+`prices: write`, `prices: finish run`) that read the day's `default_cards` dump back from `RAW`
+(never a second download) and write `cardmarket` and `tcgplayer_scryfall` rows per finish. A
+failure there is logged and leaves the catalog import `ok`.
+
+**Mapping** (`price_mappings`, `src/import/prices/match.ts`): which external product and finish
+is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`Normal` and
+`Unlimited` → `normal`, `Foil` → `foil`, `Holofoil` → `holo`, `Reverse Holofoil` → `reverse`,
+`1st Edition` → `first_edition`, anything else a slug).
+
+| `method`       | Confidence | When                                                                      |
+| -------------- | ---------- | ------------------------------------------------------------------------- |
+| `scryfall_id`  | 100        | Magic: Scryfall's `tcgplayer_id` / `tcgplayer_etched_id`, `cardmarket_id` |
+| `number_match` | 70         | Pokémon, Yu-Gi-Oh!: same set and collector number (Yu-Gi-Oh!: and rarity) |
+| `name_match`   | 40         | No number match: a name that only one print of the set has                |
+| `manual`       | 100        | An admin's override; the importers never change it                        |
+
+Two products that claim one print with the same confidence are both left unmapped. Prices are
+written through the table, so an override counts from the next run on:
+
+```sh
+curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
+  -d '{"externalId":"248137","note":"checked by hand"}' \
+  localhost:8787/admin/price-mappings/<printId>/tcgplayer/normal
+```
+
+It answers the mapping (200), 404 for an unknown print and 409 when another print holds that
+product and finish manually; an automatic holder gives it up.
+
+**Read API** (`src/routes/prices.ts`, cached pool and `ETag` like the catalog, ADR 0004).
+`GET /catalog/prints/:id/prices?currency=EUR|USD&finish=` answers every current price with its
+source label and `observedAt`, the `display` price (finish first: `finish`, `normal`, the print's
+finishes; then the source the currency prefers, EUR → Cardmarket, USD → TCGplayer; in that
+source's currency) and the condition estimates of the display price.
+`GET /catalog/prints/:id/prices/history?days=90` (1 to 3650) answers the market price per source
+and finish, one point per day for the last 180 days and the last day of each ISO week before
+that. The day comes from the Worker, never `now()` in SQL, so Hyperdrive can cache the query.
+`GET /catalog/sets/:game/:code?currency=` carries each print's `marketPrice`: the `normal` finish
+(the first finish when there is none), preferred source first. The display price, condition
+estimates, collection value and the history thinning are in `packages/core/src/prices`.
+
+**History backfill: not available.** TCGCSV's daily price archive
+(`https://tcgcsv.com/archive/tcgplayer/prices-<date>.ppmd.7z`, history from 2024-02-08) answers 403
+"temporarily removed due to rising server costs" (checked 2026-10-10), with no workaround offered.
+History starts with the first daily run. If the archive returns, a backfill needs 7z (PPMd), which
+a Worker cannot unpack: it would run as a Node script on the VPS like the image mirror, writing
+`prices_daily` only through `writePrices`.
 
 ## Card images
 
