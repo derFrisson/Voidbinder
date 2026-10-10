@@ -1,4 +1,4 @@
-import { GameSchema } from '@voidbinder/shared';
+import { GameSchema, isFoil } from '@voidbinder/shared';
 import {
   banStatus,
   type BanlistCard,
@@ -48,6 +48,7 @@ function CardLine({ card, children }: { card: BanlistCard; children?: ReactNode 
               game="yugioh"
               format={card.cardFormat}
               number={card.displayNumber ?? ''}
+              foil={isFoil('yugioh', card.rarity)}
             />
           </View>
           <View className="min-w-0 flex-1">

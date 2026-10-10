@@ -1,4 +1,4 @@
-import { YUGIOH_LANGUAGE_TOKENS, type Game } from '@voidbinder/shared';
+import { isFoil, YUGIOH_LANGUAGE_TOKENS, type Game } from '@voidbinder/shared';
 import type { PrintDetail } from '@voidbinder/shared/api';
 import { fmt } from '../../i18n';
 import type { usePalette } from '../palette';
@@ -36,3 +36,11 @@ export function numberLabel(numberIn: string, p: { number: string; displayNumber
 /** A print's number and code in `lang`: its localization's, else as stored (VB-97). */
 export const inLanguage = (print: PrintDetail, lang: string) =>
   print.localizations.find((l) => l.lang === lang) ?? print;
+
+/** A catalog print shines by its rarity and first finish (a reverse copy only in the collection, VB-112). */
+export const printFoil = (
+  game: Game,
+  print: Pick<PrintDetail, 'rarity' | 'finishes' | 'extendedArt'>,
+) =>
+  // `?.`: a deck line from an API older than VB-112 has no finishes while both deploy.
+  isFoil(game, print.rarity, print.finishes?.[0], print.extendedArt);

@@ -60,6 +60,8 @@ export const BanlistCardSchema = z.object({
   displayNumber: z.string().nullable(),
   /** The game's card format (`CARD_FORMATS`), for the image box. */
   cardFormat: CardFormatSchema,
+  /** The print's rarity, for the image's foil sheen (VB-112); null without a print. */
+  rarity: z.string().nullable(),
 });
 export type BanlistCard = z.infer<typeof BanlistCardSchema>;
 

@@ -6,9 +6,18 @@ import { useLocale } from '../i18n';
  * hit opened in the language it matched, VB-102), else the UI language.
  */
 export function useBrowsingLanguage() {
-  const { lang } = useLocalSearchParams<{ lang?: string }>();
   const locale = useLocale();
-  return typeof lang === 'string' && /^[a-z]{2,3}$/.test(lang) ? lang : locale;
+  return useExplicitLanguage() ?? locale;
+}
+
+/**
+ * The language the page names explicitly in its URL (`?lang=`: the set page's chip, a search hit's
+ * match), undefined when the page only has the UI language. A quick add treats it as the user's
+ * choice for this page, ahead of the language last added in.
+ */
+export function useExplicitLanguage(): string | undefined {
+  const { lang } = useLocalSearchParams<{ lang?: string }>();
+  return typeof lang === 'string' && /^[a-z]{2,3}$/.test(lang) ? lang : undefined;
 }
 
 /**

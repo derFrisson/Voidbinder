@@ -4,7 +4,7 @@ import type {
   CollectionEntry,
   EntryPrint,
 } from '@voidbinder/shared/api';
-import { cardAspect } from '@voidbinder/shared';
+import { cardAspect, isFoil } from '@voidbinder/shared';
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
@@ -14,6 +14,7 @@ import { fmt, useLocale, useT } from '../../i18n';
 import { hitHref } from '../../hooks/browsing-language';
 import { BanBadge, useBanStatus } from '../banlist/BanBadge';
 import { label } from '../card/attributes';
+import { FoilSheen } from '../card/FoilSheen';
 import { fieldClass } from '../card/game';
 import { PriceLang } from '../card/PriceLang';
 import { useWide } from '../Shell';
@@ -32,11 +33,25 @@ import {
 
 const head = 'font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3';
 
-/** A small card image in its format's box (contained), or the game's soft field while there is none. */
-export function Thumb({ print }: { print: Pick<EntryPrint, 'imageUrl' | 'game' | 'cardFormat'> }) {
+/**
+ * A small card image in its format's box (contained), or the game's soft field while there is none.
+ * A `foil` copy (`isFoil`) gets the static sheen (VB-112).
+ */
+export function Thumb({
+  print,
+  foil = false,
+}: {
+  print: Pick<EntryPrint, 'imageUrl' | 'game' | 'cardFormat'>;
+  foil?: boolean;
+}) {
   const [failed, setFailed] = useState(false);
   const box = { aspectRatio: cardAspect(print.cardFormat) };
-  return print.imageUrl && !failed ? (
+  if (!print.imageUrl || failed) {
+    return (
+      <View aria-hidden style={box} className={`w-[30px] rounded ${fieldClass[print.game].soft}`} />
+    );
+  }
+  const image = (
     <Image
       aria-hidden
       source={{ uri: print.imageUrl }}
@@ -45,20 +60,40 @@ export function Thumb({ print }: { print: Pick<EntryPrint, 'imageUrl' | 'game' |
       style={box}
       className="w-[30px] rounded"
     />
-  ) : (
-    <View aria-hidden style={box} className={`w-[30px] rounded ${fieldClass[print.game].soft}`} />
+  );
+  if (!foil) return image;
+  return (
+    <View className="w-[30px] overflow-hidden rounded">
+      {image}
+      <FoilSheen />
+    </View>
   );
 }
 
+/** Whether a copy in `finish` (a wish for any finish: the print's first) shines (VB-112). */
+export const copyFoil = (
+  print: Pick<EntryPrint, 'game' | 'rarity' | 'finishes'>,
+  finish: string | null,
+) => isFoil(print.game, print.rarity, finish ?? print.finishes[0]);
+
 /** Name, set code and number; links to the card page with the print selected. */
-export function CardCell({ print, lang }: { print: EntryPrint; lang?: string | undefined }) {
+export function CardCell({
+  print,
+  lang,
+  finish,
+}: {
+  print: EntryPrint;
+  lang?: string | undefined;
+  /** The copy's finish (a wish: null for any), for the foil sheen. */
+  finish: string | null;
+}) {
   const locale = useLocale();
   // VB-81: the TCG ban list status of a Yu-Gi-Oh! card.
   const ban = useBanStatus(print.game, print.cardId);
   return (
     <Link href={hitHref({ cardId: print.cardId, id: print.id, lang }, locale)} asChild>
       <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
-        <Thumb print={print} />
+        <Thumb print={print} foil={copyFoil(print, finish)} />
         <View className="min-w-0 flex-1">
           <View className="flex-row items-center gap-2">
             <Text
@@ -310,7 +345,7 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
                   aria-label={e.print.name}
                   className="min-h-[44px] justify-center self-stretch py-2.5 pl-3 pr-3"
                 >
-                  <Thumb print={e.print} />
+                  <Thumb print={e.print} foil={copyFoil(e.print, e.finish)} />
                 </Pressable>
               </Link>
               <Pressable
@@ -391,7 +426,7 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
               className={`flex-row items-center gap-3 border-b border-line px-2 py-2.5 ${open ? 'border-l-[3px] border-l-blue bg-page' : ''}`}
             >
               <View role="cell" className="min-w-0 flex-1">
-                <CardCell print={e.print} lang={e.language} />
+                <CardCell print={e.print} lang={e.language} finish={e.finish} />
               </View>
               <View role="cell" className="w-[96px]">
                 {/* While the form is open it is the one place to edit; the row shows the number. */}

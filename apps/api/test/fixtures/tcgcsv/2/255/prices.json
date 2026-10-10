@@ -1,0 +1,106 @@
+{
+  "totalItems": 11,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 21762,
+      "lowPrice": 100.0,
+      "midPrice": 145.0,
+      "highPrice": 540.0,
+      "marketPrice": 419.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 21762,
+      "lowPrice": 31.0,
+      "midPrice": 60.0,
+      "highPrice": 200.0,
+      "marketPrice": 34.0,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 21835,
+      "lowPrice": 5.2,
+      "midPrice": 10.0,
+      "highPrice": 96.0,
+      "marketPrice": 9.8,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 21835,
+      "lowPrice": 0.1,
+      "midPrice": 0.3,
+      "highPrice": 20.0,
+      "marketPrice": 0.5,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 22062,
+      "lowPrice": 18.0,
+      "midPrice": 30.0,
+      "highPrice": 223.0,
+      "marketPrice": 30.0,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 22062,
+      "lowPrice": 0.8,
+      "midPrice": 4.0,
+      "highPrice": 70.0,
+      "marketPrice": 4.4,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 22131,
+      "lowPrice": 0.2,
+      "midPrice": 0.5,
+      "highPrice": 20.0,
+      "marketPrice": 0.5,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 22131,
+      "lowPrice": 0.1,
+      "midPrice": 0.2,
+      "highPrice": 20.0,
+      "marketPrice": 0.2,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 22477,
+      "lowPrice": 1.0,
+      "midPrice": 1.4,
+      "highPrice": 30.0,
+      "marketPrice": 1.1,
+      "directLowPrice": null,
+      "subTypeName": "1st Edition"
+    },
+    {
+      "productId": 22477,
+      "lowPrice": 0.1,
+      "midPrice": 0.3,
+      "highPrice": 20.0,
+      "marketPrice": 0.3,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    },
+    {
+      "productId": 173924,
+      "lowPrice": 0.2,
+      "midPrice": 0.7,
+      "highPrice": 20.0,
+      "marketPrice": 0.7,
+      "directLowPrice": null,
+      "subTypeName": "Unlimited"
+    }
+  ]
+}
