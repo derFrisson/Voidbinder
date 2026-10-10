@@ -6,6 +6,7 @@ import type { ImportDeps } from '../../import/scryfall/pipeline';
 import type { ImportDeps as TcgdexDeps } from '../../import/tcgdex/pipeline';
 import { TcgdexClient } from '../../import/tcgdex/source';
 import { log } from '../../middleware/log';
+import { skipsTurnstile } from '../../middleware/turnstile';
 import { DrizzleCardStore } from './drizzle-card-store';
 import { DrizzleCollectionStore } from './drizzle-collection-store';
 import { DrizzleDeckStore } from './drizzle-deck-store';
@@ -88,6 +89,12 @@ export function appDeps(env: Env): AppDeps {
       // Always the binding: `wrangler dev` simulates it locally, and a mail that cannot be sent
       // is logged as an error, never with its link.
       mail: bindingMailSender(env.EMAIL),
+    },
+    turnstile: {
+      secret: env.TURNSTILE_SECRET,
+      skip: skipsTurnstile(env.TURNSTILE_SECRET, env.IMPORT_ENV),
+      // wrangler types narrows the var to its configured literal; the test sets any string.
+      nativeBypass: String(env.TURNSTILE_NATIVE_BYPASS) === 'true',
     },
     adminToken: env.ADMIN_TOKEN,
     openPlatform: () => createPlatform(env),

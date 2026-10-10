@@ -63,6 +63,8 @@ export function testDeps(mails: MailMessage[] = []): Omit<AppDeps, 'openPlatform
       twoFactorKey: btoa('test-two-factor-key-of-32-bytes!'),
       mail: { send: async (m) => void mails.push(m) },
     },
+    // Sign-up and the reset request go through without a token, like local development.
+    turnstile: { secret: 'test-turnstile-secret', skip: true, nativeBypass: false },
   };
 }
 

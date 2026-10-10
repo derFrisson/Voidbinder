@@ -8,6 +8,7 @@ import { createAuth, type Auth, type AuthConfig } from './auth';
 import { accessLog } from './middleware/access-log';
 import { notFound, onError } from './middleware/errors';
 import { noStoreByDefault } from './middleware/headers';
+import { requireTurnstile, type TurnstileConfig } from './middleware/turnstile';
 import { adminRoutes } from './routes/admin';
 import { catalogRoutes } from './routes/catalog';
 import { collectionRoutes } from './routes/collection';
@@ -39,6 +40,8 @@ export interface AppDeps {
   version: string;
   /** Better Auth settings (src/auth); the origins come from `appUrl` and `extraOrigins`. */
   auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail' | 'twoFactorKey'>;
+  /** Turnstile on sign-up, the reset request and the verification resend (middleware/turnstile.ts). */
+  turnstile: TurnstileConfig;
   /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
   adminToken?: string | undefined;
   /** Called once per request; the platform is closed after the response. */
@@ -96,6 +99,8 @@ export function createApp(deps: AppDeps) {
       })
       .route('/health', healthRoutes(deps.version))
       // Better Auth: sign-up, sign-in, sign-out, verification, password reset (README.md).
+      // The Turnstile check runs first: no database work for a request that fails it.
+      .use('/auth/*', requireTurnstile(deps.turnstile))
       .on(['GET', 'POST'], '/auth/*', (c) => c.var.auth().handler(c.req.raw))
       .route('/me', meRoutes())
       .route('/catalog', catalogRoutes())
