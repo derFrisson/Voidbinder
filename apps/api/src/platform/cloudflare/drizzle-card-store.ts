@@ -309,6 +309,16 @@ const changeFilter = (since: string) => [
 ];
 
 /**
+ * Hours after which a `running` import run is taken as dead (6 by default). TCGCSV: a run that died
+ * at 20:30 must not block the 22:30 one (VB-116). 1 h is above its worst case when failing fast: a
+ * full run is about 10 minutes (2,500 requests at 100 ms apart, plus the writes), and a systemic
+ * failure ends it after 3 failed group steps in a row, each 4 attempts and 3.5 minutes of backoff
+ * (30 s, 60 s, 120 s), about 25 minutes in all. Not covered: a step whose requests hang until the
+ * 30-minute step timeout (about 2 hours per step).
+ */
+const RUN_TAKEN_DEAD_HOURS: Record<string, number> = { tcgcsv: 1 };
+
+/**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
  * and other non-immutable functions, otherwise Hyperdrive does not cache them.
  */
@@ -878,6 +888,7 @@ export class DrizzleCardStore implements CardStore {
               cardId: sql`page.card_id`,
               setId: sql`page.set_id`,
               imageKey: sql`page.image_key`,
+              externalIds: sql`page.external_ids`,
             },
             sql`page.lang`,
           )} as image,
@@ -1181,6 +1192,7 @@ export class DrizzleCardStore implements CardStore {
   }
 
   async importRunning(source: string): Promise<boolean> {
+    const hours = RUN_TAKEN_DEAD_HOURS[source] ?? 6;
     const [run] = await this.db
       .select({ id: importRuns.id })
       .from(importRuns)
@@ -1188,7 +1200,7 @@ export class DrizzleCardStore implements CardStore {
         and(
           eq(importRuns.source, source),
           eq(importRuns.status, 'running'),
-          sql`${importRuns.startedAt} > now() - interval '6 hours'`,
+          sql`${importRuns.startedAt} > now() - make_interval(hours => ${hours})`,
         ),
       )
       .limit(1);
@@ -1371,7 +1383,13 @@ export class DrizzleCardStore implements CardStore {
         number: rep.number,
         setCode: rep.code,
         image: imagePick(
-          { id: rep.id, cardId: cards.id, setId: rep.setId, imageKey: rep.imageKey },
+          {
+            id: rep.id,
+            cardId: cards.id,
+            setId: rep.setId,
+            imageKey: rep.imageKey,
+            externalIds: rep.externalIds,
+          },
           lang,
         ),
         externalIds: rep.externalIds,

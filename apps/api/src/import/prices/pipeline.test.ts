@@ -1,8 +1,9 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, desc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   appMeta,
   cards,
+  importRuns,
   priceMappings,
   pricesCurrent,
   pricesDaily,
@@ -14,8 +15,9 @@ import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { runScryfallImport, type ImportDeps } from '../scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../scryfall/test-fixtures';
 import type { Db } from '../scryfall/write';
-import { importGroups, runTcgcsvImport } from './pipeline';
-import { fakeTcgcsv, type FakeTcgcsv } from './test-fixtures';
+import { importGroups, runTcgcsvImport, splitReprints } from './pipeline';
+import { results, type TcgPrice, type TcgProduct } from './tcgcsv';
+import { fakeTcgcsv, tcgcsvFixture, type FakeTcgcsv } from './test-fixtures';
 import { setManualMapping } from './override';
 
 describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
@@ -136,6 +138,12 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
           noMarket: 0,
         },
       },
+      // VB-116: per game of the `tcgplayer` source (counts in coverage.test.ts).
+      freshness: [
+        expect.objectContaining({ game: 'mtg', source: 'tcgplayer', priced: 3 }),
+        expect.objectContaining({ game: 'yugioh', source: 'tcgplayer', priced: 0, share: null }),
+        expect.objectContaining({ game: 'pokemon', source: 'tcgplayer', priced: 0, share: null }),
+      ],
     });
     expect(steps).toEqual([
       'start run',
@@ -147,6 +155,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'coverage yugioh',
       'groups pokemon',
       'coverage pokemon',
+      'freshness',
       'finish run',
       'purge cache',
     ]);
@@ -397,6 +406,7 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'finish run',
       'prices: start run',
       ...cards.map((s) => s.replace('cards', 'prices')),
+      'prices: freshness',
       'prices: finish run',
       'purge cache',
       'clean up chunks',
@@ -463,6 +473,179 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'purge cache',
       'clean up chunks',
     ]);
+  });
+
+  // VB-116: a build counts as imported only after a run that pulled all of it ended `ok`.
+  const pulled = (requests: string[]) => requests.some((r) => r.endsWith('/products'));
+  const failing =
+    (failName: string, steps: string[] = []) =>
+    <T>(name: string, fn: () => Promise<T>) => {
+      steps.push(name);
+      return name === failName ? Promise.reject(new Error('HTTP 429')) : fn();
+    };
+  const plain = (lastUpdated: string, step = failing(''), files: Record<string, string> = {}) =>
+    runTcgcsvImport(deps(fakeTcgcsv({ lastUpdated, files })), step, {
+      env: 'dev',
+      date: '2026-10-10',
+      delayMs: 0,
+    });
+  // 25 groups per set code (no files: a group without products), so each set is one
+  // `prices mtg` step.
+  const groupIds = (set: number) => Array.from({ length: 25 }, (_, i) => 100_000 + set * 100 + i);
+  const groupsOf = (codes: string[]) => ({
+    '1/groups': JSON.stringify({
+      success: true,
+      errors: [],
+      results: codes.flatMap((abbreviation, set) =>
+        groupIds(set).map((groupId) => ({ groupId, name: `Group ${groupId}`, abbreviation })),
+      ),
+    }),
+  });
+
+  it('lists a group step that still fails, goes on, and pulls the build again next time', async () => {
+    const build = '2026-10-10T20:05:19+0000';
+    const steps: string[] = [];
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    // Magic's two fixture sets: two steps.
+    const { runId, stats } = await plain(
+      build,
+      failing('prices mtg 001', steps),
+      groupsOf(['MID', 'NEO']),
+    );
+    const warnings = warned.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
+    warned.mockRestore();
+    // The other groups, games and the finish still run; the run is `ok` and names the groups.
+    expect(steps.slice(steps.indexOf('prices mtg 001'))).toEqual([
+      'prices mtg 001',
+      'coverage mtg',
+      'groups yugioh',
+      'coverage yugioh',
+      'groups pokemon',
+      'coverage pokemon',
+      'freshness',
+      'finish run',
+      'purge cache',
+    ]);
+    expect(stats).toMatchObject({
+      failedGroups: [{ game: 'mtg', groupIds: groupIds(1), error: 'Error: HTTP 429' }],
+      games: { mtg: { matchedGroups: 50 } },
+    });
+    expect(warnings).toContainEqual(
+      expect.objectContaining({ message: 'price groups failed', runId, game: 'mtg' }),
+    );
+    const [row] = await db.select().from(importRuns).where(eq(importRuns.id, runId));
+    expect(row?.status).toBe('ok');
+
+    // The late run pulls the same build again; after that full run, the build is imported.
+    const again: string[] = [];
+    const second = await runTcgcsvImport(
+      deps(fakeTcgcsv({ lastUpdated: build, requests: again })),
+      failing(''),
+      {
+        env: 'dev',
+        date: '2026-10-10',
+        delayMs: 0,
+      },
+    );
+    expect(pulled(again)).toBe(true);
+    expect(second.stats).not.toHaveProperty('failedGroups');
+    const third: string[] = [];
+    const skipped = await runTcgcsvImport(
+      deps(fakeTcgcsv({ lastUpdated: build, requests: third })),
+      failing(''),
+      {
+        env: 'dev',
+        date: '2026-10-10',
+        delayMs: 0,
+      },
+    );
+    quiet.mockRestore();
+    expect(pulled(third)).toBe(false);
+    expect(skipped.stats).toMatchObject({
+      skipped: expect.any(String),
+      freshness: expect.any(Array),
+    });
+  });
+
+  it('fails the run when the group steps fail systemically', async () => {
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const warned = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const latest = async () =>
+      (await db.select().from(importRuns).orderBy(desc(importRuns.startedAt)).limit(1))[0];
+    // Two more Magic sets: four steps.
+    await db.insert(sets).values([
+      { gameId: 'mtg', code: 'zza', name: 'Test Set A' },
+      { gameId: 'mtg', code: 'zzb', name: 'Test Set B' },
+    ]);
+    const fourSteps = groupsOf(['MID', 'NEO', 'ZZA', 'ZZB']);
+    const every =
+      (steps: string[]) =>
+      <T>(name: string, fn: () => Promise<T>) =>
+        failing(name.startsWith('prices ') ? name : '', steps)(name, fn);
+
+    // Three failed steps in a row: the fourth is never tried.
+    const steps: string[] = [];
+    await expect(plain('2026-10-10T21:05:19+0000', every(steps), fourSteps)).rejects.toThrow(
+      'price groups failed: mtg, 3 step(s) in a row',
+    );
+    expect(steps.filter((s) => s.startsWith('prices '))).toEqual([
+      'prices mtg 000',
+      'prices mtg 001',
+      'prices mtg 002',
+    ]);
+    expect(steps.slice(-1)).toEqual(['fail run']);
+    expect(await latest()).toMatchObject({ status: 'failed' });
+
+    // Every step of a game failed (here its only one).
+    await expect(plain('2026-10-10T21:15:19+0000', every([]))).rejects.toThrow(
+      'price groups failed: mtg, 1 step(s) in a row',
+    );
+    expect(await latest()).toMatchObject({ status: 'failed' });
+
+    // Two failures apart are isolated: the run is `ok` and lists both.
+    const apart = await plain(
+      '2026-10-10T21:25:19+0000',
+      (name, fn) =>
+        failing(name === 'prices mtg 000' || name === 'prices mtg 002' ? name : '')(name, fn),
+      fourSteps,
+    );
+    expect(apart.stats).toMatchObject({
+      failedGroups: [
+        { game: 'mtg', groupIds: groupIds(0) },
+        { game: 'mtg', groupIds: groupIds(2) },
+      ],
+    });
+    expect(await latest()).toMatchObject({ status: 'ok' });
+    quiet.mockRestore();
+    warned.mockRestore();
+  });
+
+  it('pulls a build again after a failed run or one that never finished', async () => {
+    const quiet = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const build = '2026-10-11T20:05:19+0000';
+    await expect(plain(build, failing('groups yugioh'))).rejects.toThrow('HTTP 429');
+    expect(
+      (await db.select().from(importRuns).orderBy(desc(importRuns.startedAt)).limit(1))[0]?.status,
+    ).toBe('failed');
+    // A run of the next build that died mid-way stays `running`.
+    const dead = '2026-10-12T20:05:19+0000';
+    await db.insert(importRuns).values({
+      source: 'tcgcsv',
+      kind: 'prices',
+      status: 'running',
+      stats: { lastUpdated: new Date(Date.parse('2026-10-12T20:05:19Z')).toISOString() },
+    });
+    for (const b of [build, dead]) {
+      const requests: string[] = [];
+      await runTcgcsvImport(deps(fakeTcgcsv({ lastUpdated: b, requests })), failing(''), {
+        env: 'dev',
+        date: '2026-10-11',
+        delayMs: 0,
+      });
+      expect(pulled(requests)).toBe(true);
+    }
+    quiet.mockRestore();
   });
 });
 
@@ -653,5 +836,260 @@ describe.skipIf(!databaseUrl)('Yu-Gi-Oh! regional prints (Postgres, VB-110)', ()
     expect((await market('na'))[0]).toEqual(['first_edition', 100000]);
     expect((await market('en'))[0]).toEqual(['first_edition', 90000]);
     expect((await market('eu'))[0]).toEqual(['first_edition', 90000]);
+  });
+});
+
+describe('splitReprints (VB-113)', () => {
+  const own = (groupId: number) =>
+    results<TcgProduct>(tcgcsvFixture(`2/${groupId}/products.json`), 'products').map((product) => ({
+      groupId,
+      product,
+    }));
+  const prices = (groupId: number) =>
+    results<TcgPrice>(tcgcsvFixture(`2/${groupId}/prices.json`), 'prices');
+
+  it('keeps the oldest group of a card with a market price, else the oldest', () => {
+    const { products, reprints } = splitReprints(
+      [...own(255), ...own(22882), ...own(23052)],
+      [...prices(255), ...prices(22882), ...prices(23052)],
+    );
+    // MRD-EN010 Kojikocy and MRD-EN081 Tainted Wisdom: no market price in the Worldwide English
+    // group, so the 25th Anniversary Edition's product prices the EN print.
+    expect(products.map((p) => p.productId)).toEqual([
+      22062, 173924, 22131, 21835, 21762, 22477, 476262, 476271, 476288, 486249, 486358,
+    ]);
+    expect(reprints.map((p) => p.productId)).toEqual([476268, 476659, 486247, 486250, 486257]);
+  });
+
+  it('keeps a print’s current product while it has a price, else falls forward', () => {
+    // Harpie Lady MRD-EN008 is mapped to the 25th Anniversary product and both have a price;
+    // Kojikocy MRD-EN010 to the Worldwide English one, which has none.
+    const { products } = splitReprints(
+      [...own(22882), ...own(23052)],
+      [...prices(22882), ...prices(23052)],
+      new Set([486247, 476268]),
+    );
+    expect(products.map((p) => p.productId)).toEqual([476271, 476288, 486247, 486249, 486358]);
+  });
+});
+
+describe.skipIf(!databaseUrl)('Yu-Gi-Oh! MRD price mapping (Postgres, VB-113)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  const ids: Record<string, string> = {};
+  const answer = (results: object[]) => JSON.stringify({ success: true, errors: [], results });
+  const groups = JSON.parse(tcgcsvFixture('2/groups-vb113.json')) as {
+    results: { groupId: number }[];
+  };
+  const fixture = (groupId: number, file: string) => tcgcsvFixture(`2/${groupId}/${file}.json`);
+  const run = (files: Record<string, string>) =>
+    runTcgcsvImport(
+      { fetch: fakeTcgcsv({ files }), raw: new MemoryBlobStore(), withDb: (fn) => fn(db) },
+      (_name, fn) => fn(),
+      { env: 'dev', date: '2026-10-10', delayMs: 0, games: ['yugioh'], force: true },
+    );
+  // The catalog's MRD prints of five cards (YGOPRODeck, local import of 2026-10-10).
+  const catalog: [string, string, [string, string][]][] = [
+    [
+      '76812113',
+      'Harpie Lady',
+      [
+        ['008', 'common'],
+        ['E008', 'common'],
+        ['EN008', 'common'],
+      ],
+    ],
+    [
+      '1184620',
+      'Kojikocy',
+      [
+        ['010', 'common'],
+        ['E010', 'common'],
+        ['EN010', 'common'],
+      ],
+    ],
+    [
+      '40240595',
+      'Cocoon of Evolution',
+      [
+        ['011', 'super-short-print'],
+        ['E011', 'super-short-print'],
+        ['EN011', 'common'],
+        ['EN011', 'short-print'],
+        ['EN011', 'super-short-print'],
+      ],
+    ],
+    [
+      '11901678',
+      'Black Skull Dragon',
+      [
+        ['018', 'ultra-rare'],
+        ['E018', 'ultra-rare'],
+        ['EN018', 'ultra-rare'],
+      ],
+    ],
+    [
+      '28725004',
+      'Tainted Wisdom',
+      [
+        ['081', 'common'],
+        ['E081', 'common'],
+        ['EN081', 'common'],
+      ],
+    ],
+  ];
+
+  beforeAll(async () => {
+    ({ db, drop } = await freshDatabase());
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'yugioh', code: 'mrd', name: 'Metal Raiders' })
+      .returning({ id: sets.id });
+    for (const [oracleKey, name, numbers] of catalog) {
+      const [card] = await db
+        .insert(cards)
+        .values({ gameId: 'yugioh', oracleKey, name })
+        .returning({ id: cards.id });
+      for (const [number, variant] of numbers) {
+        const [p] = await db
+          .insert(prints)
+          .values({
+            setId: set?.id ?? '',
+            cardId: card?.id ?? '',
+            number,
+            variant,
+            finishes: ['normal'],
+          })
+          .returning({ id: prints.id });
+        ids[`${number} ${variant}`] = p?.id ?? '';
+      }
+    }
+  });
+  afterAll(() => drop());
+
+  it('prices every MRD print of the recorded groups', async () => {
+    const files: Record<string, string> = {
+      '2/groups': answer(groups.results.filter((g) => [255, 22882, 23052].includes(g.groupId))),
+    };
+    for (const g of [255, 22882, 23052])
+      for (const file of ['products', 'prices']) files[`2/${g}/${file}`] = fixture(g, file);
+    await run(files);
+
+    const mapped = (
+      await db
+        .select({
+          printId: priceMappings.printId,
+          externalId: priceMappings.externalId,
+          method: priceMappings.method,
+          confidence: priceMappings.confidence,
+        })
+        .from(priceMappings)
+        .where(eq(priceMappings.finish, 'normal'))
+    )
+      .map((m) => [
+        Object.keys(ids).find((k) => ids[k] === m.printId),
+        Number(m.externalId),
+        m.method,
+        m.confidence,
+      ])
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    expect(mapped).toEqual([
+      // Artwork variants: the original artwork, less confidently.
+      ['008 common', 22062, 'number_match', 65],
+      ['010 common', 22131, 'number_match', 70],
+      // One print by number: no rarity to compare.
+      ['011 super-short-print', 21835, 'number_match', 70],
+      ['018 ultra-rare', 21762, 'number_match', 70],
+      ['081 common', 22477, 'number_match', 70],
+      ['E008 common', 476262, 'region_match', 60],
+      // The Worldwide English product has no market price: the 25th Anniversary one prices it.
+      ['E010 common', 486249, 'region_match', 60],
+      // A super short print is TCGplayer's Common.
+      ['E011 super-short-print', 476271, 'region_match', 60],
+      // `B. Skull Dragon` on TCGplayer: the EN print's product.
+      ['E018 ultra-rare', 476288, 'region_match', 60],
+      ['E081 common', 486358, 'region_match', 60],
+      ['EN008 common', 476262, 'number_match', 70],
+      ['EN010 common', 486249, 'number_match', 70],
+      ['EN011 common', 476271, 'number_match', 70],
+      ['EN011 short-print', 476271, 'number_match', 70],
+      ['EN011 super-short-print', 476271, 'number_match', 70],
+      ['EN018 ultra-rare', 476288, 'number_match', 70],
+      ['EN081 common', 486358, 'number_match', 70],
+    ]);
+    const priced = await db
+      .select({ printId: pricesCurrent.printId })
+      .from(pricesCurrent)
+      .where(eq(pricesCurrent.source, 'tcgplayer'));
+    expect(new Set(priced.map((p) => p.printId)).size).toBe(Object.keys(ids).length);
+    const [kojikocy] = await db
+      .select({ market: pricesCurrent.centsMarket })
+      .from(pricesCurrent)
+      .where(
+        and(
+          eq(pricesCurrent.printId, ids['EN010 common'] ?? ''),
+          eq(pricesCurrent.finish, 'normal'),
+        ),
+      );
+    expect(kojikocy?.market).toBe(20);
+  });
+
+  it('prices a set without a group through the group that lists its numbers', async () => {
+    // LC03's group lists LC03-EN001 and the mega pack's LCYW-EN001; LCYW has no group.
+    const [lc03, lcyw] = await db
+      .insert(sets)
+      .values([
+        { gameId: 'yugioh', code: 'lc03', name: "Legendary Collection 3: Yugi's World" },
+        { gameId: 'yugioh', code: 'lcyw', name: "Legendary Collection 3: Yugi's World Mega Pack" },
+      ])
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'yugioh', oracleKey: '46986414', name: 'Dark Magician' })
+      .returning({ id: cards.id });
+    const [print] = await db
+      .insert(prints)
+      .values({
+        setId: lcyw?.id ?? '',
+        cardId: card?.id ?? '',
+        number: 'EN001',
+        variant: 'ultra-rare',
+        finishes: ['normal'],
+      })
+      .returning({ id: prints.id });
+    const files = {
+      '2/584/products': answer([
+        {
+          productId: 1,
+          name: 'Dark Magician',
+          extendedData: [
+            { name: 'Number', value: 'LCYW-EN001' },
+            { name: 'Rarity', value: 'Ultra Rare' },
+          ],
+        },
+      ]),
+      '2/584/prices': answer([{ productId: 1, marketPrice: 2, subTypeName: '1st Edition' }]),
+    };
+    const deps = {
+      fetch: fakeTcgcsv({ files }),
+      raw: new MemoryBlobStore(),
+      withDb: <T>(fn: (db: Db) => Promise<T>) => fn(db),
+    };
+    const opts = { raw: 'raw/dev/tcgcsv/x', delayMs: 0, observedAt: '2026-10-10T20:05:19.000Z' };
+    const mapping = async () =>
+      (
+        await db
+          .select()
+          .from(priceMappings)
+          .where(eq(priceMappings.printId, print?.id ?? ''))
+      ).map((m) => m.externalId);
+    // LCYW with a group of its own: that group prices it, not LC03's.
+    await importGroups(deps, 'yugioh', [{ groupId: 584, setId: lc03?.id ?? '' }], {
+      ...opts,
+      grouped: new Set([lc03?.id ?? '', lcyw?.id ?? '']),
+    });
+    expect(await mapping()).toEqual([]);
+    await importGroups(deps, 'yugioh', [{ groupId: 584, setId: lc03?.id ?? '' }], opts);
+    expect(await mapping()).toEqual(['1']);
   });
 });

@@ -1,2 +1,5 @@
 Hand-written fixtures in the shape of TCGCSV answers (https://tcgcsv.com/docs); the names, numbers
-and prices are illustrative, not copied TCGplayer data.
+and prices are illustrative, not copied TCGplayer data. Exception (VB-113): the Yu-Gi-Oh! groups
+in 2/groups-vb113.json and the products in 2/255, 2/22882, 2/23052, 2/22881, 2/23050 and
+2/330-vb113 follow TCGCSV's answers of 2026-10-10 (ids, names, numbers, rarities, whether a
+market price exists); their prices are rounded stand-ins.

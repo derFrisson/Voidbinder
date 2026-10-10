@@ -110,9 +110,16 @@ export async function markChecked(db: Db, keys: string[], date: string, metaKey 
 /** `external_ids` key of a print's own scan (VB-106, galleries.ts), kept by the other importers. */
 export const ARTWORK = 'artwork';
 
-/** `excluded.external_ids` plus the row's own `artwork`: an upsert's `set` that keeps the scan. */
+/** A placeholder rarity's gallery row (galleries.ts `resolveRarities`, VB-117): `{ rarity, alt }`. */
+export const GALLERY_RARITY = 'gallery_rarity';
+
+/**
+ * `excluded.external_ids` plus the row's own `artwork` and `gallery_rarity`: an upsert's `set`
+ * that keeps what the galleries wrote.
+ */
 export const keepArtwork = (column: SQLWrapper) =>
-  sql`excluded.external_ids || jsonb_strip_nulls(jsonb_build_object(${ARTWORK}::text, ${column} -> ${ARTWORK}::text))`;
+  sql`excluded.external_ids || jsonb_strip_nulls(jsonb_build_object(${ARTWORK}::text, ${column} -> ${ARTWORK}::text,
+    ${GALLERY_RARITY}::text, ${column} -> ${GALLERY_RARITY}::text))`;
 
 /**
  * A localization's `excluded.external_ids` with what Yugipedia owns on the row kept: the scan

@@ -1,0 +1,147 @@
+{
+  "totalItems": 5,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 486247,
+      "name": "Harpie Lady",
+      "cleanName": "Harpie Lady",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486247_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23052,
+      "url": "https://www.tcgplayer.com/product/486247/yugioh-metal-raiders-25th-anniversary-edition-harpie-lady",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN008"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 486249,
+      "name": "Kojikocy",
+      "cleanName": "Kojikocy",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486249_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23052,
+      "url": "https://www.tcgplayer.com/product/486249/yugioh-metal-raiders-25th-anniversary-edition-kojikocy",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN010"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 486250,
+      "name": "Cocoon of Evolution",
+      "cleanName": "Cocoon of Evolution",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486250_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23052,
+      "url": "https://www.tcgplayer.com/product/486250/yugioh-metal-raiders-25th-anniversary-edition-cocoon-of-evolution",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN011"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 486257,
+      "name": "Black Skull Dragon",
+      "cleanName": "Black Skull Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486257_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23052,
+      "url": "https://www.tcgplayer.com/product/486257/yugioh-metal-raiders-25th-anniversary-edition-black-skull-dragon",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN018"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    },
+    {
+      "productId": 486358,
+      "name": "Tainted Wisdom",
+      "cleanName": "Tainted Wisdom",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/486358_200w.jpg",
+      "categoryId": 2,
+      "groupId": 23052,
+      "url": "https://www.tcgplayer.com/product/486358/yugioh-metal-raiders-25th-anniversary-edition-tainted-wisdom",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-EN081"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    }
+  ]
+}

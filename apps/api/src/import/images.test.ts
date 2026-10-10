@@ -117,6 +117,18 @@ describe('sourceUrl', () => {
     expect(sourceUrl('yugioh', { artwork: ids.artwork })).toBe(scan);
   });
 
+  it('keeps the passcode render for a scan of the standard artwork (VB-117)', () => {
+    const render = 'https://images.ygoprodeck.com/images/cards/88570003.jpg';
+    const scan = 'https://ms.yugipedia.com//3/35/DarkMagicianthePharaohsServant-MAMO-EN-UR-1E.png';
+    const artwork = { file: 'DarkMagicianthePharaohsServant-MAMO-EN-UR-1E.png', url: scan };
+    expect(sourceUrl('yugioh', { image_url: render, artwork })).toBe(render);
+    expect(sourceUrl('yugioh', { artwork })).toBeNull();
+    // A Grand Master Rare is an artwork of its own.
+    expect(sourceUrl('yugioh', { image_url: render, artwork: { ...artwork, own_art: true } })).toBe(
+      scan,
+    );
+  });
+
   it('takes TCGdex high', () => {
     const base = 'https://assets.tcgdex.net/de/swsh/swsh3/136';
     const ids = { tcgdex_images: { high: `${base}/high.webp`, low: `${base}/low.webp` } };

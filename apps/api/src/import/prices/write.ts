@@ -24,7 +24,11 @@ export async function startRun(db: Db, source: string): Promise<string> {
   return run.id;
 }
 
-/** `stats.lastUpdated` of the last TCGCSV run that wrote prices, null before the first. */
+/**
+ * `stats.lastUpdated` of the last TCGCSV run that imported a build in full, null before the
+ * first: a failed run, one still `running` and one that lists failed groups (VB-116) never count,
+ * so the next run pulls their build again.
+ */
 export async function lastImportedUpdate(db: Db): Promise<string | null> {
   const [run] = await db
     .select({ lastUpdated: sql<string | null>`${importRuns.stats} ->> 'lastUpdated'` })
@@ -34,6 +38,7 @@ export async function lastImportedUpdate(db: Db): Promise<string | null> {
         eq(importRuns.source, 'tcgcsv'),
         eq(importRuns.status, 'ok'),
         sql`not (${importRuns.stats} ? 'skipped')`,
+        sql`not (${importRuns.stats} ? 'failedGroups')`,
       ),
     )
     .orderBy(desc(importRuns.startedAt))
@@ -57,6 +62,16 @@ export async function gameSets(db: Db, game: string): Promise<CatalogSet[]> {
   return rows.map(({ group, ...s }) => ({ ...s, tcgplayerGroupId: group ? Number(group) : null }));
 }
 
+/** The ids of a game's sets with these (lowercase) codes. */
+export async function setIdsByCode(db: Db, game: string, codes: string[]): Promise<string[]> {
+  if (!codes.length) return [];
+  const rows = await db
+    .select({ id: sets.id })
+    .from(sets)
+    .where(and(eq(sets.gameId, game), inArray(sets.code, codes)));
+  return rows.map((r) => r.id);
+}
+
 /**
  * The prints a group's products may be: the prints of its sets, and with `productIds` (Magic)
  * every print that carries one of those TCGplayer ids, whichever set it is in.
@@ -76,14 +91,18 @@ export async function candidatePrints(
   return db
     .select({
       id: prints.id,
+      setId: prints.setId,
+      setCode: sets.code,
       number: prints.number,
       variant: prints.variant,
       name: cards.name,
       tcgplayer,
       tcgplayerEtched: sql<string | null>`${prints.externalIds} ->> 'tcgplayer_etched'`,
+      artwork: sql<string | null>`${prints.externalIds} -> 'artwork' ->> 'alt'`,
     })
     .from(prints)
     .innerJoin(cards, eq(cards.id, prints.cardId))
+    .innerJoin(sets, eq(sets.id, prints.setId))
     .where(where);
 }
 

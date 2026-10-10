@@ -1,0 +1,175 @@
+{
+  "totalItems": 6,
+  "success": true,
+  "errors": [],
+  "results": [
+    {
+      "productId": 22062,
+      "name": "Harpie Lady (Original Artwork)",
+      "cleanName": "Harpie Lady Original Artwork",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22062_200w.jpg",
+      "categoryId": 2,
+      "groupId": 255,
+      "url": "https://www.tcgplayer.com/product/22062/yugioh-metal-raiders-harpie-lady-original-artwork",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-008"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 173924,
+      "name": "Harpie Lady (New Artwork)",
+      "cleanName": "Harpie Lady New Artwork",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/173924_200w.jpg",
+      "categoryId": 2,
+      "groupId": 255,
+      "url": "https://www.tcgplayer.com/product/173924/yugioh-metal-raiders-harpie-lady-new-artwork",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-008"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 22131,
+      "name": "Kojikocy",
+      "cleanName": "Kojikocy",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22131_200w.jpg",
+      "categoryId": 2,
+      "groupId": 255,
+      "url": "https://www.tcgplayer.com/product/22131/yugioh-metal-raiders-kojikocy",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-010"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 21835,
+      "name": "Cocoon of Evolution",
+      "cleanName": "Cocoon of Evolution",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/21835_200w.jpg",
+      "categoryId": 2,
+      "groupId": 255,
+      "url": "https://www.tcgplayer.com/product/21835/yugioh-metal-raiders-cocoon-of-evolution",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-011"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    },
+    {
+      "productId": 21762,
+      "name": "B. Skull Dragon",
+      "cleanName": "B Skull Dragon",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/21762_200w.jpg",
+      "categoryId": 2,
+      "groupId": 255,
+      "url": "https://www.tcgplayer.com/product/21762/yugioh-metal-raiders-b-skull-dragon",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-018"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Ultra Rare"
+        }
+      ]
+    },
+    {
+      "productId": 22477,
+      "name": "Tainted Wisdom",
+      "cleanName": "Tainted Wisdom",
+      "imageUrl": "https://tcgplayer-cdn.tcgplayer.com/product/22477_200w.jpg",
+      "categoryId": 2,
+      "groupId": 255,
+      "url": "https://www.tcgplayer.com/product/22477/yugioh-metal-raiders-tainted-wisdom",
+      "modifiedOn": "2026-10-01T12:00:00",
+      "imageCount": 1,
+      "presaleInfo": {
+        "isPresale": false,
+        "releasedOn": null,
+        "note": null
+      },
+      "extendedData": [
+        {
+          "name": "Number",
+          "displayName": "Number",
+          "value": "MRD-081"
+        },
+        {
+          "name": "Rarity",
+          "displayName": "Rarity",
+          "value": "Common"
+        }
+      ]
+    }
+  ]
+}

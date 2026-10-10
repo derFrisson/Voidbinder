@@ -37,6 +37,29 @@ const GRACE = 2 * HOUR;
 /** Runs listed per source. */
 const RUNS = 30;
 
+// The freshness of a price run (VB-116), computed in prices/coverage.ts. Here, since the app's
+// typecheck reaches this file through the admin routes and must not pull in the importers.
+
+export type FreshnessCounts = {
+  prints: number;
+  /** Prints with a mapping or a current price of the source. */
+  mapped: number;
+  unmapped: number;
+  /** Mapped prints with a current price. */
+  priced: number;
+  /** Priced in the last 24 h. */
+  fresh: number;
+  /** Newest price older than 36 h. */
+  stale: number;
+};
+
+export interface Freshness extends FreshnessCounts {
+  game: string;
+  source: string;
+  /** `fresh / priced`, rounded to 4 places; null without a priced print. */
+  share: number | null;
+}
+
 /** The newest run of a source with what the health needs. */
 export interface SourceSummary {
   /** `finished_at` of the newest `ok` run. */
@@ -45,6 +68,54 @@ export interface SourceSummary {
   lastStatus: string | null;
   /** `started_at` of the newest run when it is still `running`. */
   runningSince?: Date | null;
+  /**
+   * VB-116, price runs: `stats.freshness` of the newest `ok` run that has one, and of the newest
+   * such run at least 20 h older (the day before).
+   */
+  freshness?: { latest: Freshness[]; previous?: Freshness[] | undefined } | undefined;
+  /** VB-116, TCGCSV: `stats.failedGroups` of the newest `ok` run, the groups it did not import. */
+  failedGroups?: { game: string; groupIds: number[] }[] | undefined;
+}
+
+/** Below this share of the priced prints refreshed in 24 h, a price source is stale. */
+export const MIN_FRESH_SHARE = 0.95;
+/** How much older the run that `freshness.previous` comes from is at least. */
+const DAY_BEFORE = 20 * HOUR;
+/**
+ * Day-over-day growth of the stale prints that stays green: a market price turning null or a
+ * mapping moving to another print adds a few every day, so only real growth alarms.
+ */
+export const staleGrowthTolerance = (priced: number) => Math.max(25, Math.ceil(0.005 * priced));
+
+/**
+ * The stale prices of one run's freshness (VB-116), one entry per game and source: fewer than 95 %
+ * of the priced prints refreshed in 24 h, or more stale prints than the day before by more than
+ * `staleGrowthTolerance`.
+ */
+export function freshnessProblems(latest: Freshness[], previous: Freshness[] = []): string[] {
+  return latest.flatMap((f) => {
+    const name = `${f.source}/${f.game}`;
+    const before = previous.find((p) => p.source === f.source && p.game === f.game);
+    return [
+      f.share !== null && f.share < MIN_FRESH_SHARE
+        ? `${name} ${(f.share * 100).toFixed(1)}% refreshed in 24 h`
+        : '',
+      before && f.stale - before.stale > staleGrowthTolerance(f.priced)
+        ? `${name} ${f.stale} stale (was ${before.stale})`
+        : '',
+    ].filter(Boolean);
+  });
+}
+
+/**
+ * The groups the newest `ok` run did not import, one entry per game with their ids. Only TCGCSV
+ * runs list failed groups, and its prices are `tcgplayer`'s.
+ */
+function failedGroupProblems(s: SourceSummary | undefined): string[] {
+  const groups = new Map<string, number[]>();
+  for (const f of s?.failedGroups ?? [])
+    groups.set(f.game, [...(groups.get(f.game) ?? []), ...f.groupIds]);
+  return [...groups].map(([game, ids]) => `tcgplayer/${game} ${ids.join(' ')}`);
 }
 
 /** The health of the scheduled sources of `env` at `now`, from each source's summary. */
@@ -60,6 +131,7 @@ export function importHealth(
       const last = s?.lastSuccessAt ?? null;
       // A run in progress younger than the cadence is not missing yet (a weekly crawl takes hours).
       const running = !!s?.runningSince && now - s.runningSince.getTime() < PERIOD[cadence];
+      const stale = s?.freshness ? freshnessProblems(s.freshness.latest, s.freshness.previous) : [];
       return {
         source,
         cadence,
@@ -67,15 +139,24 @@ export function importHealth(
         lastStatus: s?.lastStatus ?? null,
         missing: !running && (!last || now - last.getTime() > PERIOD[cadence] + GRACE),
         failed: s?.lastStatus === 'failed',
+        stale,
       };
     });
   const missing = sources.filter((s) => s.missing).map((s) => s.source);
   const failed = sources.filter((s) => s.failed).map((s) => s.source);
+  const stale = sources.flatMap((s) => s.stale);
+  const failedGroups = sources.flatMap((s) => failedGroupProblems(summaries.get(s.source)));
   const problems = [
     missing.length ? `missing: ${missing.join(', ')}` : '',
     failed.length ? `failed: ${failed.join(', ')}` : '',
+    stale.length ? `stale: ${stale.join(', ')}` : '',
+    failedGroups.length ? `failed groups: ${failedGroups.join(', ')}` : '',
   ].filter(Boolean);
-  return { ok: problems.length === 0, message: problems.join('; ') || 'OK', sources };
+  return {
+    ok: problems.length === 0,
+    message: problems.join('; ') || 'OK',
+    sources: sources.map(({ stale, ...s }) => ({ ...s, stale: stale.length > 0 })),
+  };
 }
 
 const toDate = (v: Date | string | null) => (v === null ? null : new Date(v));
@@ -120,6 +201,8 @@ export async function importOverview(
   `);
   const runs: Record<string, ImportRun[]> = {};
   const summaries = new Map<string, SourceSummary>();
+  const freshAt = new Map<string, number>();
+  const seenOk = new Set<string>();
   for (const r of rows) {
     const startedAt = new Date(r.started_at);
     const finishedAt = toDate(r.finished_at);
@@ -139,6 +222,24 @@ export async function importOverview(
         lastStatus: r.last_status === 'running' ? null : r.last_status,
         runningSince: r.status === 'running' ? startedAt : null,
       });
+    if (r.status !== 'ok') continue;
+    const s = summaries.get(r.source);
+    if (!s) continue;
+    // The newest `ok` run's failed groups: the health stays red while they keep failing.
+    if (!seenOk.has(r.source)) {
+      seenOk.add(r.source);
+      if (Array.isArray(r.stats.failedGroups))
+        s.failedGroups = r.stats.failedGroups as SourceSummary['failedGroups'];
+    }
+    const freshness = r.stats.freshness;
+    if (!Array.isArray(freshness)) continue;
+    // Rows come newest first: the first is `latest`, the first a day older `previous`.
+    const latestAt = freshAt.get(r.source);
+    if (latestAt === undefined) {
+      s.freshness = { latest: freshness as Freshness[] };
+      freshAt.set(r.source, startedAt.getTime());
+    } else if (!s.freshness?.previous && latestAt - startedAt.getTime() >= DAY_BEFORE)
+      s.freshness = { latest: s.freshness?.latest ?? [], previous: freshness as Freshness[] };
   }
   return { runs, health: importHealth(summaries, env, now) };
 }

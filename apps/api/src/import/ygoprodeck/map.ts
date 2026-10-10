@@ -1,3 +1,4 @@
+import { yugiohRarityAbbr } from '@voidbinder/shared';
 import type { CardRow, LocalizationRow, PrintRow, SetRow } from '../scryfall/map';
 import type { YgoCard, YgoSet } from './types';
 
@@ -179,7 +180,10 @@ export function mapPrints(card: YgoCard): MappedPrint[] {
       print: {
         number: g.number,
         variant: g.variant,
-        rarity: g.rarity || null,
+        // A placeholder (`New`, `2`, `Reprint`: no rarity at all) is unknown: no rarity chip; the
+        // print stays its own by its variant (`new`), and the set gallery may name its rarity
+        // (`resolveRarities`, VB-117).
+        rarity: g.rarity && yugiohRarityAbbr(g.rarity) ? g.rarity : null,
         // The source gives the rarity, not a finish: nothing to add beyond the plain print.
         finishes: ['normal'],
         artist: null,
