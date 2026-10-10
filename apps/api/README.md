@@ -542,7 +542,9 @@ one print, so a card id (`swsh3-136`) is both `cards.oracle_key` and the print (
 English creates it, German adds the `print_localizations` row and the set name, a card TCGdex lacks in
 German only has its English row. Prices, TCGdex's `updated` and the Pokémon TCG Pocket series
 (`tcgp`, digital) are never imported; the image URLs (`/high.webp`, `/low.webp`) go to
-`external_ids.tcgdex_images` for VB-57 and nothing is downloaded; Cardmarket and TCGplayer ids go
+`external_ids.tcgdex_images` for VB-57 and nothing is downloaded (a card without `image`, e.g. the
+`mep` and `svp` promos, gets the conventional `assets.tcgdex.net/<lang>/<serie>/<set>/<localId>`
+when one paced `HEAD` of its `high.webp` answers, VB-85); Cardmarket and TCGplayer ids go
 to `external_ids.tcgdex_marketplace` with `mapping_confidence: 'low'` (not under `tcgplayer`, which
 `prints_tcgplayer_idx` reads), for VB-30 to verify. The Workflow `src/workflows/tcgdex-import.ts`
 (binding `TCGDEX_IMPORT`, params `{ mode }`) runs `start run`, `set list`, `sets 00000` … (25 sets

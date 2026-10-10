@@ -486,4 +486,28 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
       expanded: 'legal',
     });
   });
+
+  it('takes the conventional asset URL of a card without `image` only when it answers (VB-85)', async () => {
+    const calls: string[] = [];
+    const override = (p: string) =>
+      p === '/en/swsh/swshp/SWSH074/high.webp' ? new Response(null, { status: 200 }) : undefined;
+    await run({ calls, override }, { mode: 'full' });
+    // Both English promos lack `image`; the German base1 cards too.
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        '/en/swsh/swshp/SWSH074/high.webp',
+        '/en/swsh/swshp/SWSH075/high.webp',
+        '/de/base/base1/1/high.webp',
+      ]),
+    );
+    expect(calls).not.toContain('/en/swsh/swsh3/136/high.webp');
+    const ids = async (id: string) =>
+      (await printOf(id)).print.externalIds as Record<string, unknown>;
+    expect((await ids('swshp-SWSH074')).tcgdex_images).toEqual({
+      high: 'https://assets.tcgdex.net/en/swsh/swshp/SWSH074/high.webp',
+      low: 'https://assets.tcgdex.net/en/swsh/swshp/SWSH074/low.webp',
+    });
+    // 404: nothing stored, so the mirror never queues a missing file.
+    expect((await ids('swshp-SWSH075')).tcgdex_images).toBeUndefined();
+  });
 });
