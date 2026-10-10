@@ -127,6 +127,12 @@ it('runs the galleries alone on request and mirrors the scans they found (VB-106
   await YugipediaImportWorkflow.prototype.run.call({ env }, event, step);
 
   expect(names).not.toContain('start run');
-  expect(names.slice(-2)).toEqual(['galleries: clean up chunks', 'mirror images']);
-  expect(names).toContain('purge cache');
+  // One purge, after the mirror, under names of its own (the names import may purge before).
+  expect(names.slice(-4)).toEqual([
+    'galleries: clean up chunks',
+    'mirror images',
+    'galleries: wait for the Hyperdrive cache',
+    'galleries: purge cache',
+  ]);
+  expect(names).not.toContain('purge cache');
 });

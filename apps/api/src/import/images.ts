@@ -434,9 +434,13 @@ const needsWork = (
     or (${sets.gameId} = 'yugioh' and (${ids} ->> 'image_url' is not null
       or ${ids} -> 'artwork' ->> 'url' is not null))
     or (${sets.gameId} = 'pokemon' and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
+  // A Yugipedia scan (VB-106) the key does not name yet: the row keeps its old key until then.
+  // The id is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case).
+  const scan = sql`regexp_replace(${ids} -> 'artwork' ->> 'url', '^.*/|[.][^./]*$', '', 'g')`;
   const todo = sql`(${key} is null
     ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}
-    or (${key} like '%-lowres.%' and ${highres}))`;
+    or (${key} like '%-lowres.%' and ${highres})
+    or (${sets.gameId} = 'yugioh' and position('/' || ${scan} || '/' in ${key}) = 0))`;
   return sql`${todo} and ${mirrorable}`;
 };
 
@@ -486,7 +490,8 @@ export async function pendingRows(db: Db, q: PendingQuery): Promise<PendingRow[]
 /**
  * Sets `image_key` on rows without one, or replaces a key the new one outranks: `sm.webp`, then
  * `orig.<ext>`, then `sm-lowres.webp`, then `orig-lowres.<ext>`. So `sm` replaces `orig` and a
- * high-res scan replaces a low-res one, never the other way round.
+ * high-res scan replaces a low-res one, never the other way round. A key of another source id
+ * (a Yu-Gi-Oh! print's new scan) replaces any.
  */
 export async function writeKeys(db: Db, rows: (ImageTarget & { key: string })[]) {
   const json = (table: ImageTarget['table']) =>
@@ -500,8 +505,10 @@ export async function writeKeys(db: Db, rows: (ImageTarget & { key: string })[])
     when ${key} like '%/sm-lowres.webp' then 2
     when ${key} like '%-lowres.%' then 1
     else 3 end`;
+  // Another source id (a Yu-Gi-Oh! print's new Yugipedia scan, VB-106) replaces whatever rank.
+  const dir = (key: SQLWrapper) => sql`regexp_replace(${key}, '[^/]*$', '')`;
   const replaceable = (key: SQLWrapper) =>
-    sql`(${key} is null or ${rank(sql`v.key`)} > ${rank(key)})`;
+    sql`(${key} is null or ${rank(sql`v.key`)} > ${rank(key)} or ${dir(sql`v.key`)} <> ${dir(key)})`;
   await db.execute(sql`
     update ${prints} set image_key = v.key
     from jsonb_to_recordset(${json('prints')}::jsonb) as v(id uuid, lang text, key text)

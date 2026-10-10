@@ -6,7 +6,7 @@ import { PrintResponseSchema, SetPageResponseSchema } from '@voidbinder/shared/a
 import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
 import { imagePick } from '../../platform/cloudflare/image';
 import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
-import { mirrorImages, type MirrorDeps } from '../images';
+import { mirrorImages, pendingRows, type MirrorDeps } from '../images';
 import { MemoryBlobStore } from '../scryfall/test-fixtures';
 import type { Db } from '../scryfall/write';
 import {
@@ -390,7 +390,18 @@ describe.skipIf(!databaseUrl)('Yugipedia gallery import (Postgres)', () => {
       url: 'https://ms.yugipedia.com//b/bf/RedEyesDarkDragoon-RA05-EN-UR-1E-EA.png',
       alt: 'EA',
     });
-    expect((await row(ids.dragoonStr ?? ''))?.key).toBeNull();
+    // The old key serves until the mirror has stored the new scan, and the mirror plans the row.
+    expect((await row(ids.dragoonStr ?? ''))?.key).toBe(passcodeKey(37818794));
+    expect(
+      (await pendingRows(db, { game: 'yugioh' }))
+        .filter((r) => r.table === 'prints')
+        .map((r) => [r.printId, r.key]),
+    ).toEqual(
+      expect.arrayContaining([
+        [ids.dragoonStr, passcodeKey(37818794)],
+        [ids.dm, passcodeKey(46986414)],
+      ]),
+    );
     expect((await row(ids.dm ?? ''))?.ids.artwork).toMatchObject({
       file: 'DarkMagician-RA05-EN-UR-1E.png',
     });

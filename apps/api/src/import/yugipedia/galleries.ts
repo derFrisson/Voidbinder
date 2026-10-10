@@ -6,7 +6,7 @@ import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { chunkKey, deletePrefix, readChunk, type Fetch } from '../scryfall/source';
 import { failRun, finishRun, type Db } from '../scryfall/write';
 import { parseSetCode } from '../ygoprodeck/map';
-import { batches, purgeEdgeCache } from '../util';
+import { batches } from '../util';
 import { ARTWORK, COOL_DOWN_DAYS, markChecked } from './pipeline';
 import { API, ask, plainText } from './source';
 
@@ -26,8 +26,8 @@ import { API, ask, plainText } from './source';
 // this matters for are resolved: the prints of a card YGOPRODeck has several artworks of
 // (`external_ids.artworks`, written by the YGOPRODeck import) and the prints whose gallery row has
 // an alt code. Each gets `external_ids.artwork = { file, url, alt? }` (the English one on the
-// print, the others on their localization) and loses its `image_key`, so the image mirror copies
-// the scan into R2 (src/import/images.ts reads `artwork.url` before YGOPRODeck's `image_url`).
+// print, the others on their localization); the image mirror copies the scan into R2 and then
+// replaces the old key (src/import/images.ts reads `artwork.url` before YGOPRODeck's `image_url`).
 // The alt codes are each gallery's own (the German RA04 page has no `AA` where the English one
 // has), so a code is a file name part, never a fact about the artwork across languages. A row
 // whose scan is missing (RA05's Starlight Rares) falls back to the same alt code in another
@@ -485,8 +485,8 @@ export interface Artwork {
 }
 
 /**
- * Writes each print's (and localization's) artwork and clears its `image_key` when the artwork
- * changed, so the mirror copies the new scan; returns the rows changed.
+ * Writes each print's (and localization's) artwork; returns the rows changed. The `image_key`
+ * stays until the mirror has stored the new scan (`needsWork` plans a key that does not name it).
  */
 export async function writeArtworks(
   db: Db,
@@ -499,14 +499,12 @@ export async function writeArtworks(
         .map((r) => ({ id: r.printId, lang: r.lang, artwork: r.artwork })),
     );
   const printsDone = await db.execute(sql`
-    update prints set external_ids = external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork),
-      image_key = null
+    update prints set external_ids = external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork)
     from jsonb_to_recordset(${json(true)}::jsonb) as v(id uuid, lang text, artwork jsonb)
     where prints.id = v.id and prints.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
   const locsDone = await db.execute(sql`
     update print_localizations l
-    set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork),
-      image_key = null
+    set external_ids = l.external_ids || jsonb_build_object(${ARTWORK}::text, v.artwork)
     from jsonb_to_recordset(${json(false)}::jsonb) as v(id uuid, lang text, artwork jsonb)
     where l.print_id = v.id and l.lang = v.lang
       and l.external_ids -> ${ARTWORK}::text is distinct from v.artwork`);
@@ -716,7 +714,6 @@ export async function runGalleryImport(
     await step('galleries: finish run', () =>
       deps.withDb((db) => finishRun(db, runId, stats, { bump: stats.written > 0 })),
     );
-    if (stats.written) await purgeEdgeCache(deps, step, ['catalog']);
     result = { runId, stats };
   } catch (err) {
     await step('galleries: fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

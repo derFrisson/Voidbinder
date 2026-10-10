@@ -665,7 +665,9 @@ asks no credit for them (its CC BY-SA 4.0 covers original text only, which we al
 same basis as the YGOPRODeck images we mirror.
 
 **The run.** The Yugipedia Workflow runs it after the names (`POST /admin/import/yugipedia-galleries`
-starts the galleries alone, 409 while one is `running`; `import_runs` source `yugipedia-galleries`):
+starts the galleries alone; it, `POST /admin/import/yugipedia` and the weekly cron refuse or skip
+while a names or a gallery run is `running`, one lock for one crawl rate; `import_runs` source
+`yugipedia-galleries`):
 `galleries: plan` plans nothing (a WARN, no set cooled down) until the YGOPRODeck import has
 written `external_ids.artworks` on some print, so on a fresh database run the YGOPRODeck import
 first; then it lists every gallery title (15 requests), keeps our Yu-Gi-Oh! sets with a TCG
@@ -680,8 +682,10 @@ scan is missing the same alt code in another rarity of the page (RA05's Starligh
 takes the Ultra Rare `EA` scan, the same artwork); without an alt code there is no fallback
 (another rarity may be another artwork) and a print without a row or a scan keeps the passcode
 image. The result goes to `external_ids.artwork = { file, url, alt? }` of the print (English) or
-its localization, and a changed artwork clears `image_key`; the mirror (Card images) then copies
-`artwork.url` under `images/yugioh/<file name>/<lang>/…`, one request a second. The YGOPRODeck and
+its localization; the row keeps its `image_key` until the mirror (Card images) has copied
+`artwork.url` under `images/yugioh/<file name>/<lang>/…` (one request a second): a Yu-Gi-Oh! key
+that does not name the scan's file is pending, and a key of another source id replaces it whatever
+its rank (`writeKeys`). The Workflow purges the `catalog` cache once, after its mirror step. The YGOPRODeck and
 Yugipedia name upserts keep `artwork` (`keepArtwork`). `extendedArt: true` on the set page's prints
 and on `PrintDetail` marks a print whose row says `EA`; the app labels it "Extended Art". Raw
 answers: `raw/<env>/yugipedia/galleries/<date>/titles.json` and `sets-<n>.json`. A full run is

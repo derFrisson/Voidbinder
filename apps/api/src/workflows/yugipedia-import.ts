@@ -6,6 +6,7 @@ import {
 } from 'cloudflare:workers';
 import { runGalleryImport } from '../import/yugipedia/galleries';
 import { runYugipediaImport } from '../import/yugipedia/pipeline';
+import { purgeEdgeCache } from '../import/util';
 import { scryfallImportDeps } from '../platform/cloudflare';
 import { edgeCacheDeps } from '../platform/cloudflare/cache';
 import { mirrorStepFor } from './mirror-images';
@@ -34,8 +35,10 @@ export class YugipediaImportWorkflow extends WorkflowEntrypoint<Env> {
     const names =
       event.payload?.galleries === 'only' ? null : await runYugipediaImport(deps, runner, opts);
     const galleries = await runGalleryImport(deps, runner, opts);
-    // The new scans into R2 now, not with the next daily YGOPRODeck run (at most 500, 1/s).
+    // The new scans into R2 now, not with the next daily YGOPRODeck run (at most 500, 1/s); then
+    // one purge for the artworks and the keys the mirror replaced (the rest keep their old key).
     const images = galleries.stats.written ? await mirrorStepFor('yugioh')(this.env, step) : null;
+    if (galleries.stats.written) await purgeEdgeCache(deps, runner, ['catalog'], 'galleries: ');
     // The names this run wrote reach the D1 typeahead (VB-98) now, not with the next daily import.
     const searchIndex = names?.stats.written ? await refreshSearchIndexStep(this.env, step) : null;
     return { ...names, galleries, images, searchIndex };
