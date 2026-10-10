@@ -210,8 +210,9 @@ The rank is 1 for a name match; ties keep the existing order.
 **Offline modules.** `names_fts` keeps `unicode61`. node:sqlite (SQLite 3.53.0) checked: FTS5
 `unicode61` finds `ピカチュウ*` but not `覇者` inside `黒魔導の覇者`; the `trigram` tokenizer has
 the same three-character floor as `pg_trgm`. A plain `name LIKE '%覇者%'` over the 145,857
-Japanese names took 9 ms in node:sqlite on the workstation, so the app uses `LIKE` on
-`print_localizations` for a query with CJK characters and no extra FTS table.
+Japanese names took 9 ms in node:sqlite on the workstation, so the app's future module
+reader should use `LIKE` on `print_localizations` for a query with CJK characters and no extra FTS
+table.
 
 ## Prices
 
@@ -293,7 +294,10 @@ Each step is one PR and leaves `main` working.
    change. `SCRYFALL_LANGUAGES=en,de,ja` in all three envs of `wrangler.jsonc`. TCGdex: a second
    pass with `ja` as the master language (`/v2/ja/sets`, codes `<lowercased id>-jp`, `region = 'jp'`,
    `oracle_key` `ja:<id>`, sets without cards skipped); the plan, rotation and missing-card logic
-   reused per region. Tests with fixtures from the probe (`SV2a`, `neo1` for the collision).
+   reused per region. `setStates` (`import/tcgdex/write.ts`) is keyed by code across the whole game,
+   so each pass filters by region (or the `-jp` suffix) or it sees the other pass's sets. The
+   comment on `cards.name` ("English canonical name") changes: for a Japanese Pokémon card it holds
+   the Japanese name. Tests with fixtures from the probe (`SV2a`, `neo1` for the collision).
 2. **Yu-Gi-Oh! OCG importer.** `src/import/yugipedia/` with the YGOPRODeck shape: set lists in
    half-year windows, card pages for Japanese name, lore and password, raw answers to `RAW`, codes
    `<prefix>-jp`, prints per code and rarity on the existing cards, `ja` localizations; a Workflow,
@@ -309,8 +313,9 @@ Each step is one PR and leaves `main` working.
 6. **App.** Region chips on the Pokémon and Yu-Gi-Oh! set lists, `lang = 'ja'` default on Japanese
    sets, `ja` default language when collecting a Japanese print, CJK search through the API.
 7. **Offline modules.** `LANGS` gains `ja`, `sets` gains `region` (`SCHEMA_VERSION` 2,
-   `MIN_APP_SCHEMA_VERSION` stays 1 because the change is a new column), the app's module search
-   uses `LIKE` for CJK queries.
+   `MIN_APP_SCHEMA_VERSION` stays 1 because the change is a new column). The app has no module
+   reader yet (`apps/app/src` has none), so this is a requirement for the reader once it exists: a
+   query with CJK characters searches `print_localizations` with `LIKE`, not the FTS table.
 
 ## What needs Max
 
