@@ -2,7 +2,7 @@ import { failRun, finishRun } from '../scryfall/write';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
-import { coverageCounts, groupsKey, priceCoverage, readGroups } from './coverage';
+import { groupsKey, priceCoverage, readGroups } from './coverage';
 import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
 import {
   CATEGORIES,
@@ -69,18 +69,34 @@ export interface GameStats {
 const GAMES: readonly PricedGame[] = ['mtg', 'yugioh', 'pokemon'];
 const SOURCE = 'tcgplayer';
 
-/** The matched groups per set, in order of first appearance; each set's groups by group id. */
-function groupsBySet(groups: readonly { groupId: number; setId: string }[]) {
-  const out = new Map<string, number[]>();
-  for (const g of groups) out.set(g.setId, [...(out.get(g.setId) ?? []), g.groupId]);
-  for (const ids of out.values()) ids.sort((a, b) => a - b);
-  return out;
+/**
+ * A group to import and its catalog set; null for a Magic group no set matched, whose products
+ * still match by Scryfall's ids (VB-114: Promo Pack, Buy-A-Box, the store promos and the other
+ * groups that span several of Scryfall's sets).
+ */
+export interface GroupImport {
+  groupId: number;
+  setId: string | null;
+}
+
+/**
+ * The groups per set, in order of first appearance; each set's groups by group id. A group
+ * without a set stands alone.
+ */
+function groupsBySet(groups: readonly GroupImport[]) {
+  const out = new Map<string, [setId: string | null, groupIds: number[]]>();
+  for (const g of groups) {
+    const key = g.setId ?? `group ${g.groupId}`;
+    out.set(key, [g.setId, [...(out.get(key)?.[1] ?? []), g.groupId]]);
+  }
+  for (const [, ids] of out.values()) ids.sort((a, b) => a - b);
+  return [...out.values()];
 }
 
 /** Steps of about `GROUPS_PER_STEP` groups that never split a set (its groups match together). */
-export function groupSteps(groups: readonly { groupId: number; setId: string }[]) {
-  const steps: { groupId: number; setId: string }[][] = [];
-  let current: { groupId: number; setId: string }[] = [];
+export function groupSteps(groups: readonly GroupImport[]) {
+  const steps: GroupImport[][] = [];
+  let current: GroupImport[] = [];
   for (const [setId, ids] of groupsBySet(groups)) {
     if (current.length && current.length + ids.length > GROUPS_PER_STEP) {
       steps.push(current);
@@ -101,7 +117,7 @@ export function groupSteps(groups: readonly { groupId: number; setId: string }[]
 export async function importGroups(
   deps: ImportDeps,
   game: PricedGame,
-  groups: { groupId: number; setId: string }[],
+  groups: GroupImport[],
   opts: { raw: string; delayMs: number; observedAt: string },
 ) {
   const category = CATEGORIES[game];
@@ -137,7 +153,7 @@ export async function importGroups(
     const productIds = [...new Set(prices.map((p) => String(p.productId)))];
 
     const r = await deps.withDb(async (db) => {
-      const candidates = await candidatePrints(db, [setId], byId ? productIds : []);
+      const candidates = await candidatePrints(db, setId ? [setId] : [], byId ? productIds : []);
       // A product may price several prints (Yu-Gi-Oh! regional prints, VB-110).
       const matches = new Map<number, ProductMatch[]>();
       for (const m of matchProducts(products, candidates, { byId, regional: game === 'yugioh' }))
@@ -145,15 +161,17 @@ export async function importGroups(
       const finish = (p: TcgPrice) =>
         matches.get(p.productId)?.[0]?.finish ?? finishOf(p.subTypeName);
       const mappings: MappingRow[] = prices.flatMap((p) =>
-        (matches.get(p.productId) ?? []).map((m) => ({
-          printId: m.printId,
-          source: SOURCE,
-          externalId: String(p.productId),
-          finish: finish(p),
-          lang: 'en',
-          method: m.method,
-          confidence: m.confidence,
-        })),
+        (matches.get(p.productId) ?? [])
+          .filter((m) => !m.printing || m.printing === finishOf(p.subTypeName))
+          .map((m) => ({
+            printId: m.printId,
+            source: SOURCE,
+            externalId: String(p.productId),
+            finish: finish(p),
+            lang: 'en',
+            method: m.method,
+            confidence: m.confidence,
+          })),
       );
       await upsertMappings(db, mappings);
       // Through the table, so a manual mapping counts as much as today's matches.
@@ -238,14 +256,18 @@ export async function runTcgcsvImport(
         );
         const groups = results<TcgGroup>(text, `groups ${category}`);
         const sets = await deps.withDb((db) => gameSets(db, game));
-        return {
-          total: groups.length,
-          matched: matchGroups(groups, sets, { regional: game === 'yugioh' }),
-        };
+        const matched: GroupImport[] = matchGroups(groups, sets, { regional: game === 'yugioh' });
+        // Magic's products match by Scryfall's ids, whatever the set: a group no set matched is
+        // imported all the same (VB-114, about 100 groups and 4,500 promo prints).
+        const hit = new Set(matched.map((m) => m.groupId));
+        if (game === 'mtg')
+          for (const g of groups)
+            if (!hit.has(g.groupId)) matched.push({ groupId: g.groupId, setId: null });
+        return { total: groups.length, matched };
       });
       const g: GameStats = {
         groups: total,
-        matchedGroups: matched.length,
+        matchedGroups: matched.filter((m) => m.setId).length,
         cards: 0,
         mapped: 0,
         unmapped: 0,
@@ -268,7 +290,7 @@ export async function runTcgcsvImport(
         try {
           const groups = (await readGroups(deps.raw, groupsKey(raw, game))) ?? [];
           const c = await deps.withDb((db) => priceCoverage(db, game, groups));
-          const counts = coverageCounts(c);
+          const counts = c.totals;
           log('info', { message: 'price coverage', game, ...counts });
           for (const set of c.unpricedSets)
             log('warn', { message: 'set has a TCGplayer group and no price', game, ...set });

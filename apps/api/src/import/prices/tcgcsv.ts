@@ -5,8 +5,9 @@ import { USER_AGENT, type Fetch } from '../scryfall/source';
 // TCGplayer's catalog and prices once a day around 20:00 UTC. Its rules: a descriptive
 // User-Agent, ~100 ms between requests, at most one pull per day (check `last-updated.txt`
 // first) and under 10,000 requests a day. A run asks for the groups of three categories and the
-// products and prices of the groups that match a catalog set: about 2,500 requests. Prices are
-// USD, per product and `subTypeName` (the printing), never per condition.
+// products and prices of the groups that match a catalog set (Magic: of every group, VB-114):
+// about 2,700 requests. Prices are USD, per product and `subTypeName` (the printing), never per
+// condition.
 //
 // The price archive (one 7z per day) is read by the history backfill on the VPS, not here
 // (backfill.ts, apps/api/README.md, Prices).
