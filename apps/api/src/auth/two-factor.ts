@@ -1,4 +1,4 @@
-import type { BetterAuthOptions, DBAdapter } from 'better-auth';
+import type { BetterAuthOptions, DBAdapter, DBTransactionAdapter } from 'better-auth';
 
 /** AES-256-GCM with `TWO_FACTOR_ENCRYPTION_KEY`, for the 2FA secrets at rest. */
 export interface SecretCipher {
@@ -54,6 +54,10 @@ type Row = Record<string, unknown> | null;
  * of Better Auth's own encryption (which uses `BETTER_AUTH_SECRET`): the plugin has no option for
  * the secret's key. Backup codes use the plugin's `storeBackupCodes` hook with the same cipher
  * instead, because the plugin compares their stored value in a WHERE clause when it consumes one.
+ *
+ * Checked against better-auth 1.7.7: the plugin writes the secret only with `create` and `update`.
+ * `updateMany` and `incrementOne` with a secret in their data throw instead of storing it
+ * unencrypted, inside a `transaction` too, so a plugin upgrade that starts using them fails loudly.
  */
 export function withEncryptedTotpSecret(
   factory: AdapterFactory,
@@ -61,27 +65,47 @@ export function withEncryptedTotpSecret(
 ): AdapterFactory {
   return (options) => {
     const inner = factory(options);
-    const isTwoFactor = (model: string) => model === 'twoFactor';
-    const seal = async <T extends Row>(model: string, data: T): Promise<T> =>
-      isTwoFactor(model) && typeof data?.secret === 'string'
-        ? { ...data, secret: await cipher.encrypt(data.secret) }
-        : data;
-    const open = async <T>(model: string, row: T): Promise<T> => {
-      const r = row as Row;
-      return isTwoFactor(model) && typeof r?.secret === 'string'
-        ? ({ ...r, secret: await cipher.decrypt(r.secret) } as T)
-        : row;
+    return {
+      ...encryptingTotpSecret(inner, cipher),
+      transaction: (callback) =>
+        inner.transaction((trx) => callback(encryptingTotpSecret(trx, cipher))),
     };
-    const adapter: DBAdapter = {
-      ...inner,
-      create: async (p) =>
-        open(p.model, await inner.create({ ...p, data: await seal(p.model, p.data) })),
-      update: async (p) =>
-        open(p.model, await inner.update({ ...p, update: await seal(p.model, p.update) })),
-      findOne: async (p) => open(p.model, await inner.findOne(p)),
-      findMany: async <T>(p: Parameters<DBAdapter['findMany']>[0]) =>
-        Promise.all((await inner.findMany<T>(p)).map((row) => open(p.model, row))),
-    };
-    return adapter;
+  };
+}
+
+function encryptingTotpSecret<A extends DBTransactionAdapter>(inner: A, cipher: SecretCipher): A {
+  const isTwoFactor = (model: string) => model === 'twoFactor';
+  const seal = async <T extends Row>(model: string, data: T): Promise<T> =>
+    isTwoFactor(model) && typeof data?.secret === 'string'
+      ? { ...data, secret: await cipher.encrypt(data.secret) }
+      : data;
+  const open = async <T>(model: string, row: T): Promise<T> => {
+    const r = row as Row;
+    return isTwoFactor(model) && typeof r?.secret === 'string'
+      ? ({ ...r, secret: await cipher.decrypt(r.secret) } as T)
+      : row;
+  };
+  const refuse = (model: string, method: string, ...data: (Row | undefined)[]) => {
+    if (isTwoFactor(model) && data.some((d) => d && 'secret' in d)) {
+      throw new Error(`twoFactor.secret cannot be written with ${method} (not encrypted)`);
+    }
+  };
+  return {
+    ...inner,
+    create: async (p) =>
+      open(p.model, await inner.create({ ...p, data: await seal(p.model, p.data) })),
+    update: async (p) =>
+      open(p.model, await inner.update({ ...p, update: await seal(p.model, p.update) })),
+    updateMany: async (p) => {
+      refuse(p.model, 'updateMany', p.update);
+      return inner.updateMany(p);
+    },
+    incrementOne: async (p) => {
+      refuse(p.model, 'incrementOne', p.increment, p.set);
+      return open(p.model, await inner.incrementOne(p));
+    },
+    findOne: async (p) => open(p.model, await inner.findOne(p)),
+    findMany: async <T>(p: Parameters<DBAdapter['findMany']>[0]) =>
+      Promise.all((await inner.findMany<T>(p)).map((row) => open(p.model, row))),
   };
 }
