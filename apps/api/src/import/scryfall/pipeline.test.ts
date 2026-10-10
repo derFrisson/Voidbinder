@@ -78,7 +78,7 @@ describe.skipIf(!databaseUrl)('Scryfall import (Postgres)', () => {
     expect(runRow).toMatchObject({ source: 'scryfall', kind: 'full', status: 'ok' });
     // The edge-cached catalog reads go right after the finish (VB-71).
     expect(steps[steps.indexOf('finish run') + 1]).toBe('purge cache');
-    expect(purged).toEqual([['catalog', 'game:mtg']]);
+    expect(purged).toEqual([['catalog', 'prices']]);
 
     // Raw dumps stay, the run's chunks are deleted.
     expect([...blobs.objects.keys()].sort()).toEqual([

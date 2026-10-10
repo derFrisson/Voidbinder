@@ -292,8 +292,6 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
         'public, max-age=60, s-maxage=600, stale-while-revalidate=60',
       );
       expect(res.headers.get('Cache-Tag')).toBe('catalog');
-      const mtg = await app.request('/catalog/search?q=adeline&game=mtg');
-      expect(mtg.headers.get('Cache-Tag')).toBe('catalog,game:mtg');
       expect(res.headers.get('ETag')).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
     });
 
@@ -366,7 +364,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(first.headers.get('Cloudflare-CDN-Cache-Control')).toBe(
       'public, max-age=600, stale-while-revalidate=600',
     );
-    expect(first.headers.get('Cache-Tag')).toBe('catalog,game:mtg');
+    expect(first.headers.get('Cache-Tag')).toBe('catalog');
     const etag = first.headers.get('ETag') ?? '';
     expect(etag).toMatch(/^"v\d+-[0-9a-f]{32}"$/);
 

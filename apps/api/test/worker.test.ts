@@ -29,7 +29,7 @@ describe('Worker', () => {
   // Purges are scoped to the calling entrypoint, so the Workflows purge through the default one.
   it('purges the edge cache through the default entrypoint, a no-op where nothing is cached', async () => {
     const warn = vi.spyOn(console, 'warn');
-    await purgeCache(['catalog', 'game:mtg']);
+    await purgeCache(['catalog']);
     expect(warn).not.toHaveBeenCalled();
     await expect(exports.default.purgeCache(['prices'])).resolves.toBeUndefined();
   });

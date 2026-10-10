@@ -154,7 +154,6 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
       otherLanguages: localizations,
     };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
-    await purgeEdgeCache(deps, step, ['catalog', 'game:mtg']);
     result = { runId, stats, chunks: cardSplit.chunks };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));
@@ -172,6 +171,8 @@ export async function runScryfallImport(deps: ImportDeps, step: StepRunner, opts
       },
     );
   }
+  // One wait and one purge for both runs; a failed price run still changed the catalog.
+  await purgeEdgeCache(deps, step, ['catalog', 'prices']);
   // The run is finished: a failed cleanup leaves chunks behind, never a failed run.
   try {
     await step('clean up chunks', () => deletePrefix(deps.raw, work));

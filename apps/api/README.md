@@ -72,12 +72,13 @@ Three layers, each explicit about what may be stale (ADR 0004 and its addendum):
    (ten minutes fresh, ten more served stale while the Worker refreshes; `s-maxage` in
    `Cache-Control` would switch stale-while-revalidate off) and a `Cache-Tag`:
 
-   | Tag         | Responses                                           | Purged by                                                            |
-   | ----------- | --------------------------------------------------- | -------------------------------------------------------------------- |
-   | `catalog`   | `/catalog/**` except prices and modules             | every catalog import (Scryfall, YGOPRODeck, TCGdex)                  |
-   | `game:<id>` | the same, where the path or `?game=` names the game | that game's import (`mtg`, `yugioh`, `pokemon`)                      |
-   | `prices`    | `/catalog/prints/:id/prices[/history]`              | the TCGCSV import (when it found a new build), Scryfall's price step |
-   | `modules`   | `/catalog/modules`                                  | nothing yet: the module build runs on the VPS (TTL only)             |
+   | Tag       | Responses                               | Purged by                                                          |
+   | --------- | --------------------------------------- | ------------------------------------------------------------------ |
+   | `catalog` | `/catalog/**` except prices and modules | every catalog import (Scryfall, YGOPRODeck, TCGdex)                |
+   | `prices`  | `/catalog/prints/:id/prices[/history]`  | the TCGCSV import (when it found a new build), the Scryfall import |
+   | `modules` | `/catalog/modules`                      | nothing yet: the module build runs on the VPS (TTL only)           |
+
+   There are no per-game tags: every catalog import purges all of `catalog`.
 
    The cache key is the path and query string as sent (`lang`, `currency` and the filters are
    query parameters) plus `Vary: Origin` from CORS; the Worker version is part of it too, so a
@@ -92,8 +93,9 @@ cached answer is the same for everyone, with or without a cookie or `Authorizati
 
 **Purge.** After `finish run` (which bumps `catalog_version`), each importer waits six minutes
 (`step.sleep`, `wait for the Hyperdrive cache`) and then runs a `purge cache` step
-(`purgeEdgeCache`, `src/import/util.ts`). The wait matters: a purged entry is refilled through
-`HYPERDRIVE_CACHED`, which can serve the rows from before the import for 300 s + 60 s, and the edge
+(`purgeEdgeCache`, `src/import/util.ts`); the Scryfall import waits and purges once, after its
+price step, for `catalog` and `prices` together. The wait matters: a purged entry is refilled
+through `HYPERDRIVE_CACHED`, which can serve the rows from before the import for 300 s + 60 s, and the edge
 would then keep them another ten minutes. A purge only reaches the cache of the entrypoint that
 calls it, and a Workflow is an entrypoint of its own, so `purgeCache(tags)`
 (`src/platform/cloudflare/cache.ts`) calls the RPC method `purgeCache` on the default entrypoint

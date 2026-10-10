@@ -83,10 +83,10 @@ Decision:
   `Cloudflare-CDN-Cache-Control: public, max-age=600, stale-while-revalidate=600` for the edge.
   The second header exists because `s-maxage` disables stale-while-revalidate at Cloudflare
   (RFC 9111 4.2.4); Cloudflare strips it before the response leaves.
-- Each answer carries a `Cache-Tag`: `catalog` (plus `game:<id>` where the request names the game),
-  `prices` or `modules`. Every importer purges its tags after `finish run`: the catalog imports
-  `catalog` and their `game:<id>`, TCGCSV and Scryfall's price step `prices`. The ETag on
-  `catalog_version` stays the browsers' signal.
+- Each answer carries a `Cache-Tag`: `catalog`, `prices` or `modules`. Every importer purges its
+  tags after `finish run`: YGOPRODeck and TCGdex `catalog`, TCGCSV `prices`, and Scryfall
+  `catalog` and `prices` in one purge after its price step. No per-game tags: every catalog import
+  purges all of `catalog` anyway. The ETag on `catalog_version` stays the browsers' signal.
 - The purge waits six minutes after `finish run` (a Workflow `step.sleep`). An entry purged at once
   would be refilled through the cached Hyperdrive configuration of decision 1, which can still
   serve the pre-import rows for `max_age` + `stale_while_revalidate` (360 s), and the edge would

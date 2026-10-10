@@ -4,7 +4,6 @@ import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
 import type { ScryfallCard } from '../scryfall/types';
 import { failRun, finishRun, type Db } from '../scryfall/write';
 import { chunkKey, readChunk } from '../scryfall/source';
-import { purgeEdgeCache } from '../util';
 import { startRun, upsertMappings, writePrices, type MappingRow, type PriceRow } from './write';
 
 // Scryfall's prices (VB-30): `default_cards` carries Cardmarket EUR and TCGplayer USD per print.
@@ -103,7 +102,6 @@ export async function runScryfallPrices(
     await step('prices: finish run', () =>
       deps.withDb((db) => finishRun(db, runId, { observedAt: opts.observedAt, ...stats })),
     );
-    await purgeEdgeCache(deps, step, ['prices'], 'prices: ');
     return stats;
   } catch (err) {
     await step('prices: fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

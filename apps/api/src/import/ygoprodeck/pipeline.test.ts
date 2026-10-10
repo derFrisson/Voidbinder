@@ -117,7 +117,7 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
       expect.arrayContaining(['cards 00000', 'localizations de 00000', 'finish run']),
     );
     expect(steps[steps.indexOf('finish run') + 1]).toBe('purge cache');
-    expect(purged).toEqual([['catalog', 'game:yugioh']]);
+    expect(purged).toEqual([['catalog']]);
     expect(CHUNK_LINES).toBeGreaterThan(27);
   });
 

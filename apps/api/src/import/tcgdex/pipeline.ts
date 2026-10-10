@@ -188,7 +188,7 @@ export async function runTcgdexImport(deps: ImportDeps, step: StepRunner, opts: 
       ...cards,
     };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
-    await purgeEdgeCache(deps, step, ['catalog', 'game:pokemon']);
+    await purgeEdgeCache(deps, step, ['catalog']);
     return { runId, stats };
   } catch (err) {
     await step('fail run', () => deps.withDb((db) => failRun(db, runId, String(err))));

@@ -16,14 +16,14 @@ export const EDGE_CACHE_CONTROL = 'public, max-age=600, stale-while-revalidate=6
 
 /**
  * `Cache-Tag` of a cached response, purged by the importers at the end of a run: `modules` for the
- * module manifests, `prices` for the price routes, `catalog` (plus `game:<id>` where the path or
- * query names the game) for everything else.
+ * module manifests, `prices` for the price routes, `catalog` for everything else.
  */
-export function cacheTags(path: string, game: string | undefined): string {
+// ponytail: no per-game tags; every catalog import purges all of `catalog`. Add `game:<id>` when
+// one game's import should leave the others' cached pages alone.
+export function cacheTags(path: string): string {
   if (path.startsWith('/catalog/modules')) return 'modules';
   if (/^\/catalog\/prints\/[^/]+\/prices(\/|$)/.test(path)) return 'prices';
-  // ponytail: cards and prints by id carry no game tag; every catalog purge includes `catalog`.
-  return game ? `catalog,game:${game}` : 'catalog';
+  return 'catalog';
 }
 
 function hex(buffer: ArrayBuffer): string {
@@ -60,6 +60,5 @@ export const catalogCache = createMiddleware<AppEnv>(async (c, next) => {
   c.header('ETag', etag);
   c.header('Cache-Control', CATALOG_CACHE_CONTROL);
   c.header('Cloudflare-CDN-Cache-Control', EDGE_CACHE_CONTROL);
-  // Only 200s get here, so the game passed validation (GameSchema).
-  c.header('Cache-Tag', cacheTags(c.req.path, c.req.param('game') ?? c.req.query('game')));
+  c.header('Cache-Tag', cacheTags(c.req.path));
 });

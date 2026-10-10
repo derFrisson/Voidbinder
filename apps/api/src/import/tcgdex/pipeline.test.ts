@@ -212,7 +212,7 @@ describe.skipIf(!databaseUrl)('TCGdex import (Postgres)', () => {
       ]),
     );
     expect(steps[steps.indexOf('finish run') + 1]).toBe('purge cache');
-    expect(purged).toEqual([['catalog', 'game:pokemon']]);
+    expect(purged).toEqual([['catalog']]);
   });
 
   it('writes the set, its names and release date', async () => {

@@ -286,14 +286,14 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     const cards = steps.filter((s) => s.startsWith('cards '));
     expect(steps.slice(steps.indexOf('finish run'))).toEqual([
       'finish run',
-      'purge cache',
       'prices: start run',
       ...cards.map((s) => s.replace('cards', 'prices')),
       'prices: finish run',
-      'prices: purge cache',
+      'purge cache',
       'clean up chunks',
     ]);
-    expect(purged).toEqual([['catalog', 'game:mtg'], ['prices']]);
+    // One purge for the catalog run and the price run.
+    expect(purged).toEqual([['catalog', 'prices']]);
     // The catalog run and the price run each bump once.
     expect(await version()).toBe(before + 2);
     const adeline = await printId('mid', '1');
@@ -344,9 +344,15 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       },
     );
     warn.mockRestore();
-    // The catalog is imported; the price run is marked failed, the chunks are still cleaned up.
+    // The catalog is imported; the price run is marked failed, the edge cache is still purged
+    // (the catalog changed) and the chunks are still cleaned up.
     expect(result.stats).toBeTruthy();
     expect(result.prices).toBeUndefined();
-    expect(steps.slice(-3)).toEqual(['prices 00000', 'prices: fail run', 'clean up chunks']);
+    expect(steps.slice(-4)).toEqual([
+      'prices 00000',
+      'prices: fail run',
+      'purge cache',
+      'clean up chunks',
+    ]);
   });
 });
