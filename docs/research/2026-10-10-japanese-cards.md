@@ -132,11 +132,16 @@ CREATE INDEX "print_localizations_name_trgm_idx" ON "print_localizations"
 Nothing else changes: `cards`, `prints` and `print_localizations` already have what a Japanese
 print needs, and `sets_game_id_code_key` stays the URL key.
 
-- **Set codes.** A Japanese set's code is the source code plus `-jp`, in the game's existing case
-  convention: Pokémon `SV2a-jp` (TCGdex case, like `sv03.5`), Yu-Gi-Oh! `sd1-jp` (lowercase, reads
-  like the printed `SD1-JP001`). The source id stays in `external_ids` (`tcgdex: 'SV2a'`,
-  `set_code: 'SD1'`). No collision is possible with the 220 Yu-Gi-Oh! and 19 Pokémon clashes above,
-  and `/catalog/sets/:game/:code` needs no region parameter.
+- **Set codes.** A Japanese set's code is the source code, lowercased, plus `-jp`: Pokémon
+  `sv2a-jp`, Yu-Gi-Oh! `sd1-jp` (reads like the printed `SD1-JP001`). Lowercase is the catalog's
+  convention (all 1,647 set codes on dev, in all three games) and the set route requires it: it
+  lowercases the code before the lookup (`code.toLowerCase()`, `apps/api/src/routes/catalog.ts`), so
+  a mixed-case `SV2a-jp` would answer 404. The source id keeps its original case in `external_ids`
+  (`tcgdex: 'SV2a'`, `set_code: 'SD1'`), and TCGdex answers its Japanese routes for the lowercased
+  id too (`/v2/ja/sets/sv2a` and `/v2/ja/cards/sv2a-025` are 200). No two of the 186 Japanese ids
+  become equal when lowercased, and the `-jp` suffix rules out every collision with the 220
+  Yu-Gi-Oh! and 19 Pokémon clashes above, so `/catalog/sets/:game/:code` needs no region
+  parameter.
 - **Pokémon card identity.** `cards.oracle_key` = `ja:` + the TCGdex id (`ja:SV2a-025`), so a
   Japanese card can never take an English card's key (`neo1-001` and `neo1-1` differ only by
   padding). `cards.name` holds the Japanese name, the only name the source has; the print gets a
@@ -279,7 +284,7 @@ Each step is one PR and leaves `main` working.
 
 1. **Schema and the Magic and Pokémon importers.** Migration 0009 (above) with its Drizzle schema
    change. `SCRYFALL_LANGUAGES=en,de,ja` in all three envs of `wrangler.jsonc`. TCGdex: a second
-   pass with `ja` as the master language (`/v2/ja/sets`, codes `<id>-jp`, `region = 'jp'`,
+   pass with `ja` as the master language (`/v2/ja/sets`, codes `<lowercased id>-jp`, `region = 'jp'`,
    `oracle_key` `ja:<id>`, sets without cards skipped); the plan, rotation and missing-card logic
    reused per region. Tests with fixtures from the probe (`SV2a`, `neo1` for the collision).
 2. **Yu-Gi-Oh! OCG importer.** `src/import/yugipedia/` with the YGOPRODeck shape: set lists in
