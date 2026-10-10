@@ -11,16 +11,20 @@ import { CollectButtons } from '../../components/collection/CollectButtons';
 import { PricePanel, PriceStrip } from '../../components/card/PricePanel';
 import { Page, useWide, type Crumb } from '../../components/Shell';
 import { QueryState } from '../../components/ui';
-import { useLocale, useT } from '../../i18n';
+import { fmt, useLocale, useT } from '../../i18n';
 
 /** What the page shows of a card: the selected print and the names and text in the user's language. */
 function useView(data: CardResponse | undefined, printId: string | undefined) {
   const locale = useLocale();
   if (!data) return undefined;
   const { prints } = data;
-  // The print from the URL, else the newest one with an image.
-  const print = prints.find((p) => p.id === printId) ?? prints.find((p) => p.imageUrl) ?? prints[0];
+  // The print from the URL, else the newest one with an image of its own.
+  const print =
+    prints.find((p) => p.id === printId) ??
+    prints.find((p) => p.imageUrl && p.imageFrom !== 'sibling') ??
+    prints[0];
   const own = print?.localizations.find((l) => l.lang === locale);
+  const shown = own?.imageUrl ? own : print;
   const any = prints.flatMap((p) => p.localizations).filter((l) => l.lang === locale);
   const withText = own?.text ? own : any.find((l) => l.text);
   return {
@@ -28,7 +32,9 @@ function useView(data: CardResponse | undefined, printId: string | undefined) {
     name: own?.name ?? any[0]?.name ?? data.card.name,
     text: withText?.text ?? data.card.text,
     textLang: withText ? locale : 'en',
-    image: own?.imageUrl ?? print?.imageUrl ?? null,
+    image: shown?.imageUrl ?? null,
+    imageLang: shown?.imageUrl ? shown.imageLang : undefined,
+    imageFrom: shown?.imageUrl ? shown.imageFrom : undefined,
   };
 }
 
@@ -89,7 +95,18 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
     </View>
   );
 
-  const stage = <CardStage game={game} uri={view.image} label={view.name} wide={wide} />;
+  // What the image is when it is not the print's in the user's language (VB-86/VB-87).
+  const note = [
+    view.imageLang &&
+      view.imageLang !== locale &&
+      fmt(t.card.imageLang, { lang: view.imageLang.toUpperCase() }),
+    view.imageFrom === 'sibling' && t.card.imageSibling,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const stage = (
+    <CardStage game={game} uri={view.image} label={view.name} wide={wide} note={note} />
+  );
   const notice = <RightsNotice game={game} artist={print?.artist} copyright={data.copyright} />;
   const panels = (
     <>

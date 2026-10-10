@@ -105,6 +105,8 @@ export const de = {
   },
   card: {
     noImage: 'Kein Bild',
+    imageLang: 'Bild: {lang}',
+    imageSibling: 'Bild eines anderen Drucks',
     views: 'Druck wählen',
     artist: 'Illustration: {artist}',
     addToCollection: 'In Sammlung',
