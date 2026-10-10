@@ -89,6 +89,21 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
           ),
         ),
       );
+  // VB-94: a modern set's stored code, matched by the code index rather than the token rule.
+  const ys15 = await set('yugioh', 'ys15', 'Starter Deck 2015', '2015-05-07', 43);
+  await print(ys15, 'yugioh', 'Kaiser Glider', 'ENF27', 'Kaiser-Gleiter');
+  await db
+    .update(printLocalizations)
+    .set({ externalIds: { set_code: 'YS15-DEF27', set_code_source: 'yugipedia' } })
+    .where(
+      and(
+        eq(printLocalizations.lang, 'de'),
+        inArray(
+          printLocalizations.printId,
+          db.select({ id: prints.id }).from(prints).where(eq(prints.setId, ys15)),
+        ),
+      ),
+    );
   const sv01 = await set('pokemon', 'sv01', 'Scarlet & Violet', '2023-03-31', 198);
   await print(sv01, 'pokemon', 'Pineco', '001', 'Tannza');
   await print(sv01, 'pokemon', 'Forretress ex', '005');

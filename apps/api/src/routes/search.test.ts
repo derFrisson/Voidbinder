@@ -106,6 +106,8 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ['LON-G065', 'lon 065'],
     ['ldc f065', 'lon 065'],
     ['LON-DE065', 'lon 065'],
+    ['YS15-DEF27', 'ys15 ENF27'],
+    ['ys15 def27', 'ys15 ENF27'],
     ['sv1 001', 'sv01 001'],
     ['SV01-001', 'sv01 001'],
     ['sv1 1', 'sv01 001'],
@@ -161,6 +163,10 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       expect((await suggest(q)).map(label), q).toEqual(['lon 065']);
     expect(await suggest('LON-G065')).toMatchObject([
       { lang: 'de', displayCode: 'LON-G065', matchedCode: 'LON-G065' },
+    ]);
+    // A modern set's stored code.
+    expect(await suggest('YS15-DEF27')).toMatchObject([
+      { lang: 'de', number: 'ENF27', displayCode: 'YS15-DEF27', matchedCode: 'YS15-DEF27' },
     ]);
     // By its start after the set code: the German row's, unclaimed.
     const partial = await suggest('long06');

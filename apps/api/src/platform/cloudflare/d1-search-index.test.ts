@@ -120,7 +120,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
 
   it('copies every set on the first refresh, nothing on the next', async () => {
     const first = await refresh();
-    expect(first).toMatchObject({ status: 'ok', sets: 11, setsWritten: 11, setsRemoved: 0 });
+    expect(first).toMatchObject({ status: 'ok', sets: 12, setsWritten: 12, setsRemoved: 0 });
     expect(first.rowsWritten).toBeGreaterThan(0);
     const counts = await d1
       .prepare(
@@ -128,7 +128,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
           (select count(*) from names) as names`,
       )
       .first();
-    expect(counts).toEqual({ sets: 11, prints: 36, names: 47 });
+    expect(counts).toEqual({ sets: 12, prints: 37, names: 49 });
     expect(await refresh()).toMatchObject({ status: 'ok', setsWritten: 0, setsRemoved: 0 });
   });
 
@@ -217,6 +217,9 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     ['lon'],
     ['anjo fantasm'],
     ['blgg pt024'],
+    ['YS15-DEF27'],
+    ['ys15def'],
+    ['ys15 enf27', '&lang=de'],
   ])('suggest %j%s: same answer as Postgres', async (q, extra = '') => {
     const query = SearchSuggestQuerySchema.parse({
       q,
@@ -240,6 +243,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
       ['LON-G065', '&lang=en', 'de LON-G065 Dunkler Nekrofeind'],
       ['ldc-f065', '', 'fr LDC-F065 Nécrofear Sombre'],
       ['dunkler nekro', '', 'de LON-G065 Dunkler Nekrofeind'],
+      ['YS15-DEF27', '&lang=en', 'de YS15-DEF27 Kaiser-Gleiter'],
       // A dropped language shows the English code.
       ['anjo fantasm', '', 'pt BLGG-EN024 Anjo Fantasmagórico da Travessura'],
     ] as const) {
@@ -299,7 +303,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
       0,
     );
     // A full rebuild rewrites every set and leaves the same index.
-    expect(await refresh(true)).toMatchObject({ setsWritten: 10, setsRemoved: 0 });
+    expect(await refresh(true)).toMatchObject({ setsWritten: 11, setsRemoved: 0 });
   });
 
   it('deletes a removed set on a full rebuild too', async () => {
@@ -307,7 +311,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     await db.delete(prints).where(inArray(prints.setId, swsh12));
     await db.delete(sets).where(eq(sets.code, 'swsh12'));
 
-    expect(await refresh(true)).toMatchObject({ setsWritten: 9, setsRemoved: 1 });
+    expect(await refresh(true)).toMatchObject({ setsWritten: 10, setsRemoved: 1 });
     expect(
       await d1.prepare(`select count(*) as n from sets where code = 'swsh12'`).first('n'),
     ).toBe(0);
