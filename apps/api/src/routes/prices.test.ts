@@ -5,8 +5,7 @@ import {
 } from '@voidbinder/shared/api';
 import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { pricesDaily, prints, sets } from '../db/schema';
-import { runScryfallPrices } from '../import/prices/scryfall';
+import { conditionMultipliers, pricesDaily, prints, sets } from '../db/schema';
 import { runScryfallImport, type ImportDeps } from '../import/scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../import/scryfall/test-fixtures';
 import type { Db } from '../import/scryfall/write';
@@ -27,10 +26,10 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       withDb: (fn) => fn(db),
     };
     const opts = { env: 'local', date: '2026-10-09' };
-    await runScryfallImport(deps, (_n, fn) => fn(), { ...opts, languages: ['en'] });
-    await runScryfallPrices(deps, (_n, fn) => fn(), {
+    await runScryfallImport(deps, (_n, fn) => fn(), {
       ...opts,
-      observedAt: '2026-10-09T03:00:00.000Z',
+      languages: ['en'],
+      pricesObservedAt: '2026-10-09T03:00:00.000Z',
     });
     app = testApp({ cardStore: new DrizzleCardStore(db), db, adminToken: 't' });
   });
@@ -158,6 +157,29 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     expect(champion?.marketPrice).toMatchObject({ finish: 'foil', cents: 76 });
   });
 
+  it('estimates conditions with the default factors when a game has no rows', async () => {
+    const adeline = await printId('mid', '1');
+    const removed = await db
+      .delete(conditionMultipliers)
+      .where(eq(conditionMultipliers.gameId, 'mtg'))
+      .returning();
+    try {
+      const body = PrintPricesResponseSchema.parse(
+        await (await app.request(`/catalog/prints/${adeline}/prices`)).json(),
+      );
+      expect(body.conditions.map((c) => [c.condition, c.factor, c.cents])).toEqual([
+        ['NM', 1, 334],
+        ['EX', 0.85, 284],
+        ['GD', 0.7, 234],
+        ['LP', 0.6, 200],
+        ['PL', 0.45, 150],
+        ['PO', 0.3, 100],
+      ]);
+    } finally {
+      await db.insert(conditionMultipliers).values(removed);
+    }
+  });
+
   it('PUT /admin/price-mappings sets a manual mapping', async () => {
     const adeline = await printId('mid', '1');
     const gavony = await printId('mid', '20');
@@ -187,6 +209,8 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
       404,
     );
     expect((await put(`${adeline}/ebay/normal`, { externalId: '9' })).status).toBe(400);
+    // The Scryfall sources write by print, so a mapping there would change nothing.
+    expect((await put(`${adeline}/cardmarket/normal`, { externalId: '9' })).status).toBe(400);
     expect((await put(`${adeline}/tcgplayer/normal`, {})).status).toBe(400);
   });
 });

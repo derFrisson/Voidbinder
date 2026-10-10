@@ -1,12 +1,11 @@
 import { and, eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { appMeta, priceMappings, pricesCurrent, pricesDaily, prints, sets } from '../../db/schema';
 import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { runScryfallImport, type ImportDeps } from '../scryfall/pipeline';
 import { fakeScryfall, MemoryBlobStore } from '../scryfall/test-fixtures';
 import type { Db } from '../scryfall/write';
 import { importGroups, runTcgcsvImport } from './pipeline';
-import { runScryfallPrices } from './scryfall';
 import { fakeTcgcsv, type FakeTcgcsv } from './test-fixtures';
 import { setManualMapping } from './override';
 
@@ -176,10 +175,13 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
   });
 
   it('pulls nothing more when TCGCSV has not been updated since the last run', async () => {
+    const before = await version();
     const requests: string[] = [];
     const { stats } = await run({ requests });
     expect(stats).toMatchObject({ skipped: expect.any(String) });
     expect(requests).toEqual(['https://tcgcsv.com/last-updated.txt']);
+    // Nothing new: the cached catalog reads stay valid.
+    expect(await version()).toBe(before);
   });
 
   it('keeps one prices_daily row per print, finish, source and day', async () => {
@@ -255,16 +257,34 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     expect((await current(adeline)).map((p) => p.finish)).toContain('foil');
   });
 
-  it('writes Scryfall’s Cardmarket EUR and TCGplayer USD prices from the stored dump', async () => {
+  it('writes Scryfall’s Cardmarket EUR and TCGplayer USD prices per chunk of the dump', async () => {
     const before = await version();
-    const stats = await runScryfallPrices(deps(fakeTcgcsv()), (_n, fn) => fn(), {
-      env: 'dev',
-      date: '2026-10-09',
-      observedAt: '2026-10-09T03:00:00.000Z',
-    });
+    const steps: string[] = [];
+    const scryfall = () =>
+      runScryfallImport(
+        { fetch: fakeScryfall(), raw: blobs, withDb: (fn) => fn(db) },
+        (name, fn) => (steps.push(name), fn()),
+        {
+          env: 'dev',
+          date: '2026-10-09',
+          languages: ['en'],
+          pricesObservedAt: '2026-10-09T03:00:00.000Z',
+        },
+      );
+    const { prices: stats } = await scryfall();
     // 30 lines; the token and the digital card have no print.
     expect(stats).toMatchObject({ lines: 30, noPrint: 2 });
-    expect(await version()).toBe(before + 1);
+    // One step per chunk of the cards steps, all before the chunks are deleted.
+    const cards = steps.filter((s) => s.startsWith('cards '));
+    expect(steps.slice(steps.indexOf('finish run'))).toEqual([
+      'finish run',
+      'prices: start run',
+      ...cards.map((s) => s.replace('cards', 'prices')),
+      'prices: finish run',
+      'clean up chunks',
+    ]);
+    // The catalog run and the price run each bump once.
+    expect(await version()).toBe(before + 2);
     const adeline = await printId('mid', '1');
     expect(await current(adeline, 'cardmarket')).toMatchObject([
       { finish: 'foil', market: 523, currency: 'EUR', low: null },
@@ -287,11 +307,35 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
 
     // Idempotent: the same dump again writes the same rows.
     const rows = await db.select({ n: sql<number>`count(*)::int` }).from(pricesDaily);
-    await runScryfallPrices(deps(), (_n, fn) => fn(), {
-      env: 'dev',
-      date: '2026-10-09',
-      observedAt: '2026-10-09T03:00:00.000Z',
-    });
+    await scryfall();
     expect(await db.select({ n: sql<number>`count(*)::int` }).from(pricesDaily)).toEqual(rows);
+  });
+
+  it('marks the price run failed on a failed chunk and leaves the catalog run ok', async () => {
+    const steps: string[] = [];
+    let failed = false;
+    const warn = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const result = await runScryfallImport(
+      { fetch: fakeScryfall(), raw: blobs, withDb: (fn) => fn(db) },
+      (name, fn) => {
+        steps.push(name);
+        if (name === 'prices 00000' && !failed) {
+          failed = true;
+          return Promise.reject(new Error('boom'));
+        }
+        return fn();
+      },
+      {
+        env: 'dev',
+        date: '2026-10-09',
+        languages: ['en'],
+        pricesObservedAt: '2026-10-09T03:00:00.000Z',
+      },
+    );
+    warn.mockRestore();
+    // The catalog is imported; the price run is marked failed, the chunks are still cleaned up.
+    expect(result.stats).toBeTruthy();
+    expect(result.prices).toBeUndefined();
+    expect(steps.slice(-3)).toEqual(['prices 00000', 'prices: fail run', 'clean up chunks']);
   });
 });
