@@ -20,6 +20,15 @@ describe('mapSet', () => {
     });
   });
 
+  it('falls back to the total when official is 0', () => {
+    const set = setDetail('en', 'swsh3');
+    const row = (cardCount: { official: number; total: number }) =>
+      mapSet({ ...set, cardCount }).cardCount;
+    expect(row({ official: 0, total: 112 })).toBe(112);
+    expect(row({ official: 0, total: 0 })).toBeNull();
+    expect(row({ official: 53, total: 60 })).toBe(53);
+  });
+
   it('recognises a Pokémon TCG Pocket set as digital', () => {
     expect(isDigitalSet(setDetail('en', 'A1'))).toBe(true);
     expect(isDigitalSet(setDetail('en', 'swsh3'))).toBe(false);
