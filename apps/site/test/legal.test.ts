@@ -12,6 +12,7 @@ const ALLOWED_HOSTS = [
   'voidbinder.de',
   'twitch.tv',
   'github.com',
+  'plausible.io', // the privacy policy links Plausible's data policy
   'voidcom.app',
   'cloudflare.com', // links to Cloudflare's own pages
   'cloudflareinsights.com', // Web Analytics beacon
