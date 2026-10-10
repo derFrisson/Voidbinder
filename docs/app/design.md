@@ -24,8 +24,19 @@ with tabular figures; everything else Public Sans.
   global search (`/` shortcut) and the scan pile button (placeholder until Sprint 3).
 - Phone (< 768 px): bottom tab bar with the same four tabs, back button in the header, filters as
   horizontally scrolling chips, tables become lists, forms stack with a full-width primary button.
-- Content max width 1240 px, gutter `--gutter`, cards and panels on `--surface` with `--line`
-  borders and 12 to 16 px radii.
+- Two content widths (VB-100), gutter `--gutter`, cards and panels on `--surface` with `--line`
+  borders and 12 to 16 px radii:
+  - `max-w-content`, 1240 px (`--maxw`, the site's): reading pages (home, game, profile, sign-in).
+  - `max-w-catalog`, 1760 px (`<Page catalog>`): the pages made of grids and tables (card, set,
+    search, ban list, collection, decks), so a wide window is used instead of left empty.
+- Card grids (set page, search): 8 columns from a 1760 px window, 7 from 1240, 5 from 1024, 4 from
+  768, 3 on phones; a tile is never narrower than at 7 columns in a 1240 px window.
+- Card page: one column on phones; from 768 the stage column (320 px, 400 from 1180) beside the
+  rest, with legality and card text side by side from 1180; from 1600 three zones: the stage
+  (400 px), the title, buttons and prices (at least 496 px, both sources side by side), and the
+  prints table with legality and card text stacked (at least 440 px, 1.25 times the middle; the
+  prints table shows all six columns from 1760). Set names in the prints table keep to one line
+  (two on phones) and end in an ellipsis.
 
 ## Screens (what each one must show)
 

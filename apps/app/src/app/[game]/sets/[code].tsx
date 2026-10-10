@@ -33,7 +33,12 @@ export default function SetRoute() {
       ...toParams(next, locale),
     });
   return (
-    <Page title={code} back crumbs={[{ label: t.games[game], href: `/${game}` }, { label: code }]}>
+    <Page
+      title={code}
+      back
+      catalog
+      crumbs={[{ label: t.games[game], href: `/${game}` }, { label: code }]}
+    >
       <SetPage
         game={game}
         code={params.code}

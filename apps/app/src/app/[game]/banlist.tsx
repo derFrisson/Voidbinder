@@ -271,6 +271,7 @@ export default function BanlistPage() {
     <Page
       title={t.banlist.title}
       back
+      catalog
       crumbs={[{ label: t.games[game], href: `/${game}` }, { label: t.banlist.title }]}
     >
       {game === 'yugioh' ? <Banlist /> : <Empty>{t.banlist.onlyYugioh}</Empty>}
