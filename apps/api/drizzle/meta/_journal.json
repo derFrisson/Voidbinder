@@ -99,6 +99,13 @@
       "when": 1791641829607,
       "tag": "0013_price_lang",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1791654049870,
+      "tag": "0014_price_mapping_shared_products",
+      "breakpoints": true
     }
   ]
 }

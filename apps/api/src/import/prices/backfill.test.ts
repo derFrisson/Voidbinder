@@ -38,9 +38,9 @@ describe('mapPrices', () => {
     marketPrice,
   });
   const mappings = new Map([
-    ['1|normal', 'print-a'],
-    ['1|foil', 'print-a-foil'],
-    ['2|etched', 'print-b'],
+    ['1|normal', ['print-a']],
+    ['1|foil', ['print-a-foil']],
+    ['2|etched', ['print-b']],
   ]);
 
   it('maps by product and finish, an etched product whatever its printing', () => {
@@ -90,10 +90,18 @@ describe('mapPrices precedence', () => {
   it('keeps the last of two subtypes that map to one print and finish', () => {
     const r = mapPrices(
       [price(1, 'Normal', 1), price(1, 'Unlimited', 2)],
-      new Map([['1|normal', 'print-a']]),
+      new Map([['1|normal', ['print-a']]]),
     );
     expect(r.rows.map((x) => [x.printId, x.finish, x.market])).toEqual([
       ['print-a', 'normal', 200],
+    ]);
+  });
+
+  it('prices every print of a product that several share (VB-110)', () => {
+    const r = mapPrices([price(3, '1st Edition', 4)], new Map([['3|first_edition', ['en', 'na']]]));
+    expect(r.rows.map((x) => [x.printId, x.market])).toEqual([
+      ['en', 400],
+      ['na', 400],
     ]);
   });
 
@@ -101,8 +109,8 @@ describe('mapPrices precedence', () => {
     const r = mapPrices(
       [price(2, 'Foil', 3)],
       new Map([
-        ['2|foil', 'print-foil'],
-        ['2|etched', 'print-etched'],
+        ['2|foil', ['print-foil']],
+        ['2|etched', ['print-etched']],
       ]),
     );
     expect(r.rows.map((x) => [x.printId, x.finish])).toEqual([['print-etched', 'etched']]);

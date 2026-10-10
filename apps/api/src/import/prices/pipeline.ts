@@ -9,7 +9,7 @@ import {
   readGroups,
   type PriceCoverage,
 } from './coverage';
-import { isCard, matchGroups, matchProducts } from './match';
+import { isCard, matchGroups, matchProducts, type ProductMatch } from './match';
 import {
   CATEGORIES,
   cents,
@@ -50,8 +50,9 @@ export interface PriceImportOptions {
   delayMs?: number;
   games?: readonly PricedGame[];
   /**
-   * Imports the build even when the last run did: re-runs the matching for groups and products a
-   * new rule maps (`POST /admin/import/tcgcsv?force=1`).
+   * Imports the build even when the last run did: re-runs the group and product matching, so a
+   * new rule reaches the prices without a new build (VB-110, VB-111,
+   * `POST /admin/import/tcgcsv?force=true`).
    */
   force?: boolean;
 }
@@ -100,26 +101,23 @@ export async function importGroups(
     const r = await deps.withDb(async (db) => {
       const byId = game === 'mtg';
       const candidates = await candidatePrints(db, [setId], byId ? productIds : []);
-      const matches = new Map(
-        matchProducts(products, candidates, { byId }).map((m) => [m.productId, m]),
+      // A product may price several prints (Yu-Gi-Oh! regional prints, VB-110).
+      const matches = new Map<number, ProductMatch[]>();
+      for (const m of matchProducts(products, candidates, { byId, regional: game === 'yugioh' }))
+        matches.set(m.productId, [...(matches.get(m.productId) ?? []), m]);
+      const finish = (p: TcgPrice) =>
+        matches.get(p.productId)?.[0]?.finish ?? finishOf(p.subTypeName);
+      const mappings: MappingRow[] = prices.flatMap((p) =>
+        (matches.get(p.productId) ?? []).map((m) => ({
+          printId: m.printId,
+          source: SOURCE,
+          externalId: String(p.productId),
+          finish: finish(p),
+          lang: 'en',
+          method: m.method,
+          confidence: m.confidence,
+        })),
       );
-      const finish = (p: TcgPrice) => matches.get(p.productId)?.finish ?? finishOf(p.subTypeName);
-      const mappings: MappingRow[] = prices.flatMap((p) => {
-        const m = matches.get(p.productId);
-        return m
-          ? [
-              {
-                printId: m.printId,
-                source: SOURCE,
-                externalId: String(p.productId),
-                finish: finish(p),
-                lang: 'en',
-                method: m.method,
-                confidence: m.confidence,
-              },
-            ]
-          : [];
-      });
       await upsertMappings(db, mappings);
       // Through the table, so a manual mapping counts as much as today's matches.
       const resolved = await resolveMappings(db, SOURCE, productIds);
@@ -127,25 +125,26 @@ export async function importGroups(
       const priced = new Set<number>();
       let noMarket = 0;
       for (const p of prices) {
-        const printId = resolved.get(`${p.productId}|${finish(p)}`);
-        if (!printId) continue;
+        const printIds = resolved.get(`${p.productId}|${finish(p)}`) ?? [];
+        if (!printIds.length) continue;
         priced.add(p.productId);
         const market = cents(p.marketPrice);
         if (market === null) {
           noMarket++;
           continue;
         }
-        rows.push({
-          printId,
-          finish: finish(p),
-          source: SOURCE,
-          lang: 'en',
-          currency: 'USD',
-          market,
-          low: cents(p.lowPrice),
-          mid: cents(p.midPrice),
-          high: cents(p.highPrice),
-        });
+        for (const printId of printIds)
+          rows.push({
+            printId,
+            finish: finish(p),
+            source: SOURCE,
+            lang: 'en',
+            currency: 'USD',
+            market,
+            low: cents(p.lowPrice),
+            mid: cents(p.midPrice),
+            high: cents(p.highPrice),
+          });
       }
       const written = await writePrices(db, rows, opts.observedAt);
       return { priced, written, noMarket };

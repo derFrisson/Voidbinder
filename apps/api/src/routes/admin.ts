@@ -40,11 +40,11 @@ export function adminRoutes(adminToken: string | undefined) {
       )
       .post(
         '/import/tcgcsv',
-        // `?force=1` imports TCGCSV's build again: the matching re-runs for the build of the
-        // last run (a new matching rule reaches the prices without waiting for a new build).
-        importRoute('tcgcsv', 'TCGCSV', (c) =>
-          c.req.query('force') === '1' ? { force: true } : {},
-        ),
+        // `?force=true` (or `1`) imports even a build already imported: the group and product
+        // matching re-runs, so a new rule reaches the prices without a new build (VB-110, VB-111).
+        importRoute('tcgcsv', 'TCGCSV', (c) => ({
+          force: ['true', '1'].includes(c.req.query('force') ?? ''),
+        })),
       )
       // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
       .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))

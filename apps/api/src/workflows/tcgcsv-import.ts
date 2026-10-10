@@ -15,7 +15,7 @@ const STEP = {
 } satisfies WorkflowStepConfig;
 
 export interface TcgcsvImportParams {
-  /** Imports TCGCSV's build even when the last run did (`POST /admin/import/tcgcsv?force=1`). */
+  /** Imports TCGCSV's build even when the last run did (`POST /admin/import/tcgcsv?force=true`). */
   force?: PriceImportOptions['force'];
 }
 

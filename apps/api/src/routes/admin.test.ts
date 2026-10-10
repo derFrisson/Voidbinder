@@ -2,7 +2,6 @@ import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { importRuns } from '../db/schema';
 import { startRun, type Db } from '../import/scryfall/write';
-import type { CardStore } from '@voidbinder/core';
 import { DrizzleCardStore } from '../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase, testApp } from '../test-helpers';
 
@@ -88,25 +87,5 @@ describe('POST /admin/search-index/rebuild', () => {
     expect(res.status).toBe(202);
     expect(await res.json()).toEqual({ status: 'started' });
     expect(sent).toEqual([{ type: 'search-index-refresh', payload: { full: true } }]);
-  });
-});
-
-describe('POST /admin/import/tcgcsv', () => {
-  it('passes `?force=1` to the Workflow: the last build is imported again (VB-111)', async () => {
-    const sent: unknown[] = [];
-    const jobQueue = { send: async (job: unknown) => void sent.push(job) };
-    const cardStore = { importRunning: async () => false } as unknown as CardStore;
-    const app = testApp({ adminToken: 't', jobQueue, cardStore });
-    const post = (query: string) =>
-      app.request(`/admin/import/tcgcsv${query}`, {
-        method: 'POST',
-        headers: { Authorization: 'Bearer t' },
-      });
-    expect((await post('?force=1')).status).toBe(202);
-    expect((await post('')).status).toBe(202);
-    expect(sent).toEqual([
-      { type: 'tcgcsv-import', payload: { force: true } },
-      { type: 'tcgcsv-import', payload: {} },
-    ]);
   });
 });

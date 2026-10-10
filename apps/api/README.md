@@ -755,16 +755,19 @@ prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that land
 20:30 run imported the build it reads `last-updated.txt` and ends without bumping
 `catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
 
-`POST /admin/import/tcgcsv?force=1` imports the build again even when the last run did: the
-groups and products are matched anew, so a new matching rule (VB-111's Pokémon groups) reaches
-the prices the same day instead of with the next build. It is a second pull of that build (about
-2,500 requests, within TCGCSV's daily limit). The price history of the newly mapped prints comes
-from the archive backfill afterwards, on the VPS with `--refill` (only the missing rows are added):
-`pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db <dev|prod> --refill`
-(History backfill, below).
+**Forced re-import.** `POST /admin/import/tcgcsv?force=true` (or `?force=1`; any other value is
+a plain run) imports the build even when the last run did: groups and products are matched anew,
+so a matching change reaches the current prices the same day instead of with the next build. It
+is a second pull of that build (about 2,500 requests, within TCGCSV's daily limit). After a
+matching change (VB-110's regional Yu-Gi-Oh! prints, VB-111's newly matched Pokémon groups) run
+both steps, once for both: the forced import, then the archive backfill on the VPS with
+`--refill`, since a plain backfill skips every day that already has `tcgplayer` rows and the
+re-mapped prints' history would otherwise start with the forced run:
 
 ```sh
-curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "<API_URL>/admin/import/tcgcsv?force=1"
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$API_URL/admin/import/tcgcsv?force=true"
+# on the VPS, once the import is `ok` (History backfill, below):
+pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db <dev|prod> --refill
 ```
 
 `GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
@@ -787,8 +790,17 @@ is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`N
 | -------------- | ---------- | ------------------------------------------------------------------------- |
 | `scryfall_id`  | 100        | Magic: Scryfall's `tcgplayer_id` / `tcgplayer_etched_id`, `cardmarket_id` |
 | `number_match` | 70         | Pokémon, Yu-Gi-Oh!: same set and collector number (Yu-Gi-Oh!: and rarity) |
+| `region_match` | 60         | Yu-Gi-Oh! regional print (below): the EN product of its name and rarity   |
 | `name_match`   | 40         | No number match: a name that only one print of the set has                |
 | `manual`       | 100        | An admin's override; the importers never change it                        |
+
+Yu-Gi-Oh!'s early sets were printed under several codes in English: `LOB-001` (North America),
+`LOB-E001` (Europe), `LOB-A001`/`LOB-AE001` (Australia, Asia) and `LOB-EN001`; YGOPRODeck keeps
+each as a print, TCGplayer lists only `LOB-EN001`. A regional print that no product claims by its
+own number takes the one card product of the set with its name and rarity (several: the `EN` one
+with its digits), so one product prices several prints (VB-110, `drizzle/0014_…`). By name, not
+digits: the European numbers differ (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki, both
+Super Rare). A product with the regional number itself, should TCGplayer list one, wins with 70.
 
 Two products that claim one print with the same confidence are both left unmapped, and so is a
 TCGplayer id Scryfall gives more than one print. TCGCSV prices are written through the table, so

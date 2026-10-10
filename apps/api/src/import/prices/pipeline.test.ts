@@ -1,6 +1,14 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { appMeta, priceMappings, pricesCurrent, pricesDaily, prints, sets } from '../../db/schema';
+import {
+  appMeta,
+  cards,
+  priceMappings,
+  pricesCurrent,
+  pricesDaily,
+  prints,
+  sets,
+} from '../../db/schema';
 import { cacheTags } from '../../middleware/catalog-cache';
 import { databaseUrl, freshDatabase } from '../../test-helpers';
 import { runScryfallImport, type ImportDeps } from '../scryfall/pipeline';
@@ -385,5 +393,144 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'purge cache',
       'clean up chunks',
     ]);
+  });
+});
+
+describe.skipIf(!databaseUrl)('Yu-Gi-Oh! regional prints (Postgres, VB-110)', () => {
+  let db: Db;
+  let drop: () => Promise<void>;
+  const ids: Record<string, string> = {};
+  // TCGplayer lists Blue-Eyes once, as LOB-EN001; the catalog has the NA, EU and EN prints.
+  const products = (extra: object[] = []) =>
+    JSON.stringify({
+      success: true,
+      errors: [],
+      results: [
+        {
+          productId: 21800,
+          name: 'Blue-Eyes White Dragon',
+          extendedData: [
+            { name: 'Number', value: 'LOB-EN001' },
+            { name: 'Rarity', value: 'Ultra Rare' },
+          ],
+        },
+        ...extra,
+      ],
+    });
+  const run = (files: Record<string, string>, force = false) =>
+    runTcgcsvImport(
+      { fetch: fakeTcgcsv({ files }), raw: new MemoryBlobStore(), withDb: (fn) => fn(db) },
+      (_name, fn) => fn(),
+      { env: 'dev', date: '2026-10-10', delayMs: 0, games: ['yugioh'], force },
+    );
+  const mappings = async () =>
+    (
+      await db
+        .select({
+          printId: priceMappings.printId,
+          externalId: priceMappings.externalId,
+          method: priceMappings.method,
+          confidence: priceMappings.confidence,
+        })
+        .from(priceMappings)
+        .where(eq(priceMappings.finish, 'first_edition'))
+    )
+      .map((m) => [
+        Object.keys(ids).find((k) => ids[k] === m.printId),
+        m.externalId,
+        m.method,
+        m.confidence,
+      ])
+      .sort();
+  const market = async (key: string) =>
+    (
+      await db
+        .select({ finish: pricesCurrent.finish, market: pricesCurrent.centsMarket })
+        .from(pricesCurrent)
+        .where(eq(pricesCurrent.printId, ids[key] ?? ''))
+        .orderBy(pricesCurrent.finish)
+    ).map((p) => [p.finish, p.market]);
+
+  beforeAll(async () => {
+    ({ db, drop } = await freshDatabase());
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'yugioh', code: 'lob', name: 'Legend of Blue Eyes White Dragon' })
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'yugioh', oracleKey: '89631139', name: 'Blue-Eyes White Dragon' })
+      .returning({ id: cards.id });
+    for (const [key, number] of [
+      ['na', '001'],
+      ['eu', 'E001'],
+      ['en', 'EN001'],
+    ] as const) {
+      const [p] = await db
+        .insert(prints)
+        .values({
+          setId: set?.id ?? '',
+          cardId: card?.id ?? '',
+          number,
+          variant: 'ultra-rare',
+          finishes: ['normal'],
+        })
+        .returning({ id: prints.id });
+      ids[key] = p?.id ?? '';
+    }
+  });
+  afterAll(() => drop());
+
+  it('prices all three prints with the EN product, the regional ones less confidently', async () => {
+    await run({ '2/330/products': products() });
+    expect(await mappings()).toEqual([
+      ['en', '21800', 'number_match', 70],
+      ['eu', '21800', 'region_match', 60],
+      ['na', '21800', 'region_match', 60],
+    ]);
+    for (const key of ['na', 'eu', 'en'])
+      expect(await market(key)).toEqual([
+        ['first_edition', 90000],
+        ['normal', 8000],
+      ]);
+  });
+
+  it('re-maps a build already imported with `force`; an exact regional product wins', async () => {
+    const european = {
+      productId: 21801,
+      name: 'Blue-Eyes White Dragon',
+      extendedData: [
+        { name: 'Number', value: 'LOB-E001' },
+        { name: 'Rarity', value: 'Ultra Rare' },
+      ],
+    };
+    const files = {
+      '2/330/products': products([european]),
+      '2/330/prices': JSON.stringify({
+        success: true,
+        errors: [],
+        results: [
+          { productId: 21800, marketPrice: 900, subTypeName: '1st Edition' },
+          { productId: 21801, marketPrice: 500, subTypeName: '1st Edition' },
+        ],
+      }),
+    };
+    // The same build: skipped, nothing re-mapped.
+    expect((await run(files)).stats).toMatchObject({ skipped: expect.any(String) });
+    expect((await mappings()).find((m) => m[0] === 'eu')).toEqual([
+      'eu',
+      '21800',
+      'region_match',
+      60,
+    ]);
+
+    await run(files, true);
+    expect(await mappings()).toEqual([
+      ['en', '21800', 'number_match', 70],
+      ['eu', '21801', 'number_match', 70],
+      ['na', '21800', 'region_match', 60],
+    ]);
+    expect((await market('eu'))[0]).toEqual(['first_edition', 50000]);
+    expect((await market('na'))[0]).toEqual(['first_edition', 90000]);
   });
 });
