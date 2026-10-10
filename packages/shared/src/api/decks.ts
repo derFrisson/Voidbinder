@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { Game } from '../index.js';
+import { ImageInfoSchema } from './catalog.js';
 import { EntryPriceSchema, ValueGroupSchema } from './collection.js';
 import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
@@ -143,7 +144,13 @@ export const DeckEntrySchema = z.object({
     .nullable(),
   /** The print shown: the preferred one, else the cheapest. */
   print: z
-    .object({ id: z.uuid(), setCode: z.string(), number: z.string(), imageUrl: z.url().nullable() })
+    .object({
+      id: z.uuid(),
+      setCode: z.string(),
+      number: z.string(),
+      imageUrl: z.url().nullable(),
+      ...ImageInfoSchema.shape,
+    })
     .nullable(),
   /** Copies of this card's name in the collection (any print). */
   owned: z.number().int(),

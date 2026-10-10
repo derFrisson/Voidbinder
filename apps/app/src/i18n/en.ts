@@ -105,6 +105,8 @@ export const en: Dict = {
   },
   card: {
     noImage: 'No image',
+    imageLang: 'Image: {lang}',
+    imageSibling: 'Image of another print',
     views: 'Choose a print',
     artist: 'Illustration: {artist}',
     addToCollection: 'Add to collection',

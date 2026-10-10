@@ -57,7 +57,8 @@ second). Without `HYPERDRIVE_CACHED` (self-hosting) both are the same pool.
 | `GET /catalog/banlist/yugioh?format=&lang=`                            | Yu-Gi-Oh! ban list (`format` `tcg`, `ocg`): groups, 90 days of changes (see Ban lists) |
 
 Schemas: `packages/shared/src/api/catalog.ts`. Image URLs are `IMAGE_BASE_URL/<image_key>` once the
-image is in R2 (VB-57) and the source's URL until then. Every 200 carries
+image is in R2 (VB-57) and the source's URL until then; which key a print shows, with `imageLang`
+and `imageFrom`, is in Card images. Every 200 carries
 `Cache-Control: public, max-age=60, s-maxage=600, stale-while-revalidate=60` and an `ETag` of
 `catalog_version` plus a hash of the body (`src/middleware/catalog-cache.ts`); `If-None-Match`
 answers 304. Cloudflare also caches them at the edge (see Caching). The queries use no `now()` or
@@ -817,6 +818,20 @@ images in flight are stored, a failed image is logged and keeps its key (or none
 run retries it. Every run is an `import_runs` row with source and kind `images`, and only one
 runs per database at a time (`pg_try_advisory_xact_lock`; a second one stops with "another image
 mirror is running").
+
+**Which image a print shows** (VB-86/VB-87, `src/platform/cloudflare/image.ts`): whatever exists,
+so the catalog improves as the mirror fills it. `imagePick` walks, in SQL, the requested
+language's localization key, the print's own key (the English scan), then the `en`, `ja`, `de`,
+`fr`, `it`, `es`, `pt` localization keys and the other languages alphabetically; within one step a
+high-res key beats a `-lowres` one (so the own English high-res scan beats a requested German
+lowres one). A print without any key takes the same chain on another print of its card: language
+first, then the same set, then the newest print (its own date, else its set's). Every `imageUrl`
+(set page, search, typeahead, card and print endpoints, ban list tiles, collection, wish list and
+deck rows) comes with `imageLang`, the language the image is in, and `imageFrom` (`print` or
+`sibling`), both left out without an image; the app's card page says so under the image. Only with no key anywhere (or no `IMAGE_BASE_URL`) the source's
+URL follows. The lookups are correlated subqueries on `print_localizations`' primary key and
+`prints_card_id_idx`, the sibling one only for a print without any key; `image.test.ts` checks the
+plans of the set page, the search and the typeahead.
 
 Two transports share that logic:
 
