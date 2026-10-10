@@ -12,9 +12,9 @@ const ALLOWED_HOSTS = [
   'voidbinder.de',
   'twitch.tv',
   'github.com',
+  'plausible.io', // the privacy policy links Plausible's data policy
   'voidcom.app',
   'cloudflare.com', // links to Cloudflare's own pages
-  'cloudflareinsights.com', // Web Analytics beacon (only named in the privacy text)
 ];
 // The web app CTA of the build under test (wrangler var PUBLIC_APP_URL: localhost, dev or prod).
 const { PUBLIC_APP_URL } = (
