@@ -1,40 +1,18 @@
-import { GameSchema, type Game } from '@voidbinder/shared';
-import { Link, useLocalSearchParams } from 'expo-router';
-import { Text, View } from 'react-native';
-import { useSetPage } from '../../../api/queries/catalog';
-import { Heading, Page } from '../../../components/Shell';
-import { Empty, QueryState } from '../../../components/ui';
-import { fmt, useLocale, useT } from '../../../i18n';
+import { GameSchema } from '@voidbinder/shared';
+import { router, useLocalSearchParams } from 'expo-router';
+import { Page } from '../../../components/Shell';
+import { Empty } from '../../../components/ui';
+import { SetPage } from '../../../components/catalog/SetPage';
+import { parseFilters, toParams, type SetFilters } from '../../../components/catalog/model';
+import { useLocale, useT } from '../../../i18n';
 
-// VB-56: the final set page (tinted header, value strip, filters, card grid, pagination).
-function SetCards({ game, code }: { game: Game; code: string }) {
+export default function SetRoute() {
   const t = useT();
-  const page = useSetPage(game, code, { lang: useLocale() });
-  return (
-    <QueryState query={page}>
-      {(data) => (
-        <View className="gap-2">
-          <Heading>{data.set.localizedName ?? data.set.name}</Heading>
-          <Text className="font-body text-ink-2">{fmt(t.set.count, { count: data.total })}</Text>
-          {data.prints.length === 0 ? (
-            <Empty>{t.set.empty}</Empty>
-          ) : (
-            data.prints.map((p) => (
-              <Link key={p.id} href={`/cards/${p.cardId}`} className="font-body text-ink">
-                <Text className="font-mono text-ink-3">{p.number}</Text> {p.name}
-              </Link>
-            ))
-          )}
-        </View>
-      )}
-    </QueryState>
-  );
-}
-
-export default function SetPage() {
-  const t = useT();
-  const params = useLocalSearchParams<{ game: string; code: string }>();
+  const locale = useLocale();
+  const params = useLocalSearchParams<Record<string, string>>();
   const parsed = GameSchema.safeParse(params.game);
+  // The filters live in the URL, so a filtered set page can be linked and reloaded.
+  const filters = parseFilters(params, locale);
   if (!parsed.success || !params.code) {
     return (
       <Page title={t.state.notFound} back>
@@ -44,9 +22,25 @@ export default function SetPage() {
   }
   const game = parsed.data;
   const code = params.code.toUpperCase();
+  const onChange = (next: SetFilters) =>
+    router.setParams({
+      lang: undefined,
+      rarity: undefined,
+      finish: undefined,
+      sort: undefined,
+      page: undefined,
+      view: undefined,
+      ...toParams(next, locale),
+    });
   return (
     <Page title={code} back crumbs={[{ label: t.games[game], href: `/${game}` }, { label: code }]}>
-      <SetCards game={game} code={params.code} />
+      <SetPage
+        game={game}
+        code={params.code}
+        gameName={t.games[game]}
+        filters={filters}
+        onChange={onChange}
+      />
     </Page>
   );
 }

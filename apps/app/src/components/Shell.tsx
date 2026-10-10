@@ -1,5 +1,13 @@
 import { Link, router, usePathname, type Href } from 'expo-router';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import {
   Platform,
   Pressable,
@@ -338,6 +346,14 @@ export function Footer() {
  * the content up to 1240 px wide. The footer shows on wide screens; on phones only where
  * `phoneFooter` is set (profile, sign-in), as the design asks.
  */
+/** The scroller of the current page, so a screen can scroll back to the top (pagination). */
+export const PageScroll = createContext<RefObject<ScrollView | null> | null>(null);
+
+export function useScrollToTop() {
+  const scroller = useContext(PageScroll);
+  return () => scroller?.current?.scrollTo({ y: 0 });
+}
+
 export function Page({
   title,
   crumbs,
@@ -352,6 +368,7 @@ export function Page({
   children: ReactNode;
 }) {
   const wide = useWide();
+  const scroller = useRef<ScrollView>(null);
   return (
     <View className="flex-1">
       {wide ? (
@@ -360,12 +377,15 @@ export function Page({
         <PhoneHeader title={title} back={back} />
       )}
       <ScrollView
+        ref={scroller}
         className="flex-1"
         contentContainerClassName={wide ? 'px-8 pb-16 pt-7' : 'px-4 pb-8 pt-4'}
       >
-        <View role="main" className="w-full max-w-content gap-6">
-          {children}
-        </View>
+        <PageScroll.Provider value={scroller}>
+          <View role="main" className="w-full max-w-content gap-6">
+            {children}
+          </View>
+        </PageScroll.Provider>
         {(wide || phoneFooter) && <Footer />}
       </ScrollView>
     </View>

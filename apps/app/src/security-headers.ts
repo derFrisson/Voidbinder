@@ -8,11 +8,14 @@
 // atomic styles into a <style> element at runtime and expo-font registers the fonts the same way;
 // neither can carry a nonce, and a hash cannot cover rules that are generated per render.
 // The API is same-origin (`/api`, proxied by the Worker), so 'self' covers connect-src.
+/** The one host card images may come from (CSP `img-src`, and `CardImage`). */
+export const imageHost = 'img.voidbinder.de';
+
 export const contentSecurityPolicy = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: https://img.voidbinder.de",
+  `img-src 'self' data: https://${imageHost}`,
   "font-src 'self'",
   "connect-src 'self'",
   "object-src 'none'",
