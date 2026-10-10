@@ -5,6 +5,7 @@ import type { MirrorDeps } from '../../import/images';
 import type { ImportDeps } from '../../import/scryfall/pipeline';
 import type { ImportDeps as TcgdexDeps } from '../../import/tcgdex/pipeline';
 import { TcgdexClient } from '../../import/tcgdex/source';
+import { importBlocked } from '../../routes/admin';
 import { log } from '../../middleware/log';
 import { skipsTurnstile } from '../../middleware/turnstile';
 import { DrizzleCardStore } from './drizzle-card-store';
@@ -193,7 +194,7 @@ export function startTcgcsvCron(
   return startUnlessRunning('tcgcsv', () => startTcgcsvImport(env, id), platform);
 }
 
-/** The weekly Yugipedia cron's start (VB-93): skipped while a Yugipedia run is still going. */
+/** The weekly Yugipedia cron's start (VB-93): skipped while a Yugipedia names or gallery run is going. */
 export function startYugipediaCron(
   env: Env,
   id: string,
@@ -219,7 +220,7 @@ async function startUnlessRunning(
   platform: Pick<Platform, 'cardStore' | 'close'>,
 ): Promise<void> {
   try {
-    if (await platform.cardStore.importRunning(source)) {
+    if (await importBlocked(platform.cardStore, source)) {
       log('info', { message: 'import still running, cron start skipped', job: `${source}-import` });
       return;
     }
