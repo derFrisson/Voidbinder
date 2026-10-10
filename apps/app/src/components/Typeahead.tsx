@@ -51,6 +51,13 @@ export function SearchLead({ busy, size }: { busy: boolean; size: number }) {
   );
 }
 
+/** The code in front of a print's number, unless the number already starts with it (Yu-Gi-Oh!). */
+function printLabel(s: SearchSuggestion, code: string) {
+  if (s.kind === 'set') return code;
+  const number = s.number ?? '';
+  return number.toUpperCase().startsWith(code) ? number : `${code} ${number}`.trim();
+}
+
 function Row({
   s,
   id,
@@ -102,9 +109,7 @@ function Row({
           {s.name}
         </Text>
         <Text numberOfLines={1} className="font-body text-xs text-ink-2">
-          <Text className="font-mono">
-            {s.kind === 'set' ? code : `${code} ${s.number ?? ''}`.trim()}
-          </Text>
+          <Text className="font-mono">{printLabel(s, code)}</Text>
           {detail ? ` · ${detail}` : ''}
         </Text>
       </View>

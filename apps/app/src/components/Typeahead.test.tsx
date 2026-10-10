@@ -92,7 +92,9 @@ describe('search typeahead (VB-79)', () => {
     const options = within(list).getAllByRole('option');
     expect(options).toHaveLength(2);
     expect(options[0]?.textContent).toContain('Dunkler Magier');
-    expect(options[0]?.textContent).toContain('LDS3 LDS3-EN121');
+    // The number already starts with the set code: no "LDS3 LDS3-EN121".
+    expect(options[0]?.textContent).toContain('LDS3-EN121 · Ultra Rare');
+    expect(options[0]?.textContent).not.toContain('LDS3 LDS3');
     expect(options[0]?.textContent).toContain('Ultra Rare');
     // The print without a picture shows its number in the frame; the set row is styled as a set.
     expect(options[1]?.textContent).toContain('LDS3 · Set · Yu‑Gi‑Oh!');
