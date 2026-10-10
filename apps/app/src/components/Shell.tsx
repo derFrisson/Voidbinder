@@ -25,7 +25,7 @@ import { useLocale, useT } from '../i18n';
 import { Icon, Mark, type IconName } from './Icon';
 import { SearchLead, useTypeahead } from './Typeahead';
 import { usePalette } from './palette';
-import { PokemontcgCredit, YugipediaCredit } from './ui';
+import { YugipediaCredit } from './ui';
 import { Toaster } from './Toast';
 
 /**
@@ -358,7 +358,6 @@ export function Footer({ maxw = 'max-w-content' }: { maxw?: string }) {
           {SCRYFALL_ATTRIBUTION[locale]}
         </Text>
         <YugipediaCredit className="font-body text-xs leading-5 text-ink-3" />
-        <PokemontcgCredit className="font-body text-xs leading-5 text-ink-3" />
       </View>
       <View className="flex-row flex-wrap items-center gap-x-5 gap-y-2">
         <Text className="font-body text-sm text-ink-3">
