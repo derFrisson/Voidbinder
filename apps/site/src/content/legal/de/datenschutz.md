@@ -109,7 +109,7 @@ Im Profil können Sie außerdem einen Anzeigenamen, die Sprache Ihrer Mails und 
 
 Wenn Sie sich anmelden, legen wir eine Sitzung an. Zu jeder Sitzung speichern wir eine zufällige Kennung, den Zeitpunkt der Anmeldung und des Ablaufs, Ihre IP-Adresse und den User-Agent Ihres Browsers. IP-Adresse und User-Agent helfen uns, einen Missbrauch Ihres Kontos zu erkennen. Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO für die Sitzung selbst und Art. 6 Abs. 1 lit. f DSGVO für IP-Adresse und User-Agent, unser berechtigtes Interesse ist die Sicherheit Ihres Kontos.
 
-Eine Sitzung gilt 7 Tage und verlängert sich, solange Sie die Web-App nutzen. Melden Sie sich ab, endet die Sitzung auf diesem Gerät sofort. Setzen Sie Ihr Passwort zurück, enden Ihre Sitzungen auf diesem Gerät sofort, auf anderen Geräten spätestens nach fünf Minuten.
+Eine Sitzung gilt 7 Tage und verlängert sich, solange Sie die Web-App nutzen. Melden Sie sich ab, endet die Sitzung auf diesem Gerät sofort. Setzen Sie Ihr Passwort zurück, enden alle Ihre Sitzungen spätestens nach fünf Minuten.
 
 <!-- TODO Max: Abgelaufene Sitzungen löscht Better Auth nur, wenn sie noch einmal benutzt werden; ein Aufräumjob fehlt. Entweder einen Job einplanen oder hier eine Frist nennen, die tatsächlich eingehalten wird. -->
 

@@ -46,7 +46,7 @@ Retention: we do not receive or store these logs ourselves. Cloudflare keeps the
 
 On the website and in the web app we measure how many people use them, which pages they open and where they come from. We use Plausible Analytics for this, open source software that runs on a server we operate. The data goes to no other provider, not even to the company behind Plausible.
 
-<!-- TODO Max: Standort/Hoster des Plausible-Servers web-analytics.voidcom.app (state the location and hoster), and check whether the address is reached through Cloudflare (proxy or tunnel). If so, name Cloudflare as a recipient here. -->
+<!-- TODO Max: state the location and hoster of the Plausible server web-analytics.voidcom.app, and check whether the address is reached through Cloudflare (proxy or tunnel). If so, name Cloudflare as a recipient here. -->
 
 With every page view your browser sends to web-analytics.voidcom.app:
 
@@ -111,7 +111,7 @@ In your profile you can also set a display name, the language of your mails and 
 
 When you sign in, we create a session. For each session we store a random ID, the time of sign-in and of expiry, your IP address and the user agent of your browser. The IP address and user agent help us detect misuse of your account. The legal basis is Art. 6 (1) (b) GDPR for the session itself and Art. 6 (1) (f) GDPR for the IP address and user agent; our legitimate interest is the security of your account.
 
-A session lasts 7 days and is extended while you use the web app. When you sign out, the session ends at once on this device. When you reset your password, your sessions end at once on this device, on other devices within five minutes at the latest.
+A session lasts 7 days and is extended while you use the web app. When you sign out, the session ends at once on this device. When you reset your password, all your sessions end within five minutes at the latest.
 
 <!-- TODO Max: Better Auth only deletes expired sessions when they are used again; a cleanup job is missing. Either plan a job or state a period here that is actually kept. -->
 
