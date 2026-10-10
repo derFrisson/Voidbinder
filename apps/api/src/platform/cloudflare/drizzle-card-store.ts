@@ -1,24 +1,41 @@
-import type { CardStore } from '@voidbinder/core';
+import {
+  conditionEstimate,
+  downsampleHistory,
+  pickDisplayPrice,
+  SOURCE_PREFERENCE,
+  type CardStore,
+} from '@voidbinder/core';
 import type { Game } from '@voidbinder/shared';
 import { COPYRIGHT } from '@voidbinder/shared/notices';
 import type {
   Card,
   CardResponse,
+  Condition,
+  Currency,
+  DisplayPrice,
   GameSummary,
+  PriceHistoryResponse,
+  PriceSource,
+  PricesQuery,
   PrintDetail,
+  PrintPricesResponse,
   PrintResponse,
   SetPageQuery,
   SetPageResponse,
   SetSummary,
 } from '@voidbinder/shared/api';
-import { and, asc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, sql, type SQL } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { alias } from 'drizzle-orm/pg-core';
 import {
   appMeta,
   cards,
+  conditionMultipliers,
   games,
   importRuns,
+  priceSources,
+  pricesCurrent,
+  pricesDaily,
   printLocalizations,
   prints,
   setLocalizations,
@@ -43,6 +60,16 @@ const english = alias(printLocalizations, 'english');
 const RARITY_ORDER = sql`case ${prints.rarity} when 'common' then 0 when 'uncommon' then 1 when 'rare' then 2 when 'mythic' then 3 else 4 end`;
 /** Numeric part of a collector number ('12a' → 12), so 2 sorts before 10. */
 const NUMBER_ORDER = sql`nullif(regexp_replace(${prints.number}, '[^0-9].*$', ''), '')::int nulls last`;
+/** The finish a set page prices: `normal`, or the print's first finish when it has no normal. */
+const LIST_FINISH = sql`case when 'normal' = any(${prints.finishes}) then 'normal' else ${prints.finishes}[1] end`;
+const DAY_MS = 86_400_000;
+
+/** `currency`'s preferred source first (core's SOURCE_PREFERENCE), as an ORDER BY term. */
+const sourceOrder = (currency: Currency) =>
+  sql`case ${pricesCurrent.source} ${sql.join(
+    SOURCE_PREFERENCE[currency].map((source, i) => sql`when ${source} then ${i}`),
+    sql` `,
+  )} else 99 end`;
 
 /**
  * The catalog in PostgreSQL. Catalog reads go through `catalogDb` and must stay free of `now()`
@@ -154,6 +181,20 @@ export class DrizzleCardStore implements CardStore {
       rarity: [RARITY_ORDER, NUMBER_ORDER, asc(prints.number), asc(prints.variant)],
     }[query.sort];
 
+    // One cheap lateral lookup per print on prices_current's primary key.
+    const market = this.catalog
+      .select({
+        cents: pricesCurrent.centsMarket,
+        currency: pricesCurrent.currency,
+        source: pricesCurrent.source,
+        finish: pricesCurrent.finish,
+      })
+      .from(pricesCurrent)
+      .where(and(eq(pricesCurrent.printId, prints.id), eq(pricesCurrent.finish, LIST_FINISH)))
+      .orderBy(sourceOrder(query.currency))
+      .limit(1)
+      .as('market');
+
     const [[count], rows] = await Promise.all([
       this.catalog
         .select({ total: sql<number>`count(*)::int` })
@@ -172,9 +213,16 @@ export class DrizzleCardStore implements CardStore {
           externalIds: prints.externalIds,
           localizedImageKey: localized.imageKey,
           localizedIds: localized.externalIds,
+          market: {
+            cents: market.cents,
+            currency: market.currency,
+            source: market.source,
+            finish: market.finish,
+          },
         })
         .from(prints)
         .innerJoin(cards, eq(cards.id, prints.cardId))
+        .leftJoinLateral(market, sql`true`)
         .leftJoin(localized, and(eq(localized.printId, prints.id), eq(localized.lang, query.lang)))
         .leftJoin(english, and(eq(english.printId, prints.id), eq(english.lang, 'en')))
         .where(where)
@@ -198,6 +246,7 @@ export class DrizzleCardStore implements CardStore {
           { imageKey: r.localizedImageKey, externalIds: r.localizedIds },
           r,
         ),
+        marketPrice: r.market?.cents == null ? null : (r.market as DisplayPrice),
       })),
       page: query.page,
       pageSize,
@@ -305,6 +354,102 @@ export class DrizzleCardStore implements CardStore {
       )
       .limit(1);
     return Boolean(run);
+  }
+
+  /** Game and finishes of a print, null when it does not exist. */
+  private async printInfo(id: string) {
+    const [row] = await this.catalog
+      .select({ game: sets.gameId, finishes: prints.finishes })
+      .from(prints)
+      .innerJoin(sets, eq(sets.id, prints.setId))
+      .where(eq(prints.id, id));
+    return row ?? null;
+  }
+
+  async getPrintPrices(id: string, query: PricesQuery): Promise<PrintPricesResponse | null> {
+    const print = await this.printInfo(id);
+    if (!print) return null;
+    const [rows, factors] = await Promise.all([
+      this.catalog
+        .select({ price: pricesCurrent, sourceLabel: priceSources.name })
+        .from(pricesCurrent)
+        .innerJoin(priceSources, eq(priceSources.id, pricesCurrent.source))
+        .where(eq(pricesCurrent.printId, id))
+        .orderBy(pricesCurrent.source, pricesCurrent.finish),
+      this.catalog
+        .select({ condition: conditionMultipliers.condition, factor: conditionMultipliers.factor })
+        .from(conditionMultipliers)
+        .where(eq(conditionMultipliers.gameId, print.game))
+        .orderBy(sql`${conditionMultipliers.factor} desc`),
+    ]);
+    const prices = rows.map(({ price: p, sourceLabel }) => ({
+      source: p.source as PriceSource,
+      sourceLabel,
+      finish: p.finish,
+      currency: p.currency as Currency,
+      market: p.centsMarket,
+      low: p.centsLow,
+      mid: p.centsMid,
+      high: p.centsHigh,
+      observedAt: p.observedAt.toISOString(),
+    }));
+    const display = pickDisplayPrice(prices, { ...query, finishes: print.finishes });
+    return {
+      printId: id,
+      prices,
+      display,
+      conditions: display
+        ? factors.map((f) => ({
+            condition: f.condition as Condition,
+            factor: Number(f.factor),
+            cents: conditionEstimate(display.cents, Number(f.factor)),
+          }))
+        : [],
+      conditionsAreEstimates: true,
+    };
+  }
+
+  async getPriceHistory(
+    id: string,
+    days: number,
+    today: string,
+  ): Promise<PriceHistoryResponse | null> {
+    if (!(await this.printInfo(id))) return null;
+    const from = new Date(Date.parse(`${today}T00:00:00Z`) - days * DAY_MS);
+    const rows = await this.catalog
+      .select({
+        observedAt: pricesDaily.observedAt,
+        source: pricesDaily.source,
+        finish: pricesDaily.finish,
+        currency: pricesDaily.currency,
+        cents: pricesDaily.centsMarket,
+      })
+      .from(pricesDaily)
+      .where(and(eq(pricesDaily.printId, id), gte(pricesDaily.observedAt, from)))
+      .orderBy(pricesDaily.source, pricesDaily.finish, pricesDaily.observedAt);
+    const series = new Map<string, PriceHistoryResponse['series'][number]>();
+    for (const r of rows) {
+      const key = `${r.source}|${r.finish}|${r.currency}`;
+      let s = series.get(key);
+      if (!s) {
+        s = {
+          source: r.source as PriceSource,
+          finish: r.finish,
+          currency: r.currency as Currency,
+          points: [],
+        };
+        series.set(key, s);
+      }
+      s.points.push({ date: r.observedAt.toISOString().slice(0, 10), cents: r.cents });
+    }
+    return {
+      printId: id,
+      days,
+      series: [...series.values()].map((s) => ({
+        ...s,
+        points: downsampleHistory(s.points, today),
+      })),
+    };
   }
 
   async getPrint(id: string): Promise<PrintResponse | null> {
