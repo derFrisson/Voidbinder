@@ -809,9 +809,8 @@ export class DrizzleCardStore implements CardStore {
       variant: string | null;
       name: string;
       rarity: string | null;
-      image_key: string | null;
+      image: ImagePick | null;
       external_ids: Ids | null;
-      localized_image_key: string | null;
       localized_ids: Ids | null;
       game: Game;
       set_code: string;
@@ -875,8 +874,8 @@ export class DrizzleCardStore implements CardStore {
       select top.kind, top.id, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
         case when top.kind = 'set' then coalesce(set_l.name, ${sets.name})
           else coalesce(localized.name, english.name, ${cards.name}) end as name,
-        ${prints.rarity}, ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
-        localized.image_key as localized_image_key, localized.external_ids as localized_ids,
+        ${prints.rarity}, ${imagePick(prints, query.lang)} as image,
+        ${prints.externalIds} as external_ids, localized.external_ids as localized_ids,
         ${sets.gameId} as game, ${sets.code} as set_code,
         coalesce(set_l.name, ${sets.name}) as set_name
       from top
@@ -903,11 +902,10 @@ export class DrizzleCardStore implements CardStore {
           number: r.number ?? '',
           variant: r.variant ?? '',
           rarity: r.rarity,
-          imageUrl: this.imageUrl(
-            query.lang,
-            { imageKey: r.localized_image_key, externalIds: r.localized_ids },
-            { imageKey: r.image_key, externalIds: r.external_ids },
-          ),
+          ...resolveImage(this.imageBaseUrl, r.image, [
+            { lang: query.lang, ids: r.localized_ids },
+            { lang: 'en', ids: r.external_ids },
+          ]),
           cardId: r.card_id ?? '',
         };
       }),
@@ -1029,35 +1027,50 @@ export class DrizzleCardStore implements CardStore {
 
   /**
    * Ban list tiles: the card's name in `lang` and a representative print, the first with an
-   * image of the earliest set (the original printing where it is mirrored).
+   * image of the earliest set (the original printing where it is mirrored), its image picked by
+   * `imagePick` like every other print's.
    */
   private async banlistCards(ids: string[], lang: string): Promise<Map<string, BanlistCard>> {
     if (!ids.length) return new Map();
-    const rows = await this.catalog
-      .selectDistinctOn([cards.id], {
-        id: cards.id,
-        name: sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`,
-        printId: prints.id,
+    const rep = this.catalog
+      .select({
+        id: prints.id,
+        setId: prints.setId,
         number: prints.number,
-        setCode: sets.code,
         imageKey: prints.imageKey,
         externalIds: prints.externalIds,
-        localizedImageKey: localized.imageKey,
-        localizedIds: localized.externalIds,
+        code: sets.code,
       })
-      .from(cards)
-      .leftJoin(prints, eq(prints.cardId, cards.id))
-      .leftJoin(sets, eq(sets.id, prints.setId))
-      .leftJoin(localized, and(eq(localized.printId, prints.id), eq(localized.lang, lang)))
-      .leftJoin(english, and(eq(english.printId, prints.id), eq(english.lang, 'en')))
-      .where(inArray(cards.id, ids))
+      .from(prints)
+      .innerJoin(sets, eq(sets.id, prints.setId))
+      .where(eq(prints.cardId, cards.id))
       .orderBy(
-        cards.id,
         sql`${prints.imageKey} is null`,
         sql`${sets.releasedOn} nulls last`,
         sets.code,
         prints.number,
-      );
+      )
+      .limit(1)
+      .as('rep');
+    const rows = await this.catalog
+      .select({
+        id: cards.id,
+        name: sql<string>`coalesce(${localized.name}, ${english.name}, ${cards.name})`,
+        printId: rep.id,
+        number: rep.number,
+        setCode: rep.code,
+        image: imagePick(
+          { id: rep.id, cardId: cards.id, setId: rep.setId, imageKey: rep.imageKey },
+          lang,
+        ),
+        externalIds: rep.externalIds,
+        localizedIds: localized.externalIds,
+      })
+      .from(cards)
+      .leftJoinLateral(rep, sql`true`)
+      .leftJoin(localized, and(eq(localized.printId, rep.id), eq(localized.lang, lang)))
+      .leftJoin(english, and(eq(english.printId, rep.id), eq(english.lang, 'en')))
+      .where(inArray(cards.id, ids));
     return new Map(
       rows.map((r) => [
         r.id,
@@ -1065,13 +1078,12 @@ export class DrizzleCardStore implements CardStore {
           id: r.id,
           name: r.name,
           printId: r.printId,
-          imageUrl: r.printId
-            ? this.imageUrl(
-                lang,
-                { imageKey: r.localizedImageKey, externalIds: r.localizedIds },
-                { imageKey: r.imageKey, externalIds: r.externalIds },
-              )
-            : null,
+          ...(r.printId
+            ? resolveImage(this.imageBaseUrl, r.image, [
+                { lang, ids: r.localizedIds },
+                { lang: 'en', ids: r.externalIds },
+              ])
+            : { imageUrl: null }),
           setCode: r.setCode,
           number: r.number,
         },

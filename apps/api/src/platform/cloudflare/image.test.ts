@@ -181,7 +181,17 @@ describe.skipIf(!databaseUrl)('imagePick (Postgres)', () => {
     expect(await pick(sameSet, 'en')).toMatchObject({ sibling: false });
   });
 
-  it('keeps the set page and the search on indexes', async () => {
+  it('dates a sibling by its set when the print has no date of its own', async () => {
+    const [old, recent] = [await newSet('2012-01-01'), await newSet('2022-01-01')];
+    const card = await newCard();
+    const placeholder = await newPrint(card, await newSet('2018-01-01'), null);
+    await newPrint(card, old, key('dated', 'en'), {}, '2012-01-01');
+    // No print date (Yu-Gi-Oh!): the 2022 set makes it the newer one.
+    await newPrint(card, recent, key('undated', 'en'));
+    expect(await pick(placeholder, 'en')).toMatchObject({ key: key('undated', 'en') });
+  });
+
+  it('keeps the set page, the search and the typeahead on indexes', async () => {
     await runScryfallImport(
       { fetch: fakeScryfall(), raw: new MemoryBlobStore(), withDb: (fn) => fn(db) },
       (_name, fn) => fn(),
@@ -194,7 +204,12 @@ describe.skipIf(!databaseUrl)('imagePick (Postgres)', () => {
     const store = new DrizzleCardStore(logged, { imageBaseUrl: 'https://img.test' });
     const query = { lang: 'de', sort: 'number', currency: 'EUR', page: 1 } as const;
     const page = await store.getSetPage('mtg', 'mid', query, 60);
-    const hits = await store.search({ q: 'adeline', lang: 'de', currency: 'EUR', page: 1 }, 20);
+    const hits = await store.search(
+      { q: 'adeline', lang: 'de', names: 'all', currency: 'EUR', page: 1 },
+      20,
+    );
+    const { suggestions } = await store.suggest({ q: 'adeline', lang: 'de', names: 'all' }, 8);
+    expect(suggestions[0]).toMatchObject({ imageLang: expect.any(String), imageFrom: 'print' });
     expect(page?.prints.length).toBeGreaterThan(0);
     expect(hits.prints.length).toBeGreaterThan(0);
 
@@ -204,7 +219,7 @@ describe.skipIf(!databaseUrl)('imagePick (Postgres)', () => {
       // A plan that can only scan the tables shows a Seq Scan even with seq scans disabled.
       await client.query('set local enable_seqscan = off');
       const withImage = queries.filter((q) => q.sql.includes('json_build_object'));
-      expect(withImage).toHaveLength(2);
+      expect(withImage).toHaveLength(3);
       for (const q of withImage) {
         const plan = (await client.query(`explain ${q.sql}`, q.params)).rows
           .map((r: { 'QUERY PLAN': string }) => r['QUERY PLAN'])

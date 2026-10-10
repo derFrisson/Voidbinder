@@ -825,13 +825,13 @@ language's localization key, the print's own key (the English scan), then the `e
 `fr`, `it`, `es`, `pt` localization keys and the other languages alphabetically; within one step a
 high-res key beats a `-lowres` one (so the own English high-res scan beats a requested German
 lowres one). A print without any key takes the same chain on another print of its card: language
-first, then the same set, then the newest print. Every `imageUrl` (set page, search, card and
-print endpoints, collection, wish list and deck rows) comes with `imageLang`, the language the
-image is in, and `imageFrom` (`print` or `sibling`), both left out without an image; the app's
-card page says so under the image. Only with no key anywhere (or no `IMAGE_BASE_URL`) the source's
+first, then the same set, then the newest print (its own date, else its set's). Every `imageUrl`
+(set page, search, typeahead, card and print endpoints, ban list tiles, collection, wish list and
+deck rows) comes with `imageLang`, the language the image is in, and `imageFrom` (`print` or
+`sibling`), both left out without an image; the app's card page says so under the image. Only with no key anywhere (or no `IMAGE_BASE_URL`) the source's
 URL follows. The lookups are correlated subqueries on `print_localizations`' primary key and
 `prints_card_id_idx`, the sibling one only for a print without any key; `image.test.ts` checks the
-plans of the set page and the search.
+plans of the set page, the search and the typeahead.
 
 Two transports share that logic:
 

@@ -39,8 +39,9 @@ const candidates = (id: SQLWrapper, imageKey: SQLWrapper) => sql`(
 /**
  * The R2 image print `p` shows in `lang`, as json `{ key, lang, sibling }`, null without any:
  * the print's own chain (`rank`), else the same chain on another print of its card (same set
- * first, then the newest). Two correlated subqueries on print_localizations' primary key and
- * prints_card_id_idx; the sibling one only runs for a print without any key (COALESCE).
+ * first, then the newest by the print's date, else its set's). Two correlated subqueries on
+ * print_localizations' primary key and prints_card_id_idx; the sibling one only runs for a print
+ * without any key (COALESCE).
  * `p`'s columns must be visible to a subquery (`prints` itself, or a CTE's columns).
  * ponytail: the sibling lookup sorts every key of every print of the card (a basic land: hundreds),
  * fine for the few keyless prints; store a per-card best key if keyless prints of such cards grow.
@@ -56,10 +57,11 @@ export function imagePick(
     limit 1)`;
   const sibling = sql`(
     select json_build_object('key', c.key, 'lang', c.lang, 'sibling', true)
-    from prints sp cross join lateral ${candidates(sql`sp.id`, sql`sp.image_key`)}
+    from prints sp join sets ss on ss.id = sp.set_id
+    cross join lateral ${candidates(sql`sp.id`, sql`sp.image_key`)}
     where sp.card_id = ${p.cardId} and sp.id <> ${p.id}
-    order by ${rank(lang, false)}, sp.set_id = ${p.setId} desc, sp.released_on desc nulls last,
-      sp.id, c.own, c.lang
+    order by ${rank(lang, false)}, sp.set_id = ${p.setId} desc,
+      coalesce(sp.released_on, ss.released_on) desc nulls last, sp.id, c.own, c.lang
     limit 1)`;
   return sql<ImagePick | null>`coalesce(${own}, ${sibling})`;
 }
