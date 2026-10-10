@@ -87,11 +87,18 @@ describe('importHealth', () => {
     expect(freshnessProblems([fresh('mtg', 1000, 949)])).toEqual([
       'tcgplayer/mtg 94.9% refreshed in 24 h',
     ]);
-    // More stale prints than the day before, though the share is fine.
-    expect(freshnessProblems([fresh('mtg', 1000, 990, 12)], [fresh('mtg', 1000, 990, 10)])).toEqual(
-      ['tcgplayer/mtg 12 stale (was 10)'],
+    // More stale prints than the day before, though the share is fine: a few more each day stay
+    // green (at least 25, or 0.5 % of the priced prints), 1 % more is real growth.
+    const before = [fresh('mtg', 100_000, 99_000, 300)];
+    expect(freshnessProblems([fresh('mtg', 100_000, 99_000, 302)], before)).toEqual([]);
+    expect(freshnessProblems([fresh('mtg', 100_000, 99_000, 800)], before)).toEqual([]);
+    expect(freshnessProblems([fresh('mtg', 100_000, 99_000, 1300)], before)).toEqual([
+      'tcgplayer/mtg 1300 stale (was 300)',
+    ]);
+    expect(freshnessProblems([fresh('mtg', 1000, 990, 36)], [fresh('mtg', 1000, 990, 10)])).toEqual(
+      ['tcgplayer/mtg 36 stale (was 10)'],
     );
-    expect(freshnessProblems([fresh('mtg', 1000, 990, 9)], [fresh('mtg', 1000, 990, 10)])).toEqual(
+    expect(freshnessProblems([fresh('mtg', 1000, 990, 35)], [fresh('mtg', 1000, 990, 10)])).toEqual(
       [],
     );
 
@@ -100,14 +107,14 @@ describe('importHealth', () => {
       lastSuccessAt: hoursAgo(3),
       lastStatus: 'ok',
       freshness: {
-        latest: [fresh('mtg', 1000, 990, 12), fresh('pokemon', 100, 80)],
+        latest: [fresh('mtg', 1000, 990, 40), fresh('pokemon', 100, 80)],
         previous: [fresh('mtg', 1000, 990, 10), fresh('pokemon', 100, 100)],
       },
     });
     const health = importHealth(summaries, 'prod', now);
     expect(health).toMatchObject({
       ok: false,
-      message: 'stale: tcgplayer/mtg 12 stale (was 10), tcgplayer/pokemon 80.0% refreshed in 24 h',
+      message: 'stale: tcgplayer/mtg 40 stale (was 10), tcgplayer/pokemon 80.0% refreshed in 24 h',
     });
     expect(health.sources.find((s) => s.source === 'tcgcsv')).toMatchObject({
       missing: false,
@@ -208,7 +215,7 @@ describe.skipIf(!databaseUrl)('GET /admin/imports (Postgres)', () => {
       // Newest first: a failed run (never compared), the latest ok one, one of the same evening
       // (too recent to be the day before), the day before, and the day before that.
       run(0.5, 50, 'failed'),
-      run(1, 12),
+      run(1, 40),
       run(3, 1),
       run(23, 10),
       run(47, 99),
@@ -222,7 +229,7 @@ describe.skipIf(!databaseUrl)('GET /admin/imports (Postgres)', () => {
         })
       ).json(),
     );
-    expect(health.message).toContain('stale: tcgplayer/mtg 12 stale (was 10)');
+    expect(health.message).toContain('stale: tcgplayer/mtg 40 stale (was 10)');
     expect(health.sources.find((s) => s.source === 'tcgcsv')).toMatchObject({ stale: true });
   });
 });

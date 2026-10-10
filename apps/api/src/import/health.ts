@@ -77,10 +77,16 @@ export interface SourceSummary {
 export const MIN_FRESH_SHARE = 0.95;
 /** How much older the run that `freshness.previous` comes from is at least. */
 const DAY_BEFORE = 20 * HOUR;
+/**
+ * Day-over-day growth of the stale prints that stays green: a market price turning null or a
+ * mapping moving to another print adds a few every day, so only real growth alarms.
+ */
+export const staleGrowthTolerance = (priced: number) => Math.max(25, Math.ceil(0.005 * priced));
 
 /**
  * The stale prices of one run's freshness (VB-116), one entry per game and source: fewer than 95 %
- * of the priced prints refreshed in 24 h, or more stale prints than the day before.
+ * of the priced prints refreshed in 24 h, or more stale prints than the day before by more than
+ * `staleGrowthTolerance`.
  */
 export function freshnessProblems(latest: Freshness[], previous: Freshness[] = []): string[] {
   return latest.flatMap((f) => {
@@ -90,7 +96,9 @@ export function freshnessProblems(latest: Freshness[], previous: Freshness[] = [
       f.share !== null && f.share < MIN_FRESH_SHARE
         ? `${name} ${(f.share * 100).toFixed(1)}% refreshed in 24 h`
         : '',
-      before && f.stale > before.stale ? `${name} ${f.stale} stale (was ${before.stale})` : '',
+      before && f.stale - before.stale > staleGrowthTolerance(f.priced)
+        ? `${name} ${f.stale} stale (was ${before.stale})`
+        : '',
     ].filter(Boolean);
   });
 }

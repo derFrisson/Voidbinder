@@ -861,9 +861,10 @@ game's counts per price source, as the run's `stats.freshness`, computed now) an
 from `RAW`, 400 for another game.
 
 `GET /admin/imports/health` folds the newest `ok` price run's `freshness` in (VB-116): a source is
-`stale` when fewer than 95 % of a game's priced prints were refreshed in 24 h, or when more prints
-are stale than in the newest run at least 20 hours older; the message names them
-(`stale: tcgplayer/pokemon 81.2% refreshed in 24 h, tcgplayer/mtg 412 stale (was 380)`), so the
+`stale` when fewer than 95 % of a game's priced prints were refreshed in 24 h, or when the stale
+prints grew since the newest run at least 20 hours older by more than 25 or 0.5 % of the priced
+prints, whichever is more (a few a day are everyday churn); the message names them
+(`stale: tcgplayer/pokemon 81.2% refreshed in 24 h, tcgplayer/mtg 1412 stale (was 380)`), so the
 Kuma push (`scripts/vps/import-health.sh`) reports it unchanged. A mapped print never priced (no
 market price yet) is coverage (`priced`), not freshness. Steps when it fires: `docs/guides/go-live.md`.
 

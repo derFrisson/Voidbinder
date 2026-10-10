@@ -601,7 +601,8 @@ go, but before the URL is shared widely.
   "Import health") and its Kuma push monitor. It reports a source as `missing` when it had no
   `ok` run within its cadence plus 2 hours and `failed` when its newest finished run failed, and
   (VB-116) `stale: <source>/<game> …` when a price run refreshed fewer than 95 % of a game's priced
-  prints in 24 h or left more prints stale (newest price older than 36 h) than the day before.
+  prints in 24 h or left more prints stale (newest price older than 36 h) than the day before,
+  by more than 25 or 0.5 % of the priced prints.
 - **Re-running a failed import by hand.** See what failed first, then start the source again
   (202 `started`; 409 `import_running` while a run of it, younger than 6 hours, is `running`):
 
@@ -625,7 +626,7 @@ go, but before the URL is shared widely.
   imported), `force=true` only when an imported build must be mapped again.
 
 - **When the health says `stale`** (VB-116). The message names source and game, for example
-  `stale: tcgplayer/pokemon 81.2% refreshed in 24 h` or `tcgplayer/mtg 412 stale (was 380)`.
+  `stale: tcgplayer/pokemon 81.2% refreshed in 24 h` or `tcgplayer/mtg 1412 stale (was 380)`.
   `tcgplayer` is the TCGCSV import, `cardmarket` and `tcgplayer_scryfall` (Magic only) the
   Scryfall import. Find the gap first, with the token from above:
 
