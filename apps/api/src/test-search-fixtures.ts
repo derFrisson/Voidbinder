@@ -1,3 +1,4 @@
+import { and, eq, inArray } from 'drizzle-orm';
 import { cards, printLocalizations, prints, sets } from './db/schema';
 import type { Db } from './import/scryfall/write';
 
@@ -58,6 +59,25 @@ export async function seedSearchCatalog(db: Db): Promise<void> {
   await print(lc01, 'yugioh', 'Blue-Eyes White Dragon', 'EN004', 'Blauäugiger w. Drache');
   await print(lc01, 'yugioh', 'Dark Magician', 'EN005', 'Dunkler Magier');
   await print(lc01, 'yugioh', 'Red-Eyes Black Dragon', 'EN006', 'Rotäugiger schwarzer Drache');
+  // VB-94: localized codes the rule does not derive from `LON-065`, verified on Yugipedia.
+  const lon = await set('yugioh', 'lon', 'Labyrinth of Nightmare', '2002-03-01', 105);
+  await print(lon, 'yugioh', 'Dark Necrofear', '065', 'Dunkler Nekrofeind', 'Nécrofear Sombre');
+  for (const [lang, code] of [
+    ['de', 'LON-G065'],
+    ['fr', 'LDC-F065'],
+  ] as const)
+    await db
+      .update(printLocalizations)
+      .set({ externalIds: { set_code: code, set_code_source: 'yugipedia' } })
+      .where(
+        and(
+          eq(printLocalizations.lang, lang),
+          inArray(
+            printLocalizations.printId,
+            db.select({ id: prints.id }).from(prints).where(eq(prints.setId, lon)),
+          ),
+        ),
+      );
   const sv01 = await set('pokemon', 'sv01', 'Scarlet & Violet', '2023-03-31', 198);
   await print(sv01, 'pokemon', 'Pineco', '001', 'Tannza');
   await print(sv01, 'pokemon', 'Forretress ex', '005');

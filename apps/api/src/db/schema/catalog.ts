@@ -173,6 +173,10 @@ export const printLocalizations = pgTable(
     primaryKey({ columns: [t.printId, t.lang] }),
     index('print_localizations_search_idx').using('gin', t.search),
     index('print_localizations_name_trgm_idx').using('gin', t.name.op('gin_trgm_ops')),
+    // The search's lookup of a Yu-Gi-Oh! localization's own code (VB-94, `LDC-F065` → `ldcf065`).
+    index('print_localizations_set_code_idx')
+      .on(sql`regexp_replace(lower(${t.externalIds} ->> 'set_code'), '[^a-z0-9]+', '', 'g')`)
+      .where(sql`${t.externalIds} ? 'set_code'`),
   ],
 );
 

@@ -172,6 +172,10 @@ export class DrizzleDeckStore implements DeckStore {
               cardCount: sets.cardCount,
               cardFormat: catalogGames.cardFormat,
               localized: sql<boolean>`exists (select 1 from ${printLocalizations} where ${printLocalizations.printId} = ${prints.id} and ${printLocalizations.lang} = ${opts.lang})`,
+              // VB-94: the code as printed in `opts.lang`.
+              localizedCode: sql<
+                string | null
+              >`(select ${printLocalizations.externalIds} ->> 'set_code' from ${printLocalizations} where ${printLocalizations.printId} = ${prints.id} and ${printLocalizations.lang} = ${opts.lang})`,
               rarity: prints.rarity,
               finishes: prints.finishes,
               image: imagePick(prints, opts.lang),

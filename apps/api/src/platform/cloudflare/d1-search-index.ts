@@ -101,8 +101,8 @@ const langFilter = (params: Params, names: string) =>
   names === 'all' ? '' : `and n.lang = ${params.p(names)}`;
 
 /**
- * The CTE `code(print_id, rank)` of the prints `q` names by code, as the Postgres `codeHits`
- * ranks them (see there); null when `q` cannot be a code.
+ * The CTE `code(print_id, rank, lang)` of the prints `q` names by code, as the Postgres `codeHits`
+ * ranks them (see there, a stored localized code too); null when `q` cannot be a code.
  */
 function codeCte(params: Params, q: string, game: Game | undefined): string | null {
   const { code, splits, number } = parseCodeQuery(q);
@@ -121,33 +121,44 @@ function codeCte(params: Params, q: string, game: Game | undefined): string | nu
         splits.includes(i) ? 10 + i / 100 : 0,
       ]);
     }
+    const typedSplits = `(
+        select value ->> 0 as part, value ->> 1 as rest, value ->> 2 as rest_en,
+          value ->> 3 as rest_key, value ->> 4 as typed
+        from json_each(${params.p(JSON.stringify(rows))})
+      ) r`;
     branches.push(`select p.id as print_id, case
         when r.rest = '' then 0
         when p.number_alnum = r.rest or (s.game = 'yugioh' and p.number_alnum = r.rest_en)
           then 300 + r.typed
         when p.number_key = r.rest_key then 200 + r.typed
-        else 150 + r.typed end as rank
-      from (
-        select value ->> 0 as part, value ->> 1 as rest, value ->> 2 as rest_en,
-          value ->> 3 as rest_key, value ->> 4 as typed
-        from json_each(${params.p(JSON.stringify(rows))})
-      ) r
+        else 150 + r.typed end as rank, null as lang
+      from ${typedSplits}
       join sets s on s.code_key = r.part ${inGame}
       join prints p on p.set_id = s.id
       where r.rest = '' or p.number_alnum like r.rest || '%'
         or (s.game = 'yugioh' and p.number_alnum like r.rest_en || '%')
         or p.number_key like r.rest_key || '%'`);
+    const whole = params.p(code);
+    branches.push(`select n.print_id, ${300 + (splits.length ? 10 : 0)} as rank, n.lang
+      from names n join prints p on p.id = n.print_id join sets s on s.id = p.set_id ${inGame}
+      where n.code_alnum = ${whole}`);
+    branches.push(`select p.id as print_id, 150 + r.typed as rank, n.lang
+      from ${typedSplits}
+      join sets s on s.code_key = r.part and s.game = 'yugioh' ${inGame}
+      join prints p on p.set_id = s.id
+      join names n on n.print_id = p.id
+      where r.rest <> '' and n.code_alnum like ${whole} || '%'`);
   }
   if (number) {
     const sized = number.total == null ? '' : `and s.card_count = ${params.p(number.total)}`;
     branches.push(`select * from (
-      select p.id as print_id, ${number.total == null ? 200 : 300} as rank
+      select p.id as print_id, ${number.total == null ? 200 : 300} as rank, null as lang
       from prints p join sets s on s.id = p.set_id
       where p.number_key = ${params.p(numberKey(number.number))} ${sized} ${inGame}
       order by s.released_on desc nulls last, p.id
       limit ${NUMBER_HITS})`);
   }
-  return branches.length ? `code(print_id, rank) as (${branches.join(' union all ')})` : null;
+  return branches.length ? `code(print_id, rank, lang) as (${branches.join(' union all ')})` : null;
 }
 
 /** A names row's language, the English card name ('') as `en`. */
@@ -178,7 +189,7 @@ interface PrintRow {
   rarity: string | null;
   card_name: string;
   image_src: string | null;
-  /** json: lang → the print's localized name and image source in it. */
+  /** json: lang → the print's localized name, image source and stored code (VB-94) in it. */
   names: string;
   game: Game;
   set_code: string;
@@ -292,19 +303,22 @@ export class D1SearchIndex implements SearchIndex {
       cte &&
       `with ${cte},
       ranked as (
-        select c.print_id, max(c.rank) as rank, s.released_on, p.number_value, p.number
+        select c.print_id, max(c.rank) as rank, s.released_on, p.number_value, p.number,
+          -- A stored localized code's language when it ranks best, as Postgres' array_agg.
+          (select c2.lang from code c2 where c2.print_id = c.print_id
+            order by c2.rank desc, c2.lang is null, c2.lang limit 1) as lang
         from code c join prints p on p.id = c.print_id join sets s on s.id = p.set_id
         group by c.print_id
       ),
       ordered as (
-        select print_id, rank, row_number() over (
+        select print_id, rank, lang, row_number() over (
           partition by rank > 0
           order by rank desc, released_on desc nulls last, number_value nulls last, number, print_id
         ) as ord
         from ranked
       )
       -- ponytail: a set named alone shows its first 3 prints, so name matches still fit.
-      select print_id, rank, ord from ordered
+      select print_id, rank, ord, lang from ordered
       where ord <= case when rank > 0 then ${code.p(limit)} else 3 end`;
 
     const set = new Params();
@@ -337,7 +351,9 @@ export class D1SearchIndex implements SearchIndex {
     const [meta, codeRows, setRows, prefixRows] = await session.batch<Record<string, unknown>>([
       session.prepare(`select key, value from meta where key in ('catalog_version', 'synced_at')`),
       session
-        .prepare(codeSql ?? 'select null as print_id, 0 as rank, 0 as ord where false')
+        .prepare(
+          codeSql ?? 'select null as print_id, 0 as rank, 0 as ord, null as lang where false',
+        )
         .bind(...code.values),
       session.prepare(setSql).bind(...set.values),
       session.prepare(prefixSql).bind(...prefix.values),
@@ -363,8 +379,19 @@ export class D1SearchIndex implements SearchIndex {
       if (!had || tier < had.tier || (tier === had.tier && ord < had.ord))
         cands.set(k, { kind, id, tier, ord, lang });
     };
-    for (const r of (codeRows?.results ?? []) as { print_id: string; rank: number; ord: number }[])
-      add('print', r.print_id, r.rank >= 300 ? 0 : r.rank >= 200 ? 1 : r.rank > 0 ? 2 : 4, r.ord);
+    for (const r of (codeRows?.results ?? []) as {
+      print_id: string;
+      rank: number;
+      ord: number;
+      lang: string | null;
+    }[])
+      add(
+        'print',
+        r.print_id,
+        r.rank >= 300 ? 0 : r.rank >= 200 ? 1 : r.rank > 0 ? 2 : 4,
+        r.ord,
+        r.lang,
+      );
     for (const r of (setRows?.results ?? []) as { id: string; ord: number }[])
       add('set', r.id, 3, r.ord);
     const prefixed = (prefixRows?.results ?? []) as { print_id: string | null; lang: string }[];
@@ -406,7 +433,7 @@ export class D1SearchIndex implements SearchIndex {
       // As the Postgres render: the name, number, set name and image in the match's language.
       const print = { game: r.game, setCode: r.set_code, number: r.number };
       const lang = matchLanguage(print, c.lang ? [c.lang] : [], query.lang, key);
-      const names = json<{ name: string; image_src: string | null }>(r.names);
+      const names = json<{ name: string; image_src: string | null; code: string | null }>(r.names);
       const own = names[lang];
       const setName = json<string>(r.set_names)[lang] ?? r.set_name;
       return [
@@ -418,7 +445,12 @@ export class D1SearchIndex implements SearchIndex {
           set: { code: r.set_code, name: setName },
           lang,
           number: r.number,
-          ...printNumbers({ ...print, cardCount: r.card_count }, lang, Boolean(own), key),
+          ...printNumbers(
+            { ...print, cardCount: r.card_count, localizedCode: own?.code ?? null },
+            lang,
+            Boolean(own),
+            key,
+          ),
           cardFormat: r.card_format,
           variant: r.variant,
           rarity: r.rarity,
@@ -543,7 +575,8 @@ export class D1SearchIndex implements SearchIndex {
       session
         .prepare(
           `select p.id, p.card_id, p.number, p.variant, p.rarity, p.image_src, p.card_name,
-            (select json_group_object(n.lang, json_object('name', n.name, 'image_src', n.image_src))
+            (select json_group_object(n.lang, json_object('name', n.name, 'image_src', n.image_src,
+                'code', n.code))
               from names n where n.print_id = p.id and n.lang <> '') as names,
             s.game, s.code as set_code, s.name as set_name,
             (select json_group_object(l.lang, l.name) from set_names l where l.set_id = s.id)

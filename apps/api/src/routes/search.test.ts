@@ -102,6 +102,10 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ['blgg es024', 'blgg EN024'],
     ['BLGG-JP024', 'blgg EN024'],
     ['blgg024', 'blgg EN024'],
+    // VB-94: a localization's stored code, also under another set code, and the rule's.
+    ['LON-G065', 'lon 065'],
+    ['ldc f065', 'lon 065'],
+    ['LON-DE065', 'lon 065'],
     ['sv1 001', 'sv01 001'],
     ['SV01-001', 'sv01 001'],
     ['sv1 1', 'sv01 001'],
@@ -150,6 +154,23 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     expect(names).toHaveLength(10);
     expect(names).not.toContain('Satellite Warrior');
     expect((await search('qqqzzz')).total).toBe(0);
+  });
+
+  it('suggests a stored localized code whole and by its start (VB-94)', async () => {
+    for (const q of ['LON-G065', 'ldcf065'])
+      expect((await suggest(q)).map(label), q).toEqual(['lon 065']);
+    expect(await suggest('LON-G065')).toMatchObject([
+      { lang: 'de', displayCode: 'LON-G065', matchedCode: 'LON-G065' },
+    ]);
+    // By its start after the set code: the German row's, unclaimed.
+    const partial = await suggest('long06');
+    expect(partial).toMatchObject([{ lang: 'de', number: '065', displayCode: 'LON-G065' }]);
+    expect(partial[0]).not.toHaveProperty('matchedCode');
+    // The set alone still lists its prints below the set, in the requested language.
+    expect((await suggest('lon')).map((s) => `${s.kind} ${s.lang}`)).toEqual([
+      'set en',
+      'print en',
+    ]);
   });
 
   it('suggests the exact code first, then partial numbers', async () => {
@@ -213,6 +234,28 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       displayCode: 'LDS3-DE121',
     });
     expect(await first('ghostrick', '&lang=de')).toMatchObject({ displayNumber: 'EN024' });
+    // VB-94: a stored code wins over the rule, names its language and is matched as stored.
+    for (const extra of ['', '&lang=fr'])
+      expect(await first('LON-G065', extra), extra).toMatchObject({
+        lang: 'de',
+        name: 'Dunkler Nekrofeind',
+        displayNumber: 'G065',
+        displayCode: 'LON-G065',
+        matchedCode: 'LON-G065',
+      });
+    expect(await first('ldc f065')).toMatchObject({
+      lang: 'fr',
+      displayCode: 'LDC-F065',
+      matchedCode: 'LDC-F065',
+    });
+    // The rule's code finds the print by its number, shown with the stored code.
+    const rule = await first('LON-DE065');
+    expect(rule).toMatchObject({ lang: 'de', displayCode: 'LON-G065' });
+    expect(rule).not.toHaveProperty('matchedCode');
+    expect(await first('dark necrofear', '&lang=fr')).toMatchObject({
+      displayCode: 'LON-065',
+    });
+    expect(await first('necrofear sombre')).toMatchObject({ displayCode: 'LDC-F065' });
     expect(await first('satellite warrior')).toMatchObject({ displayNumber: 'EN121' });
     // Pokémon and Magic numbers stay; the code is printed per game.
     expect(await first('sv1 001', '&lang=de')).toMatchObject({
