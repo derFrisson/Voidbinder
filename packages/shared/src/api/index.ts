@@ -23,3 +23,4 @@ export type ErrorResponse = z.infer<typeof ErrorResponseSchema>;
 
 export * from './catalog.js';
 export * from './me.js';
+export * from './prices.js';
