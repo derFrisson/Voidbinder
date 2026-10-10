@@ -7,7 +7,8 @@ expect, how to check it and how to undo it. Environments, secrets and bindings a
 [environments.md](../environments.md), the database server in [database-vps.md](database-vps.md),
 the API in [apps/api/README.md](../../apps/api/README.md).
 
-Audit date: 2026-10-10, against `main` at `50a9343`. Everything below was checked read-only
+Audit date: 2026-10-10, against `main` at `50a9343`; the runbook is rebased onto `750d6ac`
+(adds #61, migration `0008_sync.sql`). Everything below was checked read-only
 (dry-run deploys, `wrangler secret list`, `wrangler hyperdrive get`, `wrangler email … settings`,
 `dig`, `curl`). Nothing was deployed or migrated, and the prod database was not queried.
 
@@ -52,7 +53,7 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 - **B1. Privacy policy (VB-62) not on `main`.** The site's `datenschutz.md` / `privacy.md` still
   describe only the waitlist and the Cloudflare beacon. Accounts, sessions, two-factor data,
   Turnstile on sign-up and Plausible need to be in the policy before the site and the app go live
-  together (step 11). No PR is open for it yet.
+  together (step 11). PR #69 is open and waiting for review and merge.
 - **B2. `hello@voidbinder.de` cannot receive mail.** The 2FA screen tells users who lost both
   factors to write there (`SUPPORT_EMAIL` in `TwoFactorSettings.tsx`), and replies to the auth and
   waitlist mails go there too. The zone has no MX and Email Routing is off. Max decides: either
@@ -117,8 +118,8 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 
 - Wait until these have been merged into `main`: the VB-62 privacy policy (B1), #64 (site: web app
   link, Plausible, removes the Cloudflare beacon) and #65 (app: Plausible, sign-out under the
-  avatar). #61 (VB-32 sync, migration `0008_sync.sql`) is optional for the go-live. If it is
-  merged first, step 3 applies `0008` as well.
+  avatar). #61 (VB-32 sync, migration `0008_sync.sql`) is already on `main` (750d6ac), so step 3
+  always applies `0008`.
 - Max has done B2 (mail to `hello@`) and, if Plausible is to count from day one, N1's DNS record.
 - Run at a time that does not overlap the dev crons (04:30 to 05:30 UTC) or the VPS timers (05:30,
   06:30 UTC). During the day is fine.
@@ -185,7 +186,7 @@ Take a backup point, then migrate (the script pulls `main` on the VPS):
 ```sh
 docker exec voidbinder-db pgbackrest --stanza=voidbinder --type=incr backup
 ~/voidbinder/scripts/vps/migrate.sh site prod   # expect: no-op, "migrations applied successfully!"
-~/voidbinder/scripts/vps/migrate.sh api prod    # applies 0000 … 0007 (0008 if #61 is merged)
+~/voidbinder/scripts/vps/migrate.sh api prod    # applies 0000 … 0008
 ~/voidbinder/scripts/vps/migrate.sh api prod    # second run: no-op
 ```
 
@@ -193,7 +194,7 @@ docker exec voidbinder-db pgbackrest --stanza=voidbinder --type=incr backup
 
 ```sh
 docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
-  "select count(*) from drizzle.__drizzle_migrations_api"            # 8 (9 with #61)
+  "select count(*) from drizzle.__drizzle_migrations_api"            # 9
 docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
   "select hypertable_name, compression_enabled from timescaledb_information.hypertables"  # prices_daily|t
 docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
