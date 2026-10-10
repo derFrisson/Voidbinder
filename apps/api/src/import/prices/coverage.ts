@@ -40,7 +40,7 @@ export async function priceCoverage(
   game: PricedGame,
   groups: readonly TcgGroup[],
 ): Promise<PriceCoverage> {
-  const matched = matchGroups(groups, await gameSets(db, game));
+  const matched = matchGroups(groups, await gameSets(db, game), { regional: game === 'yugioh' });
   const groupsOf = new Map<string, number[]>();
   for (const m of matched) groupsOf.set(m.setId, [...(groupsOf.get(m.setId) ?? []), m.groupId]);
   const rows = await db

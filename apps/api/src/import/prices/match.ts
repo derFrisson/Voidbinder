@@ -114,12 +114,14 @@ function uniqueMap<K>(pairs: [K, string][]): Map<K, string | null> {
 /**
  * The catalog set of each group, or none: Scryfall's group id first, then the abbreviation (TCGdex's
  * official one, where it and the group's are each unique and the group's name holds the set's),
- * the abbreviation as set code, the name (`groupNames`) and last `GROUP_ALIASES`. A group matches at most one set; several groups may
- * share one set.
+ * the abbreviation as set code (`regional`, Yu-Gi-Oh!: also without a trailing region token,
+ * `LOB-EN` → `lob`), the name (`groupNames`) and last `GROUP_ALIASES`. A group matches at most one
+ * set; several groups may share one set (LOB: `LOB`, the North American prints, and two `LOB-EN`).
  */
 export function matchGroups(
   groups: readonly TcgGroup[],
   sets: readonly CatalogSet[],
+  { regional = false }: { regional?: boolean } = {},
 ): { groupId: number; setId: string }[] {
   const byGroupId = new Map(
     sets.flatMap((s) => (s.tcgplayerGroupId ? [[s.tcgplayerGroupId, s.id]] : [])),
@@ -151,6 +153,9 @@ export function matchGroups(
     const setId = key && groupAbbreviations.get(key) ? byAbbreviation.get(key) : undefined;
     return setId && normName(g.name).includes(setNames.get(setId) ?? '\0') ? setId : undefined;
   };
+  const byAbbreviationCode = (abbreviation: string) =>
+    byCode.get(abbreviation.toLowerCase()) ??
+    (regional ? byCode.get(abbreviation.toLowerCase().replace(/-(?:en|e|a|ae)$/, '')) : undefined);
   const alias = (groupId: number) => {
     const code = GROUP_ALIASES[groupId];
     return code === undefined ? undefined : byCode.get(code);
@@ -159,7 +164,7 @@ export function matchGroups(
     const setId =
       byGroupId.get(g.groupId) ??
       abbreviated(g) ??
-      (g.abbreviation ? byCode.get(g.abbreviation.toLowerCase()) : undefined) ??
+      (g.abbreviation ? byAbbreviationCode(g.abbreviation) : undefined) ??
       groupNames(g.name, series)
         .map((n) => byName.get(n))
         .find(Boolean) ??

@@ -21,7 +21,8 @@ export interface TcgcsvImportParams {
 
 /**
  * Binding `TCGCSV_IMPORT`: the daily TCGplayer prices from TCGCSV
- * (src/import/prices/pipeline.ts), one durable step per game's groups and per 25 matched groups.
+ * (src/import/prices/pipeline.ts), one durable step per game's groups and per about 25 matched
+ * groups (a set's groups together).
  * No image step: the run touches prices only.
  */
 export class TcgcsvImportWorkflow extends WorkflowEntrypoint<Env, TcgcsvImportParams> {

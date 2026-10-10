@@ -53,9 +53,29 @@ describe('matchGroups', () => {
     ]);
   });
 
-  it('matches Yu-Gi-Oh! groups by abbreviation, not the anniversary edition', () => {
+  it('matches Yu-Gi-Oh! groups by abbreviation, `LOB-EN` as `LOB` (VB-111)', () => {
     const sets = [set('lob', 'Legend of Blue Eyes White Dragon')];
-    expect(matchGroups(groups(2), sets)).toEqual([{ groupId: 330, setId: 'set-lob' }]);
+    // TCGplayer: `LOB` (the North American prints), `LOB-EN` and its 25th Anniversary Edition.
+    const lob = [
+      { groupId: 330, name: 'The Legend of Blue Eyes White Dragon', abbreviation: 'LOB' },
+      {
+        groupId: 22881,
+        name: 'Legend of Blue Eyes White Dragon (Worldwide English)',
+        abbreviation: 'LOB-EN',
+      },
+      {
+        groupId: 23050,
+        name: 'Legend of Blue Eyes White Dragon (25th Anniversary Edition)',
+        abbreviation: 'LOB-EN',
+      },
+    ];
+    expect(matchGroups(lob, sets, { regional: true })).toEqual([
+      { groupId: 330, setId: 'set-lob' },
+      { groupId: 22881, setId: 'set-lob' },
+      { groupId: 23050, setId: 'set-lob' },
+    ]);
+    // Pokémon and Magic keep the abbreviation whole.
+    expect(matchGroups(lob, sets)).toEqual([{ groupId: 330, setId: 'set-lob' }]);
   });
 
   // TCGCSV's real groups (2026-10-10) against TCGdex's sets (VB-111).

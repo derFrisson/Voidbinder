@@ -730,11 +730,16 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
    sets), matched to catalog sets by Scryfall's `tcgplayer_id`; then TCGdex's official abbreviation
    (`external_ids.abbreviation.official`, `SVI`), when it and the group's are each unique and the
    group's name holds the set's (TCGplayer's `BST` is EX Battle Stadium, TCGdex's Battle Styles);
-   then abbreviation = set code; then the name without TCGplayer's series prefix (`SWSH03: `,
+   then abbreviation = set code (Yu-Gi-Oh!: also without a trailing region token, so `LOB` and
+   both `LOB-EN` groups map to `lob`); then the name without TCGplayer's series prefix (`SWSH03: `,
    `SM - `), a trailing `Base Set` or a leading series name (`SV: Scarlet & Violet 151` → `151`);
    last `GROUP_ALIASES` in `match.ts` (promos, McDonald's, Radiant Collections, by group id).
-3. `prices <game> 000` …: products and prices of 25 matched groups per step, mapped to prints
-   (below) and written to `prices_current` and `prices_daily`.
+3. `prices <game> 000` …: products and prices of about 25 matched groups per step, mapped to
+   prints (below) and written to `prices_current` and `prices_daily`. A set's groups share a step
+   and are matched together (LOB: the North American prints are in `LOB`, the EN ones in
+   `LOB-EN`), so the more confident claim on a print wins across groups; a card that a lower group
+   id of the set already lists under its number and rarity (the 25th Anniversary Edition's
+   reprints, which the catalog folds into the set) is left unmapped.
 4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
    with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
    have a group but no priced print, from the group list the run just kept. Logged as one line

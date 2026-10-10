@@ -533,4 +533,55 @@ describe.skipIf(!databaseUrl)('Yu-Gi-Oh! regional prints (Postgres, VB-110)', ()
     expect((await market('eu'))[0]).toEqual(['first_edition', 50000]);
     expect((await market('na'))[0]).toEqual(['first_edition', 90000]);
   });
+
+  it('matches the groups of one set together: LOB, LOB-EN and its reprint (VB-111)', async () => {
+    const answer = (results: object[]) => JSON.stringify({ success: true, errors: [], results });
+    const group = (groupId: number, name: string, abbreviation: string) => ({
+      groupId,
+      name,
+      abbreviation,
+    });
+    const product = (productId: number, number: string) => ({
+      productId,
+      name: 'Blue-Eyes White Dragon',
+      extendedData: [
+        { name: 'Number', value: number },
+        { name: 'Rarity', value: 'Ultra Rare' },
+      ],
+    });
+    const price = (productId: number, marketPrice: number) => ({
+      productId,
+      marketPrice,
+      subTypeName: '1st Edition',
+    });
+    await db.delete(priceMappings);
+    // TCGplayer (2026-10-10): `LOB` holds the North American prints (LOB-001), `LOB-EN` the EN
+    // ones and the 25th Anniversary Edition their reprints, which the catalog folds into the set.
+    await run(
+      {
+        '2/groups': answer([
+          group(330, 'The Legend of Blue Eyes White Dragon', 'LOB'),
+          group(22881, 'Legend of Blue Eyes White Dragon (Worldwide English)', 'LOB-EN'),
+          group(23050, 'Legend of Blue Eyes White Dragon (25th Anniversary Edition)', 'LOB-EN'),
+        ]),
+        '2/330/products': answer([product(21792, 'LOB-001')]),
+        '2/330/prices': answer([price(21792, 1000)]),
+        '2/22881/products': answer([product(21800, 'LOB-EN001')]),
+        '2/22881/prices': answer([price(21800, 900)]),
+        '2/23050/products': answer([product(486045, 'LOB-EN001')]),
+        '2/23050/prices': answer([price(486045, 20)]),
+      },
+      true,
+    );
+    // The NA print keeps its own product: the EN product's regional claim (60) loses to it, and
+    // the reprint leaves the EN print to the older group instead of a tie.
+    expect(await mappings()).toEqual([
+      ['en', '21800', 'number_match', 70],
+      ['eu', '21800', 'region_match', 60],
+      ['na', '21792', 'number_match', 70],
+    ]);
+    expect((await market('na'))[0]).toEqual(['first_edition', 100000]);
+    expect((await market('en'))[0]).toEqual(['first_edition', 90000]);
+    expect((await market('eu'))[0]).toEqual(['first_edition', 90000]);
+  });
 });
