@@ -1,4 +1,10 @@
-import { printNumbers, type IndexedSuggestions, type SearchIndex } from '@voidbinder/core';
+import {
+  matchLanguage,
+  nameLanguage,
+  printNumbers,
+  type IndexedSuggestions,
+  type SearchIndex,
+} from '@voidbinder/core';
 import type { CardFormat, Game } from '@voidbinder/shared';
 import type { SearchSuggestion, SearchSuggestQuery } from '@voidbinder/shared/api';
 import { fuzzyQuery, NUMBER_HITS, parseCodeQuery } from './drizzle-card-store';
@@ -142,14 +148,17 @@ function codeCte(params: Params, q: string, game: Game | undefined): string | nu
   return branches.length ? `code(print_id, rank) as (${branches.join(' union all ')})` : null;
 }
 
-/** The newest print of card `cardId` (with a name in `names` unless `all`), as a subquery. */
-function newestPrint(params: Params, cardId: string, names: string): string {
-  const hasName =
-    names === 'all'
-      ? ''
-      : `and exists (select 1 from names n2 where n2.print_id = p2.id and n2.lang = ${params.p(names)})`;
+/** A names row's language, the English card name ('') as `en`. */
+const LANG = `iif(n.lang = '', 'en', n.lang)`;
+
+/**
+ * The newest print of card `cardId` with a name in `lang` (an SQL expression), as a subquery: as
+ * the Postgres `newest`, every print has the English card name unless `?names=` limits the names.
+ */
+function newestPrint(cardId: string, lang: string, names: string): string {
   return `(select p2.id from prints p2 join sets s2 on s2.id = p2.set_id
-    where p2.card_id = ${cardId} ${hasName}
+    where p2.card_id = ${cardId} and (${names === 'all' ? `${lang} = 'en' or` : ''}
+      exists (select 1 from names n2 where n2.print_id = p2.id and n2.lang = ${lang}))
     order by s2.released_on desc nulls last, p2.number_value nulls last, p2.number, p2.variant, p2.id
     limit 1)`;
 }
@@ -165,15 +174,17 @@ interface PrintRow {
   number: string;
   variant: string;
   rarity: string | null;
-  name: string;
+  card_name: string;
   image_src: string | null;
-  localized_image_src: string | null;
+  /** json: lang → the print's localized name and image source in it. */
+  names: string;
   game: Game;
   set_code: string;
   set_name: string;
+  /** json: lang → the set's name in it. */
+  set_names: string;
   card_count: number | null;
   card_format: CardFormat;
-  localized: number;
 }
 
 interface SetRow {
@@ -307,14 +318,19 @@ export class D1SearchIndex implements SearchIndex {
       order by ord limit ${set.p(limit)}`;
 
     const prefix = new Params();
+    const requested = prefix.p(query.lang);
+    // The matched names' language as nameLanguage picks it, in SQL as the print depends on it.
     const prefixSql = `with m as (
-        select p.card_id, min(length(n.name)) as len, min(n.name) as name
+        select p.card_id, min(length(n.name)) as len, min(n.name) as name,
+          case when max(${LANG} = ${requested}) then ${requested} when max(${LANG} = 'en') then 'en'
+            else min(${LANG}) end as lang
         from names n join prints p on p.id = n.print_id join sets s on s.id = p.set_id
         where n.name_key >= ${prefix.p(lo)} and n.name_key < ${prefix.p(prefixEnd(lo))}
           ${langFilter(prefix, query.names)} ${query.game ? `and s.game = ${prefix.p(query.game)}` : ''}
         group by p.card_id order by len, name, p.card_id limit ${prefix.p(limit)}
       )
-      select ${newestPrint(prefix, 'm.card_id', query.names)} as print_id from m order by len, name, card_id`;
+      select ${newestPrint('m.card_id', 'm.lang', query.names)} as print_id, lang
+      from m order by len, name, card_id`;
 
     const [meta, codeRows, setRows, prefixRows] = await session.batch<Record<string, unknown>>([
       session.prepare(`select key, value from meta where key in ('catalog_version', 'synced_at')`),
@@ -327,28 +343,34 @@ export class D1SearchIndex implements SearchIndex {
     const catalogVersion = this.version((meta?.results ?? []) as { key: string; value: string }[]);
     if (!catalogVersion) return null;
 
-    /** kind:id → best (tier, ord). */
+    /** kind:id → best (tier, ord), with the language of the names a name match matched. */
     const cands = new Map<
       string,
-      { kind: 'print' | 'set'; id: string; tier: number; ord: number }
+      { kind: 'print' | 'set'; id: string; tier: number; ord: number; lang: string | null }
     >();
-    const add = (kind: 'print' | 'set', id: string | null, tier: number, ord: number) => {
+    const add = (
+      kind: 'print' | 'set',
+      id: string | null,
+      tier: number,
+      ord: number,
+      lang: string | null = null,
+    ) => {
       if (!id) return;
       const k = `${kind}:${id}`;
       const had = cands.get(k);
       if (!had || tier < had.tier || (tier === had.tier && ord < had.ord))
-        cands.set(k, { kind, id, tier, ord });
+        cands.set(k, { kind, id, tier, ord, lang });
     };
     for (const r of (codeRows?.results ?? []) as { print_id: string; rank: number; ord: number }[])
       add('print', r.print_id, r.rank >= 300 ? 0 : r.rank >= 200 ? 1 : r.rank > 0 ? 2 : 4, r.ord);
     for (const r of (setRows?.results ?? []) as { id: string; ord: number }[])
       add('set', r.id, 3, r.ord);
-    const prefixed = (prefixRows?.results ?? []) as { print_id: string | null }[];
-    prefixed.forEach((r, i) => add('print', r.print_id, 5, i + 1));
+    const prefixed = (prefixRows?.results ?? []) as { print_id: string | null; lang: string }[];
+    prefixed.forEach((r, i) => add('print', r.print_id, 5, i + 1, r.lang));
 
     if (fuzzyQuery(query.q) && prefixed.length < limit) {
-      const fuzzy = await this.similarCards(session, query.q, query.game, query.names, limit);
-      fuzzy.forEach((printId, i) => add('print', printId, 6, i + 1));
+      const fuzzy = await this.similarCards(session, query, limit);
+      fuzzy.forEach((c, i) => add('print', c.printId, 6, i + 1, c.lang));
     }
 
     const top = [...cands.values()]
@@ -360,6 +382,7 @@ export class D1SearchIndex implements SearchIndex {
       top.filter((c) => c.kind === 'set').map((c) => c.id),
       query.lang,
     );
+    const json = <T>(s: string): Record<string, T> => JSON.parse(s) as Record<string, T>;
     const suggestions = top.flatMap((c): SearchSuggestion[] => {
       if (c.kind === 'set') {
         const s = sets.get(c.id);
@@ -371,57 +394,60 @@ export class D1SearchIndex implements SearchIndex {
                 name: s.name,
                 game: s.game,
                 set: { code: s.code, name: s.name },
+                lang: query.lang,
               },
             ]
           : [];
       }
       const r = prints.get(c.id);
-      return r
-        ? [
-            {
-              kind: 'print',
-              id: r.id,
-              name: r.name,
-              game: r.game,
-              set: { code: r.set_code, name: r.set_name },
-              number: r.number,
-              ...printNumbers(
-                { game: r.game, setCode: r.set_code, number: r.number, cardCount: r.card_count },
-                query.lang,
-                Boolean(r.localized),
-                key,
-              ),
-              cardFormat: r.card_format,
-              variant: r.variant,
-              rarity: r.rarity,
-              ...resolveImage(this.imageBaseUrl, pickImage(query.lang, r.id, images), [
-                { lang: query.lang, ids: { scryfall_images: { normal: r.localized_image_src } } },
-                { lang: 'en', ids: { scryfall_images: { normal: r.image_src } } },
-              ]),
-              cardId: r.card_id,
-            },
-          ]
-        : [];
+      if (!r) return [];
+      // As the Postgres render: the name, number, set name and image in the match's language.
+      const print = { game: r.game, setCode: r.set_code, number: r.number };
+      const lang = matchLanguage(print, c.lang ? [c.lang] : [], query.lang, key);
+      const names = json<{ name: string; image_src: string | null }>(r.names);
+      const own = names[lang];
+      const setName = json<string>(r.set_names)[lang] ?? r.set_name;
+      return [
+        {
+          kind: 'print',
+          id: r.id,
+          name: own?.name ?? names.en?.name ?? r.card_name,
+          game: r.game,
+          set: { code: r.set_code, name: setName },
+          lang,
+          number: r.number,
+          ...printNumbers({ ...print, cardCount: r.card_count }, lang, Boolean(own), key),
+          cardFormat: r.card_format,
+          variant: r.variant,
+          rarity: r.rarity,
+          ...resolveImage(this.imageBaseUrl, pickImage(lang, r.id, images), [
+            { lang, ids: { scryfall_images: { normal: own?.image_src } } },
+            { lang: 'en', ids: { scryfall_images: { normal: r.image_src } } },
+          ]),
+          cardId: r.card_id,
+        },
+      ];
     });
     return { result: { suggestions }, catalogVersion };
   }
 
   /**
-   * The newest print of each card with a name similar to `q` (pg_trgm similarity 0.3 and up),
-   * best first: the trigram index picks the candidates, `similarity` decides as Postgres does.
+   * Each card with a name similar to `q` (pg_trgm similarity 0.3 and up), best first, with the
+   * language of its similar names (nameLanguage) and its newest print with a name in it: the
+   * trigram index picks the candidates, `similarity` decides as Postgres does.
    */
   private async similarCards(
     session: D1DatabaseSession,
-    q: string,
-    game: Game | undefined,
-    names: string,
+    query: SearchSuggestQuery,
     limit: number,
-  ): Promise<string[]> {
+  ): Promise<{ printId: string; lang: string }[]> {
+    const { q, game, names } = query;
     const match = trigramQuery(q);
     if (!match) return [];
     const params = new Params();
     const filters = () =>
       `${langFilter(params, names)} ${game ? `and s.game = ${params.p(game)}` : ''}`;
+    // Per card and language: which print shows the card if that language's names are the match.
     const sql = `with k as (
         select k.name_key from name_trigrams join name_keys k on k.id = name_trigrams.rowid
         where name_trigrams match ${params.p(match)} ${
@@ -433,38 +459,54 @@ export class D1SearchIndex implements SearchIndex {
         order by name_trigrams.rank limit ${FUZZY_CANDIDATES}
       ),
       m as (
-        select p.card_id, n.name from k join names n on n.name_key = k.name_key
+        select p.card_id, n.name, ${LANG} as lang from k join names n on n.name_key = k.name_key
         join prints p on p.id = n.print_id join sets s on s.id = p.set_id
         where true ${filters()}
       )
-      select card_id, json_group_array(distinct name) as names,
-        ${newestPrint(params, 'm.card_id', names)} as print_id
-      from m group by card_id`;
+      select card_id, lang, json_group_array(distinct name) as names,
+        ${newestPrint('m.card_id', 'm.lang', names)} as print_id
+      from m group by card_id, lang`;
     const rows = await session
       .prepare(sql)
       .bind(...params.values)
-      .all<{ card_id: string; names: string; print_id: string | null }>();
-    return rows.results
-      .flatMap((r) => {
-        const similar = (JSON.parse(r.names) as string[])
-          .map((name) => ({ name, sml: similarity(name, q) }))
-          .filter((n) => n.sml >= Math.fround(SIMILARITY_THRESHOLD));
-        if (!similar.length || !r.print_id) return [];
+      .all<{ card_id: string; lang: string; names: string; print_id: string | null }>();
+    /** card id → its similar names, and the print per language whose names are similar. */
+    type Similar = { names: { name: string; sml: number }[]; prints: Map<string, string | null> };
+    const byCard = new Map<string, Similar>();
+    for (const r of rows.results) {
+      const similar = (JSON.parse(r.names) as string[])
+        .map((name) => ({ name, sml: similarity(name, q) }))
+        .filter((n) => n.sml >= Math.fround(SIMILARITY_THRESHOLD));
+      if (!similar.length) continue;
+      const card: Similar = byCard.get(r.card_id) ?? { names: [], prints: new Map() };
+      card.names.push(...similar);
+      card.prints.set(r.lang, r.print_id);
+      byCard.set(r.card_id, card);
+    }
+    return [...byCard]
+      .flatMap(([cardId, card]) => {
+        const lang = nameLanguage([...card.prints.keys()], query.lang);
+        const printId = card.prints.get(lang);
+        if (!printId) return [];
         return [
           {
-            cardId: r.card_id,
-            printId: r.print_id,
-            sml: Math.max(...similar.map((n) => n.sml)),
-            name: similar.map((n) => n.name).sort()[0] ?? '',
+            cardId,
+            printId,
+            lang,
+            sml: Math.max(...card.names.map((n) => n.sml)),
+            name: card.names.map((n) => n.name).sort()[0] ?? '',
           },
         ];
       })
       .sort((a, b) => b.sml - a.sml || cmp(a.name, b.name) || cmp(a.cardId, b.cardId))
       .slice(0, limit)
-      .map((c) => c.printId);
+      .map(({ printId, lang }) => ({ printId, lang }));
   }
 
-  /** Names, set and image of the prints and sets of a typeahead answer, in `lang`. */
+  /**
+   * The prints of a typeahead answer with their names in every language (each is shown in the
+   * language of its match), the sets with their name in `lang`, and the prints' images.
+   */
   private async hydrate(
     session: D1DatabaseSession,
     printIds: string[],
@@ -489,17 +531,17 @@ export class D1SearchIndex implements SearchIndex {
     const [printRows, setRows, imageRows] = await session.batch<Record<string, unknown>>([
       session
         .prepare(
-          `select p.id, p.card_id, p.number, p.variant, p.rarity, p.image_src,
-            coalesce(nl.name, ne.name, p.card_name) as name, nl.image_src as localized_image_src,
-            s.game, s.code as set_code, coalesce(sl.name, s.name) as set_name,
-            s.card_count, s.card_format, nl.print_id is not null as localized
+          `select p.id, p.card_id, p.number, p.variant, p.rarity, p.image_src, p.card_name,
+            (select json_group_object(n.lang, json_object('name', n.name, 'image_src', n.image_src))
+              from names n where n.print_id = p.id and n.lang <> '') as names,
+            s.game, s.code as set_code, s.name as set_name,
+            (select json_group_object(l.lang, l.name) from set_names l where l.set_id = s.id)
+              as set_names,
+            s.card_count, s.card_format
           from prints p join sets s on s.id = p.set_id
-          left join set_names sl on sl.set_id = s.id and sl.lang = ?2
-          left join names nl on nl.print_id = p.id and nl.lang = ?2
-          left join names ne on ne.print_id = p.id and ne.lang = 'en'
           where p.id in (select value from json_each(?1))`,
         )
-        .bind(JSON.stringify(printIds), lang),
+        .bind(JSON.stringify(printIds)),
       session
         .prepare(
           `select s.id, coalesce(sl.name, s.name) as name, s.game, s.code
