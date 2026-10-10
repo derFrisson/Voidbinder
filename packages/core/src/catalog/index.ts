@@ -98,3 +98,31 @@ export function printNumbers(
     ...(typed ? { matchedCode: printed } : {}),
   };
 }
+
+/**
+ * Which of the languages whose name matched (`matched`, '' for the English card name) a hit is
+ * shown in (VB-102): `requested` when it is one of them, else English, else the first; `requested`
+ * when no name matched.
+ */
+export function nameLanguage(matched: readonly string[], requested: string): string {
+  const langs = matched.map((l) => l || 'en');
+  if (!langs.length || langs.includes(requested)) return requested;
+  return langs.includes('en') ? 'en' : ([...langs].sort()[0] ?? requested);
+}
+
+/**
+ * The language a search hit or suggestion is shown in (VB-102): the language of what matched,
+ * never a fixed one. A Yu-Gi-Oh! code with a language token (`typedLanguage`) names it; else the
+ * names that matched (`nameLanguage`). A match without either (a code without a token, a set)
+ * leaves `requested`, the user's language, as the only signal.
+ */
+export function matchLanguage(
+  print: { game: Game; setCode: string; number: string },
+  matched: readonly string[],
+  requested: string,
+  code: string | null = null,
+): string {
+  return (
+    typedLanguage(print.game, code, print.setCode, print.number) ?? nameLanguage(matched, requested)
+  );
+}

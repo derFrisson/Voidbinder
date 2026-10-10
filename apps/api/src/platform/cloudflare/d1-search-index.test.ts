@@ -120,7 +120,7 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
           (select count(*) from names) as names`,
       )
       .first();
-    expect(counts).toEqual({ sets: 9, prints: 30, names: 32 });
+    expect(counts).toEqual({ sets: 9, prints: 32, names: 37 });
     expect(await refresh()).toMatchObject({ status: 'ok', setsWritten: 0, setsRemoved: 0 });
   });
 
@@ -174,6 +174,24 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     ['tannza'],
     ['tannza', '&names=de&lang=de'],
     ['stardust', '&names=de'],
+    // VB-102: the language of the match, per branch.
+    ['lev shad', '&lang=de'],
+    ['lev-schatten'],
+    ['blgg en024', '&lang=de'],
+    ['blgg de024', '&lang=en'],
+    ['sv1 001', '&lang=de'],
+    ['lds3', '&lang=de'],
+    ['legendary du', '&lang=de'],
+    ['pikachu', '&lang=de'],
+    ['pikachu', '&lang=ja'],
+    ['pikachu', '&names=fr&lang=de'],
+    ['pikachuu', '&lang=fr'],
+    ['tannza', '&lang=en'],
+    ['tanza', '&lang=en'],
+    ['pineco', '&lang=de'],
+    ['Satellitenkriger'],
+    ['Satellitenkriger', '&lang=en'],
+    ['lev schadoll', '&lang=de'],
   ])('suggest %j%s: same answer as Postgres', async (q, extra = '') => {
     const query = SearchSuggestQuerySchema.parse({
       q,
@@ -183,6 +201,36 @@ describe.skipIf(!databaseUrl)('search index in D1 (parity with Postgres)', () =>
     expect(d1Answer?.catalogVersion).toBe('0');
     expect(d1Answer?.result.suggestions.map(label)).toEqual(pg.suggestions.map(label));
     expect(d1Answer?.result).toEqual(pg);
+  });
+
+  it('shows a suggestion in the language of its match, image included (VB-102)', async () => {
+    for (const [q, extra, shown] of [
+      // `satellite` starts both names, so ?lang= picks; `satellite w` only the English one.
+      ['satellite', '&lang=de', 'de LDS3-DE121 Satellitenkrieger images/lds3-en121-de.webp de'],
+      ['satellite w', '&lang=de', 'en LDS3-EN121 Satellite Warrior images/lds3-en121.webp en'],
+      ['satelliten', '&lang=en', 'de LDS3-DE121 Satellitenkrieger images/lds3-en121-de.webp de'],
+      ['tannza', '', 'de 001/198 Tannza images/sv01-001-de.webp de'],
+      ['lev-schatten', '&lang=en', 'de BLGG-DE025 Lev-Schattenpuppen'],
+    ] as const) {
+      const query = SearchSuggestQuerySchema.parse({
+        q,
+        ...Object.fromEntries(new URLSearchParams(extra)),
+      });
+      const [d1Answer, pg] = await Promise.all([index.suggest(query, 8), store.suggest(query, 8)]);
+      for (const s of [d1Answer?.result.suggestions[0], pg.suggestions[0]])
+        expect(
+          [
+            s?.lang,
+            s?.displayCode,
+            s?.name,
+            s?.imageUrl?.replace('https://img.test/', ''),
+            s?.imageLang,
+          ]
+            .filter(Boolean)
+            .join(' '),
+          `${q}${extra}`,
+        ).toBe(shown);
+    }
   });
 
   it('rewrites a changed set and deletes a removed one', async () => {

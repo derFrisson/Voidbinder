@@ -168,6 +168,7 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       name: 'Satellite Warrior',
       game: 'yugioh',
       set: { code: 'lds3', name: 'Legendary Duelists: Season 3' },
+      lang: 'en',
       number: 'EN121',
       displayNumber: 'EN121',
       displayCode: 'LDS3-EN121',
@@ -201,10 +202,14 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       matchedCode: 'BLGG-SP024',
     });
     expect(await first('BLGG-JP024')).toMatchObject({ displayNumber: 'JP024' });
-    // A name search: DE only where the print has a German localization.
+    // A name search shows the number in the language of the name that matched (VB-102).
     const satellite = await first('satellite warrior', '&lang=de');
-    expect(satellite).toMatchObject({ displayNumber: 'DE121', displayCode: 'LDS3-DE121' });
+    expect(satellite).toMatchObject({ displayNumber: 'EN121', displayCode: 'LDS3-EN121' });
     expect(satellite).not.toHaveProperty('matchedCode');
+    expect(await first('satellitenkrieger')).toMatchObject({
+      displayNumber: 'DE121',
+      displayCode: 'LDS3-DE121',
+    });
     expect(await first('ghostrick', '&lang=de')).toMatchObject({ displayNumber: 'EN024' });
     expect(await first('satellite warrior')).toMatchObject({ displayNumber: 'EN121' });
     // Pokémon and Magic numbers stay; the code is printed per game.
@@ -238,6 +243,7 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       name: 'Innistrad: Midnight Hunt',
       game: 'mtg',
       set: { code: 'mid', name: 'Innistrad: Midnight Hunt' },
+      lang: 'en',
     });
     // Midnight Reaper is one of the set's first prints already; the name match follows.
     expect(mid.at(-1)?.name).toBe('Midas Touch');
@@ -268,9 +274,9 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       const [hit] = (await search(q, extra)).prints;
       return hit && `${hit.setCode} ${hit.number} ${hit.name}`;
     };
-    // A German-only name is found while the names show in English.
+    // A German-only name is found and shows in German, the language that matched (VB-102).
     for (const extra of ['', '&names=all&lang=en', '&names=de'])
-      expect(await first('satellitenkrieger', extra), extra).toBe('lds3 EN121 Satellite Warrior');
+      expect(await first('satellitenkrieger', extra), extra).toBe('lds3 EN121 Satellitenkrieger');
     // An English-only print drops out with German names.
     expect((await search('stardust')).total).toBe(1);
     expect((await search('stardust', '&names=de')).total).toBe(0);
@@ -279,14 +285,67 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
       expect(
         (await suggest('satellitenk', extra)).map((s) => s.name),
         extra,
-      ).toEqual(['Satellite Warrior']);
+      ).toEqual(['Satellitenkrieger']);
     expect((await suggest('stardust')).map((s) => s.name)).toEqual(['Stardust Dragon']);
     expect(await suggest('stardust', '&names=de')).toEqual([]);
-    // The newest print with a German name, not the card's newest.
-    expect((await suggest('tannza')).map(label)).toEqual(['sv10 090']);
+    // The newest print with a name in the language that matched, not the card's newest.
+    expect((await suggest('tannza')).map(label)).toEqual(['sv01 001']);
     expect(
       (await suggest('tannza', '&names=de&lang=de')).map((s) => `${label(s)} ${s.name}`),
     ).toEqual(['sv01 001 Tannza']);
+  });
+
+  // VB-102: a hit is shown in the language of what matched; ?lang= (the user's) only where
+  // nothing names one and between several languages that matched alike. One rule for every game.
+  it.each([
+    // An English name with a German user: English name, number and set name.
+    ['Lev Shaddoll', '&lang=de', 'en BLGG-EN025 Lev Shaddoll'],
+    // A German name with an English user: the German name and number.
+    ['Lev-Schattenpuppen', '&lang=en', 'de BLGG-DE025 Lev-Schattenpuppen'],
+    ['Lev-Schattenpuppen', '&lang=de', 'de BLGG-DE025 Lev-Schattenpuppen'],
+    // A code's language token, whatever ?lang= (no German name: the English one).
+    ['blgg en024', '&lang=de', 'en BLGG-EN024 Ghostrick Angel of Mischief'],
+    ['blgg de024', '&lang=en', 'de BLGG-DE024 Ghostrick Angel of Mischief'],
+    ['LDS3-EN121', '&lang=de', 'en LDS3-EN121 Satellite Warrior'],
+    // A code without a language, a set code alone: the user's language.
+    ['sv1 001', '&lang=de', 'de 001/198 Tannza'],
+    ['sv1 001', '&lang=en', 'en 001/198 Pineco'],
+    // A bare number: the user's language, the English name where the print has none in it.
+    ['001/198', '&lang=fr', 'fr 001/198 Pineco'],
+    ['lds3en121', '&lang=fr', 'en LDS3-EN121 Satellite Warrior'],
+    ['053/128', '&lang=de', undefined],
+    // A name equal in several languages: ?lang= when it matched, else English.
+    ['pikachu', '&lang=de', 'de 063/198 Pikachu'],
+    ['pikachu', '&lang=fr', 'fr 063/198 Pikachu'],
+    ['pikachu', '&lang=ja', 'en 063/198 Pikachu'],
+    // ?names= matches one language's names only, so it is that language.
+    ['pikachu', '&names=fr&lang=de', 'fr 063/198 Pikachu'],
+    // Pokémon: the German name finds the print that has it, its number as stored.
+    ['tannza', '&lang=en', 'de 001/198 Tannza'],
+    ['pineco', '&lang=de', 'en 090/182 Pineco'],
+    // A typo: the language of the closest name, not ?lang= among every similar one.
+    ['Satellitenkriger', '&lang=en', 'de LDS3-DE121 Satellitenkrieger'],
+    ['lev schadoll', '&lang=de', 'en BLGG-EN025 Lev Shaddoll'],
+  ])('%j%s: search and typeahead show %j (VB-102)', async (q, extra, shown) => {
+    const label = (h?: { lang: string; displayCode?: string | undefined; name: string }) =>
+      h && `${h.lang} ${h.displayCode} ${h.name}`;
+    expect(label((await search(q, extra)).prints[0])).toBe(shown);
+    expect(label((await suggest(q, extra))[0])).toBe(shown);
+  });
+
+  it('a set and a set code alone show in ?lang= (VB-102)', async () => {
+    expect((await suggest('legendary du', '&lang=de'))[0]).toMatchObject({
+      kind: 'set',
+      lang: 'de',
+    });
+    const set = await suggest('lds3', '&lang=de');
+    expect(set.map((s) => s.lang)).toEqual(['de', 'de', 'de', 'de']);
+    expect(set.find((s) => s.number === 'EN121')).toMatchObject({
+      name: 'Satellitenkrieger',
+      displayCode: 'LDS3-DE121',
+    });
+    const prints = (await search('lds3', '&lang=fr')).prints;
+    expect(new Set(prints.map((p) => p.lang))).toEqual(new Set(['fr']));
   });
 
   it('validates q and is cached like the catalog', async () => {
@@ -317,6 +376,7 @@ describe('the typeahead through the search index', () => {
     name: 'From the index',
     game: 'mtg',
     set: { code: 'mid', name: 'Innistrad: Midnight Hunt' },
+    lang: 'en',
   } satisfies SearchSuggestion;
   const pgPrint = { ...print, name: 'From Postgres' };
   const cardStore = {

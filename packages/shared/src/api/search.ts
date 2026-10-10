@@ -12,7 +12,7 @@ export const SearchSuggestQuerySchema = z.object({
   /** A name, a set code (`lds3`), a set code and number (`LDS3-EN121`, `mid 123`) or `001/128`. */
   q: z.string().trim().min(2).max(64),
   game: GameSchema.optional(),
-  /** Language the names are shown in; names fall back to English. */
+  /** The user's language: as on `/catalog/search`, the tie-breaker of `SearchSuggestion.lang`. */
   lang: LangSchema.default('en'),
   names: SearchNamesSchema,
 });
@@ -25,12 +25,14 @@ export type SearchSuggestQuery = z.infer<typeof SearchSuggestQuerySchema>;
 export const SearchSuggestionSchema = z.object({
   kind: z.enum(['print', 'set']),
   id: z.uuid(),
-  /** Card name in `?lang=` for a print, set name for a set, falling back to English. */
+  /** Card name in `lang` for a print, set name for a set, falling back to English. */
   name: z.string(),
   game: GameSchema,
   set: z.object({ code: z.string(), name: z.string() }),
+  /** As on SearchHit (VB-102): the language of what matched; `?lang=` for a set. */
+  lang: LangSchema,
   number: z.string().optional(),
-  /** As on SearchHit: a typed language token (`BLGG-DE024`) wins over `?lang=`. */
+  /** As on SearchHit: in `lang`. */
   displayNumber: z.string().optional(),
   displayCode: z.string().optional(),
   matchedCode: z.string().optional(),

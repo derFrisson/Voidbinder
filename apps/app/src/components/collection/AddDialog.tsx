@@ -1,7 +1,6 @@
 import { TCG_LANGUAGES_BY_GAME, type Game } from '@voidbinder/shared';
 import type { CardResponse, CollectionCondition } from '@voidbinder/shared/api';
 import { useQuery } from '@tanstack/react-query';
-import { useLocalSearchParams } from 'expo-router';
 import { useId, useState } from 'react';
 import {
   KeyboardAvoidingView,
@@ -22,7 +21,8 @@ import {
   useUpdateEntry,
 } from '../../api/queries/collection';
 import { ApiError } from '../../api/queries/http';
-import { useLocale, useT } from '../../i18n';
+import { useBrowsingLanguage } from '../../hooks/browsing-language';
+import { useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { useWide } from '../Shell';
 import { Button, ErrorState, Loading, Note, Segmented } from '../ui';
@@ -53,13 +53,6 @@ export const defaultLanguage = (options: readonly string[], browsing: string) =>
   [session.language, browsing, 'en'].find((l) => l !== undefined && options.includes(l)) ??
   options[0] ??
   'en';
-
-/** The language the user browses in: the page's DE/EN chip (`?lang=`), else the UI language. */
-export function useBrowsingLanguage() {
-  const { lang } = useLocalSearchParams<{ lang?: string }>();
-  const locale = useLocale();
-  return typeof lang === 'string' && /^[a-z]{2,3}$/.test(lang) ? lang : locale;
-}
 
 export type EntryValues = {
   language: string;

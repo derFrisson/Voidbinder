@@ -20,6 +20,7 @@ const hit = (marketPrice: SearchHit['marketPrice']): SearchHit => ({
   game: 'mtg',
   setCode: 'mid',
   setName: 'Innistrad: Midnight Hunt',
+  lang: 'de',
 });
 
 describe('PrintTile', () => {
@@ -42,6 +43,24 @@ describe('PrintTile', () => {
   it('shows no number for a print without a price', () => {
     renderApp(<PrintTile hit={hit(null)} />);
     expect(screen.queryByText(/€|\$/)).toBeNull();
+  });
+});
+
+describe('PrintTile links (VB-102)', () => {
+  const href = () => screen.getByRole('link').getAttribute('href');
+
+  it('opens the card in the language the hit matched when it is not the user’s', () => {
+    renderApp(<PrintTile hit={{ ...hit(null), lang: 'en' }} />);
+    expect(href()).toBe(
+      '/cards/2d112e72-f8b2-48e0-9798-208873db6761?print=59fab2d4-9883-4683-ad59-075a5bce6120&lang=en',
+    );
+  });
+
+  it('adds no ?lang= for the user’s own language', () => {
+    renderApp(<PrintTile hit={hit(null)} />);
+    expect(href()).toBe(
+      '/cards/2d112e72-f8b2-48e0-9798-208873db6761?print=59fab2d4-9883-4683-ad59-075a5bce6120',
+    );
   });
 });
 

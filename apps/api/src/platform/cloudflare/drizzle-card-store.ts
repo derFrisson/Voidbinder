@@ -2,6 +2,7 @@ import {
   conditionEstimate,
   DEFAULT_CONDITION_FACTORS,
   downsampleHistory,
+  matchLanguage,
   pickDisplayPrice,
   printNumbers,
   SOURCE_PREFERENCE,
@@ -643,34 +644,46 @@ export class DrizzleCardStore implements CardStore {
     // in the name adds 1 to ts_rank, otherwise a card whose text repeats the word outranks the
     // card named so. Code matches (codeHits) rank above them; names similar to `q` (pg_trgm `%`,
     // similarity 0.3 and up, so `Satelite` finds Satellite Warrior) answer only when neither finds
-    // anything. A print's best rank wins.
+    // anything. A print's best rank wins; `langs` are the languages of its best-ranked names (the
+    // card's own columns are English), for the language it is shown in (matchLanguage, VB-102):
+    // ?lang= breaks only a tie, it never overrides a better match in another language.
     const names = nameScope(query.names);
     const hits = sql`ts as (
         ${names.card(sql`select ${prints.id} as print_id,
-          ts_rank(${cards.search}, ${tsq}) + (to_tsvector('simple', ${cards.name}) @@ ${tsq})::int as rank
+          ts_rank(${cards.search}, ${tsq}) + (to_tsvector('simple', ${cards.name}) @@ ${tsq})::int as rank,
+          'en'::text as lang
         from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
         where ${cards.search} @@ ${tsq}`)}
         select ${printLocalizations.printId} as print_id,
           ts_rank(${printLocalizations.search}, ${tsq}) +
-            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int as rank
+            (to_tsvector('simple', ${printLocalizations.name}) @@ ${tsq})::int as rank,
+          ${printLocalizations.lang} as lang
         from ${printLocalizations}
         where ${printLocalizations.search} @@ ${tsq} ${names.localization}
       ),
       code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
       fuzzy as (
-        ${names.card(sql`select ${prints.id} as print_id, similarity(${cards.name}, ${query.q}) as rank
+        ${names.card(sql`select ${prints.id} as print_id, similarity(${cards.name}, ${query.q}) as rank,
+          'en'::text as lang
         from ${cards} join ${prints} on ${prints.cardId} = ${cards.id}
         where ${fuzzy} and ${cards.name} % ${query.q}
           and not exists (select 1 from ts) and not exists (select 1 from code)`)}
         select ${printLocalizations.printId} as print_id,
-          similarity(${printLocalizations.name}, ${query.q}) as rank
+          similarity(${printLocalizations.name}, ${query.q}) as rank, ${printLocalizations.lang} as lang
         from ${printLocalizations}
         where ${fuzzy} and ${printLocalizations.name} % ${query.q} ${names.localization}
           and not exists (select 1 from ts) and not exists (select 1 from code)
       ),
       hits as (
-        select print_id, max(rank) as rank from (
-          select * from ts union all select * from code union all select * from fuzzy
+        select print_id, max(rank) as rank,
+          coalesce(array_agg(distinct lang) filter (where rank = top and lang is not null), '{}') as langs
+        from (
+          select *, max(rank) filter (where lang is not null) over (partition by print_id) as top
+          from (
+            select print_id, rank, lang from ts
+            union all select print_id, rank, null from code
+            union all select print_id, rank, lang from fuzzy
+          ) h
         ) h group by print_id
       )`;
     const filters: SQL[] = [sql`true`];
@@ -688,6 +701,7 @@ export class DrizzleCardStore implements CardStore {
       card_id: string;
       number: string;
       variant: string;
+      lang: string;
       name: string;
       rarity: string | null;
       finishes: string[];
@@ -707,28 +721,54 @@ export class DrizzleCardStore implements CardStore {
       card_format: CardFormat;
       localized: boolean;
     };
-    const [count, rows] = await Promise.all([
+    const { code: typed } = parseCodeQuery(query.q);
+    const [count, page] = await Promise.all([
       this.catalog.execute<{ total: number }>(
         sql`with ${hits} select count(*)::int as total ${joins} where ${where}`,
       ),
-      // Page first, localize after: the CTE orders and cuts the hits, and only its rows are
-      // joined to the localizations (a broad query matches thousands of prints).
-      this.catalog.execute<Row>(sql`
-        with ${hits}, page as (
+      // Page first, localize after: this orders and cuts the hits, and only the page's prints are
+      // localized, each in the language of its match (a broad query matches thousands of prints).
+      this.catalog.execute<{
+        id: string;
+        game: Game;
+        set_code: string;
+        number: string;
+        langs: string[];
+      }>(sql`
+        with ${hits}
+        select ${prints.id} as id, ${sets.gameId} as game, ${sets.code} as set_code,
+          ${prints.number} as number, hits.langs
+        ${joins}
+        where ${where}
+        order by hits.rank desc, ${cards.name}, ${sets.releasedOn} desc nulls last, ${sets.code},
+          ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
+        limit ${pageSize} offset ${(query.page - 1) * pageSize}`),
+    ]);
+    const shown = page.rows.map((r, ord) => ({
+      id: r.id,
+      lang: matchLanguage(
+        { game: r.game, setCode: r.set_code, number: r.number },
+        r.langs,
+        query.lang,
+        typed,
+      ),
+      ord,
+    }));
+    const rows = shown.length
+      ? await this.catalog.execute<Row>(sql`
+        with page as (
           select ${prints.id}, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
             ${cards.name} as card_name, ${cards.typeLine} as type_line, ${prints.rarity},
             ${prints.finishes},
             ${prints.imageKey} as image_key, ${prints.externalIds} as external_ids,
             ${sets.id} as set_id, ${sets.gameId} as game, ${sets.code} as set_code,
-            ${sets.name} as set_name, ${sets.releasedOn} as released_on, hits.rank,
-            ${sets.cardCount} as card_count, ${NUMBER_VALUE} as number_value
-          ${joins}
-          where ${where}
-          order by hits.rank desc, ${cards.name}, ${sets.releasedOn} desc nulls last, ${sets.code},
-            ${NUMBER_ORDER}, ${prints.number}, ${prints.variant}
-          limit ${pageSize} offset ${(query.page - 1) * pageSize}
+            ${sets.name} as set_name, ${sets.cardCount} as card_count, t.lang, t.ord
+          from jsonb_to_recordset(${JSON.stringify(shown)}::jsonb) as t(id uuid, lang text, ord int)
+          join ${prints} on ${prints.id} = t.id
+          join ${cards} on ${cards.id} = ${prints.cardId}
+          join ${sets} on ${sets.id} = ${prints.setId}
         )
-        select page.id, page.card_id, page.number, page.variant,
+        select page.id, page.card_id, page.number, page.variant, page.lang,
           coalesce(localized.name, english.name, page.card_name) as name, page.rarity,
           page.finishes, page.external_ids, localized.external_ids as localized_ids,
           ${imagePick(
@@ -738,7 +778,7 @@ export class DrizzleCardStore implements CardStore {
               setId: sql`page.set_id`,
               imageKey: sql`page.image_key`,
             },
-            query.lang,
+            sql`page.lang`,
           )} as image,
           market.cents as price_cents, market.currency as price_currency,
           market.source as price_source, market.finish as price_finish,
@@ -747,11 +787,11 @@ export class DrizzleCardStore implements CardStore {
         from page
         join ${games} g on g.id = page.game
         left join ${printLocalizations} localized
-          on localized.print_id = page.id and localized.lang = ${query.lang}
+          on localized.print_id = page.id and localized.lang = page.lang
         left join ${printLocalizations} english
           on english.print_id = page.id and english.lang = 'en'
         left join ${setLocalizations} set_l
-          on set_l.set_id = page.set_id and set_l.lang = ${query.lang}
+          on set_l.set_id = page.set_id and set_l.lang = page.lang
         left join lateral (
           select ${pricesCurrent.centsMarket} as cents, ${pricesCurrent.currency} as currency,
             ${pricesCurrent.source} as source, ${pricesCurrent.finish} as finish,
@@ -762,10 +802,8 @@ export class DrizzleCardStore implements CardStore {
             ${sourceOrder(query.currency)}
           limit 1
         ) market on true
-        order by page.rank desc, page.card_name, page.released_on desc nulls last, page.set_code,
-          page.number_value nulls last, page.number, page.variant`),
-    ]);
-    const { code: typed } = parseCodeQuery(query.q);
+        order by page.ord`)
+      : { rows: [] };
     return {
       prints: rows.rows.map((r) => ({
         id: r.id,
@@ -773,7 +811,7 @@ export class DrizzleCardStore implements CardStore {
         number: r.number,
         ...printNumbers(
           { game: r.game, setCode: r.set_code, number: r.number, cardCount: r.card_count },
-          query.lang,
+          r.lang,
           r.localized,
           typed,
         ),
@@ -783,7 +821,7 @@ export class DrizzleCardStore implements CardStore {
         rarity: r.rarity,
         finishes: r.finishes,
         ...resolveImage(this.imageBaseUrl, r.image, [
-          { lang: query.lang, ids: r.localized_ids },
+          { lang: r.lang, ids: r.localized_ids },
           { lang: 'en', ids: r.external_ids },
         ]),
         marketPrice: displayPrice({
@@ -797,6 +835,7 @@ export class DrizzleCardStore implements CardStore {
         game: r.game,
         setCode: r.set_code,
         setName: r.set_name,
+        lang: r.lang,
       })),
       page: query.page,
       pageSize,
@@ -809,7 +848,9 @@ export class DrizzleCardStore implements CardStore {
    * tier per print or set. Tiers: 0 the exact code, 1 the number without prefix or leading zeros
    * (and a pure number), 2 a partial number, 3 sets by code or name prefix, 4 the first prints of
    * a set named by its code, 5 cards whose name starts with `q`, 6 cards with a name similar to
-   * `q` (only while tier 5 leaves room). A name match shows the card's newest print.
+   * `q` (only while tier 5 leaves room). A name match shows the card's newest print with a name in
+   * the language that matched. A second query renders each in the language of its match
+   * (matchLanguage, VB-102).
    */
   async suggest(query: SearchSuggestQuery, limit: number): Promise<SearchSuggestResponse> {
     const code = codeHits(query.q, query.game);
@@ -818,33 +859,138 @@ export class DrizzleCardStore implements CardStore {
     const cardGame = query.game ? sql`and ${cards.gameId} = ${query.game}` : sql``;
     const setGame = query.game ? sql`and ${sets.gameId} = ${query.game}` : sql``;
     const names = nameScope(query.names);
-    /** Card ids with the name each matched by, in the languages of `?names=`. */
+    /** Card ids with the name each matched by and its language (the card's is English), as `?names=` allows. */
     const named = (match: (name: SQLWrapper) => SQL) => sql`
-      ${names.card(sql`select ${cards.id} as card_id, ${cards.name} as name from ${cards}
-      where ${match(cards.name)} ${cardGame}`)}
-      select ${prints.cardId} as card_id, ${printLocalizations.name} as name
+      ${names.card(sql`select ${cards.id} as card_id, ${cards.name} as name, 'en'::text as lang
+      from ${cards} where ${match(cards.name)} ${cardGame}`)}
+      select ${prints.cardId} as card_id, ${printLocalizations.name} as name,
+        ${printLocalizations.lang} as lang
       from ${printLocalizations}
       join ${prints} on ${prints.id} = ${printLocalizations.printId}
       join ${cards} on ${cards.id} = ${prints.cardId}
       where ${match(printLocalizations.name)} ${names.localization} ${cardGame}`;
-    /** A print has a name in the one language of `?names=`. */
-    const hasName =
-      query.names === 'all'
-        ? sql``
-        : sql`and exists (select 1 from ${printLocalizations} where ${printLocalizations.printId} = ${prints.id} ${names.localization})`;
-    /** The newest print of each card in `cte` (card_id, ord), as candidates of `tier`. */
-    const newest = (cte: string, tier: number) => sql`
-      select 'print' as kind, np.id, ${sql.raw(String(tier))} as tier, ${sql.raw(cte)}.ord
-      from ${sql.raw(cte)} cross join lateral (
+    /**
+     * nameLanguage's pick among the languages of a card's prefix-matched names (`lang` of the
+     * grouped rows; they tie, as each starts with `q`): `?lang=`, else English, else the first. In
+     * SQL, as the card's print depends on it.
+     */
+    const pickLang = sql`case when bool_or(lang = ${query.lang}) then ${query.lang}::text
+      when bool_or(lang = 'en') then 'en' else min(lang) end`;
+    /**
+     * The newest print of each card in `cte` (card_id, ord, lang) with a name in its `lang`, as
+     * candidates of `tier`: a German match shows a print with the German name. Every print has the
+     * English card name, unless `?names=` leaves only the localized ones.
+     */
+    const newest = (cte: string, tier: number) => {
+      const c = sql.raw(cte);
+      return sql`
+      select 'print' as kind, np.id, ${sql.raw(String(tier))} as tier, ${c}.ord, ${c}.lang
+      from ${c} cross join lateral (
         select ${prints.id} as id from ${prints} join ${sets} on ${sets.id} = ${prints.setId}
-        where ${prints.cardId} = ${sql.raw(cte)}.card_id ${hasName}
+        where ${prints.cardId} = ${c}.card_id
+          and (${query.names === 'all' ? sql`${c}.lang = 'en' or` : sql``} exists (
+            select 1 from ${printLocalizations}
+            where ${printLocalizations.printId} = ${prints.id} and ${printLocalizations.lang} = ${c}.lang))
         order by ${sets.releasedOn} desc nulls last, ${NUMBER_ORDER}, ${prints.number}, ${prints.variant},
           ${prints.id}
         limit 1
       ) np`;
+    };
+    const top = await this.catalog.execute<{
+      kind: 'print' | 'set';
+      id: string;
+      /** The matched names' language (matchLanguage), null for codes and sets. */
+      lang: string | null;
+      game: Game;
+      set_code: string;
+      number: string | null;
+    }>(sql`
+      with code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
+      code_ranked as (
+        select code.print_id, max(code.rank) as rank, min(${sets.releasedOn}) as released_on,
+          min(${NUMBER_VALUE}) as number_value, min(${prints.number}) as number
+        from code join ${prints} on ${prints.id} = code.print_id
+        join ${sets} on ${sets.id} = ${prints.setId}
+        group by code.print_id
+      ),
+      code_cands as (
+        select 'print' as kind, print_id as id,
+          case when rank >= 300 then 0 when rank >= 200 then 1 when rank > 0 then 2 else 4 end as tier,
+          row_number() over (
+            partition by rank > 0
+            order by rank desc, released_on desc nulls last, number_value nulls last, number,
+              print_id
+          ) as ord, null::text as lang
+        from code_ranked
+      ),
+      set_cands as (
+        select 'set' as kind, ${sets.id} as id, 3 as tier,
+          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}, ${sets.id}) as ord,
+          null::text as lang
+        from ${sets}
+        where (${key ? sql`catalog_code_key(${sets.code}) = catalog_code_key(${key}) or` : sql``}
+          ${sets.name} ilike ${pattern}
+          or exists (
+            select 1 from ${setLocalizations}
+            where ${setLocalizations.setId} = ${sets.id} and ${setLocalizations.lang} = ${query.lang}
+              and ${setLocalizations.name} ilike ${pattern}
+          )) ${setGame}
+        order by ord limit ${limit}
+      ),
+      prefix as (
+        select card_id, row_number() over (order by min(length(name)), min(name), card_id) as ord,
+          ${pickLang} as lang
+        from (${named((name) => sql`${name} ilike ${pattern}`)}) n
+        group by card_id order by ord limit ${limit}
+      ),
+      fuzzy as (
+        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name), card_id) as ord,
+          -- The best-scoring name's language; nameLanguage's order only among equal scores.
+          (array_agg(lang order by similarity(name, ${query.q}) desc, lang = ${query.lang} desc,
+            lang = 'en' desc, lang))[1] as lang
+        from (${named((name) => sql`${name} % ${query.q}`)}) n
+        where ${fuzzyQuery(query.q)} and (select count(*) from prefix) < ${limit}
+        group by card_id order by ord limit ${limit}
+      ),
+      cands as (
+        -- ponytail: a set named alone shows its first 3 prints, so name matches still fit.
+        select * from code_cands where tier < 4 and ord <= ${limit} or tier = 4 and ord <= 3
+        union all select * from set_cands
+        union all ${newest('prefix', 5)}
+        union all ${newest('fuzzy', 6)}
+      ),
+      top as (
+        select kind, id, tier, ord, lang from (
+          select distinct on (kind, id) kind, id, tier, ord, lang from cands
+          order by kind, id, tier, ord
+        ) best
+        order by tier, ord limit ${limit}
+      )
+      select top.kind, top.id, top.lang, ${sets.gameId} as game, ${sets.code} as set_code,
+        ${prints.number}
+      from top
+      left join ${prints} on top.kind = 'print' and ${prints.id} = top.id
+      join ${sets} on ${sets.id} = coalesce(${prints.setId}, top.id)
+      order by top.tier, top.ord`);
+    if (!top.rows.length) return { suggestions: [] };
+    const shown = top.rows.map((r, ord) => ({
+      kind: r.kind,
+      id: r.id,
+      lang:
+        r.kind === 'set'
+          ? query.lang
+          : matchLanguage(
+              { game: r.game, setCode: r.set_code, number: r.number ?? '' },
+              r.lang ? [r.lang] : [],
+              query.lang,
+              key,
+            ),
+      ord,
+    }));
     type Row = {
       kind: 'print' | 'set';
       id: string;
+      lang: string;
       card_id: string | null;
       number: string | null;
       variant: string | null;
@@ -861,95 +1007,42 @@ export class DrizzleCardStore implements CardStore {
       localized: boolean;
     };
     const rows = await this.catalog.execute<Row>(sql`
-      with code as (${code ?? sql`select null::uuid as print_id, null::real as rank where false`}),
-      code_ranked as (
-        select code.print_id, max(code.rank) as rank, min(${sets.releasedOn}) as released_on,
-          min(${NUMBER_VALUE}) as number_value, min(${prints.number}) as number
-        from code join ${prints} on ${prints.id} = code.print_id
-        join ${sets} on ${sets.id} = ${prints.setId}
-        group by code.print_id
-      ),
-      code_cands as (
-        select 'print' as kind, print_id as id,
-          case when rank >= 300 then 0 when rank >= 200 then 1 when rank > 0 then 2 else 4 end as tier,
-          row_number() over (
-            partition by rank > 0
-            order by rank desc, released_on desc nulls last, number_value nulls last, number,
-              print_id
-          ) as ord
-        from code_ranked
-      ),
-      set_cands as (
-        select 'set' as kind, ${sets.id} as id, 3 as tier,
-          row_number() over (order by ${sets.releasedOn} desc nulls last, ${sets.code}, ${sets.id}) as ord
-        from ${sets}
-        where (${key ? sql`catalog_code_key(${sets.code}) = catalog_code_key(${key}) or` : sql``}
-          ${sets.name} ilike ${pattern}
-          or exists (
-            select 1 from ${setLocalizations}
-            where ${setLocalizations.setId} = ${sets.id} and ${setLocalizations.lang} = ${query.lang}
-              and ${setLocalizations.name} ilike ${pattern}
-          )) ${setGame}
-        order by ord limit ${limit}
-      ),
-      prefix as (
-        select card_id, row_number() over (order by min(length(name)), min(name), card_id) as ord
-        from (${named((name) => sql`${name} ilike ${pattern}`)}) n
-        group by card_id order by ord limit ${limit}
-      ),
-      fuzzy as (
-        select card_id, row_number() over (order by max(similarity(name, ${query.q})) desc, min(name), card_id) as ord
-        from (${named((name) => sql`${name} % ${query.q}`)}) n
-        where ${fuzzyQuery(query.q)} and (select count(*) from prefix) < ${limit}
-        group by card_id order by ord limit ${limit}
-      ),
-      cands as (
-        -- ponytail: a set named alone shows its first 3 prints, so name matches still fit.
-        select * from code_cands where tier < 4 and ord <= ${limit} or tier = 4 and ord <= 3
-        union all select * from set_cands
-        union all ${newest('prefix', 5)}
-        union all ${newest('fuzzy', 6)}
-      ),
-      top as (
-        select kind, id, tier, ord from (
-          select distinct on (kind, id) kind, id, tier, ord from cands order by kind, id, tier, ord
-        ) best
-        order by tier, ord limit ${limit}
-      )
-      select top.kind, top.id, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
-        case when top.kind = 'set' then coalesce(set_l.name, ${sets.name})
+      select t.kind, t.id, t.lang, ${prints.cardId} as card_id, ${prints.number}, ${prints.variant},
+        case when t.kind = 'set' then coalesce(set_l.name, ${sets.name})
           else coalesce(localized.name, english.name, ${cards.name}) end as name,
-        ${prints.rarity}, ${imagePick(prints, query.lang)} as image,
+        ${prints.rarity}, ${imagePick(prints, sql`t.lang`)} as image,
         ${prints.externalIds} as external_ids, localized.external_ids as localized_ids,
         ${sets.gameId} as game, ${sets.code} as set_code,
         coalesce(set_l.name, ${sets.name}) as set_name, ${sets.cardCount} as card_count,
         ${games.cardFormat} as card_format, localized.print_id is not null as localized
-      from top
-      left join ${prints} on top.kind = 'print' and ${prints.id} = top.id
+      from jsonb_to_recordset(${JSON.stringify(shown)}::jsonb) as t(kind text, id uuid, lang text, ord int)
+      left join ${prints} on t.kind = 'print' and ${prints.id} = t.id
       left join ${cards} on ${cards.id} = ${prints.cardId}
-      join ${sets} on ${sets.id} = coalesce(${prints.setId}, top.id)
+      join ${sets} on ${sets.id} = coalesce(${prints.setId}, t.id)
       join ${games} on ${games.id} = ${sets.gameId}
       left join ${printLocalizations} localized
-        on localized.print_id = ${prints.id} and localized.lang = ${query.lang}
+        on localized.print_id = ${prints.id} and localized.lang = t.lang
       left join ${printLocalizations} english
         on english.print_id = ${prints.id} and english.lang = 'en'
       left join ${setLocalizations} set_l
-        on set_l.set_id = ${sets.id} and set_l.lang = ${query.lang}
-      order by top.tier, top.ord`);
+        on set_l.set_id = ${sets.id} and set_l.lang = t.lang
+      order by t.ord`);
     return {
       suggestions: rows.rows.map((r) => {
         const set = { code: r.set_code, name: r.set_name };
-        if (r.kind === 'set') return { kind: 'set', id: r.id, name: r.name, game: r.game, set };
+        if (r.kind === 'set')
+          return { kind: 'set', id: r.id, name: r.name, game: r.game, set, lang: r.lang };
         return {
           kind: 'print',
           id: r.id,
           name: r.name,
           game: r.game,
           set,
+          lang: r.lang,
           number: r.number ?? '',
           ...printNumbers(
             { game: r.game, setCode: r.set_code, number: r.number ?? '', cardCount: r.card_count },
-            query.lang,
+            r.lang,
             r.localized,
             key,
           ),
@@ -957,7 +1050,7 @@ export class DrizzleCardStore implements CardStore {
           variant: r.variant ?? '',
           rarity: r.rarity,
           ...resolveImage(this.imageBaseUrl, r.image, [
-            { lang: query.lang, ids: r.localized_ids },
+            { lang: r.lang, ids: r.localized_ids },
             { lang: 'en', ids: r.external_ids },
           ]),
           cardId: r.card_id ?? '',

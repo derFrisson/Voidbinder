@@ -5,18 +5,12 @@ import { Pressable, Text, View } from 'react-native';
 import { cardOptions } from '../../api/queries/catalog';
 import { useAddEntries, useOwned } from '../../api/queries/collection';
 import { useSession } from '../../api/queries/me';
+import { useBrowsingLanguage } from '../../hooks/browsing-language';
 import { fmt, useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { useWide } from '../Shell';
 import { hideToast, showToast } from '../Toast';
-import {
-  AddDialog,
-  defaultLanguage,
-  printOptions,
-  session,
-  useBrowsingLanguage,
-  type EntryValues,
-} from './AddDialog';
+import { AddDialog, defaultLanguage, printOptions, session, type EntryValues } from './AddDialog';
 import { IconButton } from './Controls';
 
 /**
@@ -112,7 +106,7 @@ export function CollectButtons({
 
 /**
  * The quick "add to collection" under a tile (search, set page): one press adds one copy with the
- * defaults (the last used or browsing language when the print has it, else English; the first
+ * defaults (the last used language, else the tile's or the browsing one, when the print has it, else English; the first
  * finish; NM), into `binderId` when the search was opened from a binder, and says so in a toast
  * whose "Ändern" opens the add dialog for that entry. The chevron beside it (wide screens) and a
  * long press open the dialog before adding. The print's languages come from the card, read once
@@ -124,12 +118,15 @@ export function QuickAdd({
   name,
   finish,
   binderId,
+  lang,
 }: {
   printId: string;
   cardId: string;
   name: string;
   finish: string;
   binderId?: string | undefined;
+  /** The language the tile shows (a search hit's match, VB-102), in place of the browsing one. */
+  lang?: string | undefined;
 }) {
   const t = useT();
   const wide = useWide();
@@ -166,7 +163,7 @@ export function QuickAdd({
     const data = await client.fetchQuery(cardOptions(cardId)).catch(() => undefined);
     setLooking(false);
     const values: EntryValues = {
-      language: defaultLanguage(printOptions(data, printId).languages, browsing),
+      language: defaultLanguage(printOptions(data, printId).languages, lang ?? browsing),
       finish,
       condition: 'NM',
       quantity: 1,
