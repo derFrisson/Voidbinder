@@ -42,7 +42,7 @@ Speicherdauer: Wir selbst erhalten und speichern diese Logdaten nicht. Cloudflar
 
 Wir messen auf der Website und in der Web-App, wie viele Menschen sie nutzen, welche Seiten sie aufrufen und woher sie kommen. Dafür nutzen wir Plausible Analytics, eine quelloffene Software, die auf einem von uns betriebenen Server läuft. Die Daten gehen an keinen anderen Anbieter als unseren Hoster, auch nicht an die Firma hinter Plausible.
 
-Der Server ist ein virtueller Server der Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, in einem Rechenzentrum in Deutschland. Hetzner handelt als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Cloudflare oder ein anderer Dienst ist nicht dazwischengeschaltet, Ihr Browser verbindet sich direkt mit diesem Server.
+Der Server ist ein virtueller Server der Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, in einem Rechenzentrum in Deutschland. Hetzner handelt als Auftragsverarbeiter nach unseren Weisungen auf Grundlage eines Vertrags zur Auftragsverarbeitung. Weder Cloudflare noch ein anderer Dienst ist dazwischengeschaltet, Ihr Browser verbindet sich direkt mit diesem Server.
 
 Bei jedem Seitenaufruf schickt Ihr Browser an web-analytics.voidcom.app:
 
