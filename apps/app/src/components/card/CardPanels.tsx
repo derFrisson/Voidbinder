@@ -63,7 +63,7 @@ export function PrintsTable({
               key={p.id}
               role="row"
               aria-current={on ? 'true' : undefined}
-              className={`flex-row items-center gap-3 border-b border-line px-2.5 py-2.5 ${on ? `${fieldClass[game].soft} border-l-[3px] border-l-ink` : ''}`}
+              className={`flex-row items-center gap-3 border-b border-line px-2.5 py-2.5 ${on ? `${fieldClass[game].soft} border-l-[3px] ${fieldClass[game].edge}` : ''}`}
             >
               <View role="cell" className="flex-[2.4] gap-0.5">
                 <Link
@@ -163,7 +163,7 @@ export function Legality({
           return (
             <View
               key={key}
-              className="min-w-[200px] flex-1 basis-[45%] flex-row items-center justify-between rounded-[10px] bg-page py-2 pl-3 pr-2.5"
+              className="min-w-[140px] flex-1 basis-[45%] flex-row items-center justify-between rounded-[10px] bg-page py-2 pl-3 pr-2.5"
             >
               <Text className="font-display text-[13.5px] font-semibold text-ink">{name}</Text>
               <Text

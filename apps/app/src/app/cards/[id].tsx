@@ -78,7 +78,6 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
   const { card } = data;
   const { print } = view;
   const game: Game = card.game;
-  const twoColumns = width >= 1024;
   // Legality and card text side by side from 1180 px.
   const half = width >= 1180 ? 'min-w-0 flex-1' : '';
   const pick = (id: string) => router.setParams({ print: id });
@@ -137,7 +136,8 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
           current={print.id}
           cardId={card.id}
           game={game}
-          wide={wide}
+          // The full columns need the room of a 1024 px window; the 320 px image column takes it below.
+          wide={width >= 1024}
         />
       )}
       <View className={width >= 1180 ? 'flex-row items-start gap-4' : 'gap-4'}>
@@ -147,7 +147,7 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
     </>
   );
 
-  if (!twoColumns) {
+  if (!wide) {
     return (
       <View className="gap-5">
         {stage}
