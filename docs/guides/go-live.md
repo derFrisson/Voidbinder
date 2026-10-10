@@ -10,7 +10,57 @@ the API in [apps/api/README.md](../../apps/api/README.md).
 Audit date: 2026-10-10, against `main` at `50a9343`; the runbook is updated to `750d6ac`
 (adds #61, migration `0008_sync.sql`). Everything below was checked read-only
 (dry-run deploys, `wrangler secret list`, `wrangler hyperdrive get`, `wrangler email … settings`,
-`dig`, `curl`). Nothing was deployed or migrated, and the prod database was not queried.
+`dig`, `curl`). Nothing was deployed or migrated, and the prod database was not queried (the state at audit
+time, before the go-live; see the next section).
+
+## What happened on 2026-10-10
+
+The go-live ran the same day. It worked, but eight things were different from this runbook as
+first written, and the runbook below now says what to do instead. Facts in this section were
+checked on the day; the backup finding was read from the VPS afterwards (read-only).
+
+1. **The site went out before the images were in place.** `voidbinder.de` was deployed and the
+   app URL became visible before the image mirror had filled the prod `image_key` columns. The
+   app showed every card as "fehlt": the CSP allows only `img.voidbinder.de`, and the API's
+   source-URL fallback is blocked by it on purpose. Fix: step 8 (image keys) now gates step 11
+   (site) and sharing the app URL, with a count query (step 8) that must pass first.
+2. **Pokémon was copied, not imported.** The TCGdex full import (80 min) was stopped and the
+   Pokémon catalog was copied from `voidbinder_dev` into `voidbinder` with Max's go, using the
+   one-off script `~/copy-pokemon-dev-to-prod.sh` on the VPS (column names had to be qualified in
+   the joins and the ids cast to `uuid` for the key update). VB-76 turns it into
+   `scripts/vps/copy-catalog.sh`. A copy is now the default path for a database that has no
+   catalog while the other one does (step 7). A copy does not bump `app_meta.catalog_version` and
+   does not purge the edge cache, so an incremental import has to follow.
+3. **Image keys.** The VPS mirror, run as `--verify --sm --concurrency 16`, did about 180 rows/s:
+   Magic's 105k rows took about 10 minutes, Yu-Gi-Oh! likewise. A Workflow instance that shows
+   `Waiting` after its catalog steps is the 7-minute purge sleep (VB-71), not a stuck run.
+4. **There are no backups.** `docker exec voidbinder-db pgbackrest … backup` failed with
+   `unable to open missing file /etc/pgbackrest/pgbackrest.conf`. Reading the VPS showed why:
+   [database-vps.md section 7](database-vps.md#7-backups-with-pgbackrest-to-backblaze-b2) was
+   never carried out. `/opt/voidbinder-db/pgbackrest/` is empty (it is mounted at
+   `/etc/pgbackrest` and has no config), `ubuntu` has no crontab, `/var/log/voidbinder-db-backup.log`
+   does not exist, root has no crontab, `/etc/cron.d` has no backup job, and the only timers are the
+   two Voidbinder user timers and the stock system ones. **No backup of any kind has ever run, and
+   nothing is archived.** It is worse than missing backups: `archive_mode=on` with
+   `archive_command = pgbackrest … archive-push` is active, so every archive attempt fails.
+   At 09:04 UTC, `pg_stat_archiver` showed 0 archived, 4,662 failed, no `last_archived_wal`,
+   and `pg_wal` held 11 GB (645 segments waiting). PostgreSQL keeps every segment it could not
+   archive, so `/var/lib/postgresql` (35 GB free of 49 GB) fills up as the catalog imports and
+   the price writes continue, and PostgreSQL stops when it is full. See B6.
+5. **systemd `Environment` needs quotes.** `Environment=DBS=prod dev` loses the second word.
+   Write `Environment="DBS=prod dev"`. The loaded `catalog-modules` unit still had
+   `GAMES=yugioh`, so it needed an override with all three games. The overrides now live in
+   `~/.config/systemd/user/{image-mirror,catalog-modules}.service.d/override.conf`. The unit in
+   the repo (`scripts/vps/catalog-modules.service`) already lists `yugioh pokemon mtg`; it was
+   not changed.
+6. **The workstation's resolver cached the NXDOMAIN** for `api.voidbinder.de` after the custom
+   domain was created. `curl --resolve` or `dig @1.1.1.1` shows the real state (step 5).
+7. **Step 7's curl form works:** `-o /dev/stdout -w ' %{http_code}'` printed
+   `{"status":"started"} 202` (body first, then the status).
+8. **Prod figures on the day:** 9 API migrations; Magic 103,435 prints, 99,799 with an image key;
+   Pokémon 21,290 / 19,663; Yu-Gi-Oh! 44,266 / 44,266; catalog modules at version 3 for every
+   game; the Scryfall Workflow completed (prices ok); the first TCGCSV run and a TCGdex
+   incremental run started at about 09:0x UTC.
 
 ## State found by the audit
 
@@ -50,6 +100,15 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 
 ### Blocking (fix before the app URL is shared)
 
+- **B6. No backups, and the WAL archive fails (found 2026-10-10, after the go-live).** Do
+  [database-vps.md section 7](database-vps.md#7-backups-with-pgbackrest-to-backblaze-b2) now: the
+  B2 bucket and key, `pgbackrest.conf`, `stanza-create`, `check`, the first full backup and the
+  crontab. Until then every archive attempt fails and `pg_wal` grows (11 GB at 09:04 UTC on
+  2026-10-10, 645 segments). Watch it with
+  `docker exec voidbinder-db sh -c 'du -sh /home/postgres/pgdata/data/pg_wal'` and
+  `df -h /var/lib/postgresql`. This is the first thing to fix, ahead of everything else on this
+  list. The audit assumed section 7 was done; the runbook now has a gate for it in step 3.
+  Tracked as VB-78.
 - **B1. Privacy policy (VB-62) not on `main`.** The site's `datenschutz.md` / `privacy.md` still
   describe only the waitlist and the Cloudflare beacon. Accounts, sessions, two-factor data,
   Turnstile on sign-up and Plausible need to be in the policy before the site and the app go live
@@ -86,10 +145,10 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
   dashboard → Notifications, also add "Workers: weekly summary" and "Hyperdrive" alerts if
   offered on the plan. Import failures show only as `import_runs.status = 'failed'` and in the
   logs: a daily query or a Kuma push from the VPS is a follow-up.
-- **N3. The stale catalog-modules unit on the VPS.** systemd still runs the version it loaded
-  earlier (`GAMES=yugioh`). The file in the clone already lists `yugioh pokemon mtg`, but nobody
-  ran `daemon-reload`. Step 10's `systemctl --user edit` reloads it as a side effect, and after
-  that dev gets Magic and Pokémon modules too.
+- **N3. (Closed 2026-10-10) The stale catalog-modules unit on the VPS.** The loaded unit still
+  had `GAMES=yugioh`; the file in the clone already lists `yugioh pokemon mtg`. An override with
+  all three games now sits in `~/.config/systemd/user/catalog-modules.service.d/override.conf`
+  (see step 10 for how to write one).
 - **N4. The first prod import re-downloads up to 4,500 images.** Each import Workflow's mirror
   step (Magic and Pokémon 2,000, Yu-Gi-Oh! 500) runs without `--verify` and downloads images that
   dev already put into the shared R2 keys. The result is the same object, so nothing breaks; it
@@ -121,6 +180,13 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 - Run everything from a clean checkout of `main` on the workstation, logged in with
   `wrangler login` (ADR 0002). `CLOUDFLARE_ACCOUNT_ID=152a1fcd0eebb96d1bc30d14b5a6af58` is needed
   for `wrangler r2`, `hyperdrive`, `workflows` and `email`, because the login has two accounts.
+
+## Order rule
+
+Nothing points users at the app until the image keys are in. That means step 8's count check must
+pass **before** step 11 (the site, which links to the app) and before the app URL is shared with
+anyone. Steps 5 to 7 only create the URL and fill the catalog; opening the app in a browser to see
+cards waits until step 8. On 2026-10-10 this order was broken and every card showed as "fehlt".
 
 ## Steps
 
@@ -172,6 +238,20 @@ EOF
 missing, run the extension block of runbook section 5 for `voidbinder` first, because
 `0004_prices.sql` only makes `prices_daily` a hypertable when the extension exists.
 
+**Gate: are backups set up?** (B6) The backup command below only works once
+[database-vps.md section 7](database-vps.md#7-backups-with-pgbackrest-to-backblaze-b2) is done.
+Check first:
+
+```sh
+ls /opt/voidbinder-db/pgbackrest/pgbackrest.conf && crontab -l | grep -c pgbackrest   # the file, and 2
+docker exec voidbinder-db pgbackrest --stanza=voidbinder info                          # status: ok, one full backup
+```
+
+If the file is missing, do section 7 first. If you decide to go on without a backup (the
+migrations are additive, so nothing is lost by migrating), write that decision down in the
+go-live log and fix B6 the same day. On 2026-10-10 the command failed with
+`unable to open missing file /etc/pgbackrest/pgbackrest.conf`.
+
 Take a backup point, then migrate (the script pulls `main` on the VPS):
 
 ```sh
@@ -195,7 +275,7 @@ docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
 ```
 
 **Rollback:** leave the additive migrations in place; nothing reads them and the prod database has
-no API data yet. The pgBackRest restore (runbook section 7) is cluster-wide: it rewinds
+no API data yet. The pgBackRest restore (runbook section 7, once backups exist, B6) is cluster-wide: it rewinds
 `voidbinder_dev` as well and needs the live container stopped, so it means downtime for both
 databases. Use it only as a last resort for a corrupted cluster.
 
@@ -235,7 +315,12 @@ curl -s https://api.voidbinder.de/health
 
 **Expect:** wrangler prints the custom domain `api.voidbinder.de`, five cron schedules and the
 four Workflows. `/health` answers `{"status":"ok","db":"ok","version":"<short sha of main>"}`
-(the certificate can take a minute or two after the first deploy).
+(the certificate can take a minute or two after the first deploy). If the workstation answers
+`Could not resolve host`, its resolver is holding the NXDOMAIN from before the custom domain existed
+(it did on 2026-10-10). Ask a public resolver for the address and pin it:
+`dig +short @1.1.1.1 api.voidbinder.de A`, then
+`curl --resolve api.voidbinder.de:443:<that ip> https://api.voidbinder.de/health`. It clears on its
+own after the negative TTL.
 **Verify also:**
 
 ```sh
@@ -268,37 +353,56 @@ turn it off. Until N1 is done its request fails without any effect. The site get
 from `env.prod.vars` (#64), so the same applies there.
 
 **Expect:** `/api/health` gives the same JSON as step 5 (the proxy works), `/` answers 200 with the
-CSP. In a browser: the home page lists the games, the sign-up page shows the Turnstile widget.
+CSP. Do not look at card pages yet and do not share the URL: no print has an `image_key` until
+step 8, and the CSP blocks the source URLs the API falls back to, so every card shows "fehlt". The
+browser check (home page, a card with its image, the sign-up page with the Turnstile widget) moves
+to the end of step 8.
 **Rollback:** first deploy, so there is no earlier version: remove the domain `app.voidbinder.de`
 in the dashboard (Workers → voidbinder-app → Settings → Domains) or `wrangler delete --env prod`
 from `apps/app`. Later: `wrangler rollback --env prod`.
 
-### 7. Catalog imports (about 90 min, mostly waiting)
+### 7. Catalog imports (about 45 min, mostly waiting)
 
-The three catalog imports may run side by side (dev did: Scryfall and TCGdex overlapped without
-problems). Start them from the workstation:
+Magic and Yu-Gi-Oh! come from the import Workflows. Pokémon is different: **if the other database
+already holds the Pokémon catalog (dev does), copy it instead of importing it.** The TCGdex full
+import takes about 80 minutes; the copy takes minutes. Use the full import on a database only to
+validate the pipeline. Start the two Workflows from the workstation (they may run side by side):
 
 ```sh
 read -rs TOKEN   # paste ADMIN_TOKEN_prod
-for src in scryfall ygoprodeck 'tcgdex?mode=full'; do
+for src in scryfall ygoprodeck; do
   curl -sS -o /dev/stdout -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $TOKEN" "https://api.voidbinder.de/admin/import/$src"
 done
 unset TOKEN
 ```
 
-**Expect:** `202 {"status":"started"}` three times. `409 import_running` means one is already
-running; `404` means `ADMIN_TOKEN` is not set on the Worker.
+**Expect:** `{"status":"started"} 202` twice (the `-o /dev/stdout -w` form prints the body, then the
+status, on one line). `409 import_running` means one is already running; `404` means
+`ADMIN_TOKEN` is not set on the Worker.
+
+**Pokémon, the copy (default).** On the VPS, from `voidbinder_dev` into `voidbinder`. The script
+that did it on 2026-10-10 is `~/copy-pokemon-dev-to-prod.sh` (not in the repo; VB-76 replaces it
+with `scripts/vps/copy-catalog.sh`, use that once it is merged). Two things the first version
+had to get right: qualify every column in the joins (`prints`, `sets` and `cards` share names),
+and cast the ids to `uuid` when updating the keys. The copy needs Max's go, like any write to
+prod. **A copy bypasses the importer**, so afterwards:
+
+- `app_meta.catalog_version` is not bumped and the edge cache is not purged. Run an incremental
+  TCGdex import (`POST /admin/import/tcgdex`, no `mode=full`) after it: it bumps the version and
+  purges.
+- Until that import has finished, the offline catalog modules and the cached API answers still
+  show the old Pokémon data.
 
 Durations measured on dev (`import_runs`, 2026-10-09/10), each plus the 7-minute wait before
 the cache purge (VB-71):
 
-| Import                | Dev duration                | Result on dev                         |
-| --------------------- | --------------------------- | ------------------------------------- |
-| Scryfall catalog      | 8 to 10 min                 | 778 sets, 103,435 prints              |
-| Scryfall prices       | about 6 min (same Workflow) | Cardmarket EUR, TCGplayer USD (Magic) |
-| YGOPRODeck            | 1.5 to 3.5 min              | 662 sets, 44,266 prints               |
-| TCGdex `full`         | 79 min                      | 205 sets, 21,290 prints               |
-| Workflow image deltas | seconds to a minute each    | up to 2,000 / 2,000 / 500 images (N4) |
+| Import                | Dev duration                | Result on dev                                               |
+| --------------------- | --------------------------- | ----------------------------------------------------------- |
+| Scryfall catalog      | 8 to 10 min                 | 778 sets, 103,435 prints                                    |
+| Scryfall prices       | about 6 min (same Workflow) | Cardmarket EUR, TCGplayer USD (Magic)                       |
+| YGOPRODeck            | 1.5 to 3.5 min              | 662 sets, 44,266 prints                                     |
+| TCGdex `full`         | 79 min                      | 205 sets, 21,290 prints (copied to prod instead, see above) |
+| Workflow image deltas | seconds to a minute each    | up to 2,000 / 2,000 / 500 images (N4)                       |
 
 **Verify** (VPS, read-only):
 
@@ -309,24 +413,29 @@ docker exec voidbinder-db psql -U postgres -d voidbinder -XA -c \
 ```
 
 and per Workflow `CLOUDFLARE_ACCOUNT_ID=152a1fcd0eebb96d1bc30d14b5a6af58 pnpm --filter api exec wrangler workflows instances list voidbinder-scryfall-import`
-(likewise `-ygoprodeck-`, `-tcgdex-`). Done when `scryfall`, `ygoprodeck` and `tcgdex` each have
-an `ok` row and `scryfall`/`prices` is `ok`. `https://app.voidbinder.de/mtg` shows sets.
+(likewise `-ygoprodeck-`, `-tcgdex-`). An instance in `Waiting` after its catalog steps is the
+7-minute purge sleep (VB-71), not a problem. Done when `scryfall` and `ygoprodeck` each have an
+`ok` row, `scryfall`/`prices` is `ok`, the Pokémon copy is in and a `tcgdex` incremental run has
+finished. `https://app.voidbinder.de/mtg` shows sets.
 **If a run fails:** the Workflow retries each step three times and the instance resumes where it
 stopped. A run marked `failed` is restarted with the same `curl` (no `409` once it is no longer
 `running`). Look at the step in the dashboard (Workflows → instance) or in the Workers Logs.
 **Rollback:** not needed. The catalog is upserted and idempotent, and an empty or partial catalog
 only means fewer cards.
 
-### 8. Image mirror for prod (VPS, 30 to 60 min, in parallel with TCGdex)
+### 8. Image mirror for prod (VPS, about 30 min, gates the site and the app URL)
 
 The objects are already in R2 from dev (the keys are source ids, shared). `--verify` HEADs them
-and downloads nothing it finds, so prod only gets its `image_key` columns filled. Start it
+and downloads nothing it finds, so prod only gets its `image_key` columns filled. **Do this before
+step 11 and before the URL is shared** (order rule above). Start it
 **after** the Scryfall and YGOPRODeck Workflows have finished their mirror step (a running import
 mirror holds the lock, and the second one stops with "another image mirror is running"). Pokémon
 goes last, after TCGdex.
 
-Check first that the mirror step of both Workflows is done (the instance status is `complete`; the
-`import_runs` `ok` row only says the catalog is written):
+Check first that the mirror step of both Workflows is done: the instance status must be
+`complete`. A `Waiting` instance is still in the 7-minute purge sleep (VB-71) and its mirror step
+comes next, so wait for `complete` before starting the VPS mirror. The `import_runs` `ok` row only
+says the catalog is written:
 
 ```sh
 for w in scryfall ygoprodeck; do
@@ -340,33 +449,49 @@ tmux new -s mirror-prod
 cd ~/voidbinder && git pull --ff-only && pnpm install --filter api
 ENV="--env-file $HOME/.config/voidbinder/r2.env --env-file $HOME/.config/voidbinder/pg.env"
 pnpm --filter api mirror-images $ENV --db prod --game mtg --limit 200 --verify --sm --dry-run
-pnpm --filter api mirror-images $ENV --db prod --game mtg --verify --sm 2>&1 | tee ~/mirror-prod-$(date +%F).log
-pnpm --filter api mirror-images $ENV --db prod --game yugioh --verify --sm 2>&1 | tee -a ~/mirror-prod-$(date +%F).log
-# after TCGdex finished:
-pnpm --filter api mirror-images $ENV --db prod --game pokemon --verify --sm 2>&1 | tee -a ~/mirror-prod-$(date +%F).log
+pnpm --filter api mirror-images $ENV --db prod --game mtg --verify --sm --concurrency 16 2>&1 | tee ~/mirror-prod-$(date +%F).log
+pnpm --filter api mirror-images $ENV --db prod --game yugioh --verify --sm --concurrency 16 2>&1 | tee -a ~/mirror-prod-$(date +%F).log
+# after the TCGdex incremental instance is complete (it follows the copy):
+pnpm --filter api mirror-images $ENV --db prod --game pokemon --verify --sm --concurrency 16 2>&1 | tee -a ~/mirror-prod-$(date +%F).log
 ```
 
 Never run a dev mirror at the same time (runbook section 11: the source rate limits count per IP).
 
 **Expect:** the summary line shows mostly `reused`, few `uploaded`. On dev the full download took
 2 h 15 min (Magic), 17 min (Yu-Gi-Oh!) and 73 min (Pokémon); with `--verify` the run is bound by
-the HEAD requests instead (about 170,000 rows; raise `--concurrency` to 16 if it is slow).
-**Verify:**
+the HEAD requests instead: with `--concurrency 16` it did about 180 rows/s on 2026-10-10, so
+Magic's 105k rows took about 10 minutes and Yu-Gi-Oh! about the same.
+**Gate, per game (must pass before step 11 and before the URL is shared):**
 
 ```sh
 docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
-  "select count(*) filter (where image_key like '%/sm.webp'), count(*) from prints"
+  "select s.game_id, count(*) as prints, count(p.image_key) as keys
+   from prints p join sets s on s.id = p.set_id group by 1 order by 1"
 ```
 
-The two numbers are close (Magic prints without a high-res scan stay without a key). On a card page
-of the app, the image comes from `img.voidbinder.de`.
+`keys` per game must be at least the figure on dev (run the same query on `voidbinder_dev`) and
+close to `prints`: Magic prints without a high-res scan stay without a key. On 2026-10-10 the
+result was `mtg` 103,435 / 99,799, `pokemon` 21,290 / 19,663, `yugioh` 44,266 / 44,266. If a game
+is far below dev, run its mirror again (it is resumable) before going on.
+**Then the browser check:** on `https://app.voidbinder.de` the home page lists the games, a card
+page shows its image from `img.voidbinder.de` (not "fehlt"), and the sign-up page shows the
+Turnstile widget.
 
 Then switch the nightly timer to both databases:
 
 ```sh
-systemctl --user edit image-mirror.service    # add: [Service] / Environment=DBS=prod dev
-systemctl --user show image-mirror.service -p Environment   # DBS=prod dev
+mkdir -p ~/.config/systemd/user/image-mirror.service.d
+cat > ~/.config/systemd/user/image-mirror.service.d/override.conf <<'EOF'
+[Service]
+Environment="DBS=prod dev"
+EOF
+systemctl --user daemon-reload
+systemctl --user show image-mirror.service -p Environment   # must show DBS=prod dev
 ```
+
+The quotes are required: systemd splits an unquoted `Environment=DBS=prod dev` at the space and
+drops `dev` (`systemctl --user edit` writes the same file, but its editor makes the quotes easy
+to forget). `show` must print `DBS=prod dev`; with `DBS=prod` alone the quotes are missing.
 
 **Rollback:** `systemctl --user revert image-mirror.service`. The keys stay; they point at
 objects that exist.
@@ -384,7 +509,7 @@ curl -sS -o /dev/stdout -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $
 unset TOKEN
 ```
 
-**Expect:** `202`; on dev the run took 18 min, plus the 7-minute purge wait.
+**Expect:** `{"status":"started"} 202`; on dev the run took 18 min, plus the 7-minute purge wait.
 **Verify:** `import_runs` has `tcgcsv`/`prices` `ok`, and
 `select source, count(*) from prices_current group by 1` shows `tcgplayer`, `cardmarket` and
 `tcgplayer_scryfall` (dev: 498,747 rows in total). A card page in the app shows a price with its
@@ -394,20 +519,34 @@ source and date.
 ### 10. Offline catalog modules for prod (VPS, 15 min)
 
 ```sh
-systemctl --user edit catalog-modules.service   # add: [Service] / Environment=DBS=prod dev
-systemctl --user show catalog-modules.service -p Environment   # DBS=prod dev GAMES=yugioh pokemon mtg
+mkdir -p ~/.config/systemd/user/catalog-modules.service.d
+cat > ~/.config/systemd/user/catalog-modules.service.d/override.conf <<'EOF'
+[Service]
+Environment="DBS=prod dev"
+Environment="GAMES=yugioh pokemon mtg"
+EOF
+systemctl --user daemon-reload
+systemctl --user show catalog-modules.service -p Environment   # must show DBS=prod dev and GAMES=yugioh pokemon mtg
 systemctl --user start catalog-modules           # one run by hand now
 journalctl --user -u catalog-modules -n 30
 curl -s https://img.voidbinder.de/modules/prod/yugioh/manifest.json
 curl -s https://api.voidbinder.de/catalog/modules
 ```
 
+Quote both values (step 8). The `GAMES` line is there because the unit systemd had loaded on
+2026-10-10 still said `GAMES=yugioh`; the file in the repo already lists all three, so once the
+loaded unit matches it the line is redundant but harmless. `systemctl --user cat
+catalog-modules.service` shows the unit and the drop-in as systemd sees them.
+
 **Expect:** `catalog module built` for each game, the manifest has the current `catalog_version`,
 and `/catalog/modules` answers the same manifests (after the 10-minute edge cache, VB-71).
 **Rollback:** `systemctl --user revert catalog-modules.service`; the `modules/prod/` objects are
 harmless (nothing reads them until the native app ships).
 
-### 11. Deploy the site (5 min, needs B1 and #64 on `main`)
+### 11. Deploy the site (5 min, needs B1 and #64 on `main`, and the step 8 gate passed)
+
+**Do not run this before the step 8 count query passes.** The site links to the app; a visitor who
+follows the link before the image keys exist sees every card as "fehlt" (2026-10-10).
 
 ```sh
 pnpm --filter site deploy:prod
@@ -452,6 +591,8 @@ go, but before the URL is shared widely.
 
 ### 14. After the go-live
 
+- B6 (VB-78): set up backups (database-vps.md section 7) if it is not done yet.
+- VB-76: replace the one-off Pokémon copy script with `scripts/vps/copy-catalog.sh`.
 - VB-63: price history backfill on prod, after step 9.
 - The prod crons from now on, daily (UTC): Scryfall 03:00, YGOPRODeck 03:30, TCGdex 04:00
   (incremental), TCGCSV 20:30 and 22:30. VPS: image mirror 05:30 and catalog modules 06:30 (both
@@ -467,13 +608,17 @@ go, but before the URL is shared widely.
 | API Worker   | `wrangler rollback [version-id] --env prod` from `apps/api` (the last 100 versions; bindings must still exist); or remove the domain. Then delete the five cron triggers in the dashboard (they are not part of a version and keep firing) |
 | App Worker   | First deploy: remove `app.voidbinder.de` or `wrangler delete --env prod`; later `wrangler rollback --env prod`                                                                                                                             |
 | Site Worker  | `wrangler rollback --env prod` from `apps/site`                                                                                                                                                                                            |
-| Database     | Migrations are additive only; leave them in place; a pgBackRest restore (runbook section 7) rewinds both databases and means downtime, last resort only                                                                                    |
+| Database     | Migrations are additive only; leave them in place; a pgBackRest restore (runbook section 7) rewinds both databases and means downtime, last resort only. It exists only once B6 is fixed: until then there is nothing to restore from      |
 | Catalog data | Upserts, idempotent; re-run an import to repair, never delete                                                                                                                                                                              |
 | VPS timers   | `systemctl --user revert image-mirror.service catalog-modules.service`                                                                                                                                                                     |
 | Secrets      | A rollback keeps today's secrets; `ADMIN_TOKEN` can be rotated any time, never rotate `BETTER_AUTH_SECRET` or `TWO_FACTOR_ENCRYPTION_KEY`                                                                                                  |
 
 ## Time
 
-About 3 hours from step 1 to step 12, mostly waiting on the TCGdex full import (about 90 min with
-the purge wait), which runs in parallel with the Magic and Yu-Gi-Oh! image mirror. Hands-on
+About 2.5 hours from step 1 to step 12, mostly waiting. The long part is step 7: the Magic and
+Yu-Gi-Oh! Workflows (about 30 min each with the prices, the purge wait and their mirror step, side
+by side) while the Pokémon copy runs on the VPS (minutes), followed by the TCGdex incremental
+(about 15 min with its purge wait and mirror step). Step 8, the VPS mirror at about 180 rows/s
+(about 10 min per big game), takes about 30 min and starts for each game once its Workflow instance
+is `complete`; it gates step 11 (the site). Steps 9 (TCGCSV, about 25 min) and 10 (15 min) follow. Hands-on
 time is about 1 hour. Not counted: Max's dashboard work (B2, N1, N2) and the VB-62 review.

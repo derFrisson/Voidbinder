@@ -1314,6 +1314,32 @@ S3 client. Plan: a full backup every Sunday, an incremental one on the other day
 continuously, four full backups kept (about four weeks of point-in-time recovery). The restore
 drill at the end proves the backups can actually be restored.
 
+> [!WARNING]
+> **Status on 2026-10-10: this section had never been carried out on the production VPS.** The
+> compose file from section 4 already sets `archive_mode=on` and
+> `archive_command=pgbackrest … archive-push`, so with no config every archive attempt fails and
+> PostgreSQL keeps every WAL segment: 11 GB in `pg_wal` (645 segments), 4,662 failed attempts,
+> nothing ever archived, at 09:04 UTC that day. Skipping this section is not neutral, it slowly
+> fills the data disk. Check where you stand before anything else:
+>
+> ```sh
+> ls -l /opt/voidbinder-db/pgbackrest/                    # must contain pgbackrest.conf
+> crontab -l | grep -c pgbackrest                         # 2
+> docker exec voidbinder-db psql -U postgres -XAt -c \
+>   "select archived_count, failed_count, last_archived_wal from pg_stat_archiver"
+> docker exec voidbinder-db pgbackrest --stanza=voidbinder info
+> ```
+>
+> A missing config shows as `unable to open missing file /etc/pgbackrest/pgbackrest.conf` (the
+> directory is bind-mounted into the container at `/etc/pgbackrest`, so the file must be on the
+> host in `/opt/voidbinder-db/pgbackrest/`); `failed_count` rising and no `last_archived_wal`
+> means archiving never worked. The backups run from the crontab of `ubuntu` on the host (the
+> schedule below), not from a container or a timer: no crontab, no backups.
+> Once the config, the stanza and the first full backup are in place, `failed_count` stops rising
+> and `pg_wal` shrinks as the first archive-push drains the backlog (old WAL from before the first
+> backup is not needed for a restore; the backup is the starting point). Check it with
+> `du -sh` on `pg_wal` inside the container and `df -h /var/lib/postgresql`.
+
 **Bucket and key in B2** (web UI, EU Central account):
 
 1. **Buckets → Create a Bucket**: a globally unique name such as
@@ -1406,6 +1432,10 @@ full backup, because they only apply to backups made after. `archive-async=y` wi
 when B2 is unreachable for long, pgBackRest drops the queued WAL once 4 GiB are waiting, which
 ends point-in-time recovery until the next full backup, instead of letting `pg_wal` fill the data
 disk and stop Postgres; the WAL archive check in section 8 alerts long before that.
+
+Expect an `archive-push-queue-max` warning about dropped WAL on the first archive-push after the
+fix: the backlog (11 GB on 2026-10-10) is far above 4 GiB. It is harmless here, because the first
+full backup follows and is the starting point of any restore.
 
 `tee` keeps the existing file, so owner and mode stay as created in section 4; the `chown` line
 makes sure. The file stays in `/opt/voidbinder-db/pgbackrest` and belongs to the database user's mapped ID: the
@@ -1817,7 +1847,8 @@ Then check that all of this is true:
       `{"status":"pending"}` and the row is in `voidbinder_dev`.
 - [ ] The Hyperdrive ids are committed in `apps/site/wrangler.jsonc`.
 - [ ] `pgbackrest --stanza=voidbinder check` succeeds and `pgbackrest info` shows at least one full
-      backup.
+      backup, and `pg_stat_archiver` has `failed_count` 0 (or not rising) and a `last_archived_wal`
+      (section 7 shows the query; on 2026-10-10 this item had been ticked without being done).
 - [ ] `crontab -l` (as `ubuntu`) lists the backup jobs and the health check, and the next
       morning's log shows a successful backup.
 - [ ] The database survives a reboot with nobody logged in: run `sudo reboot`, wait three minutes
@@ -1964,9 +1995,22 @@ ln -sf ~/voidbinder/scripts/vps/image-mirror.{service,timer} ~/.config/systemd/u
 systemctl --user daemon-reload && systemctl --user enable --now image-mirror.timer
 ```
 
-It mirrors `dev` only (`Environment=DBS=dev`). After Max's go for prod:
-`systemctl --user edit image-mirror.service`, add `[Service]` and `Environment=DBS=prod dev`,
-save. Each run pulls `main` first. Logs: `journalctl --user -u image-mirror -n 50`; start one by
+It mirrors `dev` only (`Environment=DBS=dev`). After Max's go for prod, add a drop-in with the
+value **in quotes** (systemd splits an unquoted `Environment=DBS=prod dev` at the space and
+drops `dev`):
+
+```sh
+mkdir -p ~/.config/systemd/user/image-mirror.service.d
+cat > ~/.config/systemd/user/image-mirror.service.d/override.conf <<'EOF'
+[Service]
+Environment="DBS=prod dev"
+EOF
+systemctl --user daemon-reload
+systemctl --user show image-mirror.service -p Environment   # DBS=prod dev
+```
+
+(`systemctl --user edit image-mirror.service` writes the same `override.conf`.) This is the
+state on the VPS since 2026-10-10. Each run pulls `main` first. Logs: `journalctl --user -u image-mirror -n 50`; start one by
 hand with `systemctl --user start image-mirror`.
 
 **verify:** the dry run lists `rows` and `images`; after the short run,
@@ -2029,9 +2073,25 @@ ln -sf ~/voidbinder/scripts/vps/catalog-modules.{service,timer} ~/.config/system
 systemctl --user daemon-reload && systemctl --user enable --now catalog-modules.timer
 ```
 
-It builds `dev` only (`Environment=DBS=dev`). After Max's go for prod:
-`systemctl --user edit catalog-modules.service`, add `[Service]` and `Environment=DBS=prod dev`,
-save. Logs: `journalctl --user -u catalog-modules -n 50`; start one by hand with
+It builds `dev` only (`Environment=DBS=dev`). After Max's go for prod, add a drop-in, again with
+the values in quotes:
+
+```sh
+mkdir -p ~/.config/systemd/user/catalog-modules.service.d
+cat > ~/.config/systemd/user/catalog-modules.service.d/override.conf <<'EOF'
+[Service]
+Environment="DBS=prod dev"
+Environment="GAMES=yugioh pokemon mtg"
+EOF
+systemctl --user daemon-reload
+systemctl --user show catalog-modules.service -p Environment   # DBS=prod dev and GAMES=yugioh pokemon mtg
+```
+
+The unit in the repo already sets `GAMES=yugioh pokemon mtg`; the `GAMES` line is there because
+the unit systemd had loaded on the VPS still said `GAMES=yugioh` (a unit file changed on disk is
+not used until `daemon-reload`). The drop-ins on the VPS are in
+`~/.config/systemd/user/{image-mirror,catalog-modules}.service.d/override.conf`; `systemctl
+--user cat <unit>` shows the unit and its drop-ins as systemd sees them. Logs: `journalctl --user -u catalog-modules -n 50`; start one by hand with
 `systemctl --user start catalog-modules`.
 
 **Disk.** `~/catalog-modules/<db>/` holds one unpacked module per game (Magic about 150 MB) and,
