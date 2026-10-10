@@ -385,6 +385,7 @@ describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
   // 23052 / 23050 `-EN` again (25th Anniversary Edition).
   const ygo = (set: string, number: string, name: string, variant: string, artwork?: string) => ({
     ...print(`${set}-${number}-${variant}`, number, name, variant),
+    setId: `set-${set}`,
     setCode: set,
     ...(artwork ? { artwork } : {}),
   });
@@ -527,6 +528,21 @@ describe('Yu-Gi-Oh! price mapping gaps (VB-113)', () => {
     expect(rows(matchProducts(lc03, prints, regional))).toEqual([
       ['lc03-EN001-ultra-rare', 1, 'number_match', 70],
       ['lcyw-EN001-ultra-rare', 2, 'number_match', 70],
+    ]);
+  });
+
+  it('name-matches a product without a set-naming number among its own set’s prints only', () => {
+    const prints = [
+      ygo('lc03', 'EN002', 'Dark Magician', 'ultra-rare'),
+      ygo('lcyw', 'EN001', 'Dark Magician', 'ultra-rare'),
+    ];
+    const product: TcgProduct = {
+      productId: 3,
+      name: 'Dark Magician',
+      extendedData: [{ name: 'Rarity', value: 'Ultra Rare' }],
+    };
+    expect(rows(matchProducts([product], prints, { ...regional, setId: 'set-lc03' }))).toEqual([
+      ['lc03-EN002-ultra-rare', 3, 'name_match', 40],
     ]);
   });
 

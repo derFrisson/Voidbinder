@@ -31,6 +31,8 @@ export interface CatalogSet {
 
 export interface CandidatePrint {
   id: string;
+  /** The print's catalog set (`matchProducts`' `setId`). */
+  setId?: string;
   /** Lowercase code of the print's set (`mrd`); a Yu-Gi-Oh! product only takes prints of the set
    * its number names when that set is a candidate (VB-113). */
   setCode?: string;
@@ -291,15 +293,17 @@ function pickArtwork(products: readonly TcgProduct[], print: CandidatePrint) {
  * one product at the same best confidence is ambiguous and left unmatched. `regional` (Yu-Gi-Oh!):
  * products of one number and rarity that differ by name are resolved per print, the one with the
  * print's name wins (`Trial of Hell`, a misprint listed as LOB-012), or artwork variants
- * (`pickArtwork`, 65); rarities through `rarityKey`, so one product prices a number's `Common`, `Short Print` and
- * `Super Short Print`; a product numbered with a candidate set's code takes that set's prints only
- * (LC03's group lists `LCYW-EN…` and `LC03-EN…`); a regional print no product claimed takes the one
- * product of its name and rarity, so one product may price several prints.
+ * (`pickArtwork`, 65); rarities through `rarityKey`, so one product prices a number's `Common`,
+ * `Short Print` and `Super Short Print`; a product numbered with a candidate set's code takes that
+ * set's prints only (LC03's group lists `LCYW-EN…` and `LC03-EN…`); a regional print no product
+ * claimed takes the one product of its name and rarity, so one product may price several prints.
+ * `setId`: the group's set; a product whose number names no candidate set is matched to its prints
+ * only, so a name unique in the set stays unique among another set's candidates.
  */
 export function matchProducts(
   products: readonly TcgProduct[],
   prints: readonly CandidatePrint[],
-  { byId, regional = false }: { byId: boolean; regional?: boolean },
+  { byId, regional = false, setId }: { byId: boolean; regional?: boolean; setId?: string },
 ): ProductMatch[] {
   const found: ProductMatch[] = [];
   if (byId) {
@@ -337,7 +341,11 @@ export function matchProducts(
   };
   const indexes = new Map<string, ReturnType<typeof index>>();
   const index = (code: string) => {
-    const pool = code ? prints.filter((p) => p.setCode === code) : prints;
+    const pool = code
+      ? prints.filter((p) => p.setCode === code)
+      : setId
+        ? prints.filter((p) => p.setId === setId)
+        : prints;
     return {
       byNumber: groupBy(pool, (p) => normNumber(p.number)),
       byName: groupBy(pool, (p) => normName(p.name)),

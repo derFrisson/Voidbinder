@@ -86,6 +86,7 @@ export async function candidatePrints(
   return db
     .select({
       id: prints.id,
+      setId: prints.setId,
       setCode: sets.code,
       number: prints.number,
       variant: prints.variant,
