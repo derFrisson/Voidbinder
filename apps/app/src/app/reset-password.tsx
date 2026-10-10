@@ -4,19 +4,23 @@ import { useState } from 'react';
 import { Text } from 'react-native';
 import { useRequestPasswordReset, useResetPassword } from '../api/queries/auth';
 import { AuthPage, FormError } from '../components/AuthForm';
+import { useTurnstile } from '../components/auth/Turnstile';
 import { Button, Field, Note, TextLink } from '../components/ui';
 import { useT } from '../i18n';
 
 function RequestLink() {
   const t = useT();
   const request = useRequestPasswordReset();
+  const check = useTurnstile();
   const [email, setEmail] = useState('');
   const [invalid, setInvalid] = useState<string>();
   if (request.isSuccess) return <Note>{t.reset.requested}</Note>;
   const submit = () => {
     const parsed = EmailSchema.safeParse(email);
     setInvalid(parsed.success ? undefined : t.errors.email);
-    if (parsed.success) request.mutate(parsed.data);
+    if (!parsed.success) return;
+    const { token, ok } = check.take();
+    if (ok) request.mutate({ email: parsed.data, turnstileToken: token }, { onError: check.renew });
   };
   return (
     <>
@@ -31,6 +35,7 @@ function RequestLink() {
         autoCapitalize="none"
         onSubmitEditing={submit}
       />
+      {check.widget}
       <FormError error={request.error} />
       <Button label={t.reset.request} onPress={submit} busy={request.isPending} wide />
     </>

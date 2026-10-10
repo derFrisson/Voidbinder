@@ -1,6 +1,7 @@
 import './fetch';
 import { cleanup } from '@testing-library/react';
-import { afterEach, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import { turnstileFake } from './turnstile';
 
 // Native modules and the router are replaced: the tests cover the app's own logic, and the
 // router is exercised end to end in test/web.test.ts.
@@ -44,7 +45,10 @@ vi.mock('expo-router', async () => {
   };
 });
 
+beforeEach(() => turnstileFake.install());
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
+  delete window.turnstile;
 });

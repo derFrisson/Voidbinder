@@ -11,9 +11,13 @@
 /** The one host card images may come from (CSP `img-src`, and `CardImage`). */
 export const imageHost = 'img.voidbinder.de';
 
+/** Cloudflare Turnstile (VB-72): its script and the iframe it draws (CSP `script-src`, `frame-src`). */
+const turnstileHost = 'https://challenges.cloudflare.com';
+
 export const contentSecurityPolicy = [
   "default-src 'self'",
-  "script-src 'self'",
+  `script-src 'self' ${turnstileHost}`,
+  `frame-src ${turnstileHost}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: https://${imageHost}`,
   "font-src 'self'",

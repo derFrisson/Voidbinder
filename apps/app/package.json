@@ -10,8 +10,8 @@
     "typecheck": "wrangler types && tsc --noEmit && tsc -p tsconfig.worker.json",
     "lint": "eslint .",
     "test": "vitest run",
-    "deploy:dev": "pnpm run build && wrangler deploy --env dev",
-    "deploy:prod": "pnpm run build && wrangler deploy --env prod"
+    "deploy:dev": "EXPO_PUBLIC_TURNSTILE_SITE_KEY=${EXPO_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAAAAFS5R7qPne3TN2Nz} pnpm run build && wrangler deploy --env dev",
+    "deploy:prod": "EXPO_PUBLIC_TURNSTILE_SITE_KEY=${EXPO_PUBLIC_TURNSTILE_SITE_KEY:-0x4AAAAAAFS5R7qPne3TN2Nz} pnpm run build && wrangler deploy --env prod"
   },
   "dependencies": {
     "@expo/metro-runtime": "~57.0.16",
