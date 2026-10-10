@@ -382,9 +382,11 @@ describe('second review round', () => {
   it('labels the completion bar "Vollständigkeit" and has no owned-badge label', () => {
     const data = setPage() as never;
     const owned: Owned = new Map([[print(1).id, { count: 3, byFinish: { normal: 3 } }]]);
-    const { rerender } = renderApp(<SetHeader data={data} gameName="Magic" owned={owned} />);
+    const { unmount } = renderApp(<SetHeader data={data} gameName="Magic" owned={owned} />);
     expect(screen.getByRole('progressbar', { name: 'Vollständigkeit' })).toBeTruthy();
-    rerender(
+    unmount();
+    // The tiles ask for the ban list (VB-81), so they need the query client renderApp gives.
+    renderApp(
       <CardCollection
         prints={[print(1)]}
         view="grid"

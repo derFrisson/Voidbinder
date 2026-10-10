@@ -8,6 +8,7 @@ import type {
 import { Link } from 'expo-router';
 import { Pressable, Text, View } from 'react-native';
 import { fmt, useLocale, useT } from '../../i18n';
+import { BanBadge, statusFromLimit } from '../banlist/BanBadge';
 import { IconButton } from '../collection/Controls';
 import { Thumb } from '../collection/Entries';
 import { money } from '../collection/format';
@@ -100,6 +101,8 @@ function Row({
     entry.typeLine,
     entry.print && `${entry.print.setCode.toUpperCase()}-${entry.print.number}`,
   ].filter(Boolean);
+  // The ban list status the deck's format reads (Yu-Gi-Oh!: the TCG list), VB-81.
+  const ban = deck.game === 'yugioh' ? statusFromLimit(entry.limit) : null;
   const thumb = {
     imageUrl: entry.print?.imageUrl ?? null,
     game: deck.game,
@@ -131,12 +134,15 @@ function Row({
       <Pressable className="min-w-0 flex-1 flex-row items-center gap-3">
         <Thumb print={thumb} />
         <View className="min-w-0 flex-1">
-          <Text
-            numberOfLines={2}
-            className="font-display text-[15px] font-semibold leading-5 text-ink"
-          >
-            {entry.name}
-          </Text>
+          <View className="flex-row items-center gap-2">
+            <Text
+              numberOfLines={2}
+              className="shrink font-display text-[15px] font-semibold leading-5 text-ink"
+            >
+              {entry.name}
+            </Text>
+            {ban && <BanBadge status={ban} format="tcg" />}
+          </View>
           <Text numberOfLines={1} className="font-body text-xs text-ink-2">
             {sub.join(' · ')}
           </Text>

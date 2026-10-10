@@ -123,6 +123,55 @@ const search = {
   pageSize: 30,
   total: 1,
 };
+// The Yu-Gi-Oh! ban list (VB-81): one card per group, a change, and what it does to a deck.
+const banCard = (n: number, name: string) => ({
+  id: `3333333${n}-3333-4333-8333-333333333333`,
+  name,
+  printId: null,
+  imageUrl: 'https://img.voidbinder.de/x.png',
+  setCode: 'lob',
+  number: `EN00${n}`,
+});
+const banlist = (format: string) => ({
+  format,
+  effectiveDate: format === 'tcg' ? '2026-09-01' : null,
+  asOf: '2026-10-09T03:00:00.000Z',
+  groups: {
+    forbidden: [banCard(1, 'Pot of Greed')],
+    limited: [banCard(2, 'Monster Reborn')],
+    semiLimited: format === 'tcg' ? [banCard(3, 'Raigeki')] : [],
+  },
+  changes: [
+    {
+      card: banCard(1, 'Pot of Greed'),
+      from: 'Limited',
+      to: 'Forbidden',
+      seenAt: '2026-09-02T03:00:00.000Z',
+    },
+  ],
+});
+const banlistImpact = {
+  format: 'tcg',
+  collection: [
+    {
+      card: banCard(1, 'Pot of Greed'),
+      owned: 2,
+      status: 'Forbidden',
+      change: { from: 'Limited', to: 'Forbidden', seenAt: '2026-09-02T03:00:00.000Z' },
+    },
+  ],
+  decks: [
+    {
+      deck: { id: '44444444-4444-4444-8444-444444444444', name: 'Exodia' },
+      card: banCard(1, 'Pot of Greed'),
+      copies: 1,
+      limit: 0,
+      status: 'Forbidden',
+      change: { from: 'Limited', to: 'Forbidden', seenAt: '2026-09-02T03:00:00.000Z' },
+    },
+  ],
+};
+
 const card = {
   card: {
     id: CARD,
@@ -408,6 +457,12 @@ async function open({
       return route.fulfill({ json: mid(url.searchParams.get('rarity')) });
     }
     if (path === '/api/catalog/search') return route.fulfill({ json: search });
+    if (path === '/api/catalog/banlist/yugioh') {
+      return route.fulfill({
+        json: banlist(new URL(req.url()).searchParams.get('format') ?? 'tcg'),
+      });
+    }
+    if (path === '/api/me/banlist-impact') return route.fulfill({ json: banlistImpact });
     if (path === `/api/catalog/cards/${CARD}`) return route.fulfill({ json: card });
     return route.fulfill({
       status: 404,
@@ -772,6 +827,37 @@ describe('web build', () => {
         await page.getByRole('button', { name: 'Bestätigen' }).waitFor();
         await shot('two-factor-challenge');
       }
+    } finally {
+      await context.close();
+    }
+  });
+  it.each(
+    (['light', 'dark'] as const).flatMap((scheme) =>
+      (
+        [
+          [1440, 900],
+          [390, 844],
+        ] as const
+      ).map(([width, height]) => [scheme, width, height] as const),
+    ),
+  )('axe: %s /yugioh/banlist at %i px has no violations', async (scheme, width, height) => {
+    const { context, page, csp } = await open({ width, height, scheme, session: true });
+    try {
+      await page.goto(`${origin}/yugioh/banlist`);
+      await page
+        .getByText('Gültig ab 01.09.2026 (Datum: Yugipedia) · Kartendaten: YGOPRODeck')
+        .waitFor();
+      await page.getByRole('heading', { level: 2, name: 'Deine betroffenen Karten' }).waitFor();
+      await page.getByText('Exodia: 1× im Deck, erlaubt 0').waitFor();
+      await page.getByRole('list', { name: 'Semi-limitiert' }).getByText('Raigeki').waitFor();
+      await page.waitForLoadState('networkidle');
+      expect(await axe(page)).toEqual([]);
+      // The OCG list has no date: the import's "as of" stands in.
+      await page.getByRole('radio', { name: 'OCG' }).click();
+      await page.getByText('Stand 09.10.2026 · Kartendaten: YGOPRODeck').waitFor();
+      expect(await page.getByText('Keine Karten in dieser Gruppe.').count()).toBe(1);
+      expect(await axe(page)).toEqual([]);
+      expect(csp).toEqual([]);
     } finally {
       await context.close();
     }

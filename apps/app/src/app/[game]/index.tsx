@@ -3,7 +3,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { GameChip } from '../../components/catalog/GameChip';
 import { SetList } from '../../components/catalog/SetList';
 import { Heading, Page } from '../../components/Shell';
-import { Empty } from '../../components/ui';
+import { Empty, TextLink } from '../../components/ui';
 import { useT } from '../../i18n';
 
 export default function GameSets() {
@@ -21,6 +21,7 @@ export default function GameSets() {
     <Page title={t.games[game]} back crumbs={[{ label: t.games[game] }]}>
       <GameChip game={game} name={t.games[game]} />
       <Heading>{t.games[game]}</Heading>
+      {game === 'yugioh' && <TextLink href="/yugioh/banlist">{t.banlist.open}</TextLink>}
       <SetList game={game} />
     </Page>
   );
