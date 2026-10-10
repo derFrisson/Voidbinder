@@ -186,7 +186,7 @@ describe('card page', () => {
     renderApp(<CardPage />);
     await screen.findByText('Wachsamkeit');
     expect(calls.filter((c) => c.path.startsWith('/catalog/cards/')).map((c) => c.path)).toEqual([
-      `/catalog/cards/${CARD}?currency=USD`,
+      `/catalog/cards/${CARD}?currency=USD&lang=de`,
     ]);
   });
 

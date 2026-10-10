@@ -14,6 +14,7 @@ import { fmt, useLocale, useT } from '../../i18n';
 import { BanBadge, useBanStatus } from '../banlist/BanBadge';
 import { label } from '../card/attributes';
 import { fieldClass } from '../card/game';
+import { PriceLang } from '../card/PriceLang';
 import { useWide } from '../Shell';
 import { Button, Field, Note, Segmented } from '../ui';
 import { FieldLabel, GameSquare, IconButton, Select, Stepper, Tag } from './Controls';
@@ -310,6 +311,7 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
                 </Text>
               </View>
               <Text className="font-mono text-[13px] text-ink-2">{e.quantity}×</Text>
+              <PriceLang lang={e.price?.lang} shown={e.language} />
               <Text className="min-w-[64px] text-right font-mono text-sm font-semibold text-ink">
                 {amount(total(e), e)}
               </Text>
@@ -393,9 +395,12 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
                   {binder?.name ?? ''}
                 </Text>
               </View>
-              <Text role="cell" className="w-[68px] text-right font-mono text-sm text-ink-2">
-                {e.price ? money(e.price.unitCents, e.price.currency, locale) : ''}
-              </Text>
+              <View role="cell" className="w-[68px] flex-row items-center justify-end gap-1">
+                <PriceLang lang={e.price?.lang} shown={e.language} />
+                <Text className="font-mono text-sm text-ink-2">
+                  {e.price ? money(e.price.unitCents, e.price.currency, locale) : ''}
+                </Text>
+              </View>
               <Text
                 role="cell"
                 className="w-[80px] text-right font-mono text-sm font-semibold text-ink"

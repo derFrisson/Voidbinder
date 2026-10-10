@@ -11,6 +11,7 @@ import {
 import { fmt, useLocale, useT } from '../../i18n';
 import { ErrorState, Segmented } from '../ui';
 import { formatDate, label } from './attributes';
+import { PriceLang } from './PriceLang';
 import { PriceLine } from './PriceLine';
 
 const money = (cents: number, currency: string, locale: Locale) =>
@@ -70,7 +71,7 @@ export function Section({
   );
 }
 
-function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
+function SourceColumn({ i, price, lang }: { i: 0 | 1; price: Price | undefined; lang: string }) {
   const t = useT();
   const locale = useLocale();
   return (
@@ -90,6 +91,7 @@ function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
             <Text className="font-mono text-[28px] font-bold tracking-tight text-ink">
               {money(price.market, price.currency, locale)}
             </Text>
+            <PriceLang lang={price.lang} shown={lang} />
           </View>
           {price.low !== null && (
             <View className="flex-row justify-between">
@@ -119,11 +121,11 @@ function SourceColumn({ i, price }: { i: 0 | 1; price: Price | undefined }) {
   );
 }
 
-function History({ printId, finish }: { printId: string; finish: string }) {
+function History({ printId, finish, lang }: { printId: string; finish: string; lang: string }) {
   const t = useT();
   const locale = useLocale();
   const [days, setDays] = useState<'30' | '90' | '365'>('90');
-  const series = usePriceHistory(printId, Number(days), finish);
+  const series = usePriceHistory(printId, Number(days), finish, lang);
   const points = series?.points ?? [];
   const first = points[0];
   const last = points.at(-1);
@@ -179,12 +181,21 @@ const MAIN_CONDITIONS = ['NM', 'EX', 'GD'];
  * prices are filed under. Without prices it says so and shows no number; a failed read says so
  * and offers a retry.
  */
-export function PricePanel({ printId, finishes }: { printId: string; finishes: string[] }) {
+export function PricePanel({
+  printId,
+  finishes,
+  lang,
+}: {
+  printId: string;
+  finishes: string[];
+  /** The language of the card shown: prices in it first, a chip on one that is another's. */
+  lang: string;
+}) {
   const t = useT();
   const locale = useLocale();
   const [picked, setPicked] = useState<string>();
   const [more, setMore] = useState(false);
-  const { prices, failed, retry } = usePrintPrices(printId, picked);
+  const { prices, failed, retry } = usePrintPrices(printId, lang, picked);
   const display = prices?.display;
   const finish = picked ?? display?.finish ?? finishes[0] ?? 'normal';
   const options = finishOptions(finishes, prices);
@@ -219,7 +230,7 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
             {([0, 1] as const).map(
               (i) =>
                 hasSource(prices, i) && (
-                  <SourceColumn key={i} i={i} price={pick(prices, i, finish)} />
+                  <SourceColumn key={i} i={i} price={pick(prices, i, finish)} lang={lang} />
                 ),
             )}
           </View>
@@ -270,7 +281,7 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
               )}
             </View>
           )}
-          <History printId={printId} finish={finish} />
+          <History printId={printId} finish={finish} lang={lang} />
         </>
       )}
     </Section>
@@ -281,10 +292,10 @@ export function PricePanel({ printId, finishes }: { printId: string; finishes: s
  * The phone's price strip above the buttons, of the display price's finish: both sources, or the
  * one that has rows; dashes while there is no price.
  */
-export function PriceStrip({ printId }: { printId: string }) {
+export function PriceStrip({ printId, lang }: { printId: string; lang: string }) {
   const t = useT();
   const locale = useLocale();
-  const { prices } = usePrintPrices(printId);
+  const { prices } = usePrintPrices(printId, lang);
   const finish = prices?.display?.finish ?? '';
   return (
     <View className="flex-row gap-2">
@@ -300,12 +311,15 @@ export function PriceStrip({ printId }: { printId: string }) {
             <Text className="font-display text-[13px] font-semibold text-ink-2">
               {SOURCES[i].name}
             </Text>
-            <Text
-              aria-label={p ? undefined : t.prices.noneSource}
-              className="font-mono text-base font-bold text-ink"
-            >
-              {p ? money(p.market, p.currency, locale) : '–'}
-            </Text>
+            <View className="flex-row items-baseline gap-1.5">
+              <PriceLang lang={p?.lang} shown={lang} />
+              <Text
+                aria-label={p ? undefined : t.prices.noneSource}
+                className="font-mono text-base font-bold text-ink"
+              >
+                {p ? money(p.market, p.currency, locale) : '–'}
+              </Text>
+            </View>
           </View>
         );
       })}

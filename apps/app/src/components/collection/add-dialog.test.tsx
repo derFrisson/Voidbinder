@@ -58,7 +58,7 @@ const cardOf = (game: Game, langs: string[], finishes = ['normal', 'foil']) => (
 /** The fake API for one card; POST and PATCH answer with what they got. */
 function api(card: ReturnType<typeof cardOf>) {
   return fakeApi(signedIn, (c: Call) => {
-    if (c.path === `/catalog/cards/${CARD}`) return json(card);
+    if (c.path.startsWith(`/catalog/cards/${CARD}`)) return json(card);
     if (c.path.startsWith('/collection/owned'))
       return json({ owned: {}, byFinish: {}, wished: {} });
     if (c.path === '/collection/binders')
@@ -147,7 +147,8 @@ describe('add dialog on the card page', () => {
     expect(screen.queryByRole('radiogroup', { name: 'Ausführung' })).toBeNull();
     expect(radios('Zustand')).toEqual(['MT', 'NM', 'EX', 'GD', 'LP', 'PL', 'PO']);
     expect(checked('Zustand')).toBe('NM');
-    expect(screen.getByRole('combobox', { name: 'Mappe' })).toBeTruthy();
+    // The binders arrive after the dialog's own read of the card (the page's carries `?lang=`).
+    expect(await screen.findByRole('combobox', { name: 'Mappe' })).toBeTruthy();
     expect(screen.getByRole('textbox', { name: 'Notiz' })).toBeTruthy();
     // Focus is inside the dialog; Escape closes it.
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
@@ -236,7 +237,7 @@ describe('add dialog on the card page', () => {
 
   it('keeps the dialog open and says so when adding fails', async () => {
     fakeApi(signedIn, (c) => {
-      if (c.path === `/catalog/cards/${CARD}`) return json(cardOf('mtg', ['en']));
+      if (c.path.startsWith(`/catalog/cards/${CARD}`)) return json(cardOf('mtg', ['en']));
       if (c.method === 'POST')
         return json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500);
       return undefined;

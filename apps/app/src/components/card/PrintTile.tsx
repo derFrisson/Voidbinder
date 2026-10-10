@@ -9,8 +9,11 @@ import { priceTag } from '../catalog/seams';
 import { CardImage } from './CardImage';
 import { numberLabel } from './game';
 
-/** A search result: image, name, set code and number in mono, set name, market price. Opens the card page. */
-export function PrintTile({ hit }: { hit: SearchHit }) {
+/**
+ * A search result: image, name, set code and number in mono, set name, market price. Opens the
+ * card page. `lang`: the language the hit is shown in (its price says when it is another's).
+ */
+export function PrintTile({ hit, lang }: { hit: SearchHit; lang: string }) {
   const t = useT();
   const set = hit.setCode.toUpperCase();
   const code = `${set} ${hit.displayNumber}`;
@@ -44,7 +47,7 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
           <Text numberOfLines={1} className="font-body text-xs text-ink-3">
             {hit.setName}
           </Text>
-          <Price price={priceTag(hit.marketPrice)} />
+          <Price price={priceTag(hit.marketPrice, lang)} />
         </View>
       </Pressable>
     </Link>

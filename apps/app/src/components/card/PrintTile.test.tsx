@@ -26,9 +26,11 @@ describe('PrintTile', () => {
   it('shows the market price with its source and the day it was observed, like the set page', () => {
     renderApp(
       <PrintTile
+        lang="en"
         hit={hit({
           source: 'tcgplayer',
           finish: 'normal',
+          lang: 'en',
           currency: 'USD',
           cents: 402,
           observedAt: '2026-10-09T20:05:19.000Z',
@@ -39,8 +41,25 @@ describe('PrintTile', () => {
     expect(screen.getByText('TCGplayer, Stand 09.10.2026')).toBeTruthy();
   });
 
+  it('marks a price for copies in another language than the hit shows, only then (VB-103)', () => {
+    const price = {
+      source: 'cardmarket' as const,
+      finish: 'normal',
+      lang: 'en',
+      currency: 'EUR' as const,
+      cents: 334,
+      observedAt: '2026-10-10T03:00:00.000Z',
+    };
+    const { unmount } = renderApp(<PrintTile hit={hit(price)} lang="de" />);
+    expect(screen.getByLabelText('Preis für EN-Karten').textContent).toBe('EN');
+    unmount();
+    renderApp(<PrintTile hit={hit({ ...price, lang: 'de' })} lang="de" />);
+    expect(screen.queryByLabelText(/Preis für/)).toBeNull();
+    expect(screen.queryByText('DE')).toBeNull();
+  });
+
   it('shows no number for a print without a price', () => {
-    renderApp(<PrintTile hit={hit(null)} />);
+    renderApp(<PrintTile hit={hit(null)} lang="en" />);
     expect(screen.queryByText(/€|\$/)).toBeNull();
   });
 });
@@ -49,6 +68,7 @@ describe('PrintTile, Yu-Gi-Oh! (VB-97)', () => {
   it('shows the number in the language searched for and boxes the picture at 59:86', () => {
     const { container } = renderApp(
       <PrintTile
+        lang="en"
         hit={{
           ...hit(null),
           game: 'yugioh',

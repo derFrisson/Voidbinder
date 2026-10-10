@@ -16,16 +16,27 @@ export interface PriceTag {
   source: string;
   /** ISO date (UTC day) the source observed the price: `marketPrice.observedAt`. */
   asOf?: string | undefined;
+  /** The language of the copies the price is for, and the language of the card shown (VB-103). */
+  lang?: string | undefined;
+  shown?: string | undefined;
 }
 
-/** A set page or search `marketPrice` as a tag; undefined for a print without a price. */
-export function priceTag(price: DisplayPrice | null | undefined): PriceTag | undefined {
+/**
+ * A set page or search `marketPrice` as a tag, for a card shown in `shown`; undefined for a print
+ * without a price.
+ */
+export function priceTag(
+  price: DisplayPrice | null | undefined,
+  shown: string,
+): PriceTag | undefined {
   return price
     ? {
         cents: price.cents,
         currency: price.currency,
         source: SOURCE_NAME[price.source],
         asOf: price.observedAt.slice(0, 10),
+        lang: price.lang,
+        shown,
       }
     : undefined;
 }
@@ -55,14 +66,15 @@ export function useOwnedPrints(game: Game, code: string): Owned | undefined {
  */
 export function useSetPrices(
   prints: readonly Pick<PrintSummary, 'id' | 'marketPrice'>[] | undefined,
+  lang: string,
 ): ReadonlyMap<string, PriceTag> | undefined {
   return useMemo(() => {
     const entries = (prints ?? []).flatMap((p) => {
-      const tag = priceTag(p.marketPrice);
+      const tag = priceTag(p.marketPrice, lang);
       return tag ? [[p.id, tag] as const] : [];
     });
     return entries.length ? new Map(entries) : undefined;
-  }, [prints]);
+  }, [prints, lang]);
 }
 
 export function formatPrice(price: PriceTag, locale: string): string {

@@ -221,7 +221,7 @@ function Results({
           {prints.map((hit) =>
             me ? (
               <View key={hit.id} className="gap-2">
-                <PrintTile hit={hit} />
+                <PrintTile hit={hit} lang={state.lang} />
                 <QuickAdd
                   printId={hit.id}
                   cardId={hit.cardId}
@@ -231,7 +231,7 @@ function Results({
                 />
               </View>
             ) : (
-              <PrintTile key={hit.id} hit={hit} />
+              <PrintTile key={hit.id} hit={hit} lang={state.lang} />
             ),
           )}
         </Grid>

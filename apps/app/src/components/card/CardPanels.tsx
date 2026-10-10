@@ -106,7 +106,7 @@ export function PrintsTable({
               )}
               <View role="cell" className="flex-[0.8] items-end">
                 {p.marketPrice ? (
-                  <Price price={priceTag(p.marketPrice)} />
+                  <Price price={priceTag(p.marketPrice, locale)} />
                 ) : (
                   <Text aria-label={t.prices.noneSource} className="font-mono text-sm text-ink-2">
                     –

@@ -50,18 +50,23 @@ export interface PrintPrices {
 }
 
 /**
- * The current prices of a print; `finish` picks the finish of the display price and the condition
+ * The current prices of a print of a card shown in `lang` (each price in that language, else
+ * `en`, else another; VB-103); `finish` picks the finish of the display price and the condition
  * estimates (the API's default, usually `normal`, without it).
  */
-export function usePrintPrices(printId: string | undefined, finish?: string): PrintPrices {
+export function usePrintPrices(
+  printId: string | undefined,
+  lang: string,
+  finish?: string,
+): PrintPrices {
   const { currency, ready } = useCurrency();
   const query = useQuery({
-    queryKey: ['catalog', 'prices', printId, currency, finish],
+    queryKey: ['catalog', 'prices', printId, currency, lang, finish],
     queryFn: () =>
       read(
         api.catalog.prints[':id'].prices.$get({
           param: { id: printId ?? '' },
-          query: { currency, ...(finish ? { finish } : {}) },
+          query: { currency, lang, ...(finish ? { finish } : {}) },
         }),
       ),
     enabled: !!printId && ready,
@@ -88,21 +93,23 @@ export type PriceSeries = {
 
 /**
  * The daily market prices of the last `days`, oldest first: the series of `finish` from the
- * source the profile's currency prefers. Null while loading, on failure and without any series.
+ * source the profile's currency prefers, per day in `lang` (else `en`). Null while loading, on
+ * failure and without any series.
  */
 export function usePriceHistory(
   printId: string | undefined,
   days: number,
   finish: string,
+  lang: string,
 ): PriceSeries | null {
   const { currency } = useCurrency();
   const query = useQuery({
-    queryKey: ['catalog', 'price-history', printId, days],
+    queryKey: ['catalog', 'price-history', printId, days, lang],
     queryFn: () =>
       read(
         api.catalog.prints[':id'].prices.history.$get({
           param: { id: printId ?? '' },
-          query: { days: String(days) },
+          query: { days: String(days), lang },
         }),
       ),
     enabled: !!printId,

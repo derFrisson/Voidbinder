@@ -20,6 +20,7 @@ const pid = (n: number) => `p0000000-0000-4000-8000-00000000000${n}`;
 const eur = (cents: number) => ({
   source: 'cardmarket' as const,
   finish: 'normal',
+  lang: 'de',
   currency: 'EUR' as const,
   marketCents: cents,
   factor: 1,

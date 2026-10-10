@@ -67,6 +67,7 @@ const entry: CollectionEntry = {
   price: {
     source: 'cardmarket',
     finish: 'foil',
+    lang: 'de',
     currency: 'EUR',
     marketCents: 320,
     factor: 1,
@@ -408,7 +409,7 @@ describe('card page collection buttons', () => {
   it('adds the print in the user’s language and shows how many copies there are', async () => {
     let copies = 1;
     const calls = fakeApi(signedIn, (c) => {
-      if (c.path === `/catalog/cards/${CARD}`) return json(card);
+      if (c.path.startsWith(`/catalog/cards/${CARD}`)) return json(card);
       if (c.path.startsWith('/collection/owned'))
         return json({ owned: { [PRINT]: copies }, wished: {} });
       if (c.method === 'POST' && c.path === '/collection/entries') {
@@ -470,7 +471,7 @@ describe('adding from the search', () => {
     'QuickAdd uses the user’s language only when the print has it (%j → %s)',
     async (langs, language) => {
       const calls = fakeApi(signedIn, (c) => {
-        if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(langs));
+        if (c.path.startsWith(`/catalog/cards/${CARD}`)) return json(cardWith(langs));
         if (c.method === 'POST' && c.path === '/collection/entries')
           return json({ entries: [] }, 201);
         return undefined;
@@ -487,7 +488,7 @@ describe('adding from the search', () => {
   it('a retried add sends the same client id; a new one after it went through', async () => {
     let fail = true;
     const calls = fakeApi(signedIn, (c) => {
-      if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(['en']));
+      if (c.path.startsWith(`/catalog/cards/${CARD}`)) return json(cardWith(['en']));
       if (c.method === 'POST' && c.path === '/collection/entries') {
         if (!fail) return json({ entries: [] }, 201);
         fail = false;
@@ -516,7 +517,7 @@ describe('adding from the search', () => {
 
   it('starts a fresh client id when the print changes after a failed add', async () => {
     const calls = fakeApi(signedIn, (c) => {
-      if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(['en']));
+      if (c.path.startsWith(`/catalog/cards/${CARD}`)) return json(cardWith(['en']));
       if (c.method === 'POST' && c.path === '/collection/entries')
         return json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500);
       return undefined;
