@@ -310,6 +310,8 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     // A code without a language, a set code alone: the user's language.
     ['sv1 001', '&lang=de', 'de 001/198 Tannza'],
     ['sv1 001', '&lang=en', 'en 001/198 Pineco'],
+    // A bare number: the user's language, the English name where the print has none in it.
+    ['001/198', '&lang=fr', 'fr 001/198 Pineco'],
     ['lds3en121', '&lang=fr', 'en LDS3-EN121 Satellite Warrior'],
     ['053/128', '&lang=de', undefined],
     // A name equal in several languages: ?lang= when it matched, else English.
