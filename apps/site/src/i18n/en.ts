@@ -8,7 +8,7 @@ export const en: Dict = {
     ogLocale: 'en_US',
     title: 'Voidbinder · Your whole collection in one app',
     description:
-      'Pokémon, Yu-Gi-Oh!, Magic and One Piece in one binder: scan, price, build decks. Works offline, with Cardmarket prices. Open source, waitlist open.',
+      'Pokémon, Yu-Gi-Oh!, Magic and One Piece in one binder: scan, price, build decks. Works offline, with Cardmarket prices. Open source, web app in beta.',
   },
   a11y: {
     skip: 'Skip to content',
@@ -22,15 +22,16 @@ export const en: Dict = {
     scanner: 'Scanner',
     prices: 'Prices',
     streamer: 'Streamers',
-    cta: 'Join the waitlist',
-    ctaShort: 'Waitlist',
+    cta: 'Open the web app',
+    ctaShort: 'Web app',
   },
   hero: {
     title: 'Your whole collection. One app.',
     accent: 'With real prices.',
     lede: 'Pokémon, Yu\u2011Gi\u2011Oh!, Magic and One\u00a0Piece in one binder: scan it, price it, build decks with it. Works offline, with Cardmarket prices.',
-    primary: 'Join the waitlist',
-    secondary: 'View the source',
+    primary: 'Open the web app',
+    secondary: 'Join the waitlist',
+    appNote: 'The web app is in beta. For the phone app, join the waitlist.',
     trustLabel: 'In short',
     trust: ['Open source', 'Made in Germany', 'Works offline', '4 games'],
     art: 'A phone scans the example card Glimmerfuchs and shows it with its price, a deck list behind it',
@@ -191,11 +192,11 @@ export const en: Dict = {
   },
   waitlist: {
     title: 'Get into the beta.',
-    lede: "We'll email you when the beta starts. One email, no newsletter.",
+    lede: "We'll email you when the phone app beta starts. One email, no newsletter.",
     emailLabel: 'Email address',
     emailPlaceholder: 'you@example.com',
     consentBefore:
-      'I agree that Voidbinder stores my email address to let me know when the beta starts. More in the ',
+      'I agree that Voidbinder stores my email address to let me know when the phone app beta starts. More in the ',
     consentLink: 'privacy policy',
     consentAfter: '.',
     submit: 'Sign up',

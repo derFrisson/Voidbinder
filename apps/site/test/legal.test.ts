@@ -14,8 +14,15 @@ const ALLOWED_HOSTS = [
   'github.com',
   'voidcom.app',
   'cloudflare.com', // links to Cloudflare's own pages
-  'cloudflareinsights.com', // Web Analytics beacon
+  'cloudflareinsights.com', // Web Analytics beacon (only named in the privacy text)
 ];
+// The web app CTA of the build under test (wrangler var PUBLIC_APP_URL: localhost, dev or prod).
+const { PUBLIC_APP_URL } = (
+  JSON.parse(readFileSync(new URL('../server/wrangler.json', client), 'utf8')) as {
+    vars: { PUBLIC_APP_URL: string };
+  }
+).vars;
+ALLOWED_HOSTS.push(new URL(PUBLIC_APP_URL).hostname);
 const allowed = (host: string) => ALLOWED_HOSTS.some((h) => host === h || host.endsWith(`.${h}`));
 
 const legalPaths = [

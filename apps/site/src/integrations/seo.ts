@@ -11,15 +11,17 @@ import { ogImagePath, ogImageSize } from '../seo';
  * - one 1200×630 Open Graph PNG per built HTML page, from that page's og:title / og:description
  *   (static assets under /og/, never rendered per request);
  * - the security headers appended to `_headers` for every static asset (prod adds HSTS, chosen by
- *   CLOUDFLARE_ENV like the rest of the deploy config).
+ *   CLOUDFLARE_ENV like the rest of the deploy config; PLAUSIBLE_HOST joins the CSP).
  */
 export function seo(): AstroIntegration {
   let client: URL;
+  let server: URL;
   return {
     name: 'voidbinder:seo',
     hooks: {
       'astro:config:done': ({ config }) => {
         client = config.build.client;
+        server = config.build.server;
       },
       'astro:build:done': async ({ logger }) => {
         const fonts = await loadFonts();
@@ -39,7 +41,14 @@ export function seo(): AstroIntegration {
         }
         logger.info(`${pages.length} Open Graph images written to /og/`);
 
-        const headers = securityHeaders(process.env.CLOUDFLARE_ENV === 'prod');
+        // The build's environment, flattened by the adapter, is where PLAUSIBLE_HOST lives.
+        const { vars } = JSON.parse(await readFile(new URL('wrangler.json', server), 'utf8')) as {
+          vars?: { PLAUSIBLE_HOST?: string };
+        };
+        const headers = securityHeaders(
+          process.env.CLOUDFLARE_ENV === 'prod',
+          vars?.PLAUSIBLE_HOST,
+        );
         const rule = Object.entries(headers).map(([name, value]) => `  ${name}: ${value}`);
         await appendFile(new URL('_headers', client), `\n/*\n${rule.join('\n')}\n`);
       },

@@ -128,14 +128,18 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
     the Sprint 3 stopgap until the React Native client has a widget; off, native sign-ups are
     refused with 400 `turnstile_failed`. The header is never validated, so `"true"` switches the
     check off for any client that sends one, not only native apps: it means no bot protection.
-- **Analytics token (not a secret):** `PUBLIC_CF_ANALYTICS_TOKEN` is the Cloudflare Web Analytics
-  site token, read by `astro build` and baked into the static pages (it is public in the HTML).
-  Unset or empty means no beacon is rendered, which is the default for local builds and CI. Create
-  one Web Analytics site per environment in the Cloudflare dashboard (Web Analytics, add a site,
-  manual JS snippet: the workers.dev host for `dev`, `voidbinder.de` for `prod`, with automatic
-  injection off) and pass its token to the build:
-  `PUBLIC_CF_ANALYTICS_TOKEN=<token> pnpm --filter site deploy:dev|prod`. See
-  [site/seo.md](site/seo.md).
+- **Site settings** are `vars` in `apps/site/wrangler.jsonc`, read at build (`env` of
+  `cloudflare:workers` in the prerender, so build and deploy with the same `CLOUDFLARE_ENV`):
+  `PUBLIC_APP_URL` is the web app the header and hero buttons link to (`https://app.voidbinder.de`
+  in `prod`, `https://voidbinder-app-dev.frisson.workers.dev` in `dev`, `http://localhost:8081`
+  locally), and `PLAUSIBLE_HOST` (VB-74) is the hostname of the self-hosted Plausible
+  (`web-analytics.voidcom.app`), **set in `prod` only**. With it the pages carry
+  `<script defer data-domain="voidbinder.de" src="https://<host>/js/script.js">` and the CSP names
+  the host in `script-src` and `connect-src`; without it (local, `dev`, CI) there is no script and
+  no CSP entry. Plausible stores no cookies and no personal data, so there is no consent banner
+  ([site/seo.md](site/seo.md)). It replaces the Cloudflare Web Analytics beacon and its
+  `PUBLIC_CF_ANALYTICS_TOKEN`, which no longer exists. The Plausible instance itself (server,
+  site `voidbinder.de`) is operated outside this repository.
 - **Web app analytics (not a secret):** `EXPO_PUBLIC_PLAUSIBLE_HOST` (the self-hosted Plausible,
   `https://web-analytics.voidcom.app`) and `EXPO_PUBLIC_PLAUSIBLE_DOMAIN` (`app.voidbinder.de`, as
   registered in Plausible) are inlined by `expo export` and admitted by the CSP's `connect-src`.

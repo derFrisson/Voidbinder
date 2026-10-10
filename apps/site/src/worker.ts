@@ -18,7 +18,7 @@ export default {
       ? await withWaitlist(ctx, (deps) => handleUnsubscribe(request, deps))
       : await handle(request, env, ctx);
     // Prod is the environment whose SITE_URL is astro.config `site`; only it sends HSTS.
-    return withSecurityHeaders(response, env.SITE_URL === import.meta.env.SITE);
+    return withSecurityHeaders(response, env.SITE_URL === import.meta.env.SITE, env.PLAUSIBLE_HOST);
   },
   /** Cron Trigger (wrangler.jsonc `triggers`): the waitlist retention purge. Errors propagate so a failed run shows up as one. */
   async scheduled(controller, env, ctx) {
@@ -35,9 +35,14 @@ export default {
   },
 } satisfies ExportedHandler<Env>;
 
-function withSecurityHeaders(response: Response, prod: boolean): Response {
+function withSecurityHeaders(
+  response: Response,
+  prod: boolean,
+  plausibleHost: string | undefined,
+): Response {
   // Responses from fetch() or Response.redirect() have immutable headers; copy before setting.
   const out = new Response(response.body, response);
-  for (const [name, value] of Object.entries(securityHeaders(prod))) out.headers.set(name, value);
+  for (const [name, value] of Object.entries(securityHeaders(prod, plausibleHost)))
+    out.headers.set(name, value);
   return out;
 }

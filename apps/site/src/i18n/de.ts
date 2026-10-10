@@ -8,7 +8,7 @@ export const de = {
     ogLocale: 'de_DE',
     title: 'Voidbinder · Deine ganze Sammlung in einer App',
     description:
-      'Pokémon, Yu-Gi-Oh!, Magic und One Piece in einer Mappe: scannen, bewerten, Decks bauen. Offline, auf Deutsch, mit Cardmarket-Preisen. Open Source, Warteliste offen.',
+      'Pokémon, Yu-Gi-Oh!, Magic und One Piece in einer Mappe: scannen, bewerten, Decks bauen. Offline, auf Deutsch, mit Cardmarket-Preisen. Open Source, Web-App in der Beta.',
   },
   a11y: {
     skip: 'Zum Inhalt springen',
@@ -22,15 +22,17 @@ export const de = {
     scanner: 'Scanner',
     prices: 'Preise',
     streamer: 'Streamer',
-    cta: 'Auf die Warteliste',
-    ctaShort: 'Warteliste',
+    cta: 'Web-App öffnen',
+    ctaShort: 'Web-App',
   },
   hero: {
     title: 'Deine ganze Sammlung. Eine App.',
     accent: 'Mit echten Preisen.',
     lede: 'Pokémon, Yu\u2011Gi\u2011Oh!, Magic und One\u00a0Piece in einer Mappe: scannen, bewerten, Decks bauen. Offline, auf Deutsch, mit Cardmarket-Preisen.',
-    primary: 'Auf die Warteliste',
-    secondary: 'Quellcode ansehen',
+    primary: 'Web-App öffnen',
+    secondary: 'Auf die Warteliste',
+    appNote:
+      'Die Web-App ist in der Beta. Für die Handy-App kannst du dich auf die Warteliste setzen.',
     trustLabel: 'Kurz gesagt',
     trust: ['Open Source', 'Aus Deutschland', 'Offline', '4 Spiele'],
     art: 'Handy scannt die Beispielkarte Glimmerfuchs und zeigt sie mit Preis an, dahinter eine Deckliste',
@@ -191,11 +193,11 @@ export const de = {
   },
   waitlist: {
     title: 'Sei bei der Beta dabei.',
-    lede: 'Wir schreiben dir, sobald die Beta startet. Eine Mail, kein Newsletter.',
+    lede: 'Wir schreiben dir, sobald die Beta der Handy-App startet. Eine Mail, kein Newsletter.',
     emailLabel: 'E-Mail-Adresse',
     emailPlaceholder: 'du@beispiel.de',
     consentBefore:
-      'Ich bin einverstanden, dass Voidbinder meine E-Mail-Adresse speichert, um mich über den Beta-Start zu informieren. Mehr in der ',
+      'Ich bin einverstanden, dass Voidbinder meine E-Mail-Adresse speichert, um mich über den Beta-Start der Handy-App zu informieren. Mehr in der ',
     consentLink: 'Datenschutzerklärung',
     consentAfter: '.',
     submit: 'Eintragen',

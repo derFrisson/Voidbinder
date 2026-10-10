@@ -1,4 +1,5 @@
 ---
+import { env } from 'cloudflare:workers';
 import { locales, localePath, t, type Locale } from '../i18n';
 import Logo from './Logo.astro';
 
@@ -15,6 +16,7 @@ const links = [
   { href: `${home}#streamer`, label: d.nav.streamer },
 ];
 const { pathname: path, search } = Astro.url;
+const appUrl = env.PUBLIC_APP_URL;
 ---
 
 <header class="nav">
@@ -46,7 +48,7 @@ const { pathname: path, search } = Astro.url;
           ))
         }
       </ul>
-      <a class="btn btn--primary cta" href={`${home}#waitlist`}
+      <a class="btn btn--primary cta" href={appUrl}
         ><span class="cta-long">{d.nav.cta}</span><span class="cta-short">{d.nav.ctaShort}</span></a
       >
     </div>

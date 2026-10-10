@@ -127,12 +127,7 @@ card, phone and field is CSS and inline SVG, sized by the layout. No JavaScript 
 waitlist form's script. Layout shift is 0, including the hero animation (transform and opacity
 only), the font swap and the form.
 
-The Web Analytics beacon is only in the build when `PUBLIC_CF_ANALYTICS_TOKEN` is set, so the
-reports above are without it. A probe build with a placeholder token kept Performance, Accessibility
-and SEO at 100 and showed Best Practices 96: the beacon's report call to `cloudflareinsights.com`
-is rejected by CORS because `127.0.0.1` is not the registered site, which Lighthouse lists as a
-console error. That is an artefact of measuring locally with a fake token; re-measure on the
-deployed dev Worker with the real token before relying on it.
+Plausible is only in the prod build (`PLAUSIBLE_HOST`), so the reports above are without it. Re-measure on the deployed prod Worker before relying on them with the script loaded.
 
 ## Not verified
 
