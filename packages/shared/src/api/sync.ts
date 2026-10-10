@@ -157,7 +157,8 @@ export type SyncPushRequest = z.infer<typeof SyncPushRequestSchema>;
 
 /**
  * `POST /sync/push` answer. `applied`: the rows the server now holds as pushed (written, or
- * equal already), with the `updatedAt` to send as `baseUpdatedAt` next time. `conflicts`: the
+ * equal already; an entry filed into a deleted binder is held in no binder, which the next pull
+ * brings), with the `updatedAt` to send as `baseUpdatedAt` next time. `conflicts`: the
  * server kept its row; replace the local copy with it (a deck comes with its entries).
  */
 export const SyncPushResponseSchema = z.object({

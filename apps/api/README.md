@@ -537,7 +537,8 @@ schemas in `packages/shared/src/api/sync.ts`, the pure rules in `packages/core/s
 rows and pull what changed elsewhere. Signed in, the user's own rows only.
 
 **Cursor.** `binders`, `collection_entries`, `wishlist_entries`, `decks` and `deck_entries` have a
-`sync_seq bigint` (`drizzle/0008_sync.sql`), indexed `(user_id, sync_seq)`. The trigger
+`sync_seq bigint` (`drizzle/0008_sync.sql`); the four tables with a `user_id` are indexed
+`(user_id, sync_seq)` (`deck_entries` has none and syncs with its deck). The trigger
 `sync_stamp()` gives every insert and update the next value of the sequence `sync_seq`, REST writes
 included. It first takes a shared per-user advisory lock; a pull takes it exclusively, so it waits
 for the user's writes in flight and no row commits later below the cursor it hands out.
@@ -557,9 +558,10 @@ answers like it. A deck's entries are its whole list and need the deck row in th
 otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown
 print, card or binder answers 404 and nothing is written; a taken binder name or wish 409 with a
 message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>: …`), for the
-device to rename or merge before it pushes again. An entry filed into a
-deleted binder lands in no binder, and a pushed binder delete moves its entries out, as the REST
-delete does.
+device to rename or merge before it pushes again. An entry filed into a deleted binder lands in
+no binder, and a pushed binder delete moves its entries out, as the REST delete does; such an
+entry is listed in `applied`, but the device only learns its `binderId` is null from its next
+pull.
 
 **Conflicts** (`resolvePush`): the stored row changed after `baseUpdatedAt` → the server keeps it and
 returns it in `conflicts` (a deck with its list), and the device replaces its copy. Except: a delete
