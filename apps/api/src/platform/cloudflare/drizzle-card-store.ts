@@ -129,16 +129,25 @@ export interface CodeQuery {
    * (websearch syntax, `Black Lotus!`) is no code.
    */
   code: string | null;
+  /** Where `code` had a separator between letters or digits (`sv1 01` → [3]); empty without code. */
+  splits: number[];
   /** A bare number (`121`) or a printed `number/set size` (`001/128`); null otherwise. */
   number: { number: string; total: number | null } | null;
 }
 
 /** Reads a set code with a number (`LDS3-EN121`, `sv1 001`), a set code or a number from `q`. */
 export function parseCodeQuery(q: string): CodeQuery {
-  const code = q.toLowerCase().replace(/[\s\-/_.\u0080-\u{10ffff}]+/gu, '');
+  const parts = q
+    .toLowerCase()
+    .split(/[\s\-/_.\u0080-\u{10ffff}]+/u)
+    .filter(Boolean);
+  const code = parts.join('');
+  const valid = /^[a-z0-9]{2,16}$/.test(code);
+  let at = 0;
   const n = /^(\d{1,4})(?:\s*\/\s*(\d{1,4}))?$/.exec(q.trim());
   return {
-    code: /^[a-z0-9]{2,16}$/.test(code) ? code : null,
+    code: valid ? code : null,
+    splits: valid ? parts.slice(0, -1).map((p) => (at += p.length)) : [],
     number: n?.[1] ? { number: n[1], total: n[2] ? Number(n[2]) : null } : null,
   };
 }
@@ -156,11 +165,13 @@ const NUMBER_HITS = 50;
  * `DE024` also finds `EN024`: German copies are localizations of the English print), 200 the same
  * number without prefix and leading zeros (`lds3 121`, `sv1 1`), 150 a number starting with the
  * rest (`lds3en12` → EN120…EN129), 0 every print of a set named alone (`lds3`, below the name
- * matches of /search). A pure number matches within every set or, as `001/128`, within the sets
+ * matches of /search). A split where the user typed a separator ranks 10 higher, a longer set code
+ * among those slightly higher still (`swsh1 25` is swsh1 #25, not swsh12 #5; `sv03.5 12` splits
+ * after `sv035`). A pure number matches within every set or, as `001/128`, within the sets
  * of that size (300, else 200), newest first, at most NUMBER_HITS.
  */
 function codeHits(q: string, game: Game | undefined): SQL | null {
-  const { code, number } = parseCodeQuery(q);
+  const { code, splits, number } = parseCodeQuery(q);
   const branches: SQL[] = [];
   const inGame = game ? sql`and ${sets.gameId} = ${game}` : sql``;
   if (code) {
@@ -170,11 +181,12 @@ function codeHits(q: string, game: Game | undefined): SQL | null {
         when ${stored} = r.rest
           or (${sets.gameId} = 'yugioh'
             and ${stored} = regexp_replace(r.rest, '^(de|fr|it|pt|sp|es|jp|ja)(?=[0-9])', 'en'))
-          then 300
-        when catalog_number_key(${prints.number}) = catalog_number_key(r.rest) then 200
-        else 150 end)::real as rank
+          then 300 + r.typed
+        when catalog_number_key(${prints.number}) = catalog_number_key(r.rest) then 200 + r.typed
+        else 150 + r.typed end)::real as rank
       from (
-        select left(${code}, i) as part, substr(${code}, i + 1) as rest
+        select left(${code}, i) as part, substr(${code}, i + 1) as rest,
+          case when i = any(${`{${splits.join(',')}}`}::int[]) then 10 + i / 100.0 else 0 end as typed
         from generate_series(1, length(${code})) i
       ) r
       join ${sets} on catalog_code_key(${sets.code}) = catalog_code_key(r.part) ${inGame}

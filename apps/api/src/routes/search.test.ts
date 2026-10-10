@@ -37,7 +37,20 @@ describe('parseCodeQuery', () => {
     ['averyveryverylongname', null, null],
     ['12345', '12345', null],
   ])('%j', (q, code, number) => {
-    expect(parseCodeQuery(q)).toEqual({ code, number });
+    expect(parseCodeQuery(q)).toMatchObject({ code, number });
+  });
+
+  it.each([
+    ['swsh1 25', [5]],
+    ['sv03.5 12', [4, 5]],
+    ['LDS3-EN121', [4]],
+    ['blgg-de 024', [4, 6]],
+    [' sv1 ', []],
+    ['war 97★', [3]],
+    ['lds3en121', []],
+    ['Black Lotus!', []],
+  ])('splits of %j', (q, splits) => {
+    expect(parseCodeQuery(q).splits).toEqual(splits);
   });
 });
 
@@ -98,6 +111,11 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     await print(sv01, 'pokemon', 'Forretress ex', '005');
     const sv10 = await set('pokemon', 'sv10', 'Destined Rivals', '2025-05-30', 182);
     await print(sv10, 'pokemon', 'Ethan’s Pinsir', '001');
+    // TCGdex numbers older sets without padding: `swsh1 25` could also be swsh12 #5.
+    const swsh1 = await set('pokemon', 'swsh1', 'Sword & Shield', '2020-02-07', 202);
+    await print(swsh1, 'pokemon', 'Flapple', '25');
+    const swsh12 = await set('pokemon', 'swsh12', 'Silver Tempest', '2022-11-11', 195);
+    await print(swsh12, 'pokemon', 'Scyther', '5');
     const base1 = await set('pokemon', 'base1', 'Base', '1999-01-09', 102);
     await print(base1, 'pokemon', 'Alakazam', '1');
     await print(base1, 'pokemon', 'Midas Touch', '50');
@@ -144,6 +162,11 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ['001/198', 'sv01 001'],
     ['mid 123', 'mid 123'],
     ['MID-123', 'mid 123'],
+    // The split the user typed wins over the newer set the other split names.
+    ['swsh1 25', 'swsh1 25'],
+    ['swsh12 5', 'swsh12 5'],
+    ['sv1 01', 'sv01 001'],
+    ['sv10 1', 'sv10 001'],
     ['war 123a', 'war 123a'],
     ['WAR-97★', 'war 97★'],
     ['war 97', 'war 97★'],
@@ -210,6 +233,15 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     expect((await suggest('blgg de024')).map((s) => s.name)).toEqual([
       'Ghostrick Angel of Mischief',
     ]);
+  });
+
+  it.each([
+    ['swsh1 25', 'swsh1 25', 'swsh12 5'],
+    ['swsh12 5', 'swsh12 5', 'swsh1 25'],
+    ['sv1 01', 'sv01 001', 'sv10 001'],
+    ['sv10 1', 'sv10 001', 'sv01 001'],
+  ])('suggests the split typed in %j first', async (q, first, second) => {
+    expect((await suggest(q)).map(label).slice(0, 2)).toEqual([first, second]);
   });
 
   it('suggests a set by code with its first prints, then names starting with q', async () => {
