@@ -818,10 +818,9 @@ export class DrizzleCardStore implements CardStore {
             ${pricesCurrent.lang} as lang, ${pricesCurrent.observedAt} as observed_at
           from ${pricesCurrent}
           where ${pricesCurrent.printId} = page.id
-          -- The hit's price in the language shown (VB-103). ponytail: ?lang= for every hit; the
-          -- hit's own match language (VB-102) goes in its place as a column of page.
+          -- The hit's price in the language it is shown in, its match's (VB-102, VB-103).
           order by ${finishRank(pricesCurrent.finish, sql`page.finishes`)}, ${pricesCurrent.finish},
-            ${langRank(pricesCurrent.lang, query.lang)}, ${sourceOrder(query.currency)},
+            ${langRank(pricesCurrent.lang, sql`page.lang`)}, ${sourceOrder(query.currency)},
             ${pricesCurrent.lang}
           limit 1
         ) market on true

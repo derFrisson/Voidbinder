@@ -5,7 +5,9 @@ import {
   type SearchSuggestion,
   type SearchSuggestResponse,
 } from '@voidbinder/shared/api';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { pricesCurrent } from '../db/schema';
 import type { Db } from '../import/scryfall/write';
 import { DrizzleCardStore, parseCodeQuery } from '../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase, testApp } from '../test-helpers';
@@ -346,6 +348,34 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     });
     const prints = (await search('lds3', '&lang=fr')).prints;
     expect(new Set(prints.map((p) => p.lang))).toEqual(new Set(['fr']));
+  });
+
+  it('prices a hit in the language it is shown in, not ?lang= (VB-103)', async () => {
+    const de = (await search('Satellitenkrieger', '&lang=en')).prints[0];
+    const id = de?.id ?? '';
+    const price = (lang: string, centsMarket: number) => ({
+      printId: id,
+      finish: de?.finishes[0] ?? 'normal',
+      source: 'cardmarket',
+      lang,
+      currency: 'EUR',
+      centsMarket,
+      observedAt: new Date('2026-10-10T03:00:00.000Z'),
+    });
+    await db.insert(pricesCurrent).values([price('de', 111), price('en', 222)]);
+    try {
+      // The German name matched: the hit shows and is priced in German, its chip stays off.
+      expect((await search('Satellitenkrieger', '&lang=en')).prints[0]).toMatchObject({
+        id,
+        lang: 'de',
+        marketPrice: { lang: 'de', cents: 111 },
+      });
+      // The English name matched: English, whatever ?lang=.
+      const en = (await search('Satellite Warrior', '&lang=de')).prints.find((p) => p.id === id);
+      expect(en).toMatchObject({ lang: 'en', marketPrice: { lang: 'en', cents: 222 } });
+    } finally {
+      await db.delete(pricesCurrent).where(eq(pricesCurrent.printId, id));
+    }
   });
 
   it('validates q and is cached like the catalog', async () => {
