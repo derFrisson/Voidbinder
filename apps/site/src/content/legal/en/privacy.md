@@ -42,30 +42,24 @@ Retention: we do not receive or store these logs ourselves. Cloudflare keeps the
 
 ## Audience measurement with Plausible
 
-<!-- TODO Max: this section replaces Cloudflare Web Analytics. It is only true once the website is built without PUBLIC_CF_ANALYTICS_TOKEN and Plausible is live on the website and the web app (VB-74). -->
+On the website and in the web app we measure how many people use them, which pages they open and where they come from. We use Plausible Analytics for this, open source software that runs on a server we operate. The data goes to no provider other than our hoster, not even to the company behind Plausible.
 
-On the website and in the web app we measure how many people use them, which pages they open and where they come from. We use Plausible Analytics for this, open source software that runs on a server we operate. The data goes to no other provider, not even to the company behind Plausible.
-
-<!-- TODO Max: state the location and hoster of the Plausible server web-analytics.voidcom.app, and check whether the address is reached through Cloudflare (proxy or tunnel). If so, name Cloudflare as a recipient here. -->
+The server is a virtual server of Hetzner Online GmbH, Industriestr. 25, 91710 Gunzenhausen, Germany, in a data centre in Germany. Hetzner acts as a processor on our instructions under a data processing agreement. Neither Cloudflare nor any other service sits in between; your browser connects directly to this server.
 
 With every page view your browser sends to web-analytics.voidcom.app:
 
-- the requested address and the referring page (referrer); in the web app without query parameters and without the part after "#",
+- the requested address and the referring page (referrer),
 - the user agent of your browser and your IP address.
 
-<!-- TODO Max: check whether the website's script (VB-74) also strips query parameters; otherwise remove or adjust "in the web app". -->
+In the web app, the script already removes the query parameters and the part after "#" from the address and the referrer in your browser, and replaces the ID of a deck in the address with a placeholder. The website's script sends the full address with query parameters and the part after "#". Of the address and the referrer, Plausible stores only the domain and the path, and discards the part after "#" and the query parameters. The exceptions are the campaign parameters utm_source, utm_medium, utm_campaign, utm_content, utm_term, source and ref, which Plausible stores as the source of the visit. If the address contains a click ID of an advertising network (for example gclid or fbclid), Plausible only stores which one it was, not its value.
 
 From this, Plausible derives browser, operating system, device type and country, region and city. The IP address and the user agent are not stored. Plausible combines them with the domain and a random value (salt), which is replaced and deleted every 24 hours, into a check value (hash). This lets visits be counted within one day, but not linked across days or websites, and the IP address cannot be worked out from it. Plausible describes the details at https://plausible.io/data-policy.
 
 Plausible sets no cookies and builds no profile of you. The scripts on the website and in the web app write nothing to your browser's storage. They only read an entry "plausible_ignore" there, which we use to exclude our own visits from the count; on your device this entry does not exist. For this reason, we do not consider consent under § 25 TDDDG necessary.
 
-<!-- TODO Max: have it checked whether reading "plausible_ignore" falls under § 25 TDDDG. Alternative: ship the script without this check. -->
-
 The legal basis is Art. 6 (1) (f) GDPR. Our legitimate interest is to know the reach of the website and the web app and to improve them. You can object to the processing at any time (see Your rights), for example also by blocking the script with a content blocker.
 
-Storage period: only the derived details and the daily hash are stored, no IP addresses. Plausible deletes the salt after 24 hours.
-
-<!-- TODO Max: set the retention of the statistics in Plausible (the self-hosted version deletes nothing by itself) and state it here. -->
+Storage period: only the derived details and the daily hash are stored, no IP addresses. Plausible deletes the salt after 24 hours. After that, the statistics can no longer be linked to anyone and contain no personal data. We keep them permanently.
 
 ## Waitlist
 
@@ -101,7 +95,7 @@ In your profile you can also set a display name, the language of your mails and 
 
 **Training data.** When you register and in your profile you can allow your scans to be used as training data for card recognition. The setting is off until you turn it on. For now we only store your choice. The web app has no scans yet, so none are processed. The legal basis for a later use is your consent under Art. 6 (1) (a) GDPR, which you can withdraw in your profile at any time.
 
-<!-- TODO Max: once scans are uploaded (phone app), this policy needs a section of its own: which images, where stored, for how long, who trains. -->
+<!-- scans: own section once the phone app uploads scans -->
 
 **Purpose and legal basis.** We need this data to provide your account (Art. 6 (1) (b) GDPR). Without an email address and a password you cannot create an account.
 
@@ -112,8 +106,6 @@ In your profile you can also set a display name, the language of your mails and 
 When you sign in, we create a session. For each session we store a random ID, the time of sign-in and of expiry, your IP address and the user agent of your browser. The IP address and user agent help us detect misuse of your account. The legal basis is Art. 6 (1) (b) GDPR for the session itself and Art. 6 (1) (f) GDPR for the IP address and user agent; our legitimate interest is the security of your account.
 
 A session lasts 7 days and is extended while you use the web app. When you sign out, the session ends at once on this device. When you reset your password, all your sessions end within five minutes at the latest.
-
-<!-- TODO Max: Better Auth only deletes expired sessions when they are used again; a cleanup job is missing. Either plan a job or state a period here that is actually kept. -->
 
 The web app keeps the session in cookies that are only sent over HTTPS and cannot be read by scripts:
 
@@ -136,9 +128,9 @@ When you register, request a new password, ask for the confirmation mail again a
 
 The result is a token that your browser sends to us with the form. Our server has Cloudflare check the token together with your IP address. We store neither the token nor the result. If the check fails, we only log Cloudflare's error code.
 
-The legal basis is Art. 6 (1) (f) GDPR. Our legitimate interest is protection against accounts created automatically, abuse of the mail sending and spam. The check is strictly necessary for the service you want to use at that moment (§ 25 (2) no. 2 TDDDG). The provider is Cloudflare, Inc. (address above), and the same safeguards for transfers to the USA apply. Cloudflare describes the details in the Turnstile Privacy Addendum at https://www.cloudflare.com/turnstile-privacy-policy/.
+The legal basis is Art. 6 (1) (f) GDPR. Our legitimate interest is protection against accounts created automatically, abuse of the mail sending and spam. The provider is Cloudflare, Inc. (address above). Cloudflare carries out the check as a processor on our instructions under a data processing agreement, and the same safeguards for transfers to the USA apply. According to the Turnstile Privacy Addendum, Cloudflare also uses the details as a controller of its own to improve Turnstile's bot detection.
 
-<!-- TODO Max: clarify from the Turnstile Privacy Addendum whether Cloudflare processes the data only as a processor or partly as a controller of its own, and whether the widget uses cookies or local storage. Adjust the text afterwards. -->
+For the check, Cloudflare may set technically necessary cookies through challenges.cloudflare.com, such as "__cf_bm" for bot detection, which expires after 30 minutes without activity. Turnstile sets the cookie "cf_clearance", which records a passed check for further requests, only when pre-clearance is turned on, which we do not use. The check and these cookies are strictly necessary for the service you want to use at that moment (§ 25 (2) no. 2 TDDDG). No consent is needed for them. Cloudflare describes the details in the Turnstile Privacy Addendum at https://www.cloudflare.com/turnstile-privacy-policy/.
 
 ### Emails
 
@@ -148,63 +140,52 @@ We send you mails that belong to the account: the link to confirm your email add
 
 What you create in the web app is stored with your account: your binders (name, game, order, colour), the entries of your collection (card and printing, quantity, language, condition, finish, purchase price and currency, note), your wishlist (card, quantity, wanted language, finish and minimum condition, maximum price, note) and your decks (name, game, format, description, cards). In addition, the times each item was created and last changed. The legal basis is Art. 6 (1) (b) GDPR. Only your account sees this data; we pass it on to no one.
 
-When you delete an entry, a binder or a deck, we mark it as deleted instead of removing it at once. This lets your other devices take over the deletion. We no longer show deleted entries. They are removed for good together with your account.
-
-<!-- TODO Max: should items marked as deleted have a shorter period? The code currently removes them only with the account. -->
+When you delete an entry, a binder or a deck, we mark it as deleted instead of removing it at once, and no longer show it. Deleted items stay stored as a deletion marker for at most 30 days so that your other devices take over the deletion, and are then removed for good.
 
 ### Sync between devices
 
 If you use Voidbinder on several devices, the app syncs your collection, binders, wishlist and decks through our server. For this we transfer the same data as above and the time of each change according to your device's clock. We store no ID of your device for this. The legal basis is Art. 6 (1) (b) GDPR.
 
-<!-- TODO Max: Sync API is live (VB-32); recheck once the phone app ships whether it stores additional device or server data. -->
+<!-- recheck with the phone app -->
 
 ### Deleting your account
 
 You can delete your account in your profile. You are then signed out at once on this device, on other devices within five minutes at the latest. After a period of 30 days we delete your account with all its data: profile, sessions, two-factor data, collection, wishlist and decks. If you sign in again before the period ends, this withdraws the deletion and everything is kept. The data disappears from the backups at the latest when the last backup containing it expires (see Storage periods).
 
-<!-- TODO Max: set the period (30 days assumed here). So far the code only records the deletion request and ends the sessions; the deletion run after the period comes with VB-45. Until then, requested deletions have to be carried out by hand. -->
-
 ### Support by email
 
-When you write to us at hello@voidbinder.de, we process your email address, your name if you give it, and the content of your message to answer your request. The legal basis is Art. 6 (1) (b) GDPR when it concerns your account, otherwise Art. 6 (1) (f) GDPR (our legitimate interest in answering requests). We delete the messages once the request is settled and no statutory retention duty applies.
-
-<!-- TODO Max: which provider hosts the mailbox of hello@voidbinder.de (for example Cloudflare Email Routing forwarding to another mailbox)? Name that provider here and state a concrete deletion period. -->
+When you write to us at hello@voidbinder.de, we process your email address, your name if you give it, and the content of your message to answer your request. The legal basis is Art. 6 (1) (b) GDPR when it concerns your account, otherwise Art. 6 (1) (f) GDPR (our legitimate interest in answering requests). The mailbox is hosted by Proton AG, Route de la Galaise 32, 1228 Plan-les-Ouates, Switzerland, which acts as a processor on our instructions. For Switzerland, an adequacy decision of the EU Commission exists. We delete the correspondence once the request is settled, unless a statutory retention duty applies.
 
 ### Server logs of the web app
 
-The web app and its interface run on Cloudflare Workers. For operation and troubleshooting we write one log line per request with a request ID, method, path without query parameters, status, duration and the Cloudflare data centre that handled the request. We write no IP addresses, email addresses or passwords into these lines. Cloudflare stores these logs together with its own details about the call in Workers Logs and deletes them after 7 days. The legal basis is Art. 6 (1) (f) GDPR, our legitimate interest is secure and fault-free operation.
-
-<!-- TODO Max: check in the Cloudflare dashboard which fields Workers Logs itself stores for each call (for example request headers with the IP address) and whether the account stays on the Workers Paid plan (7 days; 3 days on the Free plan). -->
+The web app and its interface run on Cloudflare Workers. For operation and troubleshooting we write one log line per request with the time, a request ID, method, path without query parameters, status, duration and the Cloudflare data centre that handled the request, and for an error also the error message. We write no IP addresses, no user ID, no email addresses and no passwords into these lines. In addition, Cloudflare itself records an entry for each call: the method and address of the request, the request headers, including your IP address and the user agent of your browser (Cloudflare replaces cookies and headers with credentials by "REDACTED"), details about the connection that Cloudflare derives, such as country, city and network operator, the status of the response and the processing time. Cloudflare stores both in Workers Logs and deletes them after 7 days. The legal basis is Art. 6 (1) (f) GDPR, our legitimate interest is secure and fault-free operation.
 
 ### Hosting of the web app
 
 - **Cloudflare** (address above) serves the web app, runs the interface (Cloudflare Workers) and connects it to our database through Hyperdrive and an encrypted tunnel. Hyperdrive only caches answers about the card catalogue and prices for a short time, no account data. Card images are stored in Cloudflare R2 with the storage location in the EU. Only public card images are kept there, no data of yours.
 - **OVH SAS** (address above) provides the server in the Gravelines data centre (France) on which we run the PostgreSQL database with your account data and your collection.
-- **Backblaze, Inc.**, 201 Baldwin Avenue, San Mateo, CA 94401, USA, stores our encrypted backups of the database in the EU Central region (Netherlands).
+- **Backblaze, Inc.**, 201 Baldwin Avenue, San Mateo, CA 94401, USA, stores our encrypted backups of the database in the EU Central region (Amsterdam data centre, Netherlands).
 
-<!-- TODO Max: confirm that the backup to Backblaze B2 (EU Central) is set up, that the data processing agreement with Backblaze is in place and which safeguard applies to the US provider (Data Privacy Framework or standard contractual clauses). Check the address. -->
-
-All three providers act as processors on our instructions under a data processing agreement. For transfers to the USA, the EU standard contractual clauses apply and, where the provider is certified under it, the EU-US Data Privacy Framework.
+All three providers act as processors on our instructions under a data processing agreement. For transfers to the USA, the EU standard contractual clauses apply for Cloudflare and, where Cloudflare is certified under it, the EU-US Data Privacy Framework. Backblaze is certified under the EU-US Data Privacy Framework, for which an adequacy decision of the EU Commission exists. In addition, our agreement with Backblaze contains the EU standard contractual clauses.
 
 ### Storage periods
 
-| Data                                                                                                              | How long                                                                                    |
-| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| Account and profile (email address, name, display name, language, currency, training data setting, password hash) | until your account is deleted                                                               |
-| Collection, binders, wishlist, decks, including items marked as deleted                                           | until your account is deleted                                                               |
-| Session with IP address and user agent                                                                            | until you sign out, otherwise 7 days after the last use                                     |
-| Remembered device for two-factor sign-in                                                                          | 30 days, or until you change two-factor sign-in or reset your password                      |
-| Secret and backup codes of two-factor sign-in                                                                     | until you turn two-factor sign-in off or delete your account                                |
-| Links to confirm the email address and to reset the password                                                      | valid for 1 hour                                                                            |
-| Abuse counter with IP address                                                                                     | a few minutes                                                                               |
-| Turnstile token                                                                                                   | not stored                                                                                  |
-| Server logs in Workers Logs                                                                                       | 7 days                                                                                      |
-| Audience measurement with Plausible                                                                               | no IP addresses; the salt for the daily hash 24 hours                                       |
-| Support emails                                                                                                    | until the request is settled                                                                |
-| Database backups                                                                                                  | up to about eleven weeks (up to five weeks of backups, then up to 45 days of deletion lock) |
-| Last viewed cards in the browser                                                                                  | until you delete them in your browser                                                       |
-
-<!-- TODO Max: check the backups row against the pgBackRest retention and the Object Lock period actually set up (docs/guides/database-vps.md, section 7). -->
+| Data                                                                                                              | How long                                                                                                     |
+| ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Account and profile (email address, name, display name, language, currency, training data setting, password hash) | until your account is deleted                                                                                |
+| Collection, binders, wishlist, decks                                                                              | until your account is deleted                                                                                |
+| Items marked as deleted                                                                                           | at most 30 days                                                                                              |
+| Session with IP address and user agent                                                                            | until you sign out, otherwise 7 days after the last use                                                      |
+| Remembered device for two-factor sign-in                                                                          | 30 days, or until you change two-factor sign-in or reset your password                                       |
+| Secret and backup codes of two-factor sign-in                                                                     | until you turn two-factor sign-in off or delete your account                                                 |
+| Links to confirm the email address and to reset the password                                                      | valid for 1 hour                                                                                             |
+| Abuse counter with IP address                                                                                     | a few minutes                                                                                                |
+| Turnstile token                                                                                                   | not stored                                                                                                   |
+| Server logs in Workers Logs                                                                                       | 7 days                                                                                                       |
+| Audience measurement with Plausible                                                                               | no IP addresses; the salt for the daily hash 24 hours; the statistics without personal reference permanently |
+| Support emails                                                                                                    | until the request is settled                                                                                 |
+| Database backups                                                                                                  | up to about eleven weeks (up to five weeks of backups, then up to 45 days of deletion lock)                  |
+| Last viewed cards in the browser                                                                                  | until you delete them in your browser                                                                        |
 
 ## External links
 
@@ -212,13 +193,13 @@ The website links to Twitch, GitHub and voidcom.app. When you click, you leave o
 
 ## Cookies and local storage on the website
 
-This website sets no cookies and writes nothing to your browser's localStorage or sessionStorage; the Plausible script only reads the entry "plausible_ignore" there (see above). Your language choice is part of the page address (/de/ or /en/) and is not stored. If you open the home page without a language, we pick the language from your browser's language setting and do not store that. What the web app stores is described in the section "Sessions and cookies".
+This website sets no cookies and writes nothing to your browser's localStorage or sessionStorage; the Plausible script only reads the entry "plausible_ignore" there (see above). The cookies Cloudflare Turnstile may set in the waitlist form are described in the section on Turnstile. Your language choice is part of the page address (/de/ or /en/) and is not stored. If you open the home page without a language, we pick the language from your browser's language setting and do not store that. What the web app stores is described in the section "Sessions and cookies".
 
 ## Children
 
-Voidbinder is not meant for children under 16. Please create an account only from the age of 16.
+Voidbinder is not meant for children under 12. You must be at least 12 years old to create an account.
 
-<!-- TODO Max: confirm the age limit. The web app does not ask for the age at the moment. -->
+<!-- lawyer: age 12 vs. Art. 8 DSGVO (16, consent only) and § 104 ff. BGB; no consent-based processing today -->
 
 ## Your rights
 
