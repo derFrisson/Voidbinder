@@ -4,6 +4,7 @@ import { Text } from 'react-native';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, renderApp, type Call } from '../../test/fake-api';
 import { Shell, Page } from './Shell';
+import { SearchLead } from './Typeahead';
 
 // The top bar (and its search box) shows from 768 px; jsdom is 0 px wide.
 vi.mock('react-native', async (orig) => ({
@@ -62,6 +63,13 @@ beforeEach(() => vi.mocked(router.push).mockClear());
 
 describe('search typeahead (VB-79)', () => {
   afterEach(() => vi.useRealTimers());
+
+  it('draws the spinner exactly as big as the magnifier box', () => {
+    renderApp(<SearchLead busy size={18} />);
+    const spinner = screen.getByRole('progressbar', { hidden: true });
+    const drawn = spinner.firstElementChild as HTMLElement;
+    expect([drawn.style.width, drawn.style.height]).toEqual(['18px', '18px']);
+  });
 
   it('asks once, 150 ms after the last keystroke, from two characters on', async () => {
     vi.useFakeTimers();

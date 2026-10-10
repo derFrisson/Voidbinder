@@ -43,7 +43,7 @@ export function SearchLead({ busy, size }: { busy: boolean; size: number }) {
   return (
     <View aria-hidden className="items-center justify-center" style={{ width: size, height: size }}>
       {busy ? (
-        <ActivityIndicator size="small" color={palette.ink3} />
+        <ActivityIndicator size={size} color={palette.ink3} />
       ) : (
         <Icon name="search" size={size} color={palette.ink3} />
       )}
