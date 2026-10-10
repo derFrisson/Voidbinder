@@ -1,17 +1,18 @@
-import { cardAspect, type CardFormat } from '@voidbinder/shared';
+import { cardAspect, type CardFormat, type Game } from '@voidbinder/shared';
 import { useState } from 'react';
-import { Image, Text, View } from 'react-native';
-import { useT } from '../../i18n';
+import { Image, View } from 'react-native';
+import { CardBack } from './CardBack';
 import { FoilSheen } from './FoilSheen';
 
 /**
  * A card image in its format's box (`CARD_FORMATS`, standard 63:88 when unknown), contained so
- * no edge is cut, or an empty frame when there is none or it fails to load. `label` is the alt
+ * no edge is cut, or the game's card back when there is none or it fails to load (VB-120, no sheen). `label` is the alt
  * text; without it the image is decorative (the link around it is named). A `foil` copy gets the
  * sheen (VB-112), `live` on the card page's large image.
  */
 export function CardImage({
   uri,
+  game,
   label,
   format,
   foil = false,
@@ -19,29 +20,18 @@ export function CardImage({
   className = '',
 }: {
   uri: string | null;
+  game: Game;
   label?: string;
   format?: CardFormat | undefined;
   foil?: boolean;
   live?: boolean;
   className?: string;
 }) {
-  const t = useT();
   const box = { aspectRatio: cardAspect(format) };
   const [failed, setFailed] = useState<string | null>(null);
   const a11y = label ? { role: 'img' as const, 'aria-label': label } : { 'aria-hidden': true };
-  if (!uri || failed === uri) {
-    return (
-      <View
-        {...a11y}
-        style={box}
-        className={`w-full items-center justify-center rounded-lg border border-dashed border-line bg-surface-2 ${className}`}
-      >
-        <Text className="px-2 text-center font-display text-xs font-semibold text-ink-2">
-          {t.card.noImage}
-        </Text>
-      </View>
-    );
-  }
+  if (!uri || failed === uri)
+    return <CardBack game={game} format={format} className={`w-full rounded-lg ${className}`} />;
   const image = (
     <Image
       {...a11y}

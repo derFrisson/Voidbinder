@@ -55,7 +55,7 @@ export function CardStage({
     >
       <FieldShape game={game} />
       <View className="-rotate-2 rounded-lg shadow-lg">
-        <CardImage uri={uri} label={label} format={format} foil={foil} live />
+        <CardImage uri={uri} game={game} label={label} format={format} foil={foil} live />
       </View>
       {note && (
         <Text className="mt-3 text-center font-body text-[12.5px] leading-5 text-ink-3">
@@ -99,6 +99,7 @@ export function PrintThumbs({
         >
           <CardImage
             uri={p.imageUrl}
+            game={p.set.game}
             format={p.cardFormat}
             foil={printFoil(p.set.game, p)}
             className="rounded"

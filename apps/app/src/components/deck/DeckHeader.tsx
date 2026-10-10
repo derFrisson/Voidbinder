@@ -164,7 +164,6 @@ export function DeckHeader({ deck }: { deck: DeckDetail }) {
                 alt=""
                 game={deck.game}
                 format={e.print?.cardFormat ?? 'standard'}
-                number={e.print?.displayNumber ?? ''}
                 foil={!!e.print && printFoil(deck.game, e.print)}
               />
             </View>
