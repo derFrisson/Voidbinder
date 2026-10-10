@@ -161,12 +161,12 @@ function CardView({ data, printId }: { data: CardResponse; printId: string | und
       </View>
       {three ? (
         <>
-          {/* 496 px at 1600 (both price sources side by side), the rest goes to the prints. */}
-          <View className="min-w-[496px] flex-1 gap-5">
+          {/* The prices get the larger share: at 1600 px the chips keep their price on one line. */}
+          <View className="min-w-[496px] flex-[1.25] gap-5">
             {header}
             {prices}
           </View>
-          <View className="min-w-[440px] flex-[1.25] gap-5">{details}</View>
+          <View className="min-w-[440px] flex-1 gap-5">{details}</View>
         </>
       ) : (
         <View className="min-w-0 flex-1 gap-5">
