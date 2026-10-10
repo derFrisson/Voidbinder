@@ -8,12 +8,12 @@ import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Image, Pressable, Text, TextInput, View } from 'react-native';
 import { useDeleteEntry, useUpdateEntry } from '../../api/queries/collection';
+import { useSession } from '../../api/queries/me';
 import { fmt, useLocale, useT } from '../../i18n';
 import { label } from '../card/attributes';
 import { fieldClass } from '../card/game';
-import { usePalette } from '../palette';
 import { useWide } from '../Shell';
-import { Button, Note, Segmented } from '../ui';
+import { Button, Field, Note, Segmented } from '../ui';
 import { FieldLabel, GameSquare, IconButton, Select, Stepper, Tag } from './Controls';
 import {
   CONDITIONS,
@@ -80,10 +80,10 @@ function EditEntry({
 }) {
   const t = useT();
   const locale = useLocale();
-  const palette = usePalette();
   const wide = useWide();
   const update = useUpdateEntry();
   const remove = useDeleteEntry();
+  const { data: me } = useSession();
   const [quantity, setQuantity] = useState(entry.quantity);
   const [language, setLanguage] = useState(entry.language);
   const [finish, setFinish] = useState(entry.finish);
@@ -96,8 +96,10 @@ function EditEntry({
   const finishes = [...new Set([...entry.print.finishes, entry.finish])];
   const languages = [...new Set([...LANGUAGES, entry.language])];
   const purchaseCents = parseCents(purchase);
+  const invalidPrice = purchaseCents === 'invalid';
 
   const save = () => {
+    if (purchaseCents === 'invalid') return;
     update.mutate(
       {
         id: entry.id,
@@ -107,10 +109,11 @@ function EditEntry({
         condition,
         binderId: binderId || null,
         purchasePriceCents: purchaseCents,
+        // The stored currency stays; a first price is in the one the entry is valued in.
         purchaseCurrency:
           purchaseCents === null
             ? null
-            : (entry.price?.currency ?? entry.purchaseCurrency ?? 'EUR'),
+            : (entry.purchaseCurrency ?? entry.price?.currency ?? me?.currency ?? 'EUR'),
         note: note.trim() || null,
       },
       { onSuccess: onClose },
@@ -184,16 +187,14 @@ function EditEntry({
             ]}
           />
         </View>
-        <View className={`gap-1.5 ${field}`}>
-          <FieldLabel>{e.purchase}</FieldLabel>
-          <TextInput
-            aria-label={e.purchase}
+        <View className={field}>
+          <Field
+            label={e.purchase}
             value={purchase}
             onChangeText={setPurchase}
             inputMode="decimal"
             placeholder="0,00"
-            placeholderTextColor={palette.ink3}
-            className="h-11 rounded-xl border border-line bg-surface px-3 font-mono text-[15px] text-ink"
+            error={invalidPrice ? e.invalidPrice : undefined}
           />
         </View>
         <View className="w-full">
@@ -246,7 +247,7 @@ function EditEntry({
           <View className="flex-row flex-wrap items-center gap-2">
             <Button variant="ghost" label={e.delete} onPress={() => setConfirming(true)} />
             <Button variant="ghost" label={e.cancel} onPress={onClose} />
-            <Button label={e.save} onPress={save} busy={update.isPending} />
+            <Button label={e.save} onPress={save} busy={update.isPending} disabled={invalidPrice} />
           </View>
         )}
       </View>
@@ -359,7 +360,14 @@ export function EntryList({ entries, binders }: { entries: CollectionEntry[]; bi
                 <CardCell print={e.print} />
               </View>
               <View role="cell" className="w-[96px]">
-                {stepper(e)}
+                {/* While the form is open it is the one place to edit; the row shows the number. */}
+                {open ? (
+                  <Text className="px-3 font-mono text-[14px] font-semibold text-ink">
+                    {e.quantity}
+                  </Text>
+                ) : (
+                  stepper(e)
+                )}
               </View>
               <View role="cell" className="w-[72px]">
                 <Tag>{e.language.toUpperCase()}</Tag>

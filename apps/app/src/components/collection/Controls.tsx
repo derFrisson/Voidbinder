@@ -63,10 +63,7 @@ export function Stepper({
       >
         <Icon name="minus" size={16} color={palette.ink2} />
       </Pressable>
-      <Text
-        role="status"
-        className="min-w-[28px] text-center font-mono text-[14px] font-semibold text-ink"
-      >
+      <Text className="min-w-[28px] text-center font-mono text-[14px] font-semibold text-ink">
         {value}
       </Text>
       <Pressable

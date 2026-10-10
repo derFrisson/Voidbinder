@@ -5,9 +5,8 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { useDeleteWish, useUpdateWish } from '../../api/queries/collection';
 import { fmt, useLocale, useT } from '../../i18n';
 import { label } from '../card/attributes';
-import { usePalette } from '../palette';
 import { useWide } from '../Shell';
-import { Button, Note, Segmented } from '../ui';
+import { Button, Field, Note, Segmented } from '../ui';
 import { FieldLabel, IconButton, Select, Stepper, Tag } from './Controls';
 import { CardCell, Thumb } from './Entries';
 import { CONDITIONS, centsText, LANGUAGES, money, parseCents } from './format';
@@ -36,7 +35,6 @@ function Status({ wish }: { wish: WishlistEntry }) {
 function EditWish({ wish, onClose }: { wish: WishlistEntry; onClose: () => void }) {
   const t = useT();
   const locale = useLocale();
-  const palette = usePalette();
   const wide = useWide();
   const update = useUpdateWish();
   const remove = useDeleteWish();
@@ -53,8 +51,11 @@ function EditWish({ wish, onClose }: { wish: WishlistEntry; onClose: () => void 
   const e = t.collection.edit;
   const field = wide ? 'min-w-[150px] flex-1' : 'w-full';
   const titleId = `wish-${wish.id}`;
+  const parsedMax = parseCents(max);
+  const invalidMax = parsedMax === 'invalid';
   const save = () => {
-    const maxPriceCents = parseCents(max);
+    const maxPriceCents = parsedMax;
+    if (maxPriceCents === 'invalid') return;
     update.mutate(
       {
         id: wish.id,
@@ -116,16 +117,14 @@ function EditWish({ wish, onClose }: { wish: WishlistEntry; onClose: () => void 
             ]}
           />
         </View>
-        <View className={`gap-1.5 ${field}`}>
-          <FieldLabel>{w.maxPrice}</FieldLabel>
-          <TextInput
-            aria-label={w.maxPrice}
+        <View className={field}>
+          <Field
+            label={w.maxPrice}
             value={max}
             onChangeText={setMax}
             inputMode="decimal"
             placeholder="0,00"
-            placeholderTextColor={palette.ink3}
-            className="h-11 rounded-xl border border-line bg-surface px-3 font-mono text-[15px] text-ink"
+            error={invalidMax ? e.invalidPrice : undefined}
           />
         </View>
         <View className="w-full">
@@ -167,7 +166,7 @@ function EditWish({ wish, onClose }: { wish: WishlistEntry; onClose: () => void 
           <>
             <Button variant="ghost" label={w.delete} onPress={() => setConfirming(true)} />
             <Button variant="ghost" label={e.cancel} onPress={onClose} />
-            <Button label={e.save} onPress={save} busy={update.isPending} />
+            <Button label={e.save} onPress={save} busy={update.isPending} disabled={invalidMax} />
           </>
         )}
       </View>

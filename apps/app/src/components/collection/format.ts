@@ -32,10 +32,14 @@ export const SOURCE_NAMES: Record<PriceSource, string> = {
   tcgplayer_scryfall: 'TCGplayer',
 };
 
-/** A price typed by the user ("2,50", "2.50 €") as cents; null when empty or not a number. */
-export function parseCents(text: string): number | null {
+/**
+ * A price typed by the user ("2,50", "2.50 €") as cents: null when the field is blank, 'invalid'
+ * when there is text but no digit in it.
+ */
+export function parseCents(text: string): number | null | 'invalid' {
+  if (!text.trim()) return null;
   const clean = text.replace(/[^\d,.]/g, '');
-  if (!/\d/.test(clean)) return null;
+  if (!/\d/.test(clean)) return 'invalid';
   // The last separator followed by one or two digits is the decimal one ("1.234,50", "1,234.5").
   const decimal = /^(.*)[.,](\d{1,2})$/.exec(clean);
   const whole = Number((decimal?.[1] ?? clean).replace(/[.,]/g, '') || '0');

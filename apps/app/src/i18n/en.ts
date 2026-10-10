@@ -278,6 +278,7 @@ export const en: Dict = {
       confirm: 'Yes, delete',
       cancel: 'Cancel',
       save: 'Save',
+      invalidPrice: 'Enter an amount like 2.50.',
       saveFailed: 'Saving did not work. The old values are back.',
     },
     empty: 'Your collection is empty so far. Search for a card and add it.',

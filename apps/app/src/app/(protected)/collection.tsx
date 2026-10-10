@@ -34,7 +34,7 @@ type Filters = {
 
 const GAMES: Game[] = ['pokemon', 'yugioh', 'mtg'];
 
-/** Habe / Will with their counts (copies), a tab list. */
+/** Habe / Will with their counts (copies): two toggle buttons, like the game chips. */
 function Tabs({
   tab,
   onTab,
@@ -48,7 +48,7 @@ function Tabs({
   const wide = useWide();
   return (
     <View
-      role="tablist"
+      role="group"
       aria-label={t.collection.tabs}
       className={`flex-row gap-1 rounded-xl bg-surface-2 p-1 ${wide ? 'self-start' : ''}`}
     >
@@ -57,10 +57,8 @@ function Tabs({
         return (
           <Pressable
             key={key}
-            role="tab"
-            nativeID={`tab-${key}`}
-            aria-selected={on}
-            aria-controls={`panel-${key}`}
+            role="button"
+            aria-pressed={on}
             onPress={() => onTab(key)}
             className={`h-10 flex-row items-center justify-center gap-2 rounded-lg px-4 ${on ? 'border border-line bg-surface' : ''} ${wide ? '' : 'flex-1'}`}
           >
@@ -357,12 +355,7 @@ export default function Collection() {
   );
 
   const panel = (
-    <View
-      role="tabpanel"
-      nativeID={`panel-${tab}`}
-      aria-labelledby={`tab-${tab}`}
-      className="min-w-0 flex-1 gap-5"
-    >
+    <View className="min-w-0 flex-1 gap-5">
       {!wide && binders.data && (
         <BinderChips
           binders={binders.data.binders}

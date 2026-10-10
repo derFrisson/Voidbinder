@@ -295,6 +295,7 @@ export const de = {
       confirm: 'Ja, löschen',
       cancel: 'Abbrechen',
       save: 'Speichern',
+      invalidPrice: 'Gib einen Betrag wie 2,50 ein.',
       saveFailed: 'Speichern hat nicht geklappt. Die alten Werte sind wiederhergestellt.',
     },
     empty: 'Deine Sammlung ist noch leer. Such eine Karte und füge sie hinzu.',

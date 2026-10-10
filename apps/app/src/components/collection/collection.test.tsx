@@ -8,7 +8,7 @@ import type {
 } from '@voidbinder/shared/api';
 import { useLocalSearchParams } from 'expo-router';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, renderApp, signedIn, type Call } from '../../../test/fake-api';
 import { setFetch } from '../../../test/fetch';
 import { useEntries, useOwned, useUpdateEntry } from '../../api/queries/collection';
@@ -16,6 +16,7 @@ import Collection from '../../app/(protected)/collection';
 import CardPage from '../../app/cards/[id]';
 import { useOwnedPrints } from '../catalog/seams';
 import { moveId } from './Binders';
+import { QuickAdd } from './CollectButtons';
 import { parseCents } from './format';
 
 const at = '2026-10-09T03:00:00.000Z';
@@ -44,7 +45,7 @@ const entry: CollectionEntry = {
   condition: 'NM',
   finish: 'foil',
   purchasePriceCents: 250,
-  purchaseCurrency: 'EUR',
+  purchaseCurrency: 'USD',
   note: null,
   createdAt: at,
   updatedAt: at,
@@ -121,6 +122,9 @@ describe('collection helpers', () => {
     expect(parseCents('1,234.50')).toBe(123450);
     expect(parseCents('3')).toBe(300);
     expect(parseCents('')).toBeNull();
+    expect(parseCents('  ')).toBeNull();
+    expect(parseCents('abc')).toBe('invalid');
+    expect(parseCents('€')).toBe('invalid');
   });
 
   it('moves a binder id to a new place', () => {
@@ -208,7 +212,7 @@ describe('collection screen', () => {
     const panel = await screen.findByRole('region', { name: 'Sammlungswert' });
     expect(within(panel).getAllByText('6,40 €').length).toBeGreaterThan(0);
     expect(screen.getByText(/Nach Cardmarket, Stand 09\.10\.2026\./)).toBeTruthy();
-    expect(screen.getByRole('tab', { name: /Habe/ }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getByRole('button', { name: /Habe/ }).getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByRole('button', { name: /Magic Foils/ })).toBeTruthy();
     expect(await screen.findByText('Adeline, strahlende Katharerin')).toBeTruthy();
     expect(screen.getByText('1 · DE · NM · Foil')).toBeTruthy();
@@ -245,6 +249,31 @@ describe('collection screen', () => {
         condition: 'NM',
         binderId: binder.id,
         purchasePriceCents: 250,
+        // The stored currency stays, though the entry is valued in EUR.
+        purchaseCurrency: 'USD',
+      }),
+    );
+  });
+
+  it('blocks saving a purchase price without a digit and says why', async () => {
+    const calls = collectionApi();
+    renderApp(<Collection />);
+    fireEvent.click(await screen.findByRole('button', { name: /Adeline.*bearbeiten/ }));
+    const form = await screen.findByRole('form');
+    fireEvent.change(within(form).getByLabelText('Kaufpreis je Karte'), {
+      target: { value: 'abc' },
+    });
+    expect(await within(form).findByText(/Gib einen Betrag/)).toBeTruthy();
+    fireEvent.click(within(form).getByRole('button', { name: 'Speichern' }));
+    expect(calls.some((c) => c.method === 'PATCH')).toBe(false);
+    fireEvent.change(within(form).getByLabelText('Kaufpreis je Karte'), {
+      target: { value: '' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Speichern' }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === 'PATCH')?.body).toMatchObject({
+        purchasePriceCents: null,
+        purchaseCurrency: null,
       }),
     );
   });
@@ -272,8 +301,37 @@ describe('collection screen', () => {
   it('switches to the wish list tab', async () => {
     collectionApi();
     renderApp(<Collection />);
-    fireEvent.click(await screen.findByRole('tab', { name: /Will/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /Will/ }));
     expect(await screen.findByText(/Deine Wunschliste ist leer/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Will/ }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('button', { name: /Habe/ }).getAttribute('aria-pressed')).toBe('false');
+  });
+});
+
+describe('wide layout', () => {
+  beforeEach(() => {
+    Object.defineProperty(document.documentElement, 'clientWidth', {
+      value: 1200,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerWidth', { value: 1200, configurable: true });
+    window.dispatchEvent(new Event('resize'));
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(document.documentElement, 'clientWidth');
+    Object.defineProperty(window, 'innerWidth', { value: 1024, configurable: true });
+    window.dispatchEvent(new Event('resize'));
+  });
+
+  it('replaces a row’s stepper with the plain number while its form is open', async () => {
+    collectionApi();
+    renderApp(<Collection />);
+    expect(await screen.findAllByRole('button', { name: /Adeline.*eins mehr/ })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: /Adeline.*bearbeiten/ }));
+    await screen.findByRole('form');
+    expect(screen.queryAllByRole('button', { name: /Adeline.*eins mehr/ })).toHaveLength(0);
+    // The form's own stepper is the only one left.
+    expect(screen.getAllByRole('button', { name: 'Anzahl: eins mehr' })).toHaveLength(1);
   });
 });
 
@@ -331,5 +389,89 @@ describe('card page collection buttons', () => {
     expect(calls.find((c) => c.method === 'POST')?.body).toEqual([
       expect.objectContaining({ printId: PRINT, finish: 'normal', language: 'de' }),
     ]);
+  });
+});
+
+describe('adding from the search', () => {
+  const CARD = entry.print.cardId;
+  const PRINT = entry.printId;
+  const cardWith = (langs: string[]) => ({
+    card: {
+      id: CARD,
+      game: 'mtg',
+      name: 'Adeline',
+      typeLine: '',
+      text: null,
+      attributes: {},
+      legalities: {},
+    },
+    prints: [
+      {
+        id: PRINT,
+        cardId: CARD,
+        set: { game: 'mtg', code: 'mid', name: 'Innistrad: Midnight Hunt' },
+        number: '1',
+        variant: '',
+        rarity: 'rare',
+        finishes: ['normal'],
+        artist: null,
+        releasedOn: null,
+        imageUrl: null,
+        externalIds: {},
+        localizations: langs.map((lang) => ({ lang, name: 'Adeline', text: null, imageUrl: null })),
+      },
+    ],
+    copyright: '',
+  });
+
+  it.each([
+    [['en', 'de'], 'de'],
+    [['en'], 'en'],
+  ])(
+    'QuickAdd uses the user’s language only when the print has it (%j → %s)',
+    async (langs, language) => {
+      const calls = fakeApi(signedIn, (c) => {
+        if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(langs));
+        if (c.method === 'POST' && c.path === '/collection/entries')
+          return json({ entries: [] }, 201);
+        return undefined;
+      });
+      renderApp(<QuickAdd printId={PRINT} cardId={CARD} name="Adeline" finish="normal" />);
+      fireEvent.click(await screen.findByRole('button', { name: /Adeline/ }));
+      await waitFor(() => expect(calls.some((c) => c.method === 'POST')).toBe(true));
+      expect(calls.find((c) => c.method === 'POST')?.body).toEqual([
+        expect.objectContaining({ printId: PRINT, language }),
+      ]);
+    },
+  );
+
+  it('a retried add sends the same client id; a new one after it went through', async () => {
+    let fail = true;
+    const calls = fakeApi(signedIn, (c) => {
+      if (c.path === `/catalog/cards/${CARD}`) return json(cardWith(['en']));
+      if (c.method === 'POST' && c.path === '/collection/entries') {
+        if (!fail) return json({ entries: [] }, 201);
+        fail = false;
+        return json({ error: { code: 'internal', message: 'x', requestId: 'r' } }, 500);
+      }
+      return undefined;
+    });
+    renderApp(<QuickAdd printId={PRINT} cardId={CARD} name="Adeline" finish="normal" />);
+    const press = async (n: number) => {
+      fireEvent.click(await screen.findByRole('button', { name: /Adeline/ }));
+      await waitFor(() => expect(calls.filter((c) => c.method === 'POST')).toHaveLength(n));
+      await waitFor(() =>
+        expect(screen.getByRole('button').getAttribute('aria-busy')).toBe('false'),
+      );
+    };
+    await press(1);
+    await press(2);
+    await press(3);
+    const ids = calls
+      .filter((c) => c.method === 'POST')
+      .map((c) => (c.body as { id: string }[])[0]?.id);
+    expect(ids[0]).toBeTruthy();
+    expect(ids[1]).toBe(ids[0]);
+    expect(ids[2]).not.toBe(ids[0]);
   });
 });
