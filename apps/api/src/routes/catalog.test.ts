@@ -89,6 +89,23 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
     expect(byName.prints[0]?.name).toBe('Adeline, Resplendent Cathar');
     expect(byName.prints[1]?.name).toBe('Ambitious Farmhand // Seasoned Cathar');
 
+    // The facets describe the whole set, whatever the filters.
+    expect(mythic.facets).toEqual(page.facets);
+    expect(page.facets).toEqual({
+      rarities: [
+        { rarity: 'common', count: 8 },
+        { rarity: 'uncommon', count: 8 },
+        { rarity: 'rare', count: 5 },
+        { rarity: 'mythic', count: 1 },
+      ],
+      // `normal` first although `foil` has more prints.
+      finishes: [
+        { finish: 'normal', count: 21 },
+        { finish: 'foil', count: 22 },
+      ],
+      languages: ['de', 'en'],
+    });
+
     const beyond = SetPageResponseSchema.parse((await get('/sets/mtg/mid?page=2')).body);
     expect(beyond).toMatchObject({ page: 2, total: 22, prints: [] });
     const query = { lang: 'en', sort: 'number', currency: 'EUR', page: 2 } as const;
@@ -97,6 +114,39 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
 
     expect((await get('/sets/mtg/xyz')).res.status).toBe(404);
     expect((await get('/sets/mtg/mid?sort=price')).res.status).toBe(400);
+  });
+
+  it('breaks rarity ties by name, so the chips keep their order', async () => {
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'mtg', code: 'tie', name: 'Tie' })
+      .returning({ id: sets.id });
+    // Two rarities the Magic ranking does not know, one print each: only the name tells them apart.
+    for (const [number, rarity] of [
+      ['1', 'Zeta'],
+      ['2', 'Alpha'],
+    ] as const) {
+      const [card] = await db
+        .insert(cards)
+        .values({ gameId: 'mtg', name: `Tie ${number}`, oracleKey: `tie-${number}` })
+        .returning({ id: cards.id });
+      await db.insert(prints).values({
+        cardId: card?.id ?? '',
+        setId: set?.id ?? '',
+        number,
+        rarity,
+        finishes: ['normal'],
+      });
+    }
+    for (let i = 0; i < 3; i++) {
+      const page = await store.getSetPage(
+        'mtg',
+        'tie',
+        { lang: 'en', sort: 'number', currency: 'EUR', page: 1 },
+        60,
+      );
+      expect(page?.facets.rarities.map((r) => r.rarity)).toEqual(['Alpha', 'Zeta']);
+    }
   });
 
   it('returns a card with its prints, localizations, images and legalities', async () => {

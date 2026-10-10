@@ -20,8 +20,18 @@ and the mockups next to it. Architecture: [ADR 0001](../../docs/adr/0001-stack.m
 
 Routes: `/` (games), `/[game]` (sets), `/[game]/sets/[code]`, `/cards/[id]`, `/search`,
 `/collection`, `/decks`, `/profile`, `/sign-in`, `/sign-up`, `/verify`, `/reset-password`. The
-catalog, collection and deck screens are placeholders with their data hooks (markers `VB-56`,
-`VB-31`, `VB-34`).
+collection and deck screens are placeholders with their data hooks (markers `VB-31`,
+`VB-34`).
+
+**Catalog browsing** (`src/components/catalog/`): home, the sets of a game and the set page. The set
+page's filters (`lang`, `rarity`, `finish`, `sort`, `page`, `view`) live in the URL; the pure logic
+(parsing, the reducer that resets the page, completion, grouping) is `model.ts`. The filter rows
+come from the `facets` of `GET /catalog/sets/:game/:code` (rarity and finish counts, languages of the
+whole set). What needs the collection (owned badge, "fehlt", completion, value strip) or the prices
+renders only when `seams.ts` returns data; both hooks answer nothing until VB-31 and VB-30 exist, so
+a signed-out visitor and today's app see no numbers, never invented ones. "Recently viewed" is
+`src/storage/recent.ts`: localStorage on the web behind a small `KeyValueStorage` seam, in memory
+natively until Sprint 3.
 
 **Search and card page (VB-35).** `/search` keeps its state in the URL (`q`, `game`, `set`,
 `rarity`, `lang`, `finish`, `page`; `src/api/queries/search.ts` maps both ways and drops the
