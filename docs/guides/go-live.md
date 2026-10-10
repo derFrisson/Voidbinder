@@ -224,7 +224,16 @@ GRANT SELECT ON cards, set_localizations, prices_current, app_meta TO voidbinder
 EOF
 ```
 
-**Verify:** each `GRANT` prints `GRANT`; GRANTs are idempotent, so a second run is harmless.
+**Verify:** each `GRANT` prints `GRANT`; GRANTs are idempotent, so a second run is harmless. Then
+check that the role can read, with no permission error:
+
+```sh
+docker exec voidbinder-db psql -U postgres -d voidbinder -XAt -c \
+  "set role voidbinder_mirror; select count(*) from prints; select count(*) from prices_current"
+```
+
+**Rollback:** not needed, the role only reads and sets `image_key`. To take the grants away, run the
+matching `REVOKE` statements (same tables and columns) as `voidbinder_migrate`.
 
 ### 5. Deploy the API (5 min)
 
