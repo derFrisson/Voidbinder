@@ -376,12 +376,16 @@ groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is
 gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/` (`groups.json.gz`,
 `<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a `marketPrice` (too few
 sales) are not written. The cron runs on prod only: dev would be a second pull of the same build,
-so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs).
+so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs). A second
+prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that landed late: when the
+20:30 run imported the build it reads `last-updated.txt` and ends without bumping
+`catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
 
-**Scryfall prices**: the Scryfall import Workflow ends with three steps (`prices: start run`,
-`prices: write`, `prices: finish run`) that read the day's `default_cards` dump back from `RAW`
-(never a second download) and write `cardmarket` and `tcgplayer_scryfall` rows per finish. A
-failure there is logged and leaves the catalog import `ok`.
+**Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
+Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
+of the `cards` steps, read back from `RAW`, never a second download) and `prices: finish run`; each
+writes `cardmarket` and `tcgplayer_scryfall` rows per finish and is idempotent, so a retried step
+is safe. A failure there is logged and leaves the catalog import `ok`.
 
 **Mapping** (`price_mappings`, `src/import/prices/match.ts`): which external product and finish
 is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`Normal` and
@@ -395,8 +399,10 @@ is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`N
 | `name_match`   | 40         | No number match: a name that only one print of the set has                |
 | `manual`       | 100        | An admin's override; the importers never change it                        |
 
-Two products that claim one print with the same confidence are both left unmapped. Prices are
-written through the table, so an override counts from the next run on:
+Two products that claim one print with the same confidence are both left unmapped, and so is a
+TCGplayer id Scryfall gives more than one print. TCGCSV prices are written through the table, so
+an override counts from the next run on. Only `tcgplayer` can be overridden (400 for any other
+source): the Scryfall sources come with the print and never go through `price_mappings`.
 
 ```sh
 curl -X PUT -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' \
@@ -419,12 +425,13 @@ that. The day comes from the Worker, never `now()` in SQL, so Hyperdrive can cac
 (the first finish when there is none), preferred source first. The display price, condition
 estimates, collection value and the history thinning are in `packages/core/src/prices`.
 
-**History backfill: not available.** TCGCSV's daily price archive
-(`https://tcgcsv.com/archive/tcgplayer/prices-<date>.ppmd.7z`, history from 2024-02-08) answers 403
-"temporarily removed due to rising server costs" (checked 2026-10-10), with no workaround offered.
-History starts with the first daily run. If the archive returns, a backfill needs 7z (PPMd), which
-a Worker cannot unpack: it would run as a Node script on the VPS like the image mirror, writing
-`prices_daily` only through `writePrices`.
+**History backfill: none (decided 2026-10-10).** TCGCSV's daily price archive
+(`https://tcgcsv.com/archive/tcgplayer/prices-<date>.ppmd.7z`, history from 2024-02-08) is offline:
+it answers 403 "temporarily removed due to rising server costs" (checked 2026-10-10). History
+starts with the first daily run. A backfill is a follow-up ticket for when the archive returns: 7z
+(PPMd) cannot be unpacked in a Worker, so it would be a Node script on the VPS, like the image
+mirror, writing `prices_daily` only through `writePrices`. Dev has no TCGCSV cron (TCGCSV asks for
+one pull a day, which prod makes); dev imports on demand.
 
 ## Card images
 
