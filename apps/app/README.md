@@ -19,8 +19,8 @@ and the mockups next to it. Architecture: [ADR 0001](../../docs/adr/0001-stack.m
 | `src/security-headers.ts`         | CSP and the other headers: `dist/_headers` for assets, the Worker for its own answers    |
 
 Routes: `/` (games), `/[game]` (sets), `/[game]/sets/[code]`, `/cards/[id]`, `/search`,
-`/collection`, `/decks`, `/profile`, `/sign-in`, `/sign-up`, `/verify`, `/reset-password`. The
-deck screen is a placeholder with its data hook (marker `VB-34`).
+`/collection`, `/decks`, `/decks/[id]`, `/profile`, `/sign-in`, `/sign-up`, `/verify`,
+`/reset-password`.
 
 **Catalog browsing** (`src/components/catalog/`): home, the sets of a game and the set page. The set
 page's filters (`lang`, `rarity`, `finish`, `sort`, `page`, `view`) live in the URL; the pure logic
@@ -61,6 +61,21 @@ page and the Cardmarket CSV download (a plain link to `/api/collection/export.cs
 shows at once and rolls back when the API refuses (`useUpdateEntry`, `useUpdateWish`); new rows
 carry a client-generated id, so a retried request adds nothing twice. "Karten hinzufügen" opens
 `/search` (`?binder=` from a binder), where signed-in users get "+ In Sammlung" under each result.
+
+**Decks (VB-34).** `/decks` lists the user's decks (game colour, format chip with "turnierlegal"
+or how many rules are broken, value, missing copies) and creates one (game, format, name; a
+client id, so a retry adds nothing twice). `/decks/[id]` (`src/components/deck/`, hooks in
+`src/api/queries/decks.ts`) follows `docs/app/mockups/deck.html`: the game-tinted header with the
+format chip, value and a rule card per zone and per card, then the broken rules as sentences in
+the user's language (`decks.problems.<code>`); three columns from 1200 px (search and add, the
+deck list, "Was fehlt mir" and the curve), one column below. The zones are tabs (Haupt / Extra /
+Side for Yu-Gi-Oh!, Commander / Haupt for Magic Commander); the list groups by card type with
+"habe n" / "fehlt n" and − / + per row, + is off at Yu-Gi-Oh!'s three copies. Every change writes
+the whole list (`PUT /decks/:id/entries`), shows at once and rolls back when the API refuses; the
+answer brings the new verdict. Adding uses VB-35's search in the deck's game, the hit becomes the
+preferred print. "Was fehlt mir" lists the missing copies with unit and line prices and what the
+rest costs per source with its date; "Fehlende auf Wunschliste" posts one wish per card (a card
+already wished, 409, counts as done) and "Als Text kopieren" copies `n Name` lines (web only).
 
 ## Local development
 

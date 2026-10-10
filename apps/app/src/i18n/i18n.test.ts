@@ -50,6 +50,20 @@ const SAME_IN_BOTH = new Set([
   'Link',
   'Illustration',
   'Illustration: {artist}',
+  // Deck formats (VB-34): the games' own names, and the curve's bar label.
+  'Standard',
+  'Pioneer',
+  'Modern',
+  'Legacy',
+  'Vintage',
+  'Commander',
+  'Pauper',
+  'Expanded',
+  'Advanced',
+  '{label}: {count}',
+  'Format',
+  'Extra',
+  'Side',
 ]);
 
 describe('i18n', () => {
