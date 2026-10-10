@@ -62,6 +62,42 @@ type PrintRow = PrintPrices & {
 };
 
 /**
+ * A deck list the game allows: zones the game has, cards of the game, prints of their card.
+ * Throws 400 (zone) and 404 (card, print). Shared by `PUT /decks/:id/entries` and `/sync/push`.
+ */
+export async function checkDeckEntries(
+  tx: Pick<NodePgDatabase, 'select'>,
+  game: DeckGame,
+  entries: readonly DeckEntryInput[],
+): Promise<void> {
+  const zones = DECK_ZONES[game] as readonly string[];
+  const bad = entries.find((e) => !zones.includes(e.zone));
+  if (bad) throw badRequest(`A ${game} deck has no ${bad.zone} zone`);
+
+  // Every card of the deck's game, every print of its card.
+  const cardIds = [...new Set(entries.map((e) => e.cardId))];
+  const printIds = [...new Set(entries.flatMap((e) => (e.printId ? [e.printId] : [])))];
+  const [known, knownPrints] = await Promise.all([
+    cardIds.length
+      ? tx
+          .select({ id: cards.id })
+          .from(cards)
+          .where(and(inArray(cards.id, cardIds), eq(cards.gameId, game)))
+      : [],
+    printIds.length
+      ? tx
+          .select({ id: prints.id, cardId: prints.cardId })
+          .from(prints)
+          .where(inArray(prints.id, printIds))
+      : [],
+  ]);
+  if (known.length !== cardIds.length) throw notFound('Card');
+  const printCard = new Map(knownPrints.map((p) => [p.id, p.cardId]));
+  if (entries.some((e) => e.printId && printCard.get(e.printId) !== e.cardId))
+    throw notFound('Print');
+}
+
+/**
  * Decks in PostgreSQL (VB-34) on the cache-disabled pool (a user reads their own writes). Every
  * read runs the rules of `@voidbinder/core` over the deck's cards, the user's collection (copies
  * per card name in the deck's game, every binder) and the current prices. Throws 404 and 400 as
@@ -449,32 +485,7 @@ export class DrizzleDeckStore implements DeckStore {
         .where(and(eq(decks.id, id), eq(decks.userId, userId), live))
         .for('update');
       if (!deck) throw notFound('Deck');
-      const game = deck.gameId as DeckGame;
-      const zones = DECK_ZONES[game] as readonly string[];
-      const bad = entries.find((e) => !zones.includes(e.zone));
-      if (bad) throw badRequest(`A ${game} deck has no ${bad.zone} zone`);
-
-      // Every card of the deck's game, every print of its card.
-      const cardIds = [...new Set(entries.map((e) => e.cardId))];
-      const printIds = [...new Set(entries.flatMap((e) => (e.printId ? [e.printId] : [])))];
-      const [known, knownPrints] = await Promise.all([
-        cardIds.length
-          ? tx
-              .select({ id: cards.id })
-              .from(cards)
-              .where(and(inArray(cards.id, cardIds), eq(cards.gameId, game)))
-          : [],
-        printIds.length
-          ? tx
-              .select({ id: prints.id, cardId: prints.cardId })
-              .from(prints)
-              .where(inArray(prints.id, printIds))
-          : [],
-      ]);
-      if (known.length !== cardIds.length) throw notFound('Card');
-      const printCard = new Map(knownPrints.map((p) => [p.id, p.cardId]));
-      if (entries.some((e) => e.printId && printCard.get(e.printId) !== e.cardId))
-        throw notFound('Print');
+      await checkDeckEntries(tx, deck.gameId as DeckGame, entries);
 
       await tx.delete(deckEntries).where(eq(deckEntries.deckId, id));
       if (entries.length)
