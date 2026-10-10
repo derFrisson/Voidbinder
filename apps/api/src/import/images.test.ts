@@ -135,8 +135,8 @@ describe('sourceUrl', () => {
       tcgdex.high,
     );
     expect(sourceUrl('pokemon', { tcgdex: 'swsh3-136', pokemontcg_images: ptcg })).toBe(ptcg.large);
-    // The key keeps the TCGdex card id, so a later TCGdex picture lands next to it.
-    expect(sourceId('pokemon', { tcgdex: 'swsh3-136' }, ptcg.large)).toBe('swsh3-136');
+    // The key keeps the TCGdex card id and marks the source, so a later TCGdex picture replaces it.
+    expect(sourceId('pokemon', { tcgdex: 'swsh3-136' }, ptcg.large)).toBe('swsh3-136-pokemontcg');
   });
 
   it('reads the extension from the path only', () => {
@@ -801,12 +801,33 @@ describe.skipIf(!databaseUrl)('image mirror pokemontcg.io pictures (Postgres, VB
       sql`select number, image_key from prints order by number`,
     );
     expect(rows).toEqual([
-      { number: '1', image_key: 'images/pokemon/2021swsh-1/en/orig.png' },
+      { number: '1', image_key: 'images/pokemon/2021swsh-1-pokemontcg/en/orig.png' },
       { number: '2', image_key: null },
       { number: '3', image_key: 'images/pokemon/2021swsh-3/en/orig.webp' },
       { number: '4', image_key: null },
     ]);
     // The gone picture is not asked for again.
+    expect(await pendingRows(db, { game: 'pokemon' })).toEqual([]);
+  });
+
+  it('swaps in a TCGdex picture published after the pokemontcg.io one', async () => {
+    const high = 'https://assets.tcgdex.net/en/x/2021swsh/1/high.webp';
+    await db.execute(sql`update prints
+      set image_key = 'images/pokemon/2021swsh-1-pokemontcg/en/orig.png', external_ids = external_ids
+      || jsonb_build_object('tcgdex_images', jsonb_build_object('high', ${high}::text))
+      where number = '1'`);
+    const fake = fakeDeps({ resize: false });
+    await mirrorImages(
+      fake.deps,
+      db,
+      { game: 'pokemon', retryGone: false },
+      { concurrency: 1, verify: false },
+    );
+    expect(fake.fetched).toContain(high);
+    const { rows } = await db.execute<{ image_key: string | null }>(
+      sql`select image_key from prints where number = '1'`,
+    );
+    expect(rows).toEqual([{ image_key: 'images/pokemon/2021swsh-1/en/orig.webp' }]);
     expect(await pendingRows(db, { game: 'pokemon' })).toEqual([]);
   });
 });

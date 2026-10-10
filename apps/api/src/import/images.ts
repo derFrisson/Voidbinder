@@ -133,11 +133,13 @@ const SAFE_ID = /^[A-Za-z0-9._-]+$/;
  * The source's stable id that names an image's objects: the Scryfall card id; for YGOPRODeck the
  * image id from `image_url` (`…/cards/<id>.jpg`: one artwork, shared by every set print of it); for
  * a Yugipedia scan its file name (`RedEyesDarkDragoon-RA05-EN-UR-1E-EA`, VB-106);
- * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`).
+ * the TCGdex card id (`tcgdex`, else `<set>-<number>` from `…/<set>/<number>/high.webp`), with
+ * `-pokemontcg` for a pokemontcg.io picture, so `needsWork` and `writeKeys` let a later TCGdex
+ * picture replace it (VB-118).
  */
 export function sourceId(game: string, ids: Record<string, unknown>, url: string): string | null {
   const path = new URL(url).pathname.split('/');
-  const id =
+  const base =
     game === 'mtg'
       ? ids.scryfall
       : game === 'yugioh'
@@ -145,6 +147,8 @@ export function sourceId(game: string, ids: Record<string, unknown>, url: string
         : game === 'pokemon'
           ? (ids.tcgdex ?? (path.length >= 4 ? `${path.at(-3)}-${path.at(-2)}` : null))
           : null;
+  const id =
+    typeof base === 'string' && sourceOf(game, url) === 'pokemontcg' ? `${base}-pokemontcg` : base;
   return typeof id === 'string' && SAFE_ID.test(id) ? id : null;
 }
 
@@ -475,12 +479,15 @@ const needsWork = (
     or (${sets.gameId} = 'pokemon' and (${ids} -> 'tcgdex_images' ->> 'high' is not null
       or ${ids} -> 'pokemontcg_images' ->> 'large' is not null)))`;
   // A Yugipedia scan (VB-106) the key does not name yet: the row keeps its old key until then.
+  // Likewise a TCGdex picture published after the pokemontcg.io one was mirrored (VB-118).
   // The id is the URL's file name, as `sourceId` takes it (`artwork.file` may differ in case).
   const scan = sql`regexp_replace(${ids} -> 'artwork' ->> 'url', '^.*/|[.][^./]*$', '', 'g')`;
   const todo = sql`(${key} is null
     ${sm ? sql`or (${key} not like '%/sm.webp' and ${key} not like '%/sm-lowres.webp')` : sql``}
     or (${key} like '%-lowres.%' and ${highres})
-    or (${sets.gameId} = 'yugioh' and position('/' || ${scan} || '/' in ${key}) = 0))`;
+    or (${sets.gameId} = 'yugioh' and position('/' || ${scan} || '/' in ${key}) = 0)
+    or (${sets.gameId} = 'pokemon' and ${key} like '%-pokemontcg/%'
+      and ${ids} -> 'tcgdex_images' ->> 'high' is not null))`;
   // The URL `sourceUrl` picks, to look up in `image_sources_gone`.
   const url = sql`case ${sets.gameId}
     when 'pokemon' then coalesce(${ids} -> 'tcgdex_images' ->> 'high',
