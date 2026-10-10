@@ -72,10 +72,9 @@
   // Catalog import (VB-26, VB-27, VB-28) and TCGCSV prices (VB-30): one Workflow per source
   // (Scryfall, YGOPRODeck, TCGdex, TCGCSV, Yugipedia's translations, VB-93); each cron starts one
   // daily, Yugipedia's weekly (CRON_SOURCES in src/import/schedule.ts maps the expression), and
-  // POST /admin/import/<source> on demand; dev has
-  // no TCGCSV cron (TCGCSV asks for one pull a day; prod's 22:30 run only reads last-updated.txt
-  // when 20:30 imported the build). Splitting the 2 GB Scryfall all_cards dump
-  // needs more than the default 30 s of CPU in one step.
+  // POST /admin/import/<source> on demand; dev has no TCGCSV cron (TCGCSV asks for one pull a day;
+  // prod's 22:30 run only reads last-updated.txt when 20:30 imported the build). Splitting the
+  // 2 GB Scryfall all_cards dump needs more than the default 30 s of CPU in one step.
   "workflows": [
     {
       "binding": "SCRYFALL_IMPORT",

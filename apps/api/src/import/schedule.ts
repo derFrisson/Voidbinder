@@ -1,4 +1,4 @@
-/** An import that a cron starts daily. */
+/** An import that a cron starts, daily or weekly. */
 export type ScheduledSource = 'scryfall' | 'ygoprodeck' | 'tcgdex' | 'tcgcsv' | 'yugipedia';
 
 /**
