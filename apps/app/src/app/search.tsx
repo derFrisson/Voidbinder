@@ -218,9 +218,9 @@ function Results({
                 <PrintTile hit={hit} />
                 <QuickAdd
                   printId={hit.id}
+                  cardId={hit.cardId}
                   name={hit.name}
                   finish={hit.finishes[0] ?? 'normal'}
-                  language={state.lang}
                   binderId={binder}
                 />
               </View>

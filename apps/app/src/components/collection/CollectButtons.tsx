@@ -1,6 +1,9 @@
 import type { Locale } from '@voidbinder/shared';
 import { router, usePathname } from 'expo-router';
+import { useQueryClient } from '@tanstack/react-query';
+import { useRef, useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
+import { cardOptions } from '../../api/queries/catalog';
 import { useAddEntries, useAddWishes, useOwned } from '../../api/queries/collection';
 import { ApiError } from '../../api/queries/http';
 import { useSession } from '../../api/queries/me';
@@ -14,6 +17,20 @@ export const entryLanguage = (print: Collectable, locale: Locale) =>
   print.langs.includes(locale) ? locale : 'en';
 
 /**
+ * A client id for the next add that survives a failed try: pressing the button again after an
+ * error sends the same id (the API adds nothing twice), a press after a success gets a new one.
+ */
+function useRetryId() {
+  const ref = useRef<string | undefined>(undefined);
+  return {
+    take: () => (ref.current ??= crypto.randomUUID()),
+    done: () => {
+      ref.current = undefined;
+    },
+  };
+}
+
+/**
  * "In Sammlung" (blue) and "Auf Wunschliste" (outlined) on the card page, with the owned line
  * ("Du hast 2× in deiner Sammlung"). Signed out, both lead to sign-in and come back here.
  */
@@ -25,6 +42,8 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
   const owned = useOwned([print.id], !!me);
   const add = useAddEntries();
   const wish = useAddWishes();
+  const entryId = useRetryId();
+  const wishId = useRetryId();
   const c = t.collection;
   const copies = owned.data?.owned[print.id] ?? 0;
   const wishes = owned.data?.wished[print.id] ?? 0;
@@ -34,15 +53,22 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
 
   const onAdd = () =>
     me
-      ? add.mutate([
-          {
-            printId: print.id,
-            finish: print.finishes[0] ?? 'normal',
-            language: entryLanguage(print, locale),
-          },
-        ])
+      ? add.mutate(
+          [
+            {
+              id: entryId.take(),
+              printId: print.id,
+              finish: print.finishes[0] ?? 'normal',
+              language: entryLanguage(print, locale),
+            },
+          ],
+          { onSuccess: entryId.done },
+        )
       : signIn();
-  const onWish = () => (me ? wish.mutate([{ printId: print.id }]) : signIn());
+  const onWish = () =>
+    me
+      ? wish.mutate([{ id: wishId.take(), printId: print.id }], { onSuccess: wishId.done })
+      : signIn();
 
   // flex-1 only side by side (phone); in the desktop column it would collapse the height.
   const button = `h-11 flex-row items-center justify-center rounded-xl px-4 ${wide ? '' : 'flex-1'}`;
@@ -89,32 +115,60 @@ export function CollectButtons({ print, wide }: { print: Collectable; wide: bool
 }
 
 /**
- * The search's "add to collection" under a result: one copy in `language`, into `binderId` when
- * the search was opened from a binder. Says so when it is in.
+ * The search's "add to collection" under a result: one copy, into `binderId` when the search was
+ * opened from a binder. Says so when it is in. The language follows the card page's rule (the
+ * user's when the print has it, else English), which needs the card's localizations: read once
+ * when the button is pressed (the card page shares that query).
  */
 export function QuickAdd({
   printId,
+  cardId,
   name,
   finish,
-  language,
   binderId,
 }: {
   printId: string;
+  cardId: string;
   name: string;
   finish: string;
-  language: string;
   binderId?: string | undefined;
 }) {
   const t = useT();
+  const locale = useLocale();
+  const client = useQueryClient();
   const add = useAddEntries();
+  const entryId = useRetryId();
+  const [looking, setLooking] = useState(false);
   const c = t.collection;
+  const busy = looking || add.isPending;
+  const onAdd = async () => {
+    setLooking(true);
+    // Without the card (offline, error) English is the safe language.
+    const langs = await client
+      .fetchQuery(cardOptions(cardId))
+      .then((d) => d.prints.find((p) => p.id === printId)?.localizations.map((l) => l.lang) ?? [])
+      .catch(() => []);
+    setLooking(false);
+    add.mutate(
+      [
+        {
+          id: entryId.take(),
+          printId,
+          finish,
+          language: entryLanguage({ id: printId, finishes: [finish], langs }, locale),
+          ...(binderId && { binderId }),
+        },
+      ],
+      { onSuccess: entryId.done },
+    );
+  };
   return (
     <Pressable
       role="button"
       aria-label={`${t.card.addToCollection}: ${name}`}
-      aria-busy={add.isPending}
-      disabled={add.isPending}
-      onPress={() => add.mutate([{ printId, finish, language, ...(binderId && { binderId }) }])}
+      aria-busy={busy}
+      disabled={busy}
+      onPress={onAdd}
       className="h-9 flex-row items-center justify-center rounded-lg border border-line bg-surface px-2"
     >
       <Text

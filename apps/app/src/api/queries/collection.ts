@@ -6,7 +6,6 @@ import type {
   EntriesQuery,
   NewEntry,
   NewWish,
-  UpdateBinderRequest,
   UpdateEntryRequest,
   UpdateWishRequest,
   WishlistEntry,
@@ -61,15 +60,6 @@ export function useCreateBinder() {
   });
 }
 
-export function useUpdateBinder() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...json }: UpdateBinderRequest & { id: string }) =>
-      read(api.collection.binders[':id'].$patch({ param: { id }, json })),
-    onSettled: () => invalidate(client),
-  });
-}
-
 export function useDeleteBinder() {
   const client = useQueryClient();
   return useMutation({
@@ -118,13 +108,9 @@ export function useEntries(query: Partial<EntriesQuery>) {
 export function useAddEntries() {
   const client = useQueryClient();
   return useMutation({
-    // The client's id makes a retried request harmless (the API is idempotent on it).
-    mutationFn: (entries: NewEntry[]) =>
-      read(
-        api.collection.entries.$post({
-          json: entries.map((e) => ({ id: crypto.randomUUID(), ...e })),
-        }),
-      ),
+    // The caller sets each entry's `id` (kept across retries), so a repeated request adds
+    // nothing twice: the API is idempotent on it.
+    mutationFn: (entries: NewEntry[]) => read(api.collection.entries.$post({ json: entries })),
     onSettled: () => invalidate(client),
   });
 }
@@ -200,12 +186,8 @@ export function useWishlist(query: Partial<WishlistQuery>) {
 export function useAddWishes() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (wishes: NewWish[]) =>
-      read(
-        api.collection.wishlist.$post({
-          json: wishes.map((w) => ({ id: crypto.randomUUID(), ...w })),
-        }),
-      ),
+    // Ids come from the caller, as for `useAddEntries`.
+    mutationFn: (wishes: NewWish[]) => read(api.collection.wishlist.$post({ json: wishes })),
     onSettled: () => invalidate(client),
   });
 }
