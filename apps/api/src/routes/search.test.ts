@@ -23,6 +23,9 @@ describe('parseCodeQuery', () => {
     ['sv03.5 12', 'sv03512', null],
     ['mid 123', 'mid123', null],
     ['MID-123', 'mid123', null],
+    ['mid 123a', 'mid123a', null],
+    ['war 97★', 'war97', null],
+    ['MID-123★', 'mid123', null],
     ['lds3', 'lds3', null],
     ['121', '121', { number: '121', total: null }],
     ['001/128', '001128', { number: '001', total: 128 }],
@@ -98,6 +101,9 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     const base1 = await set('pokemon', 'base1', 'Base', '1999-01-09', 102);
     await print(base1, 'pokemon', 'Alakazam', '1');
     await print(base1, 'pokemon', 'Midas Touch', '50');
+    const war = await set('mtg', 'war', 'War of the Spark', '2019-05-03', 264);
+    await print(war, 'mtg', 'Finale of Promise', '97★');
+    await print(war, 'mtg', 'Tamiyo, Collector of Tales', '123a');
     const mid = await set('mtg', 'mid', 'Innistrad: Midnight Hunt', '2021-09-24', 277);
     await print(mid, 'mtg', 'Midnight Reaper', '123');
     await print(mid, 'mtg', 'Adeline, Resplendent Cathar', '1');
@@ -138,6 +144,9 @@ describe.skipIf(!databaseUrl)('search by code and GET /catalog/search/suggest (P
     ['001/198', 'sv01 001'],
     ['mid 123', 'mid 123'],
     ['MID-123', 'mid 123'],
+    ['war 123a', 'war 123a'],
+    ['WAR-97★', 'war 97★'],
+    ['war 97', 'war 97★'],
     ['Satelite', 'lds3 EN121'],
     ['Satelite Warior', 'lds3 EN121'],
     ['Satellitenkriger', 'lds3 EN121'],

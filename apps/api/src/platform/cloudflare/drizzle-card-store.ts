@@ -123,7 +123,11 @@ function searchTsQuery(q: string): SQL {
 
 /** What the code lookup reads from a search query (VB-79). */
 export interface CodeQuery {
-  /** Lower case without spaces, `-`, `/`, `_` and `.`; null unless 2 to 16 letters and digits. */
+  /**
+   * Lower case without spaces, `-`, `/`, `_`, `.` and non-ASCII characters (`97★` → `97`, as the
+   * SQL side strips them); null unless 2 to 16 letters and digits, so other ASCII punctuation
+   * (websearch syntax, `Black Lotus!`) is no code.
+   */
   code: string | null;
   /** A bare number (`121`) or a printed `number/set size` (`001/128`); null otherwise. */
   number: { number: string; total: number | null } | null;
@@ -131,7 +135,7 @@ export interface CodeQuery {
 
 /** Reads a set code with a number (`LDS3-EN121`, `sv1 001`), a set code or a number from `q`. */
 export function parseCodeQuery(q: string): CodeQuery {
-  const code = q.toLowerCase().replace(/[\s\-/_.]+/g, '');
+  const code = q.toLowerCase().replace(/[\s\-/_.\u0080-\u{10ffff}]+/gu, '');
   const n = /^(\d{1,4})(?:\s*\/\s*(\d{1,4}))?$/.exec(q.trim());
   return {
     code: /^[a-z0-9]{2,16}$/.test(code) ? code : null,
