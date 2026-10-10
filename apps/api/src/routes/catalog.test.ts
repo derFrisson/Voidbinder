@@ -255,7 +255,7 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       await db
         .insert(prints)
         .values(inserted.map((c, i) => ({ cardId: c.id, setId: set?.id ?? '', number: `s${i}` })));
-      await db.execute(sql`analyze`);
+      await db.execute(sql`analyze cards, prints, print_localizations`);
 
       // The store's own queries, run as EXPLAIN. At this size a sequential scan is cheaper and
       // the planner rightly takes it, so seqscan is switched off: when the query has an index
