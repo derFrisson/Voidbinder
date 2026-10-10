@@ -38,13 +38,35 @@ export function adminRoutes(adminToken: string | undefined) {
           return { mode };
         }),
       )
-      .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
+      .post(
+        '/import/tcgcsv',
+        // `?force=1` imports TCGCSV's build again: the matching re-runs for the build of the
+        // last run (a new matching rule reaches the prices without waiting for a new build).
+        importRoute('tcgcsv', 'TCGCSV', (c) =>
+          c.req.query('force') === '1' ? { force: true } : {},
+        ),
+      )
       // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
       .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))
       // VB-106: the artwork of every print from the set galleries (the Yugipedia Workflow alone).
       .post(
         '/import/yugipedia-galleries',
         importRoute('yugipedia-galleries', 'Yugipedia gallery', () => ({ galleries: 'only' })),
+      )
+      // VB-111: per set the prints with a current TCGplayer price, the groups no set matched and
+      // the sets that have a group and no price, from the group list of the last TCGCSV run.
+      .get(
+        '/prices/coverage',
+        zValidator(
+          'query',
+          z.object({ game: z.enum(['mtg', 'yugioh', 'pokemon']) }),
+          throwOnInvalid,
+        ),
+        async (c) => {
+          const coverage = await c.var.platform.priceCoverage?.(c.req.valid('query').game);
+          if (!coverage) throw new HTTPException(404, { message: 'No TCGCSV group list yet' });
+          return c.json(coverage, 200);
+        },
       )
       // Rewrites the whole search index from Postgres (VB-98); waits for a running refresh.
       .post('/search-index/rebuild', async (c) => {

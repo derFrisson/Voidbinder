@@ -8,20 +8,20 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 
 ## Layout
 
-| Path                         | What                                                                                                                      |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`               | Worker entry (`fetch`, `scheduled`, the `purgeCache` RPC of Caching) and `export type AppType`                            |
-| `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                                        |
-| `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `/sync/**`, `POST /admin/import/<source>` |
-| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client, 2FA encryption                              |
-| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`, catalog cache headers                      |
-| `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                                        |
-| `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                                           |
-| `d1/`                        | Migrations of the D1 search index (VB-98), applied by `deploy:dev` / `deploy:prod`                                        |
-| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck, TCGdex, Yugipedia), prices (`prices/`); see Importers, Prices                    |
-| `src/workflows/`             | Cloudflare Workflows that run the importers                                                                               |
-| `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                                |
-| `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`                                       |
+| Path                         | What                                                                                                                                                    |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`               | Worker entry (`fetch`, `scheduled`, the `purgeCache` RPC of Caching) and `export type AppType`                                                          |
+| `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                                                                      |
+| `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `/sync/**`, `POST /admin/import/<source>`, `GET /admin/prices/coverage` |
+| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client, 2FA encryption                                                            |
+| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`, catalog cache headers                                                    |
+| `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                                                                      |
+| `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                                                                         |
+| `d1/`                        | Migrations of the D1 search index (VB-98), applied by `deploy:dev` / `deploy:prod`                                                                      |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck, TCGdex, Yugipedia), prices (`prices/`); see Importers, Prices                                                  |
+| `src/workflows/`             | Cloudflare Workflows that run the importers                                                                                                             |
+| `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                                                              |
+| `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`                                                                     |
 
 Request and response schemas (Zod) live in `packages/shared/src/api` and are imported from
 `@voidbinder/shared/api`. Errors always have the shape `{ error: { code, message, requestId } }`
@@ -727,13 +727,23 @@ User-Agent, about 100 ms between requests, one pull a day and under 10,000 reque
 1. `last updated`: `last-updated.txt`; when it is the build the last run imported, the run ends
    (`stats.skipped`) without another request.
 2. `groups <game>` for Magic (category 1), Yu-Gi-Oh! (2) and Pokémon (3): the groups (TCGplayer's
-   sets), matched to catalog sets by Scryfall's `tcgplayer_id`, then abbreviation = set code, then
-   the name without TCGplayer's series prefix.
+   sets), matched to catalog sets by Scryfall's `tcgplayer_id`; then TCGdex's official abbreviation
+   (`external_ids.abbreviation.official`, `SVI`), when it and the group's are each unique and the
+   group's name holds the set's (TCGplayer's `BST` is EX Battle Stadium, TCGdex's Battle Styles);
+   then abbreviation = set code; then the name without TCGplayer's series prefix (`SWSH03: `,
+   `SM - `), a trailing `Base Set` or a leading series name (`SV: Scarlet & Violet 151` → `151`);
+   last `GROUP_ALIASES` in `match.ts` (promos, McDonald's, Radiant Collections, by group id).
 3. `prices <game> 000` …: products and prices of 25 matched groups per step, mapped to prints
    (below) and written to `prices_current` and `prices_daily`.
-4. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
-   (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`) and
-   `catalog_version` + 1.
+4. `coverage <game>` after each game (VB-111, `src/import/prices/coverage.ts`): per set the prints
+   with a current `tcgplayer` price out of all, the groups that matched no set and the sets that
+   have a group but no priced print, from the group list the run just kept. Logged as one line
+   `price coverage` per run (per game `sets`, `setsWithGroup`, `setsPriced`, `prints`, `priced`,
+   `unmatchedGroups`, `unpricedSets`) and a WARN `set has a TCGplayer group and no price` per such
+   set.
+5. `finish run`: `import_runs` row (`source` `tcgcsv`, kind `prices`) `ok` with per-game counts
+   (`groups`, `matchedGroups`, `cards`, `mapped`, `unmapped`, `prices`, `noMarket`), `raw` (the
+   run's `RAW` prefix) and `catalog_version` + 1.
 
 A full run is about 2,500 requests; the first local run for Magic (2026-10-10) matched 352 of 454
 groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is kept
@@ -744,6 +754,23 @@ so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one
 prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that landed late: when the
 20:30 run imported the build it reads `last-updated.txt` and ends without bumping
 `catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
+
+`POST /admin/import/tcgcsv?force=1` imports the build again even when the last run did: the
+groups and products are matched anew, so a new matching rule (VB-111's Pokémon groups) reaches
+the prices the same day instead of with the next build. It is a second pull of that build (about
+2,500 requests, within TCGCSV's daily limit). The price history of the newly mapped prints comes
+from the archive backfill afterwards, on the VPS with `--refill` (only the missing rows are added):
+`pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db <dev|prod> --refill`
+(History backfill, below).
+
+```sh
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "<API_URL>/admin/import/tcgcsv?force=1"
+```
+
+`GET /admin/prices/coverage?game=mtg|yugioh|pokemon` (same bearer token) answers the coverage of
+the last run that pulled a build: `sets` (per set `code`, `name`, `prints`, `priced`, `groups`),
+`unmatchedGroups` (`groupId`, `name`, `abbreviation`) and `unpricedSets`; 404 before such a run
+or when its group list is gone from `RAW`, 400 for another game.
 
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks

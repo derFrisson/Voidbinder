@@ -1,6 +1,14 @@
 import { failRun, finishRun } from '../scryfall/write';
 import type { ImportDeps, StepRunner } from '../scryfall/pipeline';
+import { log } from '../../middleware/log';
 import { purgeEdgeCache } from '../util';
+import {
+  coverageCounts,
+  groupsKey,
+  priceCoverage,
+  readGroups,
+  type PriceCoverage,
+} from './coverage';
 import { isCard, matchGroups, matchProducts } from './match';
 import {
   CATEGORIES,
@@ -41,6 +49,11 @@ export interface PriceImportOptions {
   /** Pause before each request; TCGCSV asks for 100 ms. */
   delayMs?: number;
   games?: readonly PricedGame[];
+  /**
+   * Imports the build even when the last run did: re-runs the matching for groups and products a
+   * new rule maps (`POST /admin/import/tcgcsv?force=1`).
+   */
+  force?: boolean;
 }
 
 export interface GameStats {
@@ -161,7 +174,10 @@ export async function runTcgcsvImport(
     // TCGCSV builds once a day: a run that finds no newer build pulls nothing else.
     const { observedAt, fresh } = await step('last updated', async () => {
       const at = await lastUpdated(deps.fetch, delayMs);
-      return { observedAt: at, fresh: at !== (await deps.withDb(lastImportedUpdate)) };
+      return {
+        observedAt: at,
+        fresh: opts.force === true || at !== (await deps.withDb(lastImportedUpdate)),
+      };
     });
     if (!fresh) {
       const stats = { lastUpdated: observedAt, skipped: 'TCGCSV has not been updated since' };
@@ -173,6 +189,12 @@ export async function runTcgcsvImport(
     }
 
     const games: Partial<Record<PricedGame, GameStats>> = {};
+    const coverage: Partial<
+      Record<
+        PricedGame,
+        { counts: ReturnType<typeof coverageCounts>; unpriced: PriceCoverage['unpricedSets'] }
+      >
+    > = {};
     for (const game of opts.games ?? GAMES) {
       const category = CATEGORIES[game];
       const { total, matched } = await step(`groups ${game}`, async () => {
@@ -180,7 +202,7 @@ export async function runTcgcsvImport(
           deps.fetch,
           deps.raw,
           `/tcgplayer/${category}/groups`,
-          `${raw}/${category}/groups.json.gz`,
+          groupsKey(raw, game),
           delayMs,
         );
         const groups = results<TcgGroup>(text, `groups ${category}`);
@@ -209,9 +231,24 @@ export async function runTcgcsvImport(
           g[k] += r[k];
       }
       games[game] = g;
+      // From the group list just kept, so the route and the log read the same thing.
+      coverage[game] = await step(`coverage ${game}`, async () => {
+        const groups = (await readGroups(deps.raw, groupsKey(raw, game))) ?? [];
+        const c = await deps.withDb((db) => priceCoverage(db, game, groups));
+        return { counts: coverageCounts(c), unpriced: c.unpricedSets };
+      });
     }
+    const covered = Object.entries(coverage);
+    log('info', {
+      message: 'price coverage',
+      ...Object.fromEntries(covered.map(([game, c]) => [game, c.counts])),
+    });
+    for (const [game, c] of covered)
+      for (const set of c.unpriced)
+        log('warn', { message: 'set has a TCGplayer group and no price', game, ...set });
 
-    const stats = { lastUpdated: observedAt, games };
+    // `raw`: where the run kept its answers, the group lists of the coverage route among them.
+    const stats = { lastUpdated: observedAt, raw, games };
     await step('finish run', () => deps.withDb((db) => finishRun(db, runId, stats)));
     await purgeEdgeCache(deps, step, ['prices']);
     return { runId, stats };

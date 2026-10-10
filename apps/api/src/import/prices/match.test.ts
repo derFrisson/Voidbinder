@@ -113,7 +113,10 @@ describe('matchGroups', () => {
   });
 
   it('matches the groups no rule finds through the alias list', () => {
-    const sets = [sv('svp', 'SVP Black Star Promos', 'SVP'), set('swshp', 'SWSH Black Star Promos')];
+    const sets = [
+      sv('svp', 'SVP Black Star Promos', 'SVP'),
+      set('swshp', 'SWSH Black Star Promos'),
+    ];
     expect(
       matchGroups(
         [

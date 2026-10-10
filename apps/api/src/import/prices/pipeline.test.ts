@@ -21,11 +21,12 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     withDb: (fn) => fn(db),
     purgeCache: async (tags) => void purged.push(tags),
   });
-  const run = (fake: FakeTcgcsv = {}, steps: string[] = []) =>
+  const run = (fake: FakeTcgcsv = {}, steps: string[] = [], force = false) =>
     runTcgcsvImport(deps(fakeTcgcsv(fake)), (name, fn) => (steps.push(name), fn()), {
       env: 'dev',
       date: '2026-10-09',
       delayMs: 0,
+      force,
     });
 
   beforeAll(async () => {
@@ -87,10 +88,14 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     const requests: string[] = [];
     const steps: string[] = [];
     purged.length = 0;
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
     const { stats } = await run({ requests }, steps);
+    const lines = logged.mock.calls.map(([line]) => JSON.parse(String(line)) as object);
+    logged.mockRestore();
 
     expect(stats).toEqual({
       lastUpdated: '2026-10-09T20:05:19.000Z',
+      raw: 'raw/dev/tcgcsv/2026-10-09',
       games: {
         // 3 groups, 2 match a set; 5 card products (the booster box is none), 4 mapped (one of
         // them without a market price), "Mystery Card" unmapped.
@@ -129,12 +134,23 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'last updated',
       'groups mtg',
       'prices mtg 000',
+      'coverage mtg',
       'groups yugioh',
+      'coverage yugioh',
       'groups pokemon',
+      'coverage pokemon',
       'finish run',
       'purge cache',
     ]);
     expect(purged).toEqual([['prices']]);
+    // VB-111: one line with the coverage counts per game.
+    expect(lines).toContainEqual(
+      expect.objectContaining({
+        message: 'price coverage',
+        mtg: expect.objectContaining({ setsWithGroup: 2, unmatchedGroups: 1 }),
+        pokemon: expect.objectContaining({ sets: 0, unmatchedGroups: 3 }),
+      }),
+    );
     // The purge reaches every page that shows a price, not only the price routes.
     for (const path of ['/catalog/sets/pokemon/sv1', '/catalog/cards/0a1b', '/catalog/search'])
       expect(cacheTags(path).split(',')).toEqual(expect.arrayContaining(purged[0] ?? ['none']));
@@ -193,6 +209,17 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     // Nothing new: the cached catalog reads stay valid, at the edge too.
     expect(await version()).toBe(before);
     expect(purged).toEqual([]);
+  });
+
+  it('imports the same build again when forced (VB-111: a new matching rule)', async () => {
+    const before = await version();
+    const requests: string[] = [];
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { stats } = await run({ requests }, [], true);
+    logged.mockRestore();
+    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 2, mapped: 4 } } });
+    expect(requests).toContain('https://tcgcsv.com/tcgplayer/1/2864/prices');
+    expect(await version()).toBe(before + 1);
   });
 
   it('keeps one prices_daily row per print, finish, source and day', async () => {
