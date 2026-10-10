@@ -1,7 +1,8 @@
 import { cardAspect, type CardFormat, type Game } from '@voidbinder/shared';
 import { useState } from 'react';
-import { Image, Platform, Text, View } from 'react-native';
+import { Image, Platform, View } from 'react-native';
 import { imageHost } from '../../security-headers';
+import { CardBack } from '../card/CardBack';
 import { FoilSheen } from '../card/FoilSheen';
 
 const frame: Record<Game, string> = {
@@ -25,8 +26,8 @@ function isAllowedImage(uri: string): boolean {
 }
 
 /**
- * A card's picture, or the game-coloured frame with the number when there is none (or it fails to
- * load: sources can be missing, and the CSP admits only our own image host). On the web a real
+ * A card's picture, or the game's card back when there is none (or it fails to load: sources can
+ * be missing, and the CSP admits only our own image host; VB-120). On the web a real
  * `<img>` so it can load lazily and reserve its size; react-native-web's Image has neither.
  */
 export function CardImage({ uri, ...props }: CardImageProps) {
@@ -40,13 +41,12 @@ interface CardImageProps {
   game: Game;
   /** The box's aspect (`CARD_FORMATS`); the image is contained, never cropped. */
   format: CardFormat;
-  number: string;
   /** A foil copy (`isFoil`): the picture gets the static sheen (VB-112). */
   foil?: boolean;
   className?: string;
 }
 
-function Picture({ uri, alt, game, format, number, foil, className = '' }: CardImageProps) {
+function Picture({ uri, alt, game, format, foil, className = '' }: CardImageProps) {
   const [failed, setFailed] = useState(false);
   const shown = uri && !failed && isAllowedImage(uri);
   // The R2 `sm` rendition's size (320 px wide, 466 high for Yu-Gi-Oh!): `<img>` reserves the
@@ -78,11 +78,7 @@ function Picture({ uri, alt, game, format, number, foil, className = '' }: CardI
           resizeMode="contain"
         />
       ) : (
-        <View className="flex-1 items-center justify-center p-1">
-          <Text aria-hidden className="font-mono text-xs font-medium text-ink-2">
-            {number}
-          </Text>
-        </View>
+        <CardBack game={game} format={format} />
       )}
       {shown && foil && <FoilSheen />}
     </View>

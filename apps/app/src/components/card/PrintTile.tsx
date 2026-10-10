@@ -29,7 +29,12 @@ export function PrintTile({ hit }: { hit: SearchHit }) {
         className="gap-2 rounded-xl"
       >
         <View>
-          <CardImage uri={hit.imageUrl} format={hit.cardFormat} foil={printFoil(hit.game, hit)} />
+          <CardImage
+            uri={hit.imageUrl}
+            game={hit.game}
+            format={hit.cardFormat}
+            foil={printFoil(hit.game, hit)}
+          />
           {ban && (
             <View className="absolute left-1.5 top-1.5">
               <BanBadge status={ban} />

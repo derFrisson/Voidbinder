@@ -47,7 +47,6 @@ function CardLine({ card, children }: { card: BanlistCard; children?: ReactNode 
               alt=""
               game="yugioh"
               format={card.cardFormat}
-              number={card.displayNumber ?? ''}
               foil={isFoil('yugioh', card.rarity)}
             />
           </View>

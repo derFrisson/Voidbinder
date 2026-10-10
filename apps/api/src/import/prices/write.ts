@@ -24,7 +24,11 @@ export async function startRun(db: Db, source: string): Promise<string> {
   return run.id;
 }
 
-/** `stats.lastUpdated` of the last TCGCSV run that wrote prices, null before the first. */
+/**
+ * `stats.lastUpdated` of the last TCGCSV run that imported a build in full, null before the
+ * first: a failed run, one still `running` and one that lists failed groups (VB-116) never count,
+ * so the next run pulls their build again.
+ */
 export async function lastImportedUpdate(db: Db): Promise<string | null> {
   const [run] = await db
     .select({ lastUpdated: sql<string | null>`${importRuns.stats} ->> 'lastUpdated'` })
@@ -34,6 +38,7 @@ export async function lastImportedUpdate(db: Db): Promise<string | null> {
         eq(importRuns.source, 'tcgcsv'),
         eq(importRuns.status, 'ok'),
         sql`not (${importRuns.stats} ? 'skipped')`,
+        sql`not (${importRuns.stats} ? 'failedGroups')`,
       ),
     )
     .orderBy(desc(importRuns.startedAt))

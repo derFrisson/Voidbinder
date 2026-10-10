@@ -80,8 +80,8 @@ export interface CardStore {
     since: string,
   ): Promise<BanlistImpactResponse>;
   /**
-   * True while an import run of `source` is `running` and started less than 6 h ago (an older
-   * one is taken as dead). Reads fresh, never from the catalog cache.
+   * True while an import run of `source` is `running` and started less than 6 h ago (TCGCSV: 1 h;
+   * an older one is taken as dead). Reads fresh, never from the catalog cache.
    */
   importRunning(source: string): Promise<boolean>;
 }

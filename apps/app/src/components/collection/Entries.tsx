@@ -14,8 +14,8 @@ import { fmt, useLocale, useT } from '../../i18n';
 import { hitHref } from '../../hooks/browsing-language';
 import { BanBadge, useBanStatus } from '../banlist/BanBadge';
 import { label } from '../card/attributes';
+import { CardBack } from '../card/CardBack';
 import { FoilSheen } from '../card/FoilSheen';
-import { fieldClass } from '../card/game';
 import { PriceLang } from '../card/PriceLang';
 import { useWide } from '../Shell';
 import { Button, Field, Note, Segmented } from '../ui';
@@ -34,7 +34,8 @@ import {
 const head = 'font-display text-[11.5px] font-semibold uppercase tracking-wider text-ink-3';
 
 /**
- * A small card image in its format's box (contained), or the game's soft field while there is none.
+ * A small card image in its format's box (contained), or the game's card back while there is none
+ * (VB-120).
  * A `foil` copy (`isFoil`) gets the static sheen (VB-112).
  */
 export function Thumb({
@@ -47,9 +48,7 @@ export function Thumb({
   const [failed, setFailed] = useState(false);
   const box = { aspectRatio: cardAspect(print.cardFormat) };
   if (!print.imageUrl || failed) {
-    return (
-      <View aria-hidden style={box} className={`w-[30px] rounded ${fieldClass[print.game].soft}`} />
-    );
+    return <CardBack game={print.game} format={print.cardFormat} className="w-[30px] rounded" />;
   }
   const image = (
     <Image
