@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { GameSchema, type Game } from '../index.js';
+import type { Game } from '../index.js';
 import { EntryPriceSchema, ValueGroupSchema } from './collection.js';
 import { CurrencySchema } from './me.js';
 import { PriceSourceSchema } from './prices.js';
@@ -61,9 +61,18 @@ export const ZoneLimitSchema = z.object({
   max: z.number().int().optional(),
 });
 
+/** Something per zone, the zones a deck has only. */
+const perZone = <T extends z.ZodType>(value: T) =>
+  z.object({
+    main: value.optional(),
+    extra: value.optional(),
+    side: value.optional(),
+    commander: value.optional(),
+  });
+
 /** The rules of a game and format, for the rule cards. */
 export const DeckRulesSchema = z.object({
-  zones: z.partialRecord(DeckZoneSchema, ZoneLimitSchema),
+  zones: perZone(ZoneLimitSchema),
   /** Copies of one card (by name), basic lands and basic energy aside. */
   copies: z.number().int(),
 });
@@ -93,7 +102,7 @@ export const DeckAnalysisSchema = z.object({
   problems: z.array(DeckProblemSchema),
   rules: DeckRulesSchema,
   /** Copies per zone. */
-  counts: z.partialRecord(DeckZoneSchema, z.number().int()),
+  counts: perZone(z.number().int()),
   /** Mana value (Magic), cheapest attack in energy (Pokémon) or level (Yu-Gi-Oh!) of the main deck. */
   curve: z.object({
     kind: z.enum(['mana', 'energy', 'level']),

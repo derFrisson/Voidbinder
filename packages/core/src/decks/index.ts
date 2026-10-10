@@ -1,9 +1,9 @@
 import type {
   Currency,
+  DeckAnalysis,
   DeckGame,
   DeckProblem,
   DeckRules,
-  DeckZone,
   EntryPrice,
   MissingCard,
   ValueGroup,
@@ -40,7 +40,7 @@ export function analyzeDeck(
   valid: boolean;
   problems: DeckProblem[];
   rules: DeckRules;
-  counts: Partial<Record<DeckZone, number>>;
+  counts: DeckAnalysis['counts'];
   curve: Curve;
 } {
   const rules = GAMES[game];

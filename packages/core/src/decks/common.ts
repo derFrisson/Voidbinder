@@ -1,4 +1,4 @@
-import type { DeckProblem, DeckRules, DeckZone } from '@voidbinder/shared/api';
+import type { DeckAnalysis, DeckProblem, DeckRules, DeckZone } from '@voidbinder/shared/api';
 
 // What every game's rules share: the card shape they read, zone sizes and copies by name.
 
@@ -42,8 +42,8 @@ export const label = (card: DeckCard) => card.label ?? card.name;
 export const num = (v: unknown): number | null =>
   typeof v === 'number' && Number.isFinite(v) ? v : null;
 
-export function zoneCounts(cards: readonly DeckCard[]): Partial<Record<DeckZone, number>> {
-  const counts: Partial<Record<DeckZone, number>> = {};
+export function zoneCounts(cards: readonly DeckCard[]): DeckAnalysis['counts'] {
+  const counts: DeckAnalysis['counts'] = {};
   for (const c of cards) counts[c.zone] = (counts[c.zone] ?? 0) + c.quantity;
   return counts;
 }
@@ -52,7 +52,9 @@ export function zoneCounts(cards: readonly DeckCard[]): Partial<Record<DeckZone,
 export function sizeProblems(cards: readonly DeckCard[], rules: DeckRules): DeckProblem[] {
   const counts = zoneCounts(cards);
   const out: DeckProblem[] = [];
-  for (const [zone, { min, max }] of Object.entries(rules.zones)) {
+  for (const [zone, limit] of Object.entries(rules.zones)) {
+    if (!limit) continue;
+    const { min, max } = limit;
     const count = counts[zone as DeckZone] ?? 0;
     if (min !== undefined && min === max) {
       if (count !== min) out.push({ code: 'wrong_size', params: { zone, count, size: min } });
