@@ -8,19 +8,19 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 
 ## Layout
 
-| Path                         | What                                                                                                          |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`               | Worker entry (`fetch`, `scheduled`, the `purgeCache` RPC of Caching) and `export type AppType`                |
-| `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                            |
-| `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `POST /admin/import/<source>` |
-| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client, 2FA encryption                  |
-| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`, catalog cache headers          |
-| `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                            |
-| `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                               |
-| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices                           |
-| `src/workflows/`             | Cloudflare Workflows that run the importers                                                                   |
-| `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                    |
-| `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`                           |
+| Path                         | What                                                                                                                      |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`               | Worker entry (`fetch`, `scheduled`, the `purgeCache` RPC of Caching) and `export type AppType`                            |
+| `src/app.ts`                 | `createApp(deps)`: the Hono app from injected dependencies (tests need no binding)                                        |
+| `src/routes/`                | Routes: `GET /health`, `/me`, `GET /catalog/**`, `/collection/**`, `/decks/**`, `/sync/**`, `POST /admin/import/<source>` |
+| `src/auth/`                  | Better Auth (`createAuth`), `requireUser`, auth mails, the app's auth client, 2FA encryption                              |
+| `src/middleware/`            | Request id, JSON access log, error handler, default `Cache-Control: no-store`, catalog cache headers                      |
+| `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                                        |
+| `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                                           |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices                                       |
+| `src/workflows/`             | Cloudflare Workflows that run the importers                                                                               |
+| `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                                |
+| `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`                                       |
 
 Request and response schemas (Zod) live in `packages/shared/src/api` and are imported from
 `@voidbinder/shared/api`. Errors always have the shape `{ error: { code, message, requestId } }`
@@ -617,6 +617,75 @@ converted). The tables (`src/db/schema/decks.ts`, `drizzle/0006_decks.sql`) foll
 sync shape: `decks` has the client's id, `updated_at` and a `deleted_at` tombstone; `deck_entries`
 are replaced as a whole and bump the deck's `updated_at`. `DrizzleDeckStore` reads on the
 cache-disabled pool.
+
+## Sync
+
+`/sync/**` (VB-32, `src/routes/sync.ts`, the queries in `src/platform/cloudflare/drizzle-sync-store.ts`,
+schemas in `packages/shared/src/api/sync.ts`, the pure rules in `packages/core/src/sync`, decision in
+[ADR 0005](../../docs/adr/0005-sync-protocol.md)) lets a device with offline edits push its changed
+rows and pull what changed elsewhere. Signed in, the user's own rows only.
+
+**Cursor.** `binders`, `collection_entries`, `wishlist_entries`, `decks` and `deck_entries` have a
+`sync_seq bigint` (`drizzle/0008_sync.sql`); the four tables with a `user_id` are indexed
+`(user_id, sync_seq)` (`deck_entries` has none and syncs with its deck). The trigger
+`sync_stamp()` gives every insert and update the next value of the sequence `sync_seq`, REST writes
+included. It first takes a shared per-user advisory lock; a pull takes it exclusively, so it waits
+for the user's writes in flight and no row commits later below the cursor it hands out.
+
+**Pull.** `GET /sync/pull?since=<cursor>&limit=` (`since` 0 = everything, `limit` 1 to 500, default
+500): the user's rows with `sync_seq > since`, tombstones included, the lowest first across the
+tables, grouped per table in table order; every deck comes with its whole list under
+`deck_entries` (not counted in `limit`, but a page ends early once its rows and lists pass 5000;
+one row always fits). `cursor` is the next `since`; `more: true` means pull again.
+
+**Push.** `POST /sync/push` with `{ changes: [{ table, rows }] }`: full rows (the fields of the REST
+routes, plus `id`, `updatedAt` = the edit time on the device, `deletedAt` for a delete and
+`baseUpdatedAt` = the `updatedAt` last pulled, null for a row the device created). At most 500 rows
+(deck entries aside: at most 500 per deck and 5000 in all), one transaction, applied binders,
+entries, wishes, decks; a user's pushes run one at a time, so a retry that overlaps its original
+answers like it. A deck's entries are its whole list and need the deck row in the same push (400
+otherwise); they are validated like `PUT /decks/:id/entries`. An id of another user, an unknown
+print, card or binder answers 404 and nothing is written; a taken binder name or wish 409 with a
+message that starts with the pushed row (`binders <id>: …` or `wishlist_entries <id>: …`), for the
+device to rename or merge before it pushes again. An entry filed into a deleted binder lands in
+no binder, and a pushed binder delete moves its entries out, as the REST delete does (after the
+push's own entries, so an entry the same push moved to another binder keeps that move); such an
+entry is listed in `applied`, but the device only learns its `binderId` is null from its next
+pull.
+
+**Conflicts** (`resolvePush`): the stored row changed after `baseUpdatedAt` → the server keeps it and
+returns it in `conflicts` (a deck with its list), and the device replaces its copy. Except: a delete
+newer than the stored edit wins, and an edit newer than a stored delete brings the row back. A row
+equal to the stored one writes nothing (a retried push changes nothing). `applied` lists the
+`updatedAt` the server holds for every other pushed row: the device's next `baseUpdatedAt`. An
+`updated_at` never goes back: `sync_stamp()` stores at least the old value plus 1 ms on every
+update (REST, sync, the binder-delete fan-out), to the millisecond, so a REST edit behind a device
+whose clock ran fast still conflicts with that device's next push. A pushed `updatedAt` or
+`deletedAt` more than 5 minutes ahead of the server is cut to now plus 5 minutes
+(`SYNC_CLOCK_ALLOWANCE_MS`), so a wrong device clock cannot pin a row in the future.
+
+```http
+POST /sync/push
+{ "changes": [
+  { "table": "binders", "rows": [{ "id": "6f1c…", "name": "Trades", "game": null, "position": 2,
+    "colour": null, "updatedAt": "2026-10-10T09:12:00.000Z", "deletedAt": null,
+    "baseUpdatedAt": null }] },
+  { "table": "collection_entries", "rows": [{ "id": "a03e…", "printId": "…", "binderId": "6f1c…",
+    "quantity": 3, "language": "en", "condition": "NM", "finish": "foil", "purchasePriceCents": null,
+    "purchaseCurrency": null, "note": null, "updatedAt": "2026-10-10T09:13:00.000Z",
+    "deletedAt": null, "baseUpdatedAt": "2026-10-09T18:00:00.000Z" }] } ] }
+
+200 { "applied": [{ "table": "binders", "id": "6f1c…", "updatedAt": "2026-10-10T09:12:00.000Z" }],
+      "conflicts": [{ "table": "collection_entries", "rows": [{ "id": "a03e…", "quantity": 1, …,
+        "updatedAt": "2026-10-10T08:40:00.000Z", "deletedAt": null }] }] }
+
+GET /sync/pull?since=1840
+200 { "changes": [{ "table": "binders", "rows": [ … ] }, { "table": "decks", "rows": [ … ] },
+      { "table": "deck_entries", "rows": [ … ] }], "cursor": 1912, "more": false }
+```
+
+The entry was changed on another device at 08:40, after the base this device had (18:00 the day
+before), so the server kept its row; the binder was new and is stored.
 
 ## Card images
 
