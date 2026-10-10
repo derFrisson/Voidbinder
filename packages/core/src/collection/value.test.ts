@@ -43,6 +43,16 @@ describe('priceEntry', () => {
     });
   });
 
+  it('takes the observation date from the price it picked, matched by currency too', () => {
+    const old = '2026-10-01T03:00:00.000Z';
+    const rows = [
+      { source: 'tcgplayer', finish: 'normal', currency: 'EUR', market: 300, observedAt: old },
+      { source: 'tcgplayer', finish: 'normal', currency: 'USD', market: 350, observedAt: at },
+    ] as const;
+    const picked = priceEntry(rows, { currency: 'USD', condition: 'NM' });
+    expect(picked?.observedAt).toBe(rows.find((r) => r.currency === picked?.currency)?.observedAt);
+  });
+
   it('falls back to normal for a finish without a price, and answers null without prices', () => {
     expect(
       priceEntry(prices, { currency: 'USD', finish: 'reverse', condition: 'NM' }),

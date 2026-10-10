@@ -57,8 +57,12 @@ export function priceEntry(
   });
   if (!display) return null;
   const observedAt =
-    prices.find((p) => p.source === display.source && p.finish === display.finish)?.observedAt ??
-    '';
+    prices.find(
+      (p) =>
+        p.source === display.source &&
+        p.finish === display.finish &&
+        p.currency === display.currency,
+    )?.observedAt ?? '';
   const factor = conditionFactor(opts.condition, opts.factors);
   return {
     source: display.source,

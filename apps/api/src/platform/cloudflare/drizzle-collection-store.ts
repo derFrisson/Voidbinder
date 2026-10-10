@@ -335,19 +335,25 @@ export class DrizzleCollectionStore implements CollectionStore {
 
   async orderBinders(userId: string, req: BinderOrderRequest): Promise<Binder[]> {
     const ids = [...new Set(req.ids)];
-    if (ids.length) {
-      await this.db.transaction(async (tx) => {
-        const rows = await tx
-          .update(binders)
-          .set({
-            position: sql`array_position(${sql.param(ids)}::uuid[], ${binders.id}) - 1`,
-            updatedAt: sql`now()`,
-          })
-          .where(and(eq(binders.userId, userId), live(binders), inArray(binders.id, ids)))
-          .returning({ id: binders.id });
-        if (rows.length !== ids.length) throw notFound('Binder');
-      });
-    }
+    await this.db.transaction(async (tx) => {
+      const rows = await tx
+        .select({ id: binders.id })
+        .from(binders)
+        .where(and(eq(binders.userId, userId), live(binders)))
+        .orderBy(asc(binders.position), asc(binders.createdAt));
+      const known = new Set(rows.map((r) => r.id));
+      if (ids.some((id) => !known.has(id))) throw notFound('Binder');
+      // A binder the list leaves out (made on another device meanwhile) goes to the end.
+      const all = [...ids, ...rows.map((r) => r.id).filter((id) => !ids.includes(id))];
+      if (!all.length) return;
+      await tx
+        .update(binders)
+        .set({
+          position: sql`array_position(${sql.param(all)}::uuid[], ${binders.id}) - 1`,
+          updatedAt: sql`now()`,
+        })
+        .where(and(eq(binders.userId, userId), live(binders)));
+    });
     return this.listBinders(userId);
   }
 

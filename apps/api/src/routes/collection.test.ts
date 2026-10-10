@@ -144,6 +144,19 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
       [a.id, 1],
     ]);
 
+    // A binder the list leaves out (made on another device meanwhile) goes to the end.
+    const c = BinderSchema.parse(await json(ash('/binders', { body: { name: 'Late' } })));
+    const partial = BindersResponseSchema.parse(
+      await json(ash('/binders/order', { method: 'PUT', body: { ids: [a.id] } })),
+    );
+    expect(partial.binders.map((x) => [x.id, x.position])).toEqual([
+      [a.id, 0],
+      [b.id, 1],
+      [c.id, 2],
+    ]);
+    await ash(`/binders/${c.id}`, { method: 'DELETE' });
+    await ash('/binders/order', { method: 'PUT', body: { ids: [b.id, a.id] } });
+
     // Deleting leaves a tombstone; the name is free again and the binder's entries move out.
     const adeline = await printId('mid', '1');
     const [entry] = CreateEntriesResponseSchema.parse(
@@ -420,6 +433,19 @@ describe.skipIf(!databaseUrl)('collection routes (Postgres)', () => {
     for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
     for (const w of wishes) await ash(`/wishlist/${w.id}`, { method: 'DELETE' });
     await ash(`/binders/${binder.id}`, { method: 'DELETE' });
+  });
+
+  it('exports more entries than one screen holds, one line each', async () => {
+    const adeline = await printId('mid', '1');
+    const { entries } = CreateEntriesResponseSchema.parse(
+      await json(
+        ash('/entries', { body: Array.from({ length: 120 }, () => ({ printId: adeline })) }),
+      ),
+    );
+    expect(entries).toHaveLength(120);
+    const lines = (await (await ash('/export.csv')).text()).trimEnd().split('\r\n');
+    expect(lines).toHaveLength(121);
+    for (const e of entries) await ash(`/entries/${e.id}`, { method: 'DELETE' });
   });
 
   it('exports the live entries as Cardmarket-style CSV', async () => {
