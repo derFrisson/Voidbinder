@@ -49,8 +49,8 @@ describe('matchGroups', () => {
   it('matches Magic groups by Scryfall’s group id, then by abbreviation', () => {
     const sets = [set('mid', 'Innistrad: Midnight Hunt', 2864), set('neo', 'Neon', null)];
     expect(matchGroups(groups(1), sets)).toEqual([
-      { groupId: 2864, setId: 'set-mid' },
-      { groupId: 2965, setId: 'set-neo' },
+      { groupId: 2864, setId: 'set-mid', rule: 'scryfall-id' },
+      { groupId: 2965, setId: 'set-neo', rule: 'abbreviation' },
     ]);
   });
 
@@ -71,12 +71,14 @@ describe('matchGroups', () => {
       },
     ];
     expect(matchGroups(lob, sets, { regional: true })).toEqual([
-      { groupId: 330, setId: 'set-lob' },
-      { groupId: 22881, setId: 'set-lob' },
-      { groupId: 23050, setId: 'set-lob' },
+      { groupId: 330, setId: 'set-lob', rule: 'abbreviation' },
+      { groupId: 22881, setId: 'set-lob', rule: 'abbreviation' },
+      { groupId: 23050, setId: 'set-lob', rule: 'abbreviation' },
     ]);
     // Pokémon and Magic keep the abbreviation whole.
-    expect(matchGroups(lob, sets)).toEqual([{ groupId: 330, setId: 'set-lob' }]);
+    expect(matchGroups(lob, sets)).toEqual([
+      { groupId: 330, setId: 'set-lob', rule: 'abbreviation' },
+    ]);
   });
 
   // TCGCSV's real groups (2026-10-10) against TCGdex's sets (VB-111).
@@ -105,9 +107,9 @@ describe('matchGroups', () => {
       pokemon(2585, 'SWSH01: Sword & Shield Base Set', 'SSH'),
     ];
     expect(matchGroups(groups, sets)).toEqual([
-      { groupId: 22873, setId: 'set-sv01' },
-      { groupId: 23237, setId: 'set-sv03.5' },
-      { groupId: 2585, setId: 'set-swsh1' },
+      { groupId: 22873, setId: 'set-sv01', rule: 'abbreviation' },
+      { groupId: 23237, setId: 'set-sv03.5', rule: 'abbreviation' },
+      { groupId: 2585, setId: 'set-swsh1', rule: 'abbreviation' },
     ]);
     // Without abbreviations: `Base Set` and the leading series name are not part of the name.
     const bare = sets.map((s) => ({ ...s, abbreviation: null }));
@@ -128,8 +130,8 @@ describe('matchGroups', () => {
       pokemon(1701, 'XY - BREAKpoint', 'BKP'),
     ];
     expect(matchGroups(groups, sets)).toEqual([
-      { groupId: 1373, setId: 'set-base5' },
-      { groupId: 1701, setId: 'set-xy9' },
+      { groupId: 1373, setId: 'set-base5', rule: 'name' },
+      { groupId: 1701, setId: 'set-xy9', rule: 'name' },
     ]);
   });
 
@@ -150,7 +152,7 @@ describe('matchGroups', () => {
         ],
         sets,
       ),
-    ).toEqual([{ groupId: 1, setId: 'set-ex3' }]);
+    ).toEqual([{ groupId: 1, setId: 'set-ex3', rule: 'name' }]);
   });
 
   it('matches the groups no rule finds through the alias list', () => {
@@ -167,8 +169,8 @@ describe('matchGroups', () => {
         sets,
       ),
     ).toEqual([
-      { groupId: 22872, setId: 'set-svp' },
-      { groupId: 2545, setId: 'set-swshp' },
+      { groupId: 22872, setId: 'set-svp', rule: 'abbreviation' },
+      { groupId: 2545, setId: 'set-swshp', rule: 'alias' },
     ]);
     expect(GROUP_ALIASES[2545]).toBe('swshp');
   });
@@ -181,16 +183,16 @@ describe('matchGroups', () => {
       set('neo', 'Kamigawa: Neon Dynasty'),
     ];
     expect(matchGroups(groups(1), sets)).toEqual([
-      { groupId: 2864, setId: 'set-mid' },
-      { groupId: 2965, setId: 'set-neo' },
+      { groupId: 2864, setId: 'set-mid', rule: 'scryfall-id' },
+      { groupId: 2965, setId: 'set-neo', rule: 'abbreviation' },
     ]);
   });
 
   it('matches Pokémon groups by name without the series prefix', () => {
     const sets = [set('base1', 'Base Set'), set('swsh3', 'Darkness Ablaze')];
     expect(matchGroups(groups(3), sets)).toEqual([
-      { groupId: 604, setId: 'set-base1' },
-      { groupId: 2675, setId: 'set-swsh3' },
+      { groupId: 604, setId: 'set-base1', rule: 'name' },
+      { groupId: 2675, setId: 'set-swsh3', rule: 'name' },
     ]);
   });
 });
@@ -230,6 +232,27 @@ describe('matchProducts', () => {
         confidence: 100,
       },
     ]);
+  });
+
+  it('splits a product a nonfoil print and its foil-only twin share by printing (VB-114)', () => {
+    // 7th to 10th Edition: Scryfall gives `115` and `115★` one product.
+    const prints: CandidatePrint[] = [
+      { ...print('adeline', '1', 'Adeline'), tcgplayer: '248137', finishes: ['normal'] },
+      { ...print('adeline-star', '1★', 'Adeline'), tcgplayer: '248137', finishes: ['foil'] },
+    ];
+    const split = { productId: 248137, method: 'scryfall_id', confidence: 100 };
+    expect(matchProducts(products('1/2864'), prints, { byId: true })).toEqual([
+      { ...split, printId: 'adeline', printing: 'normal' },
+      { ...split, printId: 'adeline-star', printing: 'foil' },
+    ]);
+    // A finish both have stays a tie; the one only the first has is its.
+    const [plain, star] = prints;
+    if (!plain || !star) throw new Error('fixture');
+    expect(
+      matchProducts(products('1/2864'), [{ ...plain, finishes: ['normal', 'foil'] }, star], {
+        byId: true,
+      }),
+    ).toEqual([{ ...split, printId: 'adeline', printing: 'normal' }]);
   });
 
   it('maps Yu-Gi-Oh! products by number and rarity', () => {

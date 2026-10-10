@@ -2,25 +2,36 @@ import type { BlobStore } from '@voidbinder/core';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { importRuns, priceMappings, pricesCurrent, prints, sets } from '../../db/schema';
 import type { Db } from '../scryfall/write';
-import { matchGroups } from './match';
+import { matchGroups, type GroupRule } from './match';
 import { CATEGORIES, results, type PricedGame, type TcgGroup } from './tcgcsv';
 import { log } from '../../middleware/log';
 import type { Freshness, FreshnessCounts } from '../health';
 import { gameSets } from './write';
 
-// Price coverage (VB-111): how many prints of each set have a current TCGplayer price, which
-// TCGplayer groups matched no set, and which sets have a group but no price at all. Computed from
-// `prices_current` and the group list of the last TCGCSV run (kept in `RAW`), after every run
-// (logged) and on `GET /admin/prices/coverage`.
+// Price coverage (VB-111, VB-114): how many prints of each set have a current price, from any
+// source and per source, which TCGplayer groups matched no set, and which sets have a group but no
+// TCGplayer price at all. Computed from `prices_current` and the group list of the last TCGCSV run
+// (kept in `RAW`), after every run (logged) and on `GET /admin/prices/coverage`.
+
+/** The sources of `prices_current`: TCGCSV, and Scryfall's Cardmarket EUR and TCGplayer USD. */
+export const PRICE_SOURCES = ['tcgplayer', 'cardmarket', 'tcgplayer_scryfall'] as const;
+export type PriceSource = (typeof PRICE_SOURCES)[number];
 
 export interface SetCoverage {
   code: string;
   name: string;
   prints: number;
-  /** Prints with a current `tcgplayer` price. */
+  /** Prints with a current price from any source. */
   priced: number;
+  /** Prints with a current price, per source. */
+  sources: Record<PriceSource, number>;
+  /** Prints without a current price from any source. */
+  unpriced: number;
   /** The TCGplayer groups that match the set. */
   groups: number[];
+  groupMatched: boolean;
+  /** The rule that matched each group, in the order of `groups`. */
+  rules: GroupRule[];
   /** Mapped prints whose newest `tcgplayer` price is older than 36 h (VB-116). */
   stale: number;
 }
@@ -30,8 +41,10 @@ export interface PriceCoverage {
   sets: SetCoverage[];
   /** TCGplayer groups that match no set. */
   unmatchedGroups: TcgGroup[];
-  /** Sets that have a group and prints, none of them priced. */
+  /** Sets that have a group and prints, none of them with a TCGplayer (TCGCSV) price. */
   unpricedSets: { code: string; name: string; prints: number }[];
+  /** The game's counts (`coverageCounts`). */
+  totals: CoverageCounts;
   /** The game's totals per price source (VB-116). */
   freshness: Freshness[];
   /** Groups whose step still failed after the Workflow's retries in the last run (VB-116). */
@@ -136,7 +149,7 @@ export async function runFreshness(
   }
 }
 
-const SOURCE = 'tcgplayer';
+const SOURCE: PriceSource = 'tcgplayer';
 
 export const groupsKey = (raw: string, game: PricedGame) =>
   `${raw}/${CATEGORIES[game]}/groups.json.gz`;
@@ -148,17 +161,25 @@ export async function priceCoverage(
   { now = new Date(), failedGroups = [] }: { now?: Date; failedGroups?: number[] } = {},
 ): Promise<PriceCoverage> {
   const matched = matchGroups(groups, await gameSets(db, game), { regional: game === 'yugioh' });
-  const groupsOf = new Map<string, number[]>();
-  for (const m of matched) groupsOf.set(m.setId, [...(groupsOf.get(m.setId) ?? []), m.groupId]);
+  const groupsOf = new Map<string, typeof matched>();
+  for (const m of matched) groupsOf.set(m.setId, [...(groupsOf.get(m.setId) ?? []), m]);
+  // Whether the print has a current price (of `source`): an index lookup on the primary key.
+  const has = (source?: PriceSource) =>
+    sql`exists (select 1 from ${pricesCurrent} where ${pricesCurrent.printId} = ${prints.id}${
+      source ? sql` and ${pricesCurrent.source} = ${source}` : sql``
+    })`;
+  const count = (source?: PriceSource) =>
+    sql<number>`(count(${prints.id}) filter (where ${has(source)}))::int`;
   const rows = await db
     .select({
       id: sets.id,
       code: sets.code,
       name: sets.name,
       prints: sql<number>`count(${prints.id})::int`,
-      priced: sql<number>`(count(${prints.id}) filter (where exists (
-        select 1 from ${pricesCurrent}
-        where ${pricesCurrent.printId} = ${prints.id} and ${pricesCurrent.source} = ${SOURCE})))::int`,
+      priced: count(),
+      tcgplayer: count('tcgplayer'),
+      cardmarket: count('cardmarket'),
+      tcgplayer_scryfall: count('tcgplayer_scryfall'),
     })
     .from(sets)
     .leftJoin(prints, eq(prints.setId, sets.id))
@@ -167,11 +188,21 @@ export async function priceCoverage(
     .orderBy(sets.code);
   const perSet = await setFreshness(db, SOURCE, now, [game]);
   const stale = new Map(perSet.map((r) => [r.setId, r.stale]));
-  const table = rows.map(({ id, ...r }) => ({
-    ...r,
-    groups: groupsOf.get(id) ?? [],
-    stale: stale.get(id) ?? 0,
-  }));
+  const table: SetCoverage[] = rows.map(({ id, code, name, prints, priced, ...sources }) => {
+    const own = groupsOf.get(id) ?? [];
+    return {
+      code,
+      name,
+      prints,
+      priced,
+      sources,
+      unpriced: prints - priced,
+      groups: own.map((m) => m.groupId),
+      groupMatched: own.length > 0,
+      rules: own.map((m) => m.rule),
+      stale: stale.get(id) ?? 0,
+    };
+  });
   // `tcgplayer`'s totals from the per-set rows above, the other sources' with one SQL each.
   const others = Object.keys(SOURCE_GAMES).filter(
     (s) => s !== SOURCE && SOURCE_GAMES[s]?.includes(game),
@@ -181,30 +212,41 @@ export async function priceCoverage(
     ...(await Promise.all(others.map((source) => priceFreshness(db, source, now, [game])))).flat(),
   ];
   const hit = new Set(matched.map((m) => m.groupId));
-  return {
+  const coverage = {
     game,
     sets: table,
     unmatchedGroups: groups
       .filter((g) => !hit.has(g.groupId))
       .map(({ groupId, name, abbreviation }) => ({ groupId, name, abbreviation })),
     unpricedSets: table
-      .filter((s) => s.groups.length && s.prints && !s.priced)
+      .filter((s) => s.groupMatched && s.prints && !s.sources.tcgplayer)
       .map(({ code, name, prints }) => ({ code, name, prints })),
     freshness,
     failedGroups,
   };
+  return { ...coverage, totals: coverageCounts(coverage) };
 }
 
-/** The counts of one game's coverage, the line `price coverage` logs. */
-export const coverageCounts = (c: PriceCoverage) => ({
+type Counted = Pick<PriceCoverage, 'sets' | 'unmatchedGroups' | 'unpricedSets'>;
+export type CoverageCounts = ReturnType<typeof coverageCounts>;
+
+const sum = (c: Counted, count: (s: SetCoverage) => number) =>
+  c.sets.reduce((n, s) => n + count(s), 0);
+
+/** The counts of one game's coverage: its `totals`, the line `price coverage` logs. */
+export const coverageCounts = (c: Counted) => ({
   sets: c.sets.length,
-  setsWithGroup: c.sets.filter((s) => s.groups.length).length,
+  setsWithGroup: c.sets.filter((s) => s.groupMatched).length,
   setsPriced: c.sets.filter((s) => s.priced).length,
-  prints: c.sets.reduce((n, s) => n + s.prints, 0),
-  priced: c.sets.reduce((n, s) => n + s.priced, 0),
+  prints: sum(c, (s) => s.prints),
+  priced: sum(c, (s) => s.priced),
+  sources: Object.fromEntries(
+    PRICE_SOURCES.map((source) => [source, sum(c, (s) => s.sources[source])]),
+  ) as Record<PriceSource, number>,
+  unpriced: sum(c, (s) => s.unpriced),
   unmatchedGroups: c.unmatchedGroups.length,
   unpricedSets: c.unpricedSets.length,
-  stale: c.sets.reduce((n, s) => n + s.stale, 0),
+  stale: sum(c, (s) => s.stale),
 });
 
 /** A gzip-compressed TCGCSV group list from `RAW`; null when it is missing. */

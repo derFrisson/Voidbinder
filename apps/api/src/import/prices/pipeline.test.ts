@@ -183,7 +183,8 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     // The purge reaches every page that shows a price, not only the price routes.
     for (const path of ['/catalog/sets/pokemon/sv1', '/catalog/cards/0a1b', '/catalog/search'])
       expect(cacheTags(path).split(',')).toEqual(expect.arrayContaining(purged[0] ?? ['none']));
-    // last-updated first, then groups, products and prices of the matched groups only.
+    // last-updated first, then groups, products and prices of the matched groups; for Magic also
+    // of the groups no set matched (VB-114: their products match by Scryfall's ids).
     expect(requests).toEqual([
       'https://tcgcsv.com/last-updated.txt',
       'https://tcgcsv.com/tcgplayer/1/groups',
@@ -191,6 +192,8 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
       'https://tcgcsv.com/tcgplayer/1/2864/prices',
       'https://tcgcsv.com/tcgplayer/1/2965/products',
       'https://tcgcsv.com/tcgplayer/1/2965/prices',
+      'https://tcgcsv.com/tcgplayer/1/24770/products',
+      'https://tcgcsv.com/tcgplayer/1/24770/prices',
       'https://tcgcsv.com/tcgplayer/2/groups',
       'https://tcgcsv.com/tcgplayer/3/groups',
     ]);
@@ -238,6 +241,50 @@ describe.skipIf(!databaseUrl)('price pipeline (Postgres)', () => {
     // Nothing new: the cached catalog reads stay valid, at the edge too.
     expect(await version()).toBe(before);
     expect(purged).toEqual([]);
+  });
+
+  it('prices a Magic group no set matches, and a product two prints share by printing (VB-114)', async () => {
+    const answer = (results: object[]) => JSON.stringify({ success: true, errors: [], results });
+    // 7th Edition as Scryfall has it: `115` (nonfoil) and `115★` (foil) carry one product, which
+    // is in a group (Commander: Star Trek, 24770, in the fixtures) that matches no catalog set.
+    const [set] = await db
+      .insert(sets)
+      .values({ gameId: 'mtg', code: 'x7ed', name: 'Seventh Edition' })
+      .returning({ id: sets.id });
+    const [card] = await db
+      .insert(cards)
+      .values({ gameId: 'mtg', oracleKey: 'x7ed-horror', name: 'Abyssal Horror' })
+      .returning({ id: cards.id });
+    const print = (number: string, finish: string) => ({
+      setId: set?.id ?? '',
+      cardId: card?.id ?? '',
+      number,
+      finishes: [finish],
+      externalIds: { tcgplayer: '700002' },
+    });
+    const [plain, star] = await db
+      .insert(prints)
+      .values([print('115', 'normal'), print('115★', 'foil')])
+      .returning({ id: prints.id });
+    const logged = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { stats } = await run(
+      {
+        files: {
+          '1/24770/products': answer([{ productId: 700002, name: 'Abyssal Horror' }]),
+          '1/24770/prices': answer([
+            { productId: 700002, marketPrice: 0.25, subTypeName: 'Normal' },
+            { productId: 700002, marketPrice: 2.5, subTypeName: 'Foil' },
+          ]),
+        },
+      },
+      [],
+      true,
+    );
+    logged.mockRestore();
+    // The group is imported without counting as matched.
+    expect(stats).toMatchObject({ games: { mtg: { matchedGroups: 2 } } });
+    expect(await current(plain?.id ?? '')).toMatchObject([{ finish: 'normal', market: 25 }]);
+    expect(await current(star?.id ?? '')).toMatchObject([{ finish: 'foil', market: 250 }]);
   });
 
   it('imports the same build again when forced: a group a new rule matches is mapped (VB-111)', async () => {

@@ -2,13 +2,17 @@ import { raritySlug } from '../ygoprodeck/map';
 import { extended, type TcgGroup, type TcgProduct } from './tcgcsv';
 
 // Which TCGplayer group is which catalog set, and which product is which print. Pure functions,
-// generic over the games: Magic matches by the TCGplayer ids Scryfall gives (confidence 100),
+// generic over the games: Magic matches by the TCGplayer ids Scryfall gives (confidence 100; a
+// product two prints share goes by printing, `byPrinting`),
 // Pokémon and Yu-Gi-Oh! by set + number (70) or, failing that, set + a unique name (40); a
 // Yu-Gi-Oh! regional print without a product of its own takes the EN product (60, VB-110). An
 // admin override (method 'manual') beats all of them; the writer keeps it. Yu-Gi-Oh! rarities are
 // compared through `rarityKey` (VB-113: YGOPRODeck's `Short Print` is TCGplayer's `Common`).
 
 export type MatchMethod = 'scryfall_id' | 'number_match' | 'region_match' | 'name_match';
+
+/** The `matchGroups` rule that took a group (VB-114: shown per set by the coverage route). */
+export type GroupRule = 'scryfall-id' | 'abbreviation' | 'name' | 'alias';
 
 export const CONFIDENCE: Record<MatchMethod, number> = {
   scryfall_id: 100,
@@ -44,6 +48,8 @@ export interface CandidatePrint {
   /** Scryfall's TCGplayer product ids (Magic only). */
   tcgplayer: string | null;
   tcgplayerEtched: string | null;
+  /** The print's finishes (`normal`, `foil`, `etched`; Magic). */
+  finishes?: readonly string[];
   /** Yugipedia's alt code of the print's artwork (`AA`, VB-106), when it has one. */
   artwork?: string | null;
 }
@@ -55,6 +61,11 @@ export interface ProductMatch {
   confidence: number;
   /** Set when the product is one finish whatever its printing (Scryfall's etched product). */
   finish?: string;
+  /**
+   * Set when the match holds for the product's prices of this printing only (`normal`, `foil`):
+   * Scryfall gives the nonfoil print and its foil-only `★` twin one product (VB-114).
+   */
+  printing?: string;
   /** Picked among products that differ only by an artwork suffix (VB-113); logged. */
   artwork?: true;
 }
@@ -164,14 +175,15 @@ function uniqueMap<K>(pairs: [K, string][]): Map<K, string | null> {
  * The catalog set of each group, or none: Scryfall's group id first, then the abbreviation (TCGdex's
  * official one, where it and the group's are each unique and the group's name holds the set's),
  * the abbreviation as set code (`regional`, Yu-Gi-Oh!: also its code before a dash or slash,
- * `LOB-EN` → `lob`, `MVP1-ENG` → `mvp1`), the name (`groupNames`) and last `GROUP_ALIASES`. A group matches at most one
- * set; several groups may share one set (LOB: `LOB`, the North American prints, and two `LOB-EN`).
+ * `LOB-EN` → `lob`, `MVP1-ENG` → `mvp1`), the name (`groupNames`) and last `GROUP_ALIASES`; `rule`
+ * says which. A group matches at most one set; several groups may share one set (LOB: `LOB`, the
+ * North American prints, and two `LOB-EN`).
  */
 export function matchGroups(
   groups: readonly TcgGroup[],
   sets: readonly CatalogSet[],
   { regional = false }: { regional?: boolean } = {},
-): { groupId: number; setId: string }[] {
+): { groupId: number; setId: string; rule: GroupRule }[] {
   const byGroupId = new Map(
     sets.flatMap((s) => (s.tcgplayerGroupId ? [[s.tcgplayerGroupId, s.id]] : [])),
   );
@@ -208,16 +220,25 @@ export function matchGroups(
     const code = GROUP_ALIASES[groupId];
     return code === undefined ? undefined : byCode.get(code);
   };
+  const rules: [GroupRule, (g: TcgGroup) => string | undefined][] = [
+    ['scryfall-id', (g) => byGroupId.get(g.groupId)],
+    ['abbreviation', abbreviated],
+    ['abbreviation', (g) => (g.abbreviation ? byAbbreviationCode(g.abbreviation) : undefined)],
+    [
+      'name',
+      (g) =>
+        groupNames(g.name, series)
+          .map((n) => byName.get(n))
+          .find(Boolean),
+    ],
+    ['alias', (g) => alias(g.groupId)],
+  ];
   return groups.flatMap((g) => {
-    const setId =
-      byGroupId.get(g.groupId) ??
-      abbreviated(g) ??
-      (g.abbreviation ? byAbbreviationCode(g.abbreviation) : undefined) ??
-      groupNames(g.name, series)
-        .map((n) => byName.get(n))
-        .find(Boolean) ??
-      alias(g.groupId);
-    return setId ? [{ groupId: g.groupId, setId }] : [];
+    for (const [rule, find] of rules) {
+      const setId = find(g);
+      if (setId) return [{ groupId: g.groupId, setId, rule }];
+    }
+    return [];
   });
 }
 
@@ -303,12 +324,13 @@ function pickArtwork(products: readonly TcgProduct[], print: CandidatePrint) {
 export function matchProducts(
   products: readonly TcgProduct[],
   prints: readonly CandidatePrint[],
-  { byId, regional = false, setId }: { byId: boolean; regional?: boolean; setId?: string },
+  { byId, regional = false, setId }: { byId: boolean; regional?: boolean; setId?: string | null },
 ): ProductMatch[] {
   const found: ProductMatch[] = [];
   if (byId) {
     const ids = new Map<string, { printId: string; finish?: string }>();
-    // A product id Scryfall gives more than one print is a tie: none of them gets it.
+    // A product id Scryfall gives more than one print goes by printing (`byPrinting`), else none
+    // of them gets it.
     const shared = new Set<string>();
     const claim = (id: string, hit: { printId: string; finish?: string }) => {
       const had = ids.get(id);
@@ -321,14 +343,15 @@ export function matchProducts(
     }
     for (const product of products) {
       const id = String(product.productId);
-      const hit = shared.has(id) ? undefined : ids.get(id);
-      if (hit)
-        found.push({
-          productId: product.productId,
-          ...hit,
-          method: 'scryfall_id',
-          confidence: 100,
-        });
+      const hits = shared.has(id) ? byPrinting(id, prints) : [ids.get(id)];
+      for (const hit of hits)
+        if (hit)
+          found.push({
+            productId: product.productId,
+            ...hit,
+            method: 'scryfall_id',
+            confidence: 100,
+          });
     }
     return unambiguous(found);
   }
@@ -421,6 +444,22 @@ export function matchProducts(
 }
 
 /**
+ * A product id Scryfall gives several prints, split by printing: each takes the finishes none of
+ * the others has. 7th to 10th Edition: the nonfoil print `115` and its foil-only twin `115★` share
+ * one product, whose `Normal` price is the first's and `Foil` price the second's (VB-114). A
+ * finish two of them have stays a tie; so does an id that is also an etched product.
+ */
+function byPrinting(id: string, prints: readonly CandidatePrint[]) {
+  if (prints.some((p) => p.tcgplayerEtched === id)) return [];
+  const sharing = prints.filter((p) => p.tcgplayer === id);
+  return sharing.flatMap((p) =>
+    (p.finishes ?? [])
+      .filter((f) => !sharing.some((o) => o !== p && o.finishes?.includes(f)))
+      .map((printing) => ({ printId: p.id, printing })),
+  );
+}
+
+/**
  * The regional prints no product claimed, each to the one card product of its name and rarity
  * (several: the EN one of its digits). By name, not digits alone: European numbers differ from the
  * EN ones (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki). A print whose name no product has
@@ -476,7 +515,7 @@ const method = (m: MatchMethod) => ({ method: m, confidence: CONFIDENCE[m] });
 
 /** One product per print (and fixed finish): the most confident; a tie leaves the print out. */
 function unambiguous(matches: ProductMatch[]): ProductMatch[] {
-  const byPrint = groupBy(matches, (m) => `${m.printId}|${m.finish ?? ''}`);
+  const byPrint = groupBy(matches, (m) => `${m.printId}|${m.finish ?? ''}|${m.printing ?? ''}`);
   return [...byPrint.values()].flatMap((claims) => {
     const best = Math.max(...claims.map((c) => c.confidence));
     const top = claims.filter((c) => c.confidence === best);
