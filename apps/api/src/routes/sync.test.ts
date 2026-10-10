@@ -551,6 +551,27 @@ describe.skipIf(!databaseUrl)('sync routes (Postgres)', () => {
     expect(rowsOf(await pulling, 'binders').map((r) => r.id)).toEqual([inFlight, later.id]);
   });
 
+  it('does not wait on a foreign key check of a pushed row', async () => {
+    const b = binder();
+    await push(ash, [{ table: 'binders', rows: [b] }]);
+    // What a REST write holds on its entry's binder until it commits.
+    const other = await (db as unknown as { $client: Pool }).$client.connect();
+    await other.query('begin');
+    await other.query('select 1 from binders where id = $1 for key share', [b.id]);
+
+    const pushing = push(ash, [
+      { table: 'binders', rows: [{ ...b, name: 'Renamed', updatedAt: at(1) }] },
+    ]);
+    const first = await Promise.race([
+      pushing,
+      new Promise((r) => setTimeout(() => r('waiting'), 2000)),
+    ]);
+    await other.query('rollback');
+    other.release();
+    expect(first).not.toBe('waiting');
+    expect((await pushing).status).toBe(200);
+  });
+
   it('answers a retry running alongside its original like the original', async () => {
     const adeline = await print('mid', '1');
     const changes = [

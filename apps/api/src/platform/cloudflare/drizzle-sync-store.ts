@@ -277,6 +277,8 @@ export async function syncPush(
         const { table, what, toRow, values } = tableOf(change.table);
         const pushed = change.rows as PushedRow[];
         const ids = pushed.map((r) => r.id);
+        // NO KEY UPDATE, not UPDATE: a REST write whose foreign key checks one of these rows (KEY
+        // SHARE) must not wait on the push while holding a row the push writes later (40P01).
         const stored = new Map(
           (
             (await tx
@@ -284,7 +286,7 @@ export async function syncPush(
               .from(table)
               .where(inArray(table.id, ids))
               .orderBy(asc(table.id))
-              .for('update')) as Stored[]
+              .for('no key update')) as Stored[]
           ).map((r) => [r.id, r]),
         );
         if ([...stored.values()].some((r) => r.userId !== userId)) throw notFound(what);
