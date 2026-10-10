@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Platform } from 'react-native';
+import { FOIL_SHEEN_ENABLED } from './foil-flag';
 
 const reducedMotion = () =>
   typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -13,7 +14,7 @@ const reducedMotion = () =>
  */
 export function FoilSheen({ live = false }: { live?: boolean }) {
   // ponytail: web only for now; native (Sprint 3) gets a static gradient View once it ships.
-  if (Platform.OS !== 'web') return null;
+  if (!FOIL_SHEEN_ENABLED || Platform.OS !== 'web') return null;
   return <WebSheen live={live} />;
 }
 

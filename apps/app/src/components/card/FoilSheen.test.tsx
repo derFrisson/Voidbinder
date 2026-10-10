@@ -3,6 +3,8 @@ import { View } from 'react-native';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FoilSheen } from './FoilSheen';
 
+vi.mock('./foil-flag', () => ({ FOIL_SHEEN_ENABLED: true }));
+
 const sheen = (container: HTMLElement) => container.querySelector('.vb-foil') as HTMLElement;
 const motion = (reduce: boolean) =>
   vi.stubGlobal('matchMedia', (q: string) => ({ matches: reduce && q.includes('reduce') }));
