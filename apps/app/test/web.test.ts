@@ -516,6 +516,7 @@ describe('web build', () => {
             const widget = document.createElement('div');
             widget.style.cssText = 'width:300px;height:65px';
             widget.dataset.sitekey = o.sitekey;
+            widget.dataset.size = o.size;
             el.append(widget);
             setTimeout(() => o.callback('XXXX.DUMMY.TOKEN.XXXX'), 50);
             return 'w1';
@@ -548,6 +549,38 @@ describe('web build', () => {
         'XXXX.DUMMY.TOKEN.XXXX',
       );
       expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // A 300 px widget does not fit the sign-up panel of a 360 px phone: Turnstile's compact size.
+  it('asks for the compact Turnstile widget on a narrow phone and reserves its height', async () => {
+    const { context, page } = await open({ width: 360, height: 740 });
+    await page.route('https://challenges.cloudflare.com/turnstile/v0/api.js*', (route) =>
+      route.fulfill({
+        contentType: 'text/javascript',
+        body: `window.turnstile = {
+          render(el, o) {
+            const widget = document.createElement('div');
+            widget.style.cssText = 'width:150px;height:140px';
+            widget.dataset.size = o.size;
+            el.append(widget);
+            return 'w1';
+          },
+          reset() {},
+          remove() {},
+        };`,
+      }),
+    );
+    try {
+      await page.goto(`${origin}/sign-up`);
+      const box = page.getByRole('group', { name: 'Sicherheitsprüfung' });
+      await page.locator('[data-size="compact"]').waitFor();
+      expect((await box.boundingBox())?.height).toBe(140);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        360,
+      );
     } finally {
       await context.close();
     }

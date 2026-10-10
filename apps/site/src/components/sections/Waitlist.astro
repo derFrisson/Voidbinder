@@ -108,6 +108,11 @@ const siteKey = env.TURNSTILE_SITE_KEY;
     // costs the rest of the page nothing. `token` is empty until the challenge is solved.
     let token = '';
     let widgetId: string | undefined;
+    // The `normal` widget is 300 px wide and `flexible` has the same minimum; a phone narrower than
+    // the form needs plus 300 px gets the `compact` one (150 x 140). Decided here, while the form
+    // is still below the fold, so the CSS reserves the matching height before the widget loads.
+    const size = box.clientWidth < 300 ? 'compact' : 'normal';
+    box.dataset.size = size;
     let loadFailed = false;
     let requested = false;
 
@@ -120,7 +125,7 @@ const siteKey = env.TURNSTILE_SITE_KEY;
       script.onload = () => {
         widgetId = turnstileWindow.turnstile?.render(box, {
           sitekey: box.dataset.sitekey,
-          size: 'normal',
+          size,
           theme: 'auto',
           language: box.dataset.language,
           callback: (value: string) => {
@@ -300,12 +305,17 @@ const siteKey = env.TURNSTILE_SITE_KEY;
     background: #000;
   }
 
-  /* Room for the `normal` widget (300 x 65) before it loads, so the form does not jump. */
+  /* The height of the `normal` widget (300 x 65; `compact` is 150 x 140), fixed: the form does not jump when it loads, and
+     the line box around the widget's iframe cannot add a few pixels. */
   .turnstile {
-    min-height: 65px;
+    height: 65px;
     color: rgba(255, 255, 255, 0.88);
     font-size: 14px;
     line-height: 1.5;
+  }
+
+  .turnstile[data-size='compact'] {
+    height: 140px;
   }
 
   .consent {

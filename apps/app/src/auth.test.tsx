@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, waitFor } from '@testing-library/react';
 import { router, useLocalSearchParams } from 'expo-router';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { Dimensions } from 'react-native';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeApi, json, me, renderApp } from '../test/fake-api';
 import { turnstileFake } from '../test/turnstile';
 import SignIn from './app/sign-in';
@@ -193,7 +194,14 @@ describe('Turnstile', () => {
     fireEvent.click(checkbox(0));
   };
 
+  afterEach(() => vi.restoreAllMocks());
+
+  // jsdom has no layout: the window width is what the component goes by for its first guess.
+  const windowWidth = (width: number) =>
+    vi.spyOn(Dimensions, 'get').mockReturnValue({ width, height: 800, scale: 1, fontScale: 1 });
+
   it('renders the widget with the sitekey, normal size, automatic theme and the UI language', () => {
+    windowWidth(1024);
     fakeApi();
     renderApp(<SignUp />);
     expect(turnstileFake.renders).toHaveLength(1);
@@ -204,6 +212,13 @@ describe('Turnstile', () => {
       language: 'de',
     });
     expect(screen.getByRole('group', { name: 'Sicherheitsprüfung' })).toBeTruthy();
+  });
+
+  it('asks for the compact widget on a narrow phone, where 300 px do not fit', () => {
+    windowWidth(360);
+    fakeApi();
+    renderApp(<SignUp />);
+    expect(turnstileFake.renders[0]?.options.size).toBe('compact');
   });
 
   it('sends the sign-up with the token in cf-turnstile-response', async () => {

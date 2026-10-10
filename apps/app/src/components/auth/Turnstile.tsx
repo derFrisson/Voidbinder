@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { Platform, Text, View } from 'react-native';
+import { Platform, Text, useWindowDimensions, View } from 'react-native';
 import { useLocale, useT } from '../../i18n';
 
 // Cloudflare Turnstile on the web build (VB-72). `EXPO_PUBLIC_TURNSTILE_SITE_KEY` is inlined by
@@ -43,7 +43,7 @@ function loadTurnstile(): Promise<TurnstileApi> {
 }
 
 /**
- * The widget, in a box as high as the `normal` size (65 px, `min-h-[65px]`) from the first paint, so
+ * The widget, in a box as high as the `normal` size (65 px, or 140 px for the compact size on narrow phones, fixed: the line box around the iframe cannot add pixels) from the first paint, so
  * nothing shifts when it appears. `onToken` gets the token when the challenge is solved and null when it expires or
  * errors; `resetKey` changing starts a new challenge (a token works once). Renders nothing on
  * native, where the API's `TURNSTILE_NATIVE_BYPASS` is the interim (Sprint 3: the RN SDK).
@@ -63,6 +63,11 @@ export function Turnstile({
   const box = useRef<View>(null);
   const widget = useRef<{ api: TurnstileApi; id: string }>(undefined);
   const [failed, setFailed] = useState(false);
+  // The `normal` widget is 300 px wide; in a narrower box (phones under ~375 px) it would spill out
+  // of the panel, so those get the `compact` one (150 x 140). The window width is the first guess,
+  // so the reserved height is right before the first layout; the box's own width settles it.
+  const windowWidth = useWindowDimensions().width;
+  const [compact, setCompact] = useState(windowWidth < 380);
   const onTokenRef = useRef(onToken);
   onTokenRef.current = onToken;
 
@@ -74,7 +79,7 @@ export function Turnstile({
       if (cancelled || !element) return;
       const id = api.render(element, {
         sitekey: TURNSTILE_SITE_KEY,
-        size: 'normal',
+        size: compact ? 'compact' : 'normal',
         theme: 'auto',
         language: locale,
         callback: (token: string) => onTokenRef.current(token),
@@ -91,7 +96,7 @@ export function Turnstile({
       if (widget.current) widget.current.api.remove(widget.current.id);
       widget.current = undefined;
     };
-  }, [locale]);
+  }, [locale, compact]);
 
   const firstReset = useRef(resetKey);
   useEffect(() => {
@@ -107,7 +112,13 @@ export function Turnstile({
           {t.turnstile.unavailable}
         </Text>
       ) : (
-        <View ref={box} role="group" aria-label={t.turnstile.label} className="min-h-[65px]" />
+        <View
+          ref={box}
+          role="group"
+          aria-label={t.turnstile.label}
+          onLayout={(e) => setCompact(e.nativeEvent.layout.width < 300)}
+          className={compact ? 'h-[140px]' : 'h-[65px]'}
+        />
       )}
       {showRequired && !failed && (
         <Text role="alert" className="mt-2 font-body text-sm text-ink">
