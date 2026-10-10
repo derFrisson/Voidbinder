@@ -1,10 +1,10 @@
 import { ErrorResponseSchema } from '@voidbinder/shared/api';
 import { Hono } from 'hono';
 import { requestId } from 'hono/request-id';
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import type { AppEnv } from '../app';
 import { createApp } from '../app';
-import { testDeps } from '../test-helpers';
+import { databaseUrl, freshDatabase, testDeps } from '../test-helpers';
 import {
   requireTurnstile,
   skipsTurnstile,
@@ -189,5 +189,28 @@ describe('the API app', () => {
     });
     expect(res.status).toBe(400);
     expect(await errorCode(res)).toBe('turnstile_failed');
+  });
+});
+
+// A real Better Auth behind the check: DATABASE_URL like auth.test.ts.
+describe.skipIf(!databaseUrl)('the API app, with Better Auth behind the check', () => {
+  let db: Awaited<ReturnType<typeof freshDatabase>>;
+  beforeAll(async () => void (db = await freshDatabase()));
+  afterAll(() => db.drop());
+
+  // Better Auth answers 404 to `/auth/sign-up/email/` today. This catches an upgrade that starts
+  // to accept it (`skipTrailingSlashes`): the exact-path check would let that request by unchecked.
+  it('never lets a trailing-slash sign-up reach the handler without a check', async () => {
+    const app = createApp({
+      ...testDeps(),
+      turnstile: { secret: 'secret-1', skip: false, nativeBypass: false },
+      openPlatform: () => ({ db: db.db, close: async () => undefined }) as never,
+    });
+    const res = await app.request(`${SIGN_UP}/`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: 'https://app.example.test' },
+      body: JSON.stringify({ name: 'Ada', email: 'ada@example.test', password: 'correct horse' }),
+    });
+    expect([400, 404]).toContain(res.status);
   });
 });
