@@ -77,12 +77,15 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `openssl rand -base64 32 | pnpm exec wrangler secret put UNSUBSCRIBE_SECRET --env dev|prod`.
   `wrangler.jsonc` lists it under `secrets.required`, so `wrangler deploy` fails while it is unset.
 - **API secrets:** `apps/api` needs `ADMIN_TOKEN`, the bearer token of `/admin/**` (`POST
-/admin/import/scryfall`), and `BETTER_AUTH_SECRET` (32+ bytes; signs the session cookies and
-  tokens, [apps/api/README.md](../apps/api/README.md#authentication)). Locally
-  `cp apps/api/.dev.vars.example apps/api/.dev.vars`; deployed, once per environment from
-  `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put <NAME> --env dev|prod`. Both
-  are under `secrets.required`, so `wrangler deploy` fails while one is unset; a Worker without
-  `ADMIN_TOKEN` answers 404 on `/admin/**`, and changing `BETTER_AUTH_SECRET` signs every user out.
+/admin/import/scryfall`), `BETTER_AUTH_SECRET` (32+ bytes; signs the session cookies and tokens,
+  [apps/api/README.md](../apps/api/README.md#authentication)) and `TWO_FACTOR_ENCRYPTION_KEY` (32
+  bytes in base64; encrypts the two-factor secrets and backup codes at rest with AES-256-GCM,
+  VB-68). Locally `cp apps/api/.dev.vars.example apps/api/.dev.vars`; deployed, once per
+  environment from `apps/api`: `openssl rand -base64 32 | pnpm exec wrangler secret put <NAME>
+--env dev|prod`. All three secrets are under `secrets.required`, so `wrangler deploy` fails while
+  one is unset; a Worker without `ADMIN_TOKEN` answers 404 on `/admin/**`, changing
+  `BETTER_AUTH_SECRET` signs every user out, and changing `TWO_FACTOR_ENCRYPTION_KEY` after users
+  enrolled makes their second factor unreadable.
 - **API settings** are `vars` in `apps/api/wrangler.jsonc`: `APP_URL` (CORS and the auth mail
   links), `API_URL`, `CORS_EXTRA_ORIGINS` (the Expo web dev origin, locally and in `dev` only),
   `IMAGE_BASE_URL` (base of the R2 card images; until VB-57 fills `image_key` the catalog answers

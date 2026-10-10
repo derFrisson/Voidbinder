@@ -38,7 +38,7 @@ export interface AppDeps {
   /** Reported by /health: the short git sha of the deploy, "local" otherwise. */
   version: string;
   /** Better Auth settings (src/auth); the origins come from `appUrl` and `extraOrigins`. */
-  auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail'>;
+  auth: Pick<AuthConfig, 'secret' | 'apiUrl' | 'mail' | 'twoFactorKey'>;
   /** Bearer token of `/admin/**`; unset means the admin routes answer 404. */
   adminToken?: string | undefined;
   /** Called once per request; the platform is closed after the response. */

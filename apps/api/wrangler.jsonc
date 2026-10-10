@@ -28,7 +28,7 @@
     "VERSION": "local",
   },
   // Locally from .dev.vars (see .dev.vars.example); deployed: wrangler secret put --env dev|prod.
-  "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN"] },
+  "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN", "TWO_FACTOR_ENCRYPTION_KEY"] },
   // Auth mails (verification, password reset); `wrangler dev` simulates the binding locally.
   "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
   // Local Postgres from the root docker-compose.yml. HYPERDRIVE is cache-disabled (fresh reads);
@@ -97,7 +97,7 @@
         "IMPORT_ENV": "dev",
         "VERSION": "local",
       },
-      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN"] },
+      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN", "TWO_FACTOR_ENCRYPTION_KEY"] },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-dev" (database voidbinder_dev, caching disabled).
@@ -154,7 +154,7 @@
         "IMPORT_ENV": "prod",
         "VERSION": "local",
       },
-      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN"] },
+      "secrets": { "required": ["BETTER_AUTH_SECRET", "ADMIN_TOKEN", "TWO_FACTOR_ENCRYPTION_KEY"] },
       "send_email": [{ "name": "EMAIL", "allowed_sender_addresses": ["hello@voidbinder.de"] }],
       "hyperdrive": [
         // Hyperdrive config "voidbinder-prod" (database voidbinder, caching disabled).
