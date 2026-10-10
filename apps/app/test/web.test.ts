@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { spawn, type ChildProcess } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { chromium, type Browser, type Locator, type Page } from 'playwright';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -572,6 +573,10 @@ async function axe(page: Page) {
   );
 }
 
+/** The foil sheen's two layers' computed blend modes: spectrum (::before), band (::after). */
+const blends = (sheen: Locator) =>
+  sheen.evaluate((el) => ['::before', '::after'].map((p) => getComputedStyle(el, p).mixBlendMode));
+
 beforeAll(async () => {
   const port = await freePort();
   origin = `http://127.0.0.1:${port}`;
@@ -1012,8 +1017,7 @@ describe('web build', () => {
         const sheen = page.locator('.vb-foil').first();
         await sheen.waitFor({ state: 'attached' });
         expect(await sheen.getAttribute('aria-hidden')).toBe('true');
-        const blend = await sheen.evaluate((el) => getComputedStyle(el, '::before').mixBlendMode);
-        expect(blend).toBe('soft-light');
+        expect(await blends(sheen)).toEqual(['plus-lighter', 'plus-lighter']);
         const moving = reducedMotion === 'no-preference';
         expect(await sheen.evaluate((el) => el.classList.contains('vb-foil-live'))).toBe(moving);
         const box = await sheen.boundingBox();
@@ -1024,6 +1028,66 @@ describe('web build', () => {
         );
         if (moving && process.env.SHOTS)
           await page.screenshot({ path: `${process.env.SHOTS}/foil-card-page.png` });
+      } finally {
+        await context.close();
+      }
+    },
+  );
+
+  // VB-112: one sheen whatever the art is, a Yugipedia scan (its own foil light) or a flat
+  // YGOPRODeck render. `SHOTS=<dir>` also saves the grid and each tile with and without the
+  // sheen (the measurement in the PR).
+  it.each(['light', 'dark'] as const)(
+    'gives a scan and a flat render the same content-independent sheen in the grid (%s)',
+    async (scheme) => {
+      const { context, page } = await open({ width: 1440, height: 900, scheme });
+      try {
+        const art = { scan: 'foil-scan.webp', render: 'foil-render.webp' };
+        for (const file of Object.values(art)) {
+          await page.route(`https://img.voidbinder.de/fixtures/${file}`, (route) =>
+            route.fulfill({
+              body: readFileSync(new URL(`fixtures/${file}`, import.meta.url)),
+              contentType: 'image/webp',
+            }),
+          );
+        }
+        const hit = search.prints[0];
+        const hits = Object.entries(art).map(([kind, file], i) => ({
+          ...hit,
+          id: `${PRINT.slice(0, -1)}${i}`,
+          name: kind === 'scan' ? 'Red-Eyes Dark Dragoon' : "Dark Magician the Pharaoh's Servant",
+          game: 'yugioh',
+          cardFormat: 'standard',
+          rarity: kind === 'scan' ? 'Ultra Rare' : 'Secret Rare',
+          setCode: kind === 'scan' ? 'ra05' : 'mamo',
+          setName:
+            kind === 'scan' ? '25th Anniversary Rarity Collection III' : 'Magnificent Mavens',
+          extendedArt: kind === 'scan',
+          finishes: ['normal'],
+          imageUrl: `https://img.voidbinder.de/fixtures/${file}`,
+        }));
+        await page.route('**/api/catalog/search?*', (route) =>
+          route.fulfill({ json: { ...search, prints: hits, total: hits.length } }),
+        );
+        await page.goto(`${origin}/search?q=foil`);
+        const sheens = page.locator('.vb-foil');
+        await sheens.nth(1).waitFor({ state: 'attached' });
+        await page.waitForLoadState('networkidle');
+        for (const sheen of await sheens.all()) {
+          expect(await sheen.getAttribute('class')).toBe('vb-foil');
+          expect(await blends(sheen)).toEqual(['plus-lighter', 'plus-lighter']);
+        }
+        const shots = process.env.SHOTS;
+        if (!shots) return;
+        await page.screenshot({ path: `${shots}/foil-grid-${scheme}.png` });
+        // The image box (the sheen's parent), with the sheen and then without it.
+        const boxes = Object.keys(art).map((_, i) => sheens.nth(i).locator('xpath=..'));
+        for (const sheen of ['on', 'off']) {
+          if (sheen === 'off') await page.addStyleTag({ content: '.vb-foil{display:none}' });
+          for (const [i, kind] of Object.keys(art).entries()) {
+            await boxes[i]?.screenshot({ path: `${shots}/foil-${kind}-${scheme}-${sheen}.png` });
+          }
+        }
       } finally {
         await context.close();
       }

@@ -43,9 +43,12 @@ body {
 }
 
 /*
- * The light on a foil card (VB-112, components/card/FoilSheen.tsx): a spectrum and a specular band,
- * each soft-light blended into the art so it keeps its contrast and the colour reads as light on
- * the surface, not as a tint. The image box clips them to its corners. Static in grids; the card
+ * The light on a foil card (VB-112, components/card/FoilSheen.tsx): a spectrum and a narrow
+ * specular band, both added as light (`plus-lighter`), never blended with the art: soft-light
+ * reacted to the picture (it doubled a scan's own foil light and barely touched a flat render), an
+ * added light reads the same on both and keeps the art's contrast. Tuned by measurement on an RA05
+ * scan and a YGOPRODeck render: about the same colour change on both (mean ΔE 15-17), local
+ * contrast loss under 10 %. The image box clips them to its corners. Static in grids; the card
  * page adds `vb-foil-live` (a slow sweep while idle) and, while the pointer is over the image,
  * `vb-foil-tracking`: band and spectrum follow `--foil-x`/`--foil-y` (0–100 %) under a glare.
  */
@@ -63,7 +66,7 @@ body {
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  mix-blend-mode: soft-light;
+  mix-blend-mode: plus-lighter;
 }
 .vb-foil::before {
   background-image: linear-gradient(
@@ -80,19 +83,19 @@ body {
   );
   background-size: 140% 140%;
   background-position: var(--foil-x) var(--foil-y);
-  opacity: 0.7;
+  opacity: 0.12;
 }
 .vb-foil::after {
   background-image: linear-gradient(
     120deg,
-    transparent 35%,
-    rgb(255 255 255 / 0.9) 48%,
-    rgb(255 255 255 / 0.9) 52%,
-    transparent 65%
+    transparent 40%,
+    rgb(255 255 255 / 0.9) 49%,
+    rgb(255 255 255 / 0.9) 51%,
+    transparent 60%
   );
   background-size: 250% 250%;
   background-position: calc(100% - var(--foil-x)) calc(100% - var(--foil-y));
-  opacity: 0.6;
+  opacity: 0.2;
 }
 .vb-foil-live::before,
 .vb-foil-live::after {
@@ -107,10 +110,10 @@ body {
     radial-gradient(circle at var(--foil-x) var(--foil-y), rgb(255 255 255 / 0.8), transparent 45%),
     linear-gradient(
       120deg,
-      transparent 35%,
-      rgb(255 255 255 / 0.9) 48%,
-      rgb(255 255 255 / 0.9) 52%,
-      transparent 65%
+      transparent 40%,
+      rgb(255 255 255 / 0.9) 49%,
+      rgb(255 255 255 / 0.9) 51%,
+      transparent 60%
     );
   background-size:
     100% 100%,
@@ -118,7 +121,7 @@ body {
   background-position:
     0 0,
     calc(100% - var(--foil-x)) calc(100% - var(--foil-y));
-  opacity: 0.75;
+  opacity: 0.24;
 }
 @keyframes vb-foil-sweep {
   from {
