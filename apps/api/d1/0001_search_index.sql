@@ -4,7 +4,7 @@
 -- One statement per line: the tests apply this file statement by statement.
 
 -- `hash` covers the set and every print and name of it; the refresh rewrites a set whose hash changed.
-CREATE TABLE sets (id TEXT PRIMARY KEY, game TEXT NOT NULL, code TEXT NOT NULL, code_key TEXT NOT NULL, name TEXT NOT NULL, name_key TEXT NOT NULL, released_on TEXT, card_count INTEGER, hash TEXT NOT NULL);
+CREATE TABLE sets (id TEXT PRIMARY KEY, game TEXT NOT NULL, code TEXT NOT NULL, code_key TEXT NOT NULL, name TEXT NOT NULL, name_key TEXT NOT NULL, released_on TEXT, card_count INTEGER, card_format TEXT NOT NULL, hash TEXT NOT NULL);
 CREATE INDEX sets_code_key ON sets (code_key);
 CREATE TABLE set_names (set_id TEXT NOT NULL, lang TEXT NOT NULL, name TEXT NOT NULL, name_key TEXT NOT NULL, PRIMARY KEY (set_id, lang)) WITHOUT ROWID;
 

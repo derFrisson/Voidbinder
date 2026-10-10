@@ -83,7 +83,7 @@ async function plan(deps: SearchIndexDeps, full: boolean): Promise<Plan> {
     );
     const rows = await db.execute<{ id: string; hash: string; prints: number }>(sql`
       select s.id, md5(concat_ws('|', ${sql.raw(`'${SCHEMA}'`)}, s.game_id, s.code, s.name, s.released_on,
-          s.card_count,
+          s.card_count, (select g.card_format from games g where g.id = s.game_id),
           (select string_agg(l.lang || '=' || l.name, ',' order by l.lang)
             from set_localizations l where l.set_id = s.id),
           (select md5(string_agg(concat_ws('|', p.id, p.card_id, c.name, p.number, p.variant,
@@ -177,9 +177,10 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         name: string;
         released_on: string | null;
         card_count: number | null;
-      }>(sql`select id, game_id as game, code, catalog_code_key(code) as code_key, name,
-          released_on::text as released_on, card_count
-        from sets where id = any(${list}::uuid[])`),
+        card_format: string;
+      }>(sql`select s.id, s.game_id as game, s.code, catalog_code_key(s.code) as code_key, s.name,
+          s.released_on::text as released_on, s.card_count, g.card_format
+        from sets s join games g on g.id = s.game_id where s.id = any(${list}::uuid[])`),
       db.execute<{ set_id: string; lang: string; name: string }>(
         sql`select set_id, lang, name from set_localizations where set_id = any(${list}::uuid[])`,
       ),
@@ -246,7 +247,18 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
     ...inserts(
       d1,
       'sets',
-      ['id', 'game', 'code', 'code_key', 'name', 'name_key', 'released_on', 'card_count', 'hash'],
+      [
+        'id',
+        'game',
+        'code',
+        'code_key',
+        'name',
+        'name_key',
+        'released_on',
+        'card_count',
+        'card_format',
+        'hash',
+      ],
       data.sets.map((s) => [
         s.id,
         s.game,
@@ -256,6 +268,7 @@ async function syncChunk(deps: SearchIndexDeps, chunk: [string, string][]): Prom
         s.name.toLowerCase(),
         s.released_on,
         s.card_count,
+        s.card_format,
         hash.get(s.id),
       ]),
     ),

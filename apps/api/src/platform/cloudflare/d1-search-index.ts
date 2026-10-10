@@ -1,5 +1,5 @@
-import type { IndexedSuggestions, SearchIndex } from '@voidbinder/core';
-import type { Game } from '@voidbinder/shared';
+import { printNumbers, type IndexedSuggestions, type SearchIndex } from '@voidbinder/core';
+import type { CardFormat, Game } from '@voidbinder/shared';
 import type { SearchSuggestion, SearchSuggestQuery } from '@voidbinder/shared/api';
 import { fuzzyQuery, NUMBER_HITS, parseCodeQuery } from './drizzle-card-store';
 import { IMAGE_LANGS, resolveImage, type ImagePick } from './image';
@@ -167,6 +167,9 @@ interface PrintRow {
   game: Game;
   set_code: string;
   set_name: string;
+  card_count: number | null;
+  card_format: CardFormat;
+  localized: number;
 }
 
 interface SetRow {
@@ -378,6 +381,13 @@ export class D1SearchIndex implements SearchIndex {
               game: r.game,
               set: { code: r.set_code, name: r.set_name },
               number: r.number,
+              ...printNumbers(
+                { game: r.game, setCode: r.set_code, number: r.number, cardCount: r.card_count },
+                query.lang,
+                Boolean(r.localized),
+                key,
+              ),
+              cardFormat: r.card_format,
               variant: r.variant,
               rarity: r.rarity,
               ...resolveImage(this.imageBaseUrl, pickImage(query.lang, r.id, images), [
@@ -477,7 +487,8 @@ export class D1SearchIndex implements SearchIndex {
         .prepare(
           `select p.id, p.card_id, p.number, p.variant, p.rarity, p.image_src,
             coalesce(nl.name, ne.name, p.card_name) as name, nl.image_src as localized_image_src,
-            s.game, s.code as set_code, coalesce(sl.name, s.name) as set_name
+            s.game, s.code as set_code, coalesce(sl.name, s.name) as set_name,
+            s.card_count, s.card_format, nl.print_id is not null as localized
           from prints p join sets s on s.id = p.set_id
           left join set_names sl on sl.set_id = s.id and sl.lang = ?2
           left join names nl on nl.print_id = p.id and nl.lang = ?2
