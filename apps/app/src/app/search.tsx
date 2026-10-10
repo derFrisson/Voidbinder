@@ -130,12 +130,17 @@ function Filters({
         </FilterRow>
       )}
       <FilterRow label={t.search.language}>
+        <Chip
+          label={t.search.allLanguages}
+          pressed={!state.names}
+          onPress={() => set({ names: undefined })}
+        />
         {(['de', 'en'] as const).map((l) => (
           <Chip
             key={l}
             label={l.toUpperCase()}
-            pressed={state.lang === l}
-            onPress={() => set({ lang: l })}
+            pressed={state.names === l}
+            onPress={() => set({ names: l })}
           />
         ))}
       </FilterRow>

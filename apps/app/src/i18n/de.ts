@@ -204,6 +204,7 @@ export const de = {
     rarity: 'Seltenheit',
     finish: 'Ausführung',
     language: 'Sprache',
+    allLanguages: 'Alle',
     start:
       'Gib mindestens zwei Zeichen ein. Gesucht wird in Namen und Kartentexten, auf Deutsch und Englisch.',
     examples: 'Zum Beispiel',

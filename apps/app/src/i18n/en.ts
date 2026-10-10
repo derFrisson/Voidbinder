@@ -187,6 +187,7 @@ export const en: Dict = {
     rarity: 'Rarity',
     finish: 'Finish',
     language: 'Language',
+    allLanguages: 'All',
     start:
       'Type at least two characters. Names and card texts are searched, in German and English.',
     examples: 'For example',

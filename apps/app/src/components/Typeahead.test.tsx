@@ -85,7 +85,7 @@ describe('search typeahead (VB-79)', () => {
     await act(() => vi.advanceTimersByTimeAsync(60));
     vi.useRealTimers();
     await waitFor(() => expect(suggestCalls(calls)).toHaveLength(1));
-    expect(suggestCalls(calls)[0]?.path).toBe('/catalog/search/suggest?q=lds&lang=de');
+    expect(suggestCalls(calls)[0]?.path).toBe('/catalog/search/suggest?q=lds&lang=de&names=all');
   });
 
   it('shows the suggestions as a listbox the box controls and announces their count', async () => {

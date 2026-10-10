@@ -5,7 +5,7 @@ import { useCurrency } from './cards';
 import { read } from './http';
 
 // The card search (`GET /catalog/search`, VB-35). The state lives in the URL, so a search can be
-// shared: `/search?q=adeline&game=mtg&set=mid&rarity=rare&lang=en&finish=foil&page=2`.
+// shared: `/search?q=adeline&game=mtg&set=mid&rarity=rare&names=en&finish=foil&page=2`.
 
 export type SearchState = {
   q: string;
@@ -15,6 +15,8 @@ export type SearchState = {
   rarity?: string | undefined;
   /** Language of the names; the user's unless the URL says otherwise. */
   lang: Locale;
+  /** Match the names of this language only; absent = every language (the default). */
+  names?: Locale | undefined;
   finish?: string | undefined;
   page: number;
 };
@@ -33,6 +35,7 @@ export function fromParams(params: Params, locale: Locale): SearchState {
     set: first(params.set)?.toLowerCase().slice(0, 32),
     rarity: first(params.rarity)?.slice(0, 32),
     lang: LocaleSchema.safeParse(first(params.lang)).data ?? locale,
+    names: LocaleSchema.safeParse(first(params.names)).data,
     finish: first(params.finish)?.slice(0, 32),
     page: Number.isInteger(page) && page > 1 ? page : 1,
   };
@@ -49,6 +52,7 @@ export function toParams(state: SearchState, locale: Locale): Record<string, str
     set: state.set,
     rarity: state.rarity,
     lang: state.lang === locale ? undefined : state.lang,
+    names: state.names,
     finish: state.finish,
     page: state.page > 1 ? String(state.page) : undefined,
   };
@@ -80,6 +84,7 @@ export function useSearch(state: SearchState) {
       string
     >),
     q: state.q,
+    names: state.names ?? 'all',
     currency,
     page: String(state.page),
   };
@@ -99,7 +104,7 @@ export function useSearch(state: SearchState) {
  * retry: a failed suggestion is dropped silently.
  */
 export function useSuggest(q: string, lang: Locale, enabled = true) {
-  const query = { q: q.trim(), lang };
+  const query = { q: q.trim(), lang, names: 'all' };
   return useQuery({
     queryKey: ['catalog', 'suggest', query],
     queryFn: ({ signal }) => read(api.catalog.search.suggest.$get({ query }, { init: { signal } })),
