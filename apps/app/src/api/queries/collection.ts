@@ -1,3 +1,4 @@
+import type { Game } from '@voidbinder/shared';
 import type {
   Binder,
   CollectionEntry,
@@ -250,8 +251,8 @@ export function useCollectionSummary() {
 }
 
 /**
- * Copies and wishes per print for the card and set pages; nothing while signed out (`enabled`)
- * or for an empty list.
+ * Copies and wishes per print for the card page; nothing while signed out (`enabled`) or for an
+ * empty list.
  */
 export function useOwned(printIds: readonly string[], enabled = true) {
   const ids = [...printIds].sort().slice(0, 200).join(',');
@@ -259,6 +260,16 @@ export function useOwned(printIds: readonly string[], enabled = true) {
     queryKey: [...collectionKey, 'owned', ids],
     queryFn: () => read(api.collection.owned.$get({ query: { printIds: ids } })),
     enabled: enabled && ids.length > 0,
+    retry,
+  });
+}
+
+/** Copies per print (and finish) of a whole set, for the set page's badges and completion. */
+export function useOwnedInSet(game: Game, set: string, enabled = true) {
+  return useQuery({
+    queryKey: [...collectionKey, 'owned', game, set],
+    queryFn: () => read(api.collection.owned.$get({ query: { game, set } })),
+    enabled,
     retry,
   });
 }

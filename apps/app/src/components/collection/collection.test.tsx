@@ -14,6 +14,7 @@ import { setFetch } from '../../../test/fetch';
 import { useEntries, useOwned, useUpdateEntry } from '../../api/queries/collection';
 import Collection from '../../app/(protected)/collection';
 import CardPage from '../../app/cards/[id]';
+import { useOwnedPrints } from '../catalog/seams';
 import { moveId } from './Binders';
 import { parseCents } from './format';
 
@@ -171,6 +172,31 @@ describe('collection hooks', () => {
     expect(calls[0]?.path).toBe('/collection/owned?printIds=a%2Cb');
     renderHook(() => useOwned(['c'], false), { wrapper });
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe('set page seam', () => {
+  it('useOwnedPrints reads a whole set once signed in, with copies per finish', async () => {
+    const calls = fakeApi(signedIn, (c) =>
+      c.path.startsWith('/collection/owned')
+        ? json({ owned: { p1: 3 }, byFinish: { p1: { normal: 2, foil: 1 } }, wished: {} })
+        : undefined,
+    );
+    const { result } = renderHook(() => useOwnedPrints('mtg', 'mid'), { wrapper });
+    await waitFor(() =>
+      expect(result.current?.get('p1')).toEqual({ count: 3, byFinish: { normal: 2, foil: 1 } }),
+    );
+    expect(calls.find((c) => c.path.startsWith('/collection/owned'))?.path).toBe(
+      '/collection/owned?game=mtg&set=mid',
+    );
+  });
+
+  it('useOwnedPrints is undefined and asks nothing while signed out', async () => {
+    const calls = fakeApi();
+    const { result } = renderHook(() => useOwnedPrints('mtg', 'mid'), { wrapper });
+    await waitFor(() => expect(calls.some((c) => c.path === '/me')).toBe(true));
+    expect(result.current).toBeUndefined();
+    expect(calls.some((c) => c.path.startsWith('/collection'))).toBe(false);
   });
 });
 
