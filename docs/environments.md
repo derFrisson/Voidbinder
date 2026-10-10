@@ -63,6 +63,8 @@ and `drizzle.__drizzle_migrations_api`), always from the workstation through the
 
 The API (ADR 0004) adds one cached configuration per environment for catalog and price reads: `voidbinder-dev-cached` `80164a75f1224f34a30fc31f0dac35ca`, `voidbinder-prod-cached` `095f0ec41117431c8b29eec7134dde62` (max_age 300 s, stale_while_revalidate 60 s, 10 connections).
 
+Web analytics (Plausible Community Edition, VB-74) runs on the same VPS in its own containers, never in this database: [guides/analytics-plausible.md](guides/analytics-plausible.md).
+
 ## Secrets
 
 - **Locally:** each app keeps its secrets in its own `.dev.vars` (for example
