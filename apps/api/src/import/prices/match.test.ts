@@ -133,6 +133,91 @@ describe('matchProducts', () => {
     ]);
   });
 
+  describe('Yu-Gi-Oh! regional prints (VB-110)', () => {
+    const product = (
+      productId: number,
+      number: string,
+      rarity: string,
+      name = 'Blue-Eyes White Dragon',
+    ): TcgProduct => ({
+      productId,
+      name,
+      extendedData: [
+        { name: 'Number', value: number },
+        { name: 'Rarity', value: rarity },
+      ],
+    });
+    const bewd = (id: string, number: string, variant = 'ultra-rare') =>
+      print(id, number, 'Blue-Eyes White Dragon', variant);
+    const lob = [bewd('na', '001'), bewd('eu', 'E001'), bewd('en', 'EN001')];
+    const regional = { byId: false, regional: true };
+    const rows = (matches: ReturnType<typeof matchProducts>) =>
+      matches.map((m) => [m.productId, m.printId, m.method, m.confidence]);
+
+    it('prices the token-less and `E` prints with the EN product, less confidently', () => {
+      expect(rows(matchProducts([product(1, 'LOB-EN001', 'Ultra Rare')], lob, regional))).toEqual([
+        [1, 'en', 'number_match', 70],
+        [1, 'na', 'region_match', 60],
+        [1, 'eu', 'region_match', 60],
+      ]);
+    });
+
+    it('takes an exact regional product over the EN one', () => {
+      const products = [
+        product(1, 'LOB-EN001', 'Ultra Rare'),
+        product(2, 'LOB-E001', 'Ultra Rare'),
+      ];
+      expect(rows(matchProducts(products, lob, regional))).toEqual([
+        [1, 'en', 'number_match', 70],
+        [2, 'eu', 'number_match', 70],
+        [1, 'na', 'region_match', 60],
+      ]);
+    });
+
+    it('goes by name, not digits: European numbers differ from the EN ones', () => {
+      // LOB-E053 is Curse of Dragon (LOB-EN066); LOB-EN053 is Raigeki, also a Super Rare.
+      const prints = [print('curse-eu', 'E053', 'Curse of Dragon', 'super-rare')];
+      const products = [
+        product(1, 'LOB-EN053', 'Super Rare', 'Raigeki'),
+        product(2, 'LOB-EN066', 'Super Rare', 'Curse of Dragon'),
+      ];
+      expect(rows(matchProducts(products, prints, regional))).toEqual([
+        [2, 'curse-eu', 'region_match', 60],
+      ]);
+    });
+
+    it('keeps the rarity apart: a Starlight and an Ultra of one number', () => {
+      const prints = [
+        bewd('en-ur', 'EN001'),
+        bewd('en-slr', 'EN001', 'starlight-rare'),
+        bewd('na', '001'),
+      ];
+      const products = [
+        product(1, 'LOB-EN001', 'Ultra Rare'),
+        product(2, 'LOB-EN001', 'Starlight Rare'),
+      ];
+      expect(rows(matchProducts(products, prints, regional))).toEqual([
+        [1, 'en-ur', 'number_match', 70],
+        [2, 'en-slr', 'number_match', 70],
+        [1, 'na', 'region_match', 60],
+      ]);
+    });
+
+    it('leaves a regional print out when two products of its rarity fit', () => {
+      const products = [
+        product(1, 'LOB-EN001', 'Ultra Rare'),
+        product(2, 'LOB-EN001', 'Ultra Rare'),
+      ];
+      expect(matchProducts(products, [bewd('na', '001')], regional)).toEqual([]);
+    });
+
+    it('does nothing of the sort without `regional` (Pokémon, Magic)', () => {
+      expect(
+        rows(matchProducts([product(1, 'LOB-EN001', 'Ultra Rare')], lob, { byId: false })),
+      ).toEqual([[1, 'en', 'number_match', 70]]);
+    });
+  });
+
   it('prefers the more confident of two products that claim one print', () => {
     const p = (productId: number, ext: [string, string][]): TcgProduct => ({
       productId,

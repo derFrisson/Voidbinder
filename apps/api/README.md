@@ -740,7 +740,16 @@ groups and mapped 92,990 of 104,595 card products in 2 min 23 s. Every answer is
 gzip-compressed in `RAW` under `raw/<env>/tcgcsv/<date>/<category>/` (`groups.json.gz`,
 `<group>.products.json.gz`, `<group>.prices.json.gz`). Prices without a `marketPrice` (too few
 sales) are not written. The cron runs on prod only: dev would be a second pull of the same build,
-so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs). A second
+so dev imports on demand with `POST /admin/import/tcgcsv` (202, or 409 while one runs).
+`?force=true` imports even a build already imported (a second pull of it): a matching change
+(VB-110) reaches the current prices without waiting for the next build:
+
+```sh
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" "$API_URL/admin/import/tcgcsv?force=true"
+```
+
+The history backfill only adds days without `tcgplayer` rows, so a re-mapped print's history
+starts with that run. A second
 prod cron at 22:30 UTC (instance `tcgcsv-<date>-late`) catches a build that landed late: when the
 20:30 run imported the build it reads `last-updated.txt` and ends without bumping
 `catalog_version`. Either cron is skipped (and logged) while a TCGCSV run is still going.
@@ -760,8 +769,17 @@ is which print, with a confidence. TCGCSV's `subTypeName` becomes the finish (`N
 | -------------- | ---------- | ------------------------------------------------------------------------- |
 | `scryfall_id`  | 100        | Magic: Scryfall's `tcgplayer_id` / `tcgplayer_etched_id`, `cardmarket_id` |
 | `number_match` | 70         | Pokémon, Yu-Gi-Oh!: same set and collector number (Yu-Gi-Oh!: and rarity) |
+| `region_match` | 60         | Yu-Gi-Oh! regional print (below): the EN product of its name and rarity   |
 | `name_match`   | 40         | No number match: a name that only one print of the set has                |
 | `manual`       | 100        | An admin's override; the importers never change it                        |
+
+Yu-Gi-Oh!'s early sets were printed under several codes in English: `LOB-001` (North America),
+`LOB-E001` (Europe), `LOB-A001`/`LOB-AE001` (Australia, Asia) and `LOB-EN001`; YGOPRODeck keeps
+each as a print, TCGplayer lists only `LOB-EN001`. A regional print that no product claims by its
+own number takes the one card product of the set with its name and rarity (several: the `EN` one
+with its digits), so one product prices several prints (VB-110, `drizzle/0014_…`). By name, not
+digits: the European numbers differ (`LOB-E053` is Curse of Dragon, `LOB-EN053` Raigeki, both
+Super Rare). A product with the regional number itself, should TCGplayer list one, wins with 70.
 
 Two products that claim one print with the same confidence are both left unmapped, and so is a
 TCGplayer id Scryfall gives more than one print. TCGCSV prices are written through the table, so

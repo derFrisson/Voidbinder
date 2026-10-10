@@ -13,7 +13,7 @@ const LANG = 'en';
 /**
  * An admin's mapping (`method` manual, confidence 100), which the importers never overwrite.
  * null when the print does not exist; MappingConflict when another print holds that external id
- * and finish manually. An automatic holder gives it up.
+ * and finish manually. Every automatic holder gives it up.
  */
 export async function setManualMapping(
   db: NodePgDatabase,
@@ -28,33 +28,23 @@ export async function setManualMapping(
   return db.transaction(async (tx) => {
     const [print] = await tx.select({ id: prints.id }).from(prints).where(eq(prints.id, m.printId));
     if (!print) return null;
-    const [other] = await tx
-      .select({ printId: priceMappings.printId, method: priceMappings.method })
+    // Several prints may hold one product automatically (VB-110: Yu-Gi-Oh! regional prints).
+    const others = and(
+      eq(priceMappings.source, m.source),
+      eq(priceMappings.externalId, m.externalId),
+      eq(priceMappings.finish, m.finish),
+      eq(priceMappings.lang, LANG),
+      ne(priceMappings.printId, m.printId),
+    );
+    const [manual] = await tx
+      .select({ printId: priceMappings.printId })
       .from(priceMappings)
-      .where(
-        and(
-          eq(priceMappings.source, m.source),
-          eq(priceMappings.externalId, m.externalId),
-          eq(priceMappings.finish, m.finish),
-          eq(priceMappings.lang, LANG),
-          ne(priceMappings.printId, m.printId),
-        ),
-      );
-    if (other?.method === 'manual')
+      .where(and(others, eq(priceMappings.method, 'manual')));
+    if (manual)
       throw new MappingConflict(
-        `${m.source} ${m.externalId} ${m.finish} is mapped to ${other.printId}`,
+        `${m.source} ${m.externalId} ${m.finish} is mapped to ${manual.printId}`,
       );
-    if (other)
-      await tx
-        .delete(priceMappings)
-        .where(
-          and(
-            eq(priceMappings.printId, other.printId),
-            eq(priceMappings.source, m.source),
-            eq(priceMappings.finish, m.finish),
-            eq(priceMappings.lang, LANG),
-          ),
-        );
+    await tx.delete(priceMappings).where(others);
     const values = {
       ...m,
       lang: LANG,

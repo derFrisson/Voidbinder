@@ -20,11 +20,15 @@ const STEP = {
  * No image step: the run touches prices only.
  */
 export class TcgcsvImportWorkflow extends WorkflowEntrypoint<Env> {
-  override async run(event: WorkflowEvent<unknown>, step: WorkflowStep) {
+  override async run(event: WorkflowEvent<{ force?: boolean } | undefined>, step: WorkflowStep) {
     return runTcgcsvImport(
       { ...tcgcsvImportDeps(this.env), ...edgeCacheDeps(step) },
       (name, fn) => step.do(name, STEP, fn as () => Promise<never>),
-      { env: this.env.IMPORT_ENV, date: event.timestamp.toISOString().slice(0, 10) },
+      {
+        env: this.env.IMPORT_ENV,
+        date: event.timestamp.toISOString().slice(0, 10),
+        force: event.payload?.force === true,
+      },
     );
   }
 }
