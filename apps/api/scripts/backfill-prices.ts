@@ -4,12 +4,14 @@
 // lives in src/import/prices/backfill.ts.
 //
 //   pnpm --filter api backfill-prices --env-file ~/.config/voidbinder/pg.env --db dev
-//     [--from 2024-02-08] [--to <yesterday>] [--delay-ms 2000] [--dry-run]
+//     [--from 2024-02-08] [--to <yesterday>] [--delay-ms 2000] [--dry-run] [--refill]
 //
 // Env: PG_MIRROR_URL_DEV / PG_MIRROR_URL_PROD for `--db` (or `DBS=dev|prod`), else DATABASE_URL.
 // Resumable: a day that already has `tcgplayer` rows (the daily import, or this script, which
 // writes a day in one transaction) is skipped, and so is a day the progress file
-// ~/.local/state/voidbinder/price-backfill-<db>.json records as done or missing.
+// ~/.local/state/voidbinder/price-backfill-<db>.json records as done or missing. `--refill` skips
+// both checks and downloads every day of the range; ON CONFLICT DO NOTHING keeps it safe and adds
+// only rows that are missing (products mapped since).
 import { execFile } from 'node:child_process';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { homedir, tmpdir } from 'node:os';
@@ -38,6 +40,7 @@ const { values: args } = parseArgs({
     to: { type: 'string' },
     'delay-ms': { type: 'string', default: '2000' },
     'dry-run': { type: 'boolean', default: false },
+    refill: { type: 'boolean', default: false },
   },
 });
 
@@ -102,7 +105,7 @@ try {
   log('info', { message: 'price backfill', db, from, to, games, mappings: mappings.size, dryRun });
   let first = true;
   for (const day of days(from, to)) {
-    if (progress[day] !== undefined || (await hasDay(pg, day))) {
+    if (!args.refill && (progress[day] !== undefined || (await hasDay(pg, day)))) {
       total.skipped++;
       continue;
     }

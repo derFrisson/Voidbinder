@@ -2080,7 +2080,8 @@ done
 
 **Run.** `--db dev|prod` (or `DBS=dev|prod`) takes `PG_MIRROR_URL_DEV` / `PG_MIRROR_URL_PROD`
 from `pg.env`, never the migrate or superuser URL. `--from` / `--to` (default 2024-02-08 to
-yesterday, both included), `--delay-ms` (pause between days, default 2000), `--dry-run` (downloads and maps, writes nothing).
+yesterday, both included), `--delay-ms` (pause between days, default 2000), `--dry-run` (downloads and maps, writes nothing),
+`--refill` (ignores the progress file and the rows already there, see Rerun).
 A short range first, then the full range in `tmux` or a transient user unit so it survives a
 dropped SSH session:
 
@@ -2102,8 +2103,10 @@ prod catalog and its first daily TCGCSV import (the mappings come from that impo
 whole or absent. A day that has `tcgplayer` rows (the daily import's or an earlier run's) is
 skipped without a download, `ON CONFLICT DO NOTHING` never changes an existing row, and
 `~/.local/state/voidbinder/price-backfill-<db>.json` records every finished day (rows inserted, or
-`missing` for a day without an archive). Delete a day from that file to fetch it again, for
-example after a mapping fix; the rows already in `prices_daily` still stay.
+`missing` for a day without an archive). A day with rows is never fetched again by a plain rerun,
+so to add what is missing (after a mapping fix, or once more sets are imported) run
+`--refill --from X --to Y`: it downloads every day of the range regardless, and
+`ON CONFLICT DO NOTHING` inserts only the missing rows.
 
 **Disk.** One day's archive and its three unpacked games under `/tmp`, deleted after the day.
 
