@@ -1,0 +1,12 @@
+# Daily import check (VB-83), a systemd user unit for `ubuntu` on the database VPS; started by
+# import-health.timer. Installation: docs/guides/database-vps.md, section 8. Pushes the result of
+# the prod API's GET /admin/imports/health (and the catalog-modules unit's state) to Uptime Kuma;
+# the reason is in `journalctl --user -u import-health`.
+[Unit]
+Description=Voidbinder import health check
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=%h/voidbinder/scripts/vps/import-health.sh

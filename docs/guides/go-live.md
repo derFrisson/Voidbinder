@@ -597,6 +597,35 @@ go, but before the URL is shared widely.
 - The prod crons from now on, daily (UTC): Scryfall 03:00, YGOPRODeck 03:30, TCGdex 04:00
   (incremental), TCGCSV 20:30 and 22:30. VPS: image mirror 05:30 and catalog modules 06:30 (both
   `prod dev`).
+- Import health (VB-83): install the daily check on the VPS (database-vps.md section 8,
+  "Import health") and its Kuma push monitor. It reports a source as `missing` when it had no
+  `ok` run within its cadence plus 2 hours and `failed` when its newest finished run failed.
+- **Re-running a failed import by hand.** See what failed first, then start the source again
+  (202 `started`; 409 `import_running` while a run of it, younger than 6 hours, is `running`):
+
+  ```sh
+  read -rs TOKEN   # paste ADMIN_TOKEN_prod
+  curl -sS -H "Authorization: Bearer $TOKEN" https://api.voidbinder.de/admin/imports/health
+  curl -sS -H "Authorization: Bearer $TOKEN" https://api.voidbinder.de/admin/imports \
+    | jq '.runs.scryfall[:3]'   # the newest runs of one source, with error and counts
+  post() { curl -sS -o /dev/stdout -w ' %{http_code}\n' -X POST \
+    -H "Authorization: Bearer $TOKEN" "https://api.voidbinder.de/admin/$1"; }
+  # then only the line of the source that failed:
+  post import/scryfall               # likewise import/ygoprodeck
+  post import/tcgdex                 # incremental; import/tcgdex?mode=full refetches every set
+  post import/tcgcsv                 # import/tcgcsv?force=true re-imports a build already imported (VB-110)
+  post import/yugipedia              # names and texts, then the galleries (the weekly run)
+  post import/yugipedia-galleries    # the set galleries alone (VB-106)
+  unset TOKEN
+  ```
+
+  TCGCSV asks for one pull a day: a plain re-run after a failed run is fine (the build was not
+  imported), `force=true` only when an imported build must be mapped again. Yugipedia's names and
+  galleries share one lock (1 request/s): either answers 409 while the other runs. The image mirror and the
+  catalog modules run on the VPS: `systemctl --user start image-mirror` (then `catalog-modules`),
+  logs with `journalctl --user -u image-mirror -n 50`. The next morning's check (or a
+  `systemctl --user start import-health`) turns the Kuma monitor green again.
+
 - Disk: the prod catalog roughly doubles the database size (dev today is most of the 8.2 GB on
   `/var/lib/postgresql`, 39 GB free), and the price history grows by about 0.5 million rows a day
   before compression. Check `df` and the Kuma push monitor after the first week.

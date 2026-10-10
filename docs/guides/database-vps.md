@@ -1642,8 +1642,8 @@ and the row counts match what you expect.
 
 ## 8. Operations
 
-This section is the routine after setup: updates, disk space, slow queries, an optional alert, and
-growing the disk. Set up the alert now; the rest is for when you need it.
+This section is the routine after setup: updates, disk space, slow queries, two Kuma alerts
+(database and imports), and growing the disk. Set up the alert now; the rest is for when you need it.
 
 **Minor updates** (a new `pg18.x-ts2.y.z` tag, PostgreSQL minor or TimescaleDB release). The OVH
 snapshot covers the system disk only, so take both a snapshot and a fresh backup first:
@@ -1765,6 +1765,42 @@ more, a backup older than 36 hours (check `/var/log/voidbinder-db-backup.log`), 
 problem (run `pgbackrest check` as in section 7). A `curl` error means the push URL is wrong;
 compare `/etc/voidbinder-db-health.env` with Kuma. If it only fails from cron and works in your
 shell, the `DOCKER_HOST` line of the crontab is missing.
+
+**Import health (VB-83): a failed or missing import run, as a second Kuma push monitor.** Every
+morning at 07:30 UTC `scripts/vps/import-health.sh` (started by `import-health.timer`) asks the prod
+API's `GET /admin/imports/health` whether every scheduled import (the Worker crons and the image
+mirror here) succeeded within its cadence plus 2 hours, and checks that the last
+`catalog-modules` run did not fail (the modules write no `import_runs` row). It pushes `up` with
+`OK`, or `down` with the reason (`missing: tcgcsv; failed: scryfall`), so Kuma shows which source
+to look at. Create a **Push** monitor in Kuma (heartbeat interval 25 hours, so one push a day
+keeps it up and a missing push turns it down; Retries 0) and copy its push URL without the
+query. The script reads the prod admin token as `ADMIN_TOKEN_prod` from
+`~/.config/voidbinder/api-secrets.env` (step 2 of `docs/guides/go-live.md`; the file is sourced,
+so one `NAME=value` per line) and the push URL from `~/.config/voidbinder/kuma.env`. It needs
+`curl` and `jq` (section 2).
+
+```sh
+umask 077; mkdir -p ~/.config/voidbinder
+grep -q '^ADMIN_TOKEN_prod=' ~/.config/voidbinder/api-secrets.env && echo token found
+read -rsp 'Kuma import push URL: ' KUMA_URL; echo
+echo "KUMA_IMPORTS_PUSH_URL=$KUMA_URL" >> ~/.config/voidbinder/kuma.env
+unset KUMA_URL
+cd ~/voidbinder && git pull --ff-only
+mkdir -p ~/.config/systemd/user
+ln -sf ~/voidbinder/scripts/vps/import-health.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload && systemctl --user enable --now import-health.timer
+systemctl --user start import-health && journalctl --user -u import-health -n 5
+```
+
+**verify:** the journal ends with `up: OK` (or `down: …` naming a real problem) and the Kuma
+monitor shows that heartbeat with its message; `systemctl --user list-timers import-health.timer`
+shows the next start at 07:30 UTC.
+
+**If it fails:** `down: import health: GET … failed` means the API did not answer 200: a `401`
+is a wrong `ADMIN_TOKEN_prod`, a `404` an `ADMIN_TOKEN` missing on the Worker. A `curl` error on
+the push means a wrong push URL. A `down` naming sources is the check working: see
+`GET /admin/imports` for the runs and their errors, and step 14 of `docs/guides/go-live.md` for
+re-running an import by hand.
 
 **Growing the additional disk.** OVH control panel → the VPS → **Additional disks → Increase the
 disk size**, wait until the new size shows, then make the kernel see it. This stops the database
