@@ -1,6 +1,7 @@
 import {
   PriceHistoryResponseSchema,
   PrintPricesResponseSchema,
+  SearchResponseSchema,
   SetPageResponseSchema,
 } from '@voidbinder/shared/api';
 import { and, eq } from 'drizzle-orm';
@@ -155,6 +156,22 @@ describe.skipIf(!databaseUrl)('price routes (Postgres)', () => {
     // A foil-only print is priced by its only finish.
     const champion = (await page('?page=1&sort=number')).prints.find((p) => p.number === '385');
     expect(champion?.marketPrice).toMatchObject({ finish: 'foil', cents: 76 });
+  });
+
+  it('adds the same market price to the search hits', async () => {
+    const hits = async (query: string) =>
+      SearchResponseSchema.parse(await (await app.request(`/catalog/search?${query}`)).json())
+        .prints;
+    const [eur] = await hits('q=adeline');
+    expect(eur?.marketPrice).toEqual({
+      source: 'cardmarket',
+      finish: 'normal',
+      currency: 'EUR',
+      cents: 334,
+    });
+    const [usd] = await hits('q=adeline&currency=USD');
+    expect(usd?.marketPrice).toMatchObject({ source: 'tcgplayer_scryfall', cents: 402 });
+    expect((await hits('q=champion'))[0]?.marketPrice).toMatchObject({ finish: 'foil', cents: 76 });
   });
 
   it('estimates conditions with the default factors when a game has no rows', async () => {

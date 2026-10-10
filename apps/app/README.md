@@ -20,8 +20,8 @@ and the mockups next to it. Architecture: [ADR 0001](../../docs/adr/0001-stack.m
 
 Routes: `/` (games), `/[game]` (sets), `/[game]/sets/[code]`, `/cards/[id]`, `/search`,
 `/collection`, `/decks`, `/profile`, `/sign-in`, `/sign-up`, `/verify`, `/reset-password`. The
-search, collection and deck screens are placeholders with their data hooks (markers `VB-35`,
-`VB-31`, `VB-34`).
+collection and deck screens are placeholders with their data hooks (markers `VB-31`,
+`VB-34`).
 
 **Catalog browsing** (`src/components/catalog/`): home, the sets of a game and the set page. The set
 page's filters (`lang`, `rarity`, `finish`, `sort`, `page`, `view`) live in the URL; the pure logic
@@ -32,6 +32,15 @@ renders only when `seams.ts` returns data; both hooks answer nothing until VB-31
 a signed-out visitor and today's app see no numbers, never invented ones. "Recently viewed" is
 `src/storage/recent.ts`: localStorage on the web behind a small `KeyValueStorage` seam, in memory
 natively until Sprint 3.
+
+**Search and card page (VB-35).** `/search` keeps its state in the URL (`q`, `game`, `set`,
+`rarity`, `lang`, `finish`, `page`; `src/api/queries/search.ts` maps both ways and drops the
+defaults), sends `GET /catalog/search` 250 ms after the last keystroke from two characters on and
+pages by 30. `/cards/[id]?print=` shows the print from the URL, else the newest with an image, with
+names and text in the user's language; its parts are in `src/components/card/`. Prices are absent
+until VB-30 merges: `usePrintPrices` and `usePriceHistory` (`src/api/queries/cards.ts`) answer
+`null`, the panel says there are no prices and shows no number (marker `VB-30`). "In Sammlung" and
+"Auf Wunschliste" are disabled until VB-31 (marker `VB-31`).
 
 ## Local development
 

@@ -100,6 +100,60 @@ const png = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
+// The search and card page (VB-35); no images, so the test needs no network.
+const CARD = '2d112e72-f8b2-48e0-9798-208873db6761';
+const PRINT = '22222222-2222-4222-8222-222222222222';
+const search = {
+  prints: [
+    {
+      id: PRINT,
+      cardId: CARD,
+      number: '1',
+      variant: '',
+      name: 'Adeline, strahlende Katharerin',
+      rarity: 'rare',
+      finishes: ['normal', 'foil'],
+      imageUrl: null,
+      game: 'mtg',
+      setCode: 'mid',
+      setName: 'Innistrad: Midnight Hunt',
+    },
+  ],
+  page: 1,
+  pageSize: 30,
+  total: 1,
+};
+const card = {
+  card: {
+    id: CARD,
+    game: 'mtg',
+    name: 'Adeline, Resplendent Cathar',
+    typeLine: 'Legendary Creature — Human Knight',
+    text: 'Vigilance',
+    attributes: { cmc: 3, mana_cost: '{1}{W}{W}', power: '*', toughness: '4', colors: ['W'] },
+    legalities: { standard: 'not_legal', commander: 'legal' },
+  },
+  prints: [
+    {
+      id: PRINT,
+      cardId: CARD,
+      set: { game: 'mtg', code: 'mid', name: 'Innistrad: Midnight Hunt' },
+      number: '1',
+      variant: '',
+      rarity: 'rare',
+      finishes: ['normal', 'foil'],
+      artist: 'Bryan Sola',
+      releasedOn: '2021-09-24',
+      imageUrl: null,
+      externalIds: {},
+      localizations: [
+        { lang: 'de', name: 'Adeline, strahlende Katharerin', text: 'Wachsamkeit', imageUrl: null },
+        { lang: 'en', name: 'Adeline, Resplendent Cathar', text: 'Vigilance', imageUrl: null },
+      ],
+    },
+  ],
+  copyright: '©Wizards of the Coast LLC',
+};
 
 let worker: ChildProcess | undefined;
 let browser: Browser | undefined;
@@ -151,6 +205,8 @@ async function open({ width = 1440, height = 900, scheme = 'light' }: Options = 
       queries.push(url.search);
       return route.fulfill({ json: mid(url.searchParams.get('rarity')) });
     }
+    if (path === '/api/catalog/search') return route.fulfill({ json: search });
+    if (path === `/api/catalog/cards/${CARD}`) return route.fulfill({ json: card });
     return route.fulfill({
       status: 404,
       json: { error: { code: 'not_found', message: 'x', requestId: 'r' } },
@@ -265,6 +321,23 @@ describe('web build', () => {
     }
   });
 
+  it('searches, opens the card and shows no price', async () => {
+    const { context, page, csp } = await open();
+    try {
+      await page.goto(`${origin}/search?q=adeline`);
+      await page.getByText('1 Treffer').waitFor();
+      await page.getByRole('link', { name: 'Adeline, strahlende Katharerin, MID 1' }).click();
+      await page.waitForURL(new RegExp(`/cards/${CARD}\\?print=${PRINT}$`));
+      await page
+        .getByRole('heading', { level: 1, name: 'Adeline, strahlende Katharerin' })
+        .waitFor();
+      await page.getByText('Für diesen Druck gibt es noch keine Preise.').waitFor();
+      expect(csp).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
   it('lists the sets of a game and opens one, remembering it on the home page', async () => {
     const { context, page } = await open();
     try {
@@ -290,9 +363,15 @@ describe('web build', () => {
       ['desktop', 1440, 900],
       ['phone', 390, 844],
     ].flatMap(([name, width, height]) =>
-      ['/', '/sign-in', '/mtg', '/mtg/sets/mid', '/mtg/sets/mid?view=list'].map(
-        (path) => [scheme, name, path, width, height] as const,
-      ),
+      [
+        '/',
+        '/sign-in',
+        '/mtg',
+        '/mtg/sets/mid',
+        '/mtg/sets/mid?view=list',
+        '/search?q=adeline',
+        `/cards/${CARD}`,
+      ].map((path) => [scheme, name, path, width, height] as const),
     ),
   );
   it.each(cases)('axe: %s %s %s has no violations', async (scheme, _name, path, width, height) => {
