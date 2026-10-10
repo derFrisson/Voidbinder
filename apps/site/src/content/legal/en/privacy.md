@@ -57,7 +57,7 @@ With every page view your browser sends to web-analytics.voidcom.app:
 
 From this, Plausible derives browser, operating system, device type and country, region and city. The IP address and the user agent are not stored. Plausible combines them with the domain and a random value (salt), which is replaced and deleted every 24 hours, into a check value (hash). This lets visits be counted within one day, but not linked across days or websites, and the IP address cannot be worked out from it. Plausible describes the details at https://plausible.io/data-policy.
 
-Plausible sets no cookies and builds no profile of you. The script in the web app writes nothing to your browser's storage. It only reads an entry "plausible_ignore" there, which we use to exclude our own visits from the count; on your device this entry does not exist. For this reason, we do not consider consent under § 25 TDDDG necessary.
+Plausible sets no cookies and builds no profile of you. The scripts on the website and in the web app write nothing to your browser's storage. They only read an entry "plausible_ignore" there, which we use to exclude our own visits from the count; on your device this entry does not exist. For this reason, we do not consider consent under § 25 TDDDG necessary.
 
 <!-- TODO Max: have it checked whether reading "plausible_ignore" falls under § 25 TDDDG. Alternative: ship the script without this check. -->
 
@@ -212,7 +212,7 @@ The website links to Twitch, GitHub and voidcom.app. When you click, you leave o
 
 ## Cookies and local storage on the website
 
-This website sets no cookies and uses neither localStorage nor sessionStorage of your browser. This also applies to the audience measurement. Your language choice is part of the page address (/de/ or /en/) and is not stored. If you open the home page without a language, we pick the language from your browser's language setting and do not store that. What the web app stores is described in the section "Sessions and cookies".
+This website sets no cookies and writes nothing to your browser's localStorage or sessionStorage; the Plausible script only reads the entry "plausible_ignore" there (see above). Your language choice is part of the page address (/de/ or /en/) and is not stored. If you open the home page without a language, we pick the language from your browser's language setting and do not store that. What the web app stores is described in the section "Sessions and cookies".
 
 ## Children
 

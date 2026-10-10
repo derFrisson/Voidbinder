@@ -55,7 +55,7 @@ Bei jedem Seitenaufruf schickt Ihr Browser an web-analytics.voidcom.app:
 
 Plausible leitet daraus Browser, Betriebssystem, Gerätetyp sowie Land, Region und Stadt ab. IP-Adresse und User-Agent werden nicht gespeichert. Plausible bildet aus ihnen zusammen mit der Domain und einem zufälligen Wert (Salt), der alle 24 Stunden gewechselt und gelöscht wird, einen Prüfwert (Hash). Damit lassen sich Besuche an einem Tag zählen, aber nicht über mehrere Tage oder Websites hinweg verbinden, und die IP-Adresse lässt sich daraus nicht zurückrechnen. Einzelheiten beschreibt Plausible unter https://plausible.io/data-policy.
 
-Plausible setzt keine Cookies und erstellt kein Profil von Ihnen. Das Skript in der Web-App schreibt nichts in den Speicher Ihres Browsers. Es liest dort nur einen Eintrag „plausible_ignore“, mit dem wir unsere eigenen Besuche aus der Zählung nehmen; bei Ihnen gibt es diesen Eintrag nicht. Nach unserer Einschätzung ist deshalb keine Einwilligung nach § 25 TDDDG nötig.
+Plausible setzt keine Cookies und erstellt kein Profil von Ihnen. Die Skripte auf der Website und in der Web-App schreiben nichts in den Speicher Ihres Browsers. Sie lesen dort nur einen Eintrag „plausible_ignore“, mit dem wir unsere eigenen Besuche aus der Zählung nehmen; bei Ihnen gibt es diesen Eintrag nicht. Nach unserer Einschätzung ist deshalb keine Einwilligung nach § 25 TDDDG nötig.
 
 <!-- TODO Max: rechtlich prüfen lassen, ob das Lesen von „plausible_ignore“ unter § 25 TDDDG fällt. Alternative: das Skript ohne diese Prüfung ausliefern. -->
 
@@ -210,7 +210,7 @@ Die Website verlinkt auf Twitch, GitHub und voidcom.app. Beim Anklicken verlasse
 
 ## Cookies und lokaler Speicher auf der Website
 
-Die Website setzt keine Cookies und nutzt weder localStorage noch sessionStorage Ihres Browsers. Das gilt auch für die Reichweitenmessung. Ihre Sprachwahl steckt in der Adresse der Seite (/de/ oder /en/) und wird nicht gespeichert. Rufen Sie die Startseite ohne Sprachangabe auf, wählen wir die Sprache nach der Spracheinstellung Ihres Browsers und speichern diese Angabe nicht. Was die Web-App speichert, steht im Abschnitt „Sitzungen und Cookies“.
+Die Website setzt keine Cookies und schreibt nichts in localStorage oder sessionStorage Ihres Browsers; das Plausible-Skript liest dort nur den Eintrag „plausible_ignore“ (siehe oben). Ihre Sprachwahl steckt in der Adresse der Seite (/de/ oder /en/) und wird nicht gespeichert. Rufen Sie die Startseite ohne Sprachangabe auf, wählen wir die Sprache nach der Spracheinstellung Ihres Browsers und speichern diese Angabe nicht. Was die Web-App speichert, steht im Abschnitt „Sitzungen und Cookies“.
 
 ## Kinder
 
