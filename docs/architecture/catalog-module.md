@@ -81,6 +81,8 @@ until then.
 `size`/`sha256` are those of the bytes downloaded (gzip); `rawSize`/`rawSha256` those of the
 unpacked SQLite file. `deltas` is one contiguous chain, oldest first, ending at `version`; it
 holds the last 30 and is empty when the build had no previous module to diff against.
+`attribution` (optional) is the credit the content requires: a Yu-Gi-Oh! module carries
+Yugipedia's (CC BY-SA 4.0, VB-93), the same text as its `meta` row.
 
 ## Schema (version 1)
 

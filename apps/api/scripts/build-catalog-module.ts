@@ -229,8 +229,8 @@ export async function buildModule(
     meta(['game', game]);
     meta(['schema_version', String(SCHEMA_VERSION)]);
     meta(['version', String(version)]);
-    // CC BY-SA 4.0 travels with the Yugipedia names and texts the module holds (VB-93).
-    if (game === 'yugioh') meta(['attribution', `${YUGIPEDIA_ATTRIBUTION.en}, ${CC_BY_SA_URL}`]);
+    const attribution = attributionOf(game);
+    if (attribution) meta(['attribution', attribution]);
     for (const table of Object.keys(QUERIES) as (keyof typeof QUERIES)[]) {
       const insert = statement(table);
       for await (const row of cursor(client, QUERIES[table], [game, ...(PARAMS[table] ?? [])]))
@@ -365,6 +365,10 @@ export async function prune(
   return stale;
 }
 
+/** CC BY-SA 4.0 travels with the Yugipedia names and texts a Yu-Gi-Oh! module holds (VB-93). */
+export const attributionOf = (game: string) =>
+  game === 'yugioh' ? `${YUGIPEDIA_ATTRIBUTION.en}, ${CC_BY_SA_URL}` : undefined;
+
 /** The manifest of a new build: the previous chain (ending at `delta.from`) plus `delta`. */
 export function nextManifest(
   previous: ModuleManifest | null,
@@ -463,6 +467,7 @@ async function main() {
         sha256: sha256(body),
       };
     }
+    const attribution = attributionOf(game);
     const manifest = nextManifest(
       published,
       {
@@ -478,6 +483,7 @@ async function main() {
           rawSize: raw.length,
           rawSha256: sha256(raw),
         },
+        ...(attribution ? { attribution } : {}),
       },
       delta,
     );

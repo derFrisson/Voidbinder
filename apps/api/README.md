@@ -585,7 +585,8 @@ Portuguese dumps; reading them daily would be the cheaper source for those langu
 ticket), with Yugipedia left for Spanish and the gaps. `POST /admin/import/yugipedia` starts one on
 demand (202, 409 while one is `running`). The content is CC BY-SA 4.0: the app credits it in the
 footer and on every Yu-Gi-Oh! card page (`YUGIPEDIA_ATTRIBUTION` in `@voidbinder/shared/notices`,
-source and licence linked), and the offline module's `meta` carries it as `attribution`.
+source and licence linked), and the offline module's `meta` and manifest carry it as
+`attribution`.
 
 ## Prices
 
