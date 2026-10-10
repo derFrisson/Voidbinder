@@ -71,6 +71,8 @@ export interface SourceSummary {
    * such run at least 20 h older (the day before).
    */
   freshness?: { latest: Freshness[]; previous?: Freshness[] | undefined } | undefined;
+  /** VB-116, TCGCSV: `stats.failedGroups` of the newest `ok` run, the groups it did not import. */
+  failedGroups?: { game: string; groupIds: number[] }[] | undefined;
 }
 
 /** Below this share of the priced prints refreshed in 24 h, a price source is stale. */
@@ -103,6 +105,17 @@ export function freshnessProblems(latest: Freshness[], previous: Freshness[] = [
   });
 }
 
+/**
+ * The groups the newest `ok` run did not import, one entry per game with their ids. Only TCGCSV
+ * runs list failed groups, and its prices are `tcgplayer`'s.
+ */
+function failedGroupProblems(s: SourceSummary | undefined): string[] {
+  const groups = new Map<string, number[]>();
+  for (const f of s?.failedGroups ?? [])
+    groups.set(f.game, [...(groups.get(f.game) ?? []), ...f.groupIds]);
+  return [...groups].map(([game, ids]) => `tcgplayer/${game} ${ids.join(' ')}`);
+}
+
 /** The health of the scheduled sources of `env` at `now`, from each source's summary. */
 export function importHealth(
   summaries: Map<string, SourceSummary>,
@@ -130,10 +143,12 @@ export function importHealth(
   const missing = sources.filter((s) => s.missing).map((s) => s.source);
   const failed = sources.filter((s) => s.failed).map((s) => s.source);
   const stale = sources.flatMap((s) => s.stale);
+  const failedGroups = sources.flatMap((s) => failedGroupProblems(summaries.get(s.source)));
   const problems = [
     missing.length ? `missing: ${missing.join(', ')}` : '',
     failed.length ? `failed: ${failed.join(', ')}` : '',
     stale.length ? `stale: ${stale.join(', ')}` : '',
+    failedGroups.length ? `failed groups: ${failedGroups.join(', ')}` : '',
   ].filter(Boolean);
   return {
     ok: problems.length === 0,
@@ -185,6 +200,7 @@ export async function importOverview(
   const runs: Record<string, ImportRun[]> = {};
   const summaries = new Map<string, SourceSummary>();
   const freshAt = new Map<string, number>();
+  const seenOk = new Set<string>();
   for (const r of rows) {
     const startedAt = new Date(r.started_at);
     const finishedAt = toDate(r.finished_at);
@@ -204,10 +220,17 @@ export async function importOverview(
         lastStatus: r.last_status === 'running' ? null : r.last_status,
         runningSince: r.status === 'running' ? startedAt : null,
       });
-    const freshness = r.status === 'ok' ? r.stats.freshness : undefined;
-    if (!Array.isArray(freshness)) continue;
+    if (r.status !== 'ok') continue;
     const s = summaries.get(r.source);
     if (!s) continue;
+    // The newest `ok` run's failed groups: the health stays red while they keep failing.
+    if (!seenOk.has(r.source)) {
+      seenOk.add(r.source);
+      if (Array.isArray(r.stats.failedGroups))
+        s.failedGroups = r.stats.failedGroups as SourceSummary['failedGroups'];
+    }
+    const freshness = r.stats.freshness;
+    if (!Array.isArray(freshness)) continue;
     // Rows come newest first: the first is `latest`, the first a day older `previous`.
     const latestAt = freshAt.get(r.source);
     if (latestAt === undefined) {

@@ -124,6 +124,23 @@ describe('importHealth', () => {
     expect(health.sources.find((s) => s.source === 'scryfall')).toMatchObject({ stale: false });
   });
 
+  it('names the groups the newest price run did not import (VB-116)', () => {
+    const summaries = all({ lastSuccessAt: hoursAgo(3), lastStatus: 'ok' });
+    summaries.set('tcgcsv', {
+      lastSuccessAt: hoursAgo(3),
+      lastStatus: 'ok',
+      failedGroups: [
+        { game: 'mtg', groupIds: [2864, 2965] },
+        { game: 'pokemon', groupIds: [604] },
+        { game: 'mtg', groupIds: [24770] },
+      ],
+    });
+    expect(importHealth(summaries, 'prod', now)).toMatchObject({
+      ok: false,
+      message: 'failed groups: tcgplayer/mtg 2864 2965 24770, tcgplayer/pokemon 604',
+    });
+  });
+
   it('leaves out what dev does not schedule (TCGCSV)', () => {
     const health = importHealth(new Map(), 'dev', now);
     expect(health.sources.map((s) => s.source)).not.toContain('tcgcsv');
@@ -203,20 +220,22 @@ describe.skipIf(!databaseUrl)('GET /admin/imports (Postgres)', () => {
 
   it('compares the freshness of the newest price run with the day before (VB-116)', async () => {
     const at = (h: number) => sql`now() - make_interval(secs => ${h * 3600})`;
-    const run = (h: number, stale: number | null, status = 'ok') => ({
+    const run = (h: number, stale: number | null, status = 'ok', extra = {}) => ({
       source: 'tcgcsv',
       kind: 'prices',
       status,
       startedAt: at(h),
       finishedAt: at(h - 0.2),
-      stats: stale === null ? {} : { freshness: [fresh('mtg', 1000, 1000, stale)] },
+      stats: stale === null ? extra : { freshness: [fresh('mtg', 1000, 1000, stale)], ...extra },
     });
+    const failedGroups = [{ game: 'pokemon', groupIds: [604], error: 'Error: HTTP 429' }];
     await db.insert(importRuns).values([
       // Newest first: a failed run (never compared), the latest ok one, one of the same evening
       // (too recent to be the day before), the day before, and the day before that.
       run(0.5, 50, 'failed'),
-      run(1, 40),
-      run(3, 1),
+      run(1, 40, 'ok', { failedGroups }),
+      // An older run's failed groups are not the newest run's.
+      run(3, 1, 'ok', { failedGroups: [{ game: 'mtg', groupIds: [2864], error: 'x' }] }),
       run(23, 10),
       run(47, 99),
       // A run from before VB-116 without freshness.
@@ -229,7 +248,10 @@ describe.skipIf(!databaseUrl)('GET /admin/imports (Postgres)', () => {
         })
       ).json(),
     );
-    expect(health.message).toContain('stale: tcgplayer/mtg 40 stale (was 10)');
+    expect(health.message).toContain(
+      'stale: tcgplayer/mtg 40 stale (was 10); failed groups: tcgplayer/pokemon 604',
+    );
+    expect(health.message).not.toContain('2864');
     expect(health.sources.find((s) => s.source === 'tcgcsv')).toMatchObject({ stale: true });
   });
 });

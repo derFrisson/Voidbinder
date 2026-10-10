@@ -602,7 +602,8 @@ go, but before the URL is shared widely.
   `ok` run within its cadence plus 2 hours and `failed` when its newest finished run failed, and
   (VB-116) `stale: <source>/<game> …` when a price run refreshed fewer than 95 % of a game's priced
   prints in 24 h or left more prints stale (newest price older than 36 h) than the day before,
-  by more than 25 or 0.5 % of the priced prints.
+  by more than 25 or 0.5 % of the priced prints, and `failed groups: tcgplayer/<game> <ids>` while
+  the newest TCGCSV run left groups out.
 - **Re-running a failed import by hand.** See what failed first, then start the source again
   (202 `started`; 409 `import_running` while a run of it, younger than 6 hours, is `running`):
 

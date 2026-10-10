@@ -475,7 +475,7 @@ Migrate before deploying code that needs the new schema.
 Every run is an `import_runs` row (`running`, then `ok` or `failed` with `stats` and `error`).
 `GET /admin/imports` (bearer `ADMIN_TOKEN`) lists the last 30 per source, newest first, with the
 duration and the counts, plus `health`; `GET /admin/imports/health` answers the `health` block
-alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …; stale: …`) and per scheduled
+alone: `ok`, a one-line `message` (`OK`, or `missing: …; failed: …; stale: …; failed groups: …`) and per scheduled
 source its cadence, last success and the flags `missing` (no `ok` run within the cadence plus 2
 hours), `failed` (the newest finished run failed) and `stale` (VB-116: the newest price run left
 prices stale, see Prices). The cadences are `IMPORT_CADENCE` in
@@ -868,7 +868,9 @@ prints grew since the newest run at least 20 hours older by more than 25 or 0.5 
 prints, whichever is more (a few a day are everyday churn); the message names them
 (`stale: tcgplayer/pokemon 81.2% refreshed in 24 h, tcgplayer/mtg 1412 stale (was 380)`), so the
 Kuma push (`scripts/vps/import-health.sh`) reports it unchanged. A mapped print never priced (no
-market price yet) is coverage (`priced`), not freshness. Steps when it fires: `docs/guides/go-live.md`.
+market price yet) is coverage (`priced`), not freshness. The newest `ok` TCGCSV run's
+`failedGroups` go in as well (`failed groups: tcgplayer/mtg 2864 2965`), so the health stays red
+while groups keep failing, not just for the day they first did. Steps when it fires: `docs/guides/go-live.md`.
 
 **Scryfall prices**: after its catalog run and before `clean up chunks`, the Scryfall import
 Workflow runs `prices: start run`, one `prices 00000` … step per `default_cards` chunk (the chunks
