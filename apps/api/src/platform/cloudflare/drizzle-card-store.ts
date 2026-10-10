@@ -112,20 +112,23 @@ export class DrizzleCardStore implements CardStore {
   }
 
   /**
-   * Image of a print in `lang`: the localized R2 image, then the print's R2 image (English, so
-   * only for `en` or when the language has no image of its own), then the localized source URL,
-   * then the print's source URL. R2 images exist once VB-57 stored them.
+   * Image of a print in `lang`: the localized R2 image, then the print's R2 image (English; the
+   * app only renders our image host, so a mirrored English scan beats a German source URL it
+   * cannot show), then the localized source URL, then the print's source URL.
    */
-  private imageUrl(lang: string, localized: Image | null | undefined, print: Image): string | null {
+  private imageUrl(
+    _lang: string,
+    localized: Image | null | undefined,
+    print: Image,
+  ): string | null {
     const r2 = (key: string | null) =>
       key && this.imageBaseUrl ? `${this.imageBaseUrl}/${key}` : null;
     const source = (ids: Ids | null | undefined) =>
       (ids?.scryfall_images as { normal?: string } | undefined)?.normal ?? null;
-    const localizedSource = source(localized?.externalIds);
     return (
       r2(localized?.imageKey ?? null) ??
-      (lang === 'en' || !localizedSource ? r2(print.imageKey) : null) ??
-      localizedSource ??
+      r2(print.imageKey) ??
+      source(localized?.externalIds) ??
       source(print.externalIds)
     );
   }

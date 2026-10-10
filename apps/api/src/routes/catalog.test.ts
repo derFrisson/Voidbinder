@@ -175,12 +175,12 @@ describe.skipIf(!databaseUrl)('GET /catalog (Postgres)', () => {
       .where(eq(prints.id, list[0]?.id ?? ''));
     const after = CardResponseSchema.parse((await get(`/cards/${id}`)).body);
     expect(after.prints[0]?.imageUrl).toBe('https://img.test/mtg/mid/1.jpg');
-    // The set page: the English R2 image for en, the German source image over it for de, and
-    // the German R2 image once it exists.
+    // The set page: the English R2 image for en and, until a German one is mirrored, for de too
+    // (the app renders only our image host), then the German R2 image once it exists.
     const imageOf = async (query: string) =>
       SetPageResponseSchema.parse((await get(`/sets/mtg/mid${query}`)).body).prints[0]?.imageUrl;
     expect(await imageOf('')).toBe('https://img.test/mtg/mid/1.jpg');
-    expect(await imageOf('?lang=de')).toMatch(/\/10630111-537c-468e-b270-562ee7bdfb29\.jpg/);
+    expect(await imageOf('?lang=de')).toBe('https://img.test/mtg/mid/1.jpg');
     await db
       .update(printLocalizations)
       .set({ imageKey: 'mtg/mid/1.de.jpg' })
