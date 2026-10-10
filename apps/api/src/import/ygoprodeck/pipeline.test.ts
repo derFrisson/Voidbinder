@@ -1,9 +1,26 @@
 import { eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { appMeta, cards, importRuns, printLocalizations, prints, sets } from '../../db/schema';
-import { PrintResponseSchema, SetPageResponseSchema } from '@voidbinder/shared/api';
+import {
+  appMeta,
+  cards,
+  collectionEntries,
+  deckEntries,
+  decks,
+  importRuns,
+  legalityChanges,
+  printLocalizations,
+  prints,
+  sets,
+  user,
+} from '../../db/schema';
+import {
+  BanlistResponseSchema,
+  PrintResponseSchema,
+  SetPageResponseSchema,
+} from '@voidbinder/shared/api';
 import { DrizzleCardStore } from '../../platform/cloudflare/drizzle-card-store';
 import { databaseUrl, freshDatabase, testApp } from '../../test-helpers';
+import { banlistDatesUrl } from './banlist-dates';
 import { CHUNK_LINES, planSteps, runYgoprodeckImport, type ImportDeps } from './pipeline';
 import { fakeYgoprodeck, fixture, MemoryBlobStore, type FakeYgoprodeck } from './test-fixtures';
 import type { Db } from './write';
@@ -44,6 +61,8 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
       ),
       { env: 'dev', date: '2026-10-10', languages: ['en', 'de'] },
     );
+  const meta = async (key: string) =>
+    (await db.select().from(appMeta).where(eq(appMeta.key, key)))[0]?.value;
   const version = async () =>
     Number((await db.select().from(appMeta).where(eq(appMeta.key, 'catalog_version')))[0]?.value);
   const snapshot = async () =>
@@ -75,12 +94,21 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     const requests: string[] = [];
     const { stats } = await run({ requests }, blobs);
 
-    // Three requests for the whole run (en, de, sets), none for an image or per card.
+    // Three requests for the whole run (en, de, sets), none for an image or per card, and two
+    // for the ban lists' dates.
     expect(requests).toEqual([
       'https://db.ygoprodeck.com/api/v7/cardinfo.php?misc=yes',
       'https://db.ygoprodeck.com/api/v7/cardinfo.php?language=de',
       'https://db.ygoprodeck.com/api/v7/cardsets.php',
+      banlistDatesUrl('tcg'),
+      banlistDatesUrl('ocg'),
     ]);
+    // The newest list in force on the run's day: not the announced 2027 one, not the Korean one.
+    expect(stats.banlistDates).toEqual({ tcg: '2026-09-21', ocg: '2026-10-01' });
+    expect(await meta('banlist_tcg_effective')).toBe('2026-09-21');
+    expect(await meta('banlist_ocg_effective')).toBe('2026-10-01');
+    // New cards have no history.
+    expect(await db.select().from(legalityChanges)).toEqual([]);
     expect(stats.lines).toEqual({ en: 27, de: 21 });
     // 46 entries, 39 codes (anniversary editions share one); 3 more come from the cards.
     expect(stats.sets).toEqual({ inserted: 39, updated: 0, unchanged: 0, entries: 46 });
@@ -266,5 +294,128 @@ describe.skipIf(!databaseUrl)('YGOPRODeck import (Postgres)', () => {
     expect(
       [...blobs.objects.keys()].some((k) => k.startsWith(`work/dev/ygoprodeck/${runId}/`)),
     ).toBe(true);
+  });
+
+  // VB-81: Pot of Greed goes from Forbidden to Limited in the TCG, Blue-Eyes White Dragon from
+  // Unlimited to Semi-Limited; the OCG and GOAT lists stay.
+  const changedList = () => {
+    const en = JSON.parse(fixture('cardinfo_en.json')) as {
+      data: { name: string; banlist_info?: Record<string, string> }[];
+    };
+    for (const c of en.data) {
+      if (c.name === 'Pot of Greed') c.banlist_info = { ...c.banlist_info, ban_tcg: 'Limited' };
+      if (c.name === 'Blue-Eyes White Dragon') c.banlist_info = { ban_tcg: 'Semi-Limited' };
+    }
+    return JSON.stringify(en);
+  };
+  const cardId = async (name: string) => {
+    const [row] = await db.select({ id: cards.id }).from(cards).where(eq(cards.name, name));
+    if (!row) throw new Error(`card ${name} missing`);
+    return row.id;
+  };
+
+  it('records each status change and keeps the dates when Yugipedia fails', async () => {
+    const { stats } = await run({ en: changedList(), datesStatus: 500 });
+    expect(stats.banlistDates).toEqual({});
+    expect(await meta('banlist_tcg_effective')).toBe('2026-09-21');
+    const rows = await db
+      .select({
+        card: cards.name,
+        format: legalityChanges.format,
+        from: legalityChanges.fromStatus,
+        to: legalityChanges.toStatus,
+      })
+      .from(legalityChanges)
+      .innerJoin(cards, eq(cards.id, legalityChanges.cardId))
+      .orderBy(cards.name);
+    expect(rows).toEqual([
+      { card: 'Blue-Eyes White Dragon', format: 'tcg', from: 'Unlimited', to: 'Semi-Limited' },
+      { card: 'Pot of Greed', format: 'tcg', from: 'Forbidden', to: 'Limited' },
+    ]);
+  });
+
+  it('serves the ban list with its groups, changes and dates', async () => {
+    const app = testApp({ cardStore: new DrizzleCardStore(db) });
+    const res = await app.request('/catalog/banlist/yugioh?format=tcg&lang=de');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('Cache-Control')).toContain('public');
+    const list = BanlistResponseSchema.parse(await res.json());
+    expect(list.effectiveDate).toBe('2026-09-21');
+    expect(list.asOf).not.toBeNull();
+    expect(list.groups.limited.map((c) => c.name)).toContain('Topf der Gier');
+    expect(list.groups.semiLimited.map((c) => c.name)).toEqual(['Blauäugiger w. Drache']);
+    expect(list.groups.forbidden.map((c) => c.name)).not.toContain('Topf der Gier');
+    expect(list.changes.map((c) => [c.card.name, c.from, c.to])).toEqual(
+      expect.arrayContaining([
+        ['Topf der Gier', 'Forbidden', 'Limited'],
+        ['Blauäugiger w. Drache', 'Unlimited', 'Semi-Limited'],
+      ]),
+    );
+    // A tile names a print to show.
+    expect(list.groups.semiLimited[0]).toMatchObject({ setCode: expect.any(String) });
+    // The OCG list did not change.
+    const ocg = BanlistResponseSchema.parse(
+      await (await app.request('/catalog/banlist/yugioh?format=ocg')).json(),
+    );
+    expect(ocg.changes).toEqual([]);
+    expect(ocg.groups.forbidden.map((c) => c.name)).toContain('Pot of Greed');
+    expect((await app.request('/catalog/banlist/mtg')).status).toBe(400);
+  });
+
+  it("reports the user's changed cards and the deck lines over the list", async () => {
+    const [potOfGreed, blueEyes] = [
+      await cardId('Pot of Greed'),
+      await cardId('Blue-Eyes White Dragon'),
+    ];
+    const [printOfBlueEyes] = await db
+      .select({ id: prints.id })
+      .from(prints)
+      .where(eq(prints.cardId, blueEyes));
+    await db.insert(user).values({ id: 'u-ban', name: 'Kaiba', email: 'kaiba@example.test' });
+    await db.insert(collectionEntries).values({
+      userId: 'u-ban',
+      printId: printOfBlueEyes?.id ?? '',
+      quantity: 3,
+      language: 'en',
+      condition: 'NM',
+      finish: 'normal',
+    });
+    const [deck] = await db
+      .insert(decks)
+      .values({ userId: 'u-ban', gameId: 'yugioh', name: 'Kaiba', format: 'advanced' })
+      .returning({ id: decks.id });
+    const raigeki = await cardId('Raigeki');
+    await db.insert(deckEntries).values([
+      { deckId: deck?.id ?? '', cardId: blueEyes, zone: 'main', quantity: 3 },
+      { deckId: deck?.id ?? '', cardId: potOfGreed, zone: 'main', quantity: 1 },
+      { deckId: deck?.id ?? '', cardId: raigeki, zone: 'main', quantity: 1 },
+    ]);
+    const impact = await new DrizzleCardStore(db).banlistImpact(
+      'u-ban',
+      { game: 'yugioh', format: 'tcg', lang: 'en' },
+      '2026-01-01',
+    );
+    expect(impact.collection).toEqual([
+      expect.objectContaining({
+        card: expect.objectContaining({ id: blueEyes }),
+        owned: 3,
+        status: 'Semi-Limited',
+        change: expect.objectContaining({ from: 'Unlimited', to: 'Semi-Limited' }),
+      }),
+    ]);
+    // Blue-Eyes: changed and three copies over two; Pot of Greed: changed, one copy is fine;
+    // Raigeki: neither.
+    expect(impact.decks.map((d) => [d.card.name, d.copies, d.limit, d.change?.to])).toEqual([
+      ['Blue-Eyes White Dragon', 3, 2, 'Semi-Limited'],
+      ['Pot of Greed', 1, 1, 'Limited'],
+    ]);
+    // Changes before `since` count no more.
+    const later = await new DrizzleCardStore(db).banlistImpact(
+      'u-ban',
+      { game: 'yugioh', format: 'tcg', lang: 'en' },
+      '2999-01-01',
+    );
+    expect(later.collection).toEqual([]);
+    expect(later.decks.map((d) => d.card.name)).toEqual(['Blue-Eyes White Dragon']);
   });
 });
