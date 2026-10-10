@@ -195,10 +195,11 @@ export class DrizzleDeckStore implements DeckStore {
         .select({ n: sql<number>`coalesce(sum(${collectionEntries.quantity}), 0)::int` })
         .from(collectionEntries)
         .where(and(eq(collectionEntries.userId, userId), isNull(collectionEntries.deletedAt))),
-      // Pokémon reprints are cards of their own: the legality of every card of the name.
+      // Pokémon reprints are cards of their own: the legality of every card of the name (and
+      // the same text: a Pokémon that only shares the name is a different card).
       pokemonNames.length
         ? this.db
-            .select({ name: cards.name, legalities: cards.legalities })
+            .select({ name: cards.name, text: cards.text, legalities: cards.legalities })
             .from(cards)
             .where(and(eq(cards.gameId, 'pokemon'), inArray(cards.name, pokemonNames)))
         : [],
@@ -225,13 +226,15 @@ export class DrizzleDeckStore implements DeckStore {
       list.push(row);
       printsByCard.set(p.cardId, list);
     }
-    // Per name and format: legal when any card of the name is.
+    // Per name plus text and format: legal when any print of the same card is.
+    const sameCard = (name: string, text: string | null) => `${name}\u0000${text ?? ''}`;
     const pokemonLegal = new Map<string, Record<string, string>>();
     for (const r of pokemonRows) {
-      const merged = pokemonLegal.get(r.name) ?? {};
+      const key = sameCard(r.name, r.text);
+      const merged = pokemonLegal.get(key) ?? {};
       for (const [format, status] of Object.entries(r.legalities))
         if (merged[format] !== 'legal') merged[format] = status;
-      pokemonLegal.set(r.name, merged);
+      pokemonLegal.set(key, merged);
     }
     const localName = new Map(localRows.map((l) => [l.cardId, l.name]));
     const owned = new Map(ownedRows.map((o) => [`${o.game}:${o.name}`, o.n]));
@@ -254,7 +257,8 @@ export class DrizzleDeckStore implements DeckStore {
           rarity: printsByCard.get(e.cardId)?.[0]?.rarity ?? null,
           ...e.attributes,
         },
-        legalities: (game === 'pokemon' && pokemonLegal.get(e.name)) || e.legalities,
+        legalities:
+          (game === 'pokemon' && pokemonLegal.get(sameCard(e.name, e.text))) || e.legalities,
         zone: e.zone as DeckZone,
         quantity: e.quantity,
       }));

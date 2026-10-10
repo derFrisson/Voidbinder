@@ -99,16 +99,20 @@ function problems(cards: readonly DeckCard[], format: string): DeckProblem[] {
         params: { name: label(c) },
       };
     }),
-    ...copyProblems(cards, (c) => limit(c, format)),
+    // A banned card is reported as banned above; its copy limit of 0 is for the stepper only.
+    ...copyProblems(
+      cards.filter((c) => c.legalities[format] !== 'banned'),
+      (c) => limit(c, format),
+    ),
   );
   return out;
 }
 
 function limit(card: DeckCard, format: string): number {
   if (isBasicLand(card)) return Infinity;
-  return (
-    printedLimit(card) ?? (card.legalities[format] === 'restricted' ? 1 : rules(format).copies)
-  );
+  const status = card.legalities[format];
+  if (status === 'banned') return 0;
+  return printedLimit(card) ?? (status === 'restricted' ? 1 : rules(format).copies);
 }
 
 const GROUPS = [

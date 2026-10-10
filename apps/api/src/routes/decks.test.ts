@@ -293,6 +293,36 @@ describe.skipIf(!databaseUrl)('deck routes (Postgres)', () => {
     );
     // No `not_legal`: the reprint is legal in Standard.
     expect(d.analysis.problems.map((p) => p.code)).toEqual(['wrong_size', 'no_basic_pokemon']);
+
+    // A Pokémon that only shares the name (other attacks) does not borrow the legality.
+    const pika = (oracleKey: string, text: string, standard: string) => ({
+      gameId: 'pokemon',
+      name: 'Pikachu',
+      oracleKey,
+      text,
+      typeLine: 'Pokémon - Basic',
+      attributes: { category: 'Pokémon', stage: 'Basic' },
+      legalities: { standard, expanded: 'legal' },
+    });
+    const [oldPika, newPika] = await db
+      .insert(cards)
+      .values([
+        pika('old-pika', 'Thunder Jolt 30', 'not_legal'),
+        pika('new-pika', 'Gnaw 10', 'legal'),
+      ])
+      .returning();
+    if (!oldPika || !newPika) throw new Error('insert failed');
+    await db.insert(prints).values([
+      { cardId: oldPika.id, setId: oldSet.id, number: '2' },
+      { cardId: newPika.id, setId: newSet.id, number: '2' },
+    ]);
+    const d2 = await detail(
+      ash(`/decks/${deck.id}/entries`, {
+        method: 'PUT',
+        body: { entries: [{ cardId: oldPika.id, zone: 'main', quantity: 4 }] },
+      }),
+    );
+    expect(d2.analysis.problems.map((p) => p.code)).toContain('not_legal');
     expect(d.entries[0]).toMatchObject({ limit: 4 });
     // No print has a price: the wish still gets one (the card's own).
     expect(d.analysis.missing).toEqual([
