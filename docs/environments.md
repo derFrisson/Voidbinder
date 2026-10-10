@@ -133,7 +133,7 @@ apps/site/.dev.vars`; deployed, once per environment from `apps/site`:
   `PUBLIC_APP_URL` is the web app the header and hero buttons link to (`https://app.voidbinder.de`
   in `prod`, `https://voidbinder-app-dev.frisson.workers.dev` in `dev`, `http://localhost:8081`
   locally), and `PLAUSIBLE_HOST` (VB-74) is the hostname of the self-hosted Plausible
-  (`plausible.voidbinder.de`), **set in `prod` only**. With it the pages carry
+  (`web-analytics.voidcom.app`), **set in `prod` only**. With it the pages carry
   `<script defer data-domain="voidbinder.de" src="https://<host>/js/script.js">` and the CSP names
   the host in `script-src` and `connect-src`; without it (local, `dev`, CI) there is no script and
   no CSP entry. Plausible stores no cookies and no personal data, so there is no consent banner

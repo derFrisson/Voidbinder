@@ -65,7 +65,7 @@ adds
 <script
   defer
   data-domain="voidbinder.de"
-  src="https://plausible.voidbinder.de/js/script.js"
+  src="https://web-analytics.voidcom.app/js/script.js"
 ></script>
 ```
 
@@ -121,7 +121,7 @@ GET /og/de.png, /robots.txt,
     /sitemap-index.xml  200   (static assets)
 POST /api/waitlist      303   (Worker)
 
-Content-Security-Policy: default-src 'self'; script-src 'self' https://plausible.voidbinder.de https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://plausible.voidbinder.de; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+Content-Security-Policy: default-src 'self'; script-src 'self' https://web-analytics.voidcom.app https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; style-src 'self'; img-src 'self' data:; connect-src 'self' https://web-analytics.voidcom.app; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 Referrer-Policy: strict-origin-when-cross-origin
 Permissions-Policy: camera=(), microphone=(), geolocation=()
 X-Content-Type-Options: nosniff

@@ -14,18 +14,18 @@ describe('Plausible (VB-74)', () => {
   });
 
   it('adds the host to script-src and connect-src, and only there', () => {
-    const csp = contentSecurityPolicy('plausible.voidbinder.de');
-    expect(plausibleOrigin('plausible.voidbinder.de')).toBe('https://plausible.voidbinder.de');
+    const csp = contentSecurityPolicy('web-analytics.voidcom.app');
+    expect(plausibleOrigin('web-analytics.voidcom.app')).toBe('https://web-analytics.voidcom.app');
     expect(csp).toContain(
-      "script-src 'self' https://plausible.voidbinder.de https://challenges.cloudflare.com;",
+      "script-src 'self' https://web-analytics.voidcom.app https://challenges.cloudflare.com;",
     );
-    expect(csp).toContain("connect-src 'self' https://plausible.voidbinder.de;");
-    expect(csp.match(/plausible/g)).toHaveLength(2);
-    expect(securityHeaders(true, 'plausible.voidbinder.de')['Content-Security-Policy']).toBe(csp);
+    expect(csp).toContain("connect-src 'self' https://web-analytics.voidcom.app;");
+    expect(csp.match(/web-analytics/g)).toHaveLength(2);
+    expect(securityHeaders(true, 'web-analytics.voidcom.app')['Content-Security-Policy']).toBe(csp);
   });
 
   it('refuses a value that is not a bare hostname, because it ends up in a header', () => {
-    for (const bad of ['https://plausible.voidbinder.de', 'a.de; script-src *', 'a b', '-a.de'])
+    for (const bad of ['https://web-analytics.voidcom.app', 'a.de; script-src *', 'a b', '-a.de'])
       expect(() => plausibleOrigin(bad), bad).toThrow(/hostname/);
   });
 });
