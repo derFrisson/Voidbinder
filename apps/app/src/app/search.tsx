@@ -164,7 +164,7 @@ function Results({
   const { data: me } = useSession();
   const binder = useLocalSearchParams<{ binder?: string }>().binder;
   const columns = useColumns();
-  const filtered = !!(state.game || state.set || state.rarity || state.finish);
+  const filtered = !!(state.game || state.set || state.rarity || state.finish || state.names);
 
   if (!searchable(state.q)) {
     return (
@@ -210,7 +210,13 @@ function Results({
               variant="ghost"
               label={t.search.clearFilters}
               onPress={() =>
-                set({ game: undefined, set: undefined, rarity: undefined, finish: undefined })
+                set({
+                  game: undefined,
+                  set: undefined,
+                  rarity: undefined,
+                  finish: undefined,
+                  names: undefined,
+                })
               }
             />
           )}
