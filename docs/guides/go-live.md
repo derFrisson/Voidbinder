@@ -7,7 +7,7 @@ expect, how to check it and how to undo it. Environments, secrets and bindings a
 [environments.md](../environments.md), the database server in [database-vps.md](database-vps.md),
 the API in [apps/api/README.md](../../apps/api/README.md).
 
-Audit date: 2026-10-10, against `main` at `50a9343`; the runbook is rebased onto `750d6ac`
+Audit date: 2026-10-10, against `main` at `50a9343`; the runbook is updated to `750d6ac`
 (adds #61, migration `0008_sync.sql`). Everything below was checked read-only
 (dry-run deploys, `wrangler secret list`, `wrangler hyperdrive get`, `wrangler email … settings`,
 `dig`, `curl`). Nothing was deployed or migrated, and the prod database was not queried.
@@ -110,10 +110,10 @@ origins and CORS in prod are exactly `https://app.voidbinder.de`. Turnstile's wi
 
 ## Before you start
 
-- Wait until these have been merged into `main`: the VB-62 privacy policy (B1), #64 (site: web app
-  link, Plausible, removes the Cloudflare beacon) and #65 (app: Plausible, sign-out under the
-  avatar). #61 (VB-32 sync, migration `0008_sync.sql`) is already on `main` (750d6ac), so step 3
-  always applies `0008`.
+- Wait until these have been merged into `main`: the VB-62 privacy policy (B1, PR #69) and #64
+  (site: web app link, Plausible, removes the Cloudflare beacon). #65 (app: Plausible, sign-out
+  under the avatar) is on `main` (f7e3d1d), and so is #61 (VB-32 sync, migration `0008_sync.sql`,
+  750d6ac), so step 3 always applies `0008`.
 - Max has done B2 (mail to `hello@`) and, if Plausible is to count from day one, N1 (the two sites
   registered in `web-analytics.voidcom.app`).
 - Run at a time that does not overlap the dev crons (04:30 to 05:30 UTC) or the VPS timers (05:30,
@@ -262,7 +262,7 @@ curl -s https://app.voidbinder.de/api/health
 curl -sI https://app.voidbinder.de/ | grep -i -E '^HTTP|content-security-policy'
 ```
 
-With #65 merged, `deploy:prod` defaults `EXPO_PUBLIC_PLAUSIBLE_HOST` and the domain to the
+`deploy:prod` (#65, on `main`) defaults `EXPO_PUBLIC_PLAUSIBLE_HOST` and the domain to the
 Plausible instance, so the tracker is always built in; leaving the variables out or empty does not
 turn it off. Until N1 is done its request fails without any effect. The site gets `PLAUSIBLE_HOST`
 from `env.prod.vars` (#64), so the same applies there.
@@ -281,7 +281,7 @@ problems). Start them from the workstation:
 ```sh
 read -rs TOKEN   # paste ADMIN_TOKEN_prod
 for src in scryfall ygoprodeck 'tcgdex?mode=full'; do
-  curl -sS -X POST -H "Authorization: Bearer $TOKEN" "https://api.voidbinder.de/admin/import/$src"; echo
+  curl -sS -o /dev/stdout -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $TOKEN" "https://api.voidbinder.de/admin/import/$src"
 done
 unset TOKEN
 ```
@@ -308,7 +308,7 @@ docker exec voidbinder-db psql -U postgres -d voidbinder -XA -c \
    from import_runs order by started_at desc limit 12"
 ```
 
-and per Workflow `pnpm --filter api exec wrangler workflows instances list voidbinder-scryfall-import`
+and per Workflow `CLOUDFLARE_ACCOUNT_ID=152a1fcd0eebb96d1bc30d14b5a6af58 pnpm --filter api exec wrangler workflows instances list voidbinder-scryfall-import`
 (likewise `-ygoprodeck-`, `-tcgdex-`). Done when `scryfall`, `ygoprodeck` and `tcgdex` each have
 an `ok` row and `scryfall`/`prices` is `ok`. `https://app.voidbinder.de/mtg` shows sets.
 **If a run fails:** the Workflow retries each step three times and the instance resumes where it
@@ -330,7 +330,7 @@ Check first that the mirror step of both Workflows is done (the instance status 
 
 ```sh
 for w in scryfall ygoprodeck; do
-  (cd apps/api && pnpm exec wrangler workflows instances describe voidbinder-$w-import latest --env prod)
+  (cd apps/api && CLOUDFLARE_ACCOUNT_ID=152a1fcd0eebb96d1bc30d14b5a6af58 pnpm exec wrangler workflows instances describe voidbinder-$w-import latest --env prod)
 done
 ```
 
@@ -380,7 +380,7 @@ TCGCSV asks for one pull a day: do not also run a manual dev pull on the same da
 
 ```sh
 read -rs TOKEN   # paste ADMIN_TOKEN_prod
-curl -sS -X POST -H "Authorization: Bearer $TOKEN" https://api.voidbinder.de/admin/import/tcgcsv; echo
+curl -sS -o /dev/stdout -w ' %{http_code}\n' -X POST -H "Authorization: Bearer $TOKEN" https://api.voidbinder.de/admin/import/tcgcsv
 unset TOKEN
 ```
 
