@@ -326,8 +326,39 @@ export interface LocalizationChunkStats {
 }
 
 /**
+ * The catalog card each `cardinfo?language=` entry translates. The English list keys some cards
+ * by an alternate artwork's passcode (Dark Magician is 46986420 there, 46986414 in the German
+ * list, VB-93), so an entry whose own id is no card falls back to its artworks' ids, and only
+ * when that card's English name is the entry's `name_en` (a Skill Card shares a regular card's
+ * artwork id but not its name). A card matched by its own id never takes another entry of the
+ * same `source`; importLocalizationLines calls this per batch of BATCH_SIZE lines, so an own-id
+ * entry and a fallback to the same card in two batches would both be written, the later winning
+ * (none in the 2026-10-10 dumps: 14 fallbacks, no conflict).
+ */
+export function matchLocalizedCards(
+  source: YgoCard[],
+  found: { id: string; key: string; name: string }[],
+): Map<string, YgoCard> {
+  const byKey = new Map(found.map((c) => [c.key, c]));
+  const matched = new Map<string, YgoCard>();
+  for (const entry of source) {
+    const own = byKey.get(String(entry.id));
+    if (own) matched.set(own.id, entry);
+  }
+  for (const entry of source) {
+    if (byKey.has(String(entry.id))) continue;
+    const card = (entry.card_images ?? [])
+      .map((i) => byKey.get(String(i.id)))
+      .find((c) => c && !matched.has(c.id) && c.name === entry.name_en);
+    if (card) matched.set(card.id, entry);
+  }
+  return matched;
+}
+
+/**
  * Imports `cardinfo?language=<lang>` lines: the card's name and text in that language, as a
- * localization of every print of the card (the translation is the card's, not the print's).
+ * localization of every print of the card (the translation is the card's, not the print's). Every
+ * run upserts the rows of every print, so a print added later gets its translation the next day.
  */
 export async function importLocalizationLines(
   db: Db,
@@ -336,29 +367,33 @@ export async function importLocalizationLines(
 ): Promise<LocalizationChunkStats> {
   const stats: LocalizationChunkStats = { written: 0, noCard: 0 };
   for (const batch of batches(lines, BATCH_SIZE)) {
-    const source = new Map(
-      batch.map((l) => {
-        const card = JSON.parse(l) as YgoCard;
-        return [String(card.id), card] as const;
-      }),
+    const source = batch.map((l) => JSON.parse(l) as YgoCard);
+    const keys = new Set(
+      source.flatMap((c) => [String(c.id), ...(c.card_images ?? []).map((i) => String(i.id))]),
     );
     await db.transaction(async (tx) => {
       const found = await tx
-        .select({ id: cards.id, key: cards.oracleKey })
+        .select({ id: cards.id, key: cards.oracleKey, name: cards.name })
         .from(cards)
-        .where(and(eq(cards.gameId, GAME), inArray(cards.oracleKey, [...source.keys()])));
-      stats.noCard += source.size - found.length;
-      const keyById = new Map(found.map((c) => [c.id, c.key]));
-      const owned = found.length
+        .where(and(eq(cards.gameId, GAME), inArray(cards.oracleKey, [...keys])));
+      const matched = matchLocalizedCards(source, found);
+      stats.noCard += source.length - new Set(matched.values()).size;
+      const owned = matched.size
         ? await tx
             .select({ id: prints.id, cardId: prints.cardId })
             .from(prints)
-            .where(inArray(prints.cardId, [...keyById.keys()]))
+            .where(inArray(prints.cardId, [...matched.keys()]))
         : [];
+      const keyOf = new Map(found.map((c) => [c.id, c.key]));
       const rows = owned.map((p) => {
-        const card = source.get(keyById.get(p.cardId) ?? '');
+        const card = matched.get(p.cardId);
         if (!card) throw new Error(`card of print ${p.id} missing`);
-        return { ...mapLocalization(card, lang), printId: p.id };
+        const row = { ...mapLocalization(card, lang), printId: p.id };
+        // Matched by artwork: the entry's id is the card's real passcode (Dark Magician's
+        // 46986414), which the Yugipedia import accepts on a page found by title.
+        return String(card.id) === keyOf.get(p.cardId)
+          ? row
+          : { ...row, externalIds: { ygoprodeck: card.id } };
       });
       stats.written += await upsertLocalizations(tx, rows);
     });

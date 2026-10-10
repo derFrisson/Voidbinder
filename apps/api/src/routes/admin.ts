@@ -39,6 +39,8 @@ export function adminRoutes(adminToken: string | undefined) {
         }),
       )
       .post('/import/tcgcsv', importRoute('tcgcsv', 'TCGCSV'))
+      // VB-93: names and texts YGOPRODeck lacks, from Yugipedia.
+      .post('/import/yugipedia', importRoute('yugipedia', 'Yugipedia'))
       // Rewrites the whole search index from Postgres (VB-98); waits for a running refresh.
       .post('/search-index/rebuild', async (c) => {
         await c.var.platform.jobQueue.send({

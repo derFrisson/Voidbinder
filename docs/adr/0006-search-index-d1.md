@@ -29,7 +29,7 @@ SQLite file: the offline catalog modules (VB-29) cannot be loaded into it.
   `voidbinder-search-prod`, location hint `weur`, no jurisdiction so replicas can follow the
   users), read replication on.
 - **PostgreSQL stays the source of truth.** The Workflow `SearchIndexRefresh` copies it: after
-  every catalog import (Scryfall, YGOPRODeck, TCGdex), and in full with
+  every catalog import (Scryfall, YGOPRODeck, Yugipedia, TCGdex), and in full with
   `POST /admin/search-index/rebuild`. It hashes every set in Postgres and rewrites the sets whose
   hash differs, one D1 transaction per chunk of about 1000 prints, then deletes sets gone from
   Postgres. Single-flight through a lock row; a second run waits.

@@ -36,6 +36,8 @@ export interface YgoMiscInfo {
 export interface YgoCard {
   id: number;
   name: string;
+  /** The English name, in the other languages' lists only. */
+  name_en?: string;
   type: string;
   frameType: string;
   desc: string;

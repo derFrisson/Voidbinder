@@ -81,21 +81,23 @@ until then.
 `size`/`sha256` are those of the bytes downloaded (gzip); `rawSize`/`rawSha256` those of the
 unpacked SQLite file. `deltas` is one contiguous chain, oldest first, ending at `version`; it
 holds the last 30 and is empty when the build had no previous module to diff against.
+`attribution` (optional) is the credit the content requires: a Yu-Gi-Oh! module carries
+Yugipedia's (CC BY-SA 4.0, VB-93), the same text as its `meta` row.
 
 ## Schema (version 1)
 
 All ids are the Postgres UUIDs as text, dates ISO strings, JSON columns JSON text. No foreign
 keys are declared.
 
-| Table                 | Key                                   | Columns                                                                                                           |
-| --------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `meta`                | `key`                                 | `value`; keys `game`, `version`, `built_at`, `schema_version`                                                     |
-| `sets`                | `id`                                  | `code`, `name` (en), `name_de`, `released_on`, `card_count`, `kind`, `image_key`                                  |
-| `cards`               | `id`                                  | `name` (en), `type_line`, `text`, `attributes` (JSON), `legalities` (JSON)                                        |
-| `prints`              | `id`                                  | `card_id`, `set_id`, `number`, `variant`, `rarity`, `finishes` (JSON array), `artist`, `image_key`, `released_on` |
-| `print_localizations` | `id` (local), unique `print_id, lang` | `name`, `text`, `image_key`; `en` and `de` only                                                                   |
-| `prices`              | `print_id, finish, currency`          | `cents`, `source`, `observed_at`                                                                                  |
-| `names_fts`           | FTS5 over `print_localizations.name`  | tokenizer `unicode61 remove_diacritics 2`                                                                         |
+| Table                 | Key                                   | Columns                                                                                                                      |
+| --------------------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `meta`                | `key`                                 | `value`; keys `game`, `version`, `built_at`, `schema_version`; Yu-Gi-Oh! also `attribution` (Yugipedia, CC BY-SA 4.0, VB-93) |
+| `sets`                | `id`                                  | `code`, `name` (en), `name_de`, `released_on`, `card_count`, `kind`, `image_key`                                             |
+| `cards`               | `id`                                  | `name` (en), `type_line`, `text`, `attributes` (JSON), `legalities` (JSON)                                                   |
+| `prints`              | `id`                                  | `card_id`, `set_id`, `number`, `variant`, `rarity`, `finishes` (JSON array), `artist`, `image_key`, `released_on`            |
+| `print_localizations` | `id` (local), unique `print_id, lang` | `name`, `text`, `image_key`; `en` and `de` only                                                                              |
+| `prices`              | `print_id, finish, currency`          | `cents`, `source`, `observed_at`                                                                                             |
+| `names_fts`           | FTS5 over `print_localizations.name`  | tokenizer `unicode61 remove_diacritics 2`                                                                                    |
 
 `prices` holds one display price per print, finish and currency: the source that currency prefers
 (`SOURCE_PREFERENCE` in `packages/core/src/prices`: EUR → Cardmarket, USD → TCGplayer, then

@@ -18,7 +18,7 @@ caching: [ADR 0004](../../docs/adr/0004-caching-catalog-reads.md), environments 
 | `src/platform/cloudflare/`   | The only code that touches bindings: `createPlatform(env)` and the implementations                                        |
 | `src/db/schema/`, `drizzle/` | Drizzle schema and the committed SQL migrations                                                                           |
 | `d1/`                        | Migrations of the D1 search index (VB-98), applied by `deploy:dev` / `deploy:prod`                                        |
-| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck), prices (`prices/`); see Importers, Prices                                       |
+| `src/import/`                | Catalog importers (Scryfall, YGOPRODeck, TCGdex, Yugipedia), prices (`prices/`); see Importers, Prices                    |
 | `src/workflows/`             | Cloudflare Workflows that run the importers                                                                               |
 | `src/client.ts`              | `createApiClient(baseUrl, options?)`, exported as `@voidbinder/api/client`                                                |
 | `src/auth/client.ts`         | `createApiAuthClient(baseURL, options?)`, exported as `@voidbinder/api/auth-client`                                       |
@@ -106,7 +106,7 @@ Three layers, each explicit about what may be stale (ADR 0004 and its addendum):
 
    | Tag       | Responses                                                                                                       | Purged by                                                          |
    | --------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-   | `catalog` | `/catalog/**` except modules                                                                                    | every catalog import (Scryfall, YGOPRODeck, TCGdex)                |
+   | `catalog` | `/catalog/**` except modules                                                                                    | every catalog import (Scryfall, YGOPRODeck, Yugipedia, TCGdex)     |
    | `prices`  | the responses that embed a price: `/catalog/sets/:game/:code`, `/cards/:id`, `/search`, `/prints/:id/prices/**` | the TCGCSV import (when it found a new build), the Scryfall import |
    | `modules` | `/catalog/modules`                                                                                              | nothing yet: the module build runs on the VPS (TTL only)           |
 
@@ -580,13 +580,57 @@ a code in another rarity is another physical card: `prints.variant` is the rarit
 (`secret-rare`), `prints.rarity` the display name, finishes always `['normal']`, and the same
 code and rarity listed twice stays one print. A language variant (`LOB-DE001`) folds into the
 English print of the same number and rarity (`external_ids.variants`), one without it is a print
-of its own (`external_ids.language`); every print gets an `en` and a `de` localization. Images are
+of its own (`external_ids.language`); every print gets an `en` and a `de` localization. The German
+list keys a card by its passcode, the English one sometimes by an alternate artwork's (Dark
+Magician is `46986414` in German, `46986420` in English): a German entry whose id is no card is
+matched through its `card_images` ids, only to the card whose English name is the entry's
+`name_en` (a Skill Card shares an artwork id, not the name), and the row keeps the entry's id in
+`external_ids.ygoprodeck` (the real passcode, which the Yugipedia import accepts). Every run upserts the German row of
+every print of every matched card, so a print added later gets it the next day (VB-93). Images are
 never fetched here: the source URLs sit in `external_ids` for the mirror (VB-57) and the API does
 not serve them. Skipped and counted in `stats.skipped`: cards in no set and prints whose code and
 rarity another card already holds (the first keeps it); the first 50 of those are listed in
 `stats.codeConflicts` (`<code> <rarity>: <card id>`) for cleaning by hand. Follow-up: when the
 source moves a code to another card, the print stays with the old one until it is moved by hand.
 Locally, `POST /admin/import/ygoprodeck` as for Scryfall.
+
+### Yugipedia (Yu-Gi-Oh! names and texts in other languages)
+
+YGOPRODeck has no German entry for about 2,500 cards (Lev Shaddoll Fusion, `34950192`, answers "No
+card matching your query"). `src/import/yugipedia/` fills them from
+[Yugipedia](https://yugipedia.com) (VB-93), whose card pages carry the name, lore and Pendulum
+Effect in German, French, Italian, Spanish and Portuguese as Semantic MediaWiki properties. The
+Workflow `src/workflows/yugipedia-import.ts` (binding `YUGIPEDIA_IMPORT`) runs `start run`, `plan`
+(every Yu-Gi-Oh! card with a print that lacks one of `de`, `fr`, `it`, `es`, `pt`, less the cards
+looked up in the last 30 days, written to R2 in chunks of 100), `cards 00000` … (one per chunk) and
+`finish run` (`catalog_version` + 1 and the edge cache purged only when a row was written). A chunk
+asks `action=ask` for the pages in `Category:Duel Monsters cards` whose `Password` is one of ten
+passcodes (the wiki refuses a query with 15), and for the cards still missing that have no passcode
+on the wiki (Skill Cards, tokens: YGOPRODeck gives them placeholder ids) and the cards keyed by an
+alternate artwork for the page titled with the English name, accepted only when the page names no
+passcode other than the card's or the one its YGOPRODeck row keeps in `external_ids.ygoprodeck`.
+Each language the page has becomes a `print_localizations` row for every print of the card, with
+`external_ids.yugipedia` = the page title (on the row, not on the card: `cards` has no
+`external_ids` column, and the row is what marks Yugipedia as its owner); a row another importer
+wrote is never overwritten (YGOPRODeck's daily German pass takes the card over once it has it), a
+Yugipedia row is rewritten only when the page changed. Wikitext becomes plain text (`<br />` → line
+break, link labels kept, italics dropped); a Pendulum Monster's text is laid out as YGOPRODeck's
+(`[ Pendulum Effect ]` then `[ Monster Effect ]` or `[ Flavor Text ]`). Requests are one second
+apart (self-imposed; Yugipedia's robots.txt sets `Crawl-delay: 1` only for msnbot) with a
+`User-Agent` naming voidbinder.de and the contact address; the answers stay in `RAW` under
+`raw/<env>/yugipedia/<date>/cards-<n>.json`. Every card a chunk looked up, found or not, goes into
+the `app_meta` map `yugipedia_checked` (passcode → day) and is not asked again for 30 days, so the
+~80 cards Yugipedia lacks and pages without a language are not re-asked every week (a print added to
+a card in that time waits for the next lookup too). The first run on a catalog covers the whole
+catalog, about 1,400 requests (25 minutes); the weekly cron (prod Mondays 04:30, dev Mondays 06:00
+UTC, instance `yugipedia-<date>`, not started while a run is going) then asks for new cards and
+those whose 30 days are up. YGOPRODeck also publishes French, Italian and Portuguese dumps; reading
+them daily would be the cheaper source for those languages (a later ticket), with Yugipedia left for
+Spanish and the gaps. `POST /admin/import/yugipedia` starts one on demand (202, 409 while one is
+`running`). The content is CC BY-SA 4.0, and adapted (wikitext converted, Pendulum texts re-laid
+out): the app credits it in the footer and on every Yu-Gi-Oh! card page (`YUGIPEDIA_ATTRIBUTION` in
+`@voidbinder/shared/notices`, source and licence linked), and the offline module's `meta` and
+manifest carry it as `attribution`.
 
 ## Prices
 

@@ -7,6 +7,7 @@ import {
   startTcgcsvCron,
   startTcgdexCron,
   startYgoprodeckImport,
+  startYugipediaCron,
   withDatabase,
 } from './platform/cloudflare';
 import { sweepSyncDeletions } from './platform/cloudflare/drizzle-sync-store';
@@ -16,6 +17,7 @@ export { SearchIndexRefreshWorkflow } from './workflows/search-index-refresh';
 export { TcgcsvImportWorkflow } from './workflows/tcgcsv-import';
 export { TcgdexImportWorkflow } from './workflows/tcgdex-import';
 export { YgoprodeckImportWorkflow } from './workflows/ygoprodeck-import';
+export { YugipediaImportWorkflow } from './workflows/yugipedia-import';
 
 const START = {
   scryfall: startScryfallImport,
@@ -24,6 +26,8 @@ const START = {
   tcgdex: startTcgdexCron,
   // The same check for TCGCSV, whose 22:30 run could meet a slow 20:30 one.
   tcgcsv: startTcgcsvCron,
+  // Weekly; a slow run must not overlap the next.
+  yugipedia: startYugipediaCron,
 };
 
 let app: App | undefined;

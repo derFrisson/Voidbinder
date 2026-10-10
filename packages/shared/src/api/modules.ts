@@ -38,6 +38,8 @@ export const ModuleManifestSchema = z.object({
   }),
   /** Contiguous chain, oldest first, ending at `version`; empty when no delta is available. */
   deltas: z.array(ModuleDeltaSchema),
+  /** Credit the module's content requires (Yu-Gi-Oh!: Yugipedia, CC BY-SA 4.0); also in `meta`. */
+  attribution: z.string().optional(),
 });
 export type ModuleManifest = z.infer<typeof ModuleManifestSchema>;
 

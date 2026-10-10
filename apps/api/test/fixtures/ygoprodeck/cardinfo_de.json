@@ -433,6 +433,59 @@
           "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/86120751.jpg"
         }
       ]
+    },
+    {
+      "id": 46986414,
+      "name": "Dunkler Magier",
+      "typeline": ["Spellcaster", "Normal"],
+      "type": "Normal Monster",
+      "humanReadableCardType": "Normal Monster",
+      "frameType": "normal",
+      "desc": "Der ultimative Hexer im Hinblick auf Angriff und Verteidigung.",
+      "race": "Spellcaster",
+      "atk": 2500,
+      "def": 2100,
+      "level": 7,
+      "attribute": "DARK",
+      "name_en": "Dark Magician",
+      "archetype": "Dark Magician",
+      "ygoprodeck_url": "https://ygoprodeck.com/card/dark-magician-4003",
+      "card_sets": [
+        {
+          "set_name": "2016 Mega-Tins",
+          "set_code": "CT13-EN003",
+          "set_rarity": "Ultra Rare",
+          "set_rarity_code": "(UR)",
+          "set_price": "6.97"
+        },
+        {
+          "set_name": "2017 Mega-Tins",
+          "set_code": "CT14-EN001",
+          "set_rarity": "Secret Rare",
+          "set_rarity_code": "(ScR)",
+          "set_price": "9.66"
+        }
+      ],
+      "card_images": [
+        {
+          "id": 46986414,
+          "image_url": "https://images.ygoprodeck.com/images/cards/46986414.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/46986414.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/46986414.jpg"
+        },
+        {
+          "id": 46986420,
+          "image_url": "https://images.ygoprodeck.com/images/cards/46986420.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/46986420.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/46986420.jpg"
+        },
+        {
+          "id": 46986421,
+          "image_url": "https://images.ygoprodeck.com/images/cards/46986421.jpg",
+          "image_url_small": "https://images.ygoprodeck.com/images/cards_small/46986421.jpg",
+          "image_url_cropped": "https://images.ygoprodeck.com/images/cards_cropped/46986421.jpg"
+        }
+      ]
     }
   ]
 }

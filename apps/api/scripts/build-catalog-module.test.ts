@@ -13,6 +13,7 @@ import { runScryfallImport } from '../src/import/scryfall/pipeline';
 import { fakeScryfall, fixture, MemoryBlobStore } from '../src/import/scryfall/test-fixtures';
 import { databaseUrl, freshDatabase } from '../src/test-helpers';
 import {
+  attributionOf,
   buildModule,
   diffModules,
   MAX_DELTAS,
@@ -98,6 +99,34 @@ describe('plan', () => {
     ],
   ])('%s', (_name, change, expected) => {
     expect(plan({ ...base, ...change })).toEqual(expected);
+  });
+});
+
+describe('attribution (VB-93)', () => {
+  it('credits Yugipedia in a Yu-Gi-Oh! manifest, which the schema keeps', () => {
+    expect(attributionOf('mtg')).toBeUndefined();
+    const attribution = attributionOf('yugioh');
+    expect(attribution).toMatch(/Yugipedia \(CC BY-SA 4\.0\), https:\/\/creativecommons/);
+    const manifest = nextManifest(
+      null,
+      {
+        game: 'yugioh',
+        version: 1,
+        schemaVersion: SCHEMA_VERSION,
+        minAppSchemaVersion: 1,
+        builtAt: BUILT_AT,
+        module: {
+          url: 'https://img.example.test/m.sqlite.gz',
+          size: 1,
+          sha256: 'a'.repeat(64),
+          rawSize: 1,
+          rawSha256: 'b'.repeat(64),
+        },
+        ...(attribution ? { attribution } : {}),
+      },
+      null,
+    );
+    expect(ModuleManifestSchema.parse(manifest).attribution).toBe(attribution);
   });
 });
 

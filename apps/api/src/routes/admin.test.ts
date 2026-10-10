@@ -55,7 +55,10 @@ describe.skipIf(!databaseUrl)('POST /admin/import/<source> (Postgres)', () => {
     expect(await again.json()).toMatchObject({
       error: { code: 'import_running', message: 'A YGOPRODeck import is already running' },
     });
-    expect(sent).toEqual(['scryfall-import', 'ygoprodeck-import']);
+    // VB-93: Yugipedia's translations, single-flight like the others.
+    expect((await post('yugipedia')).status).toBe(202);
+    expect((await post('yugipedia')).status).toBe(409);
+    expect(sent).toEqual(['scryfall-import', 'ygoprodeck-import', 'yugipedia-import']);
     expect((await app.request('/admin/import/ygoprodeck', { method: 'POST' })).status).toBe(401);
   });
 });

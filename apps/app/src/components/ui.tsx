@@ -9,7 +9,8 @@ import {
   type TextInputProps,
 } from 'react-native';
 import { ApiError } from '../api/queries/http';
-import { useT } from '../i18n';
+import { CC_BY_SA_URL, YUGIPEDIA_ATTRIBUTION, YUGIPEDIA_URL } from '@voidbinder/shared/notices';
+import { useLocale, useT } from '../i18n';
 import { Icon } from './Icon';
 import { usePalette } from './palette';
 
@@ -68,6 +69,29 @@ export function Button({
         {label}
       </Text>
     </Pressable>
+  );
+}
+
+/**
+ * Yugipedia's attribution with the source and the licence linked (CC BY-SA 4.0, VB-93), in the
+ * footer and on a Yu-Gi-Oh! card page.
+ */
+export function YugipediaCredit({ className }: { className: string }) {
+  const locale = useLocale();
+  const [lead] = YUGIPEDIA_ATTRIBUTION[locale].split('Yugipedia');
+  const link = 'underline';
+  return (
+    <Text className={className}>
+      {lead}
+      <Link href={YUGIPEDIA_URL} className={link}>
+        Yugipedia
+      </Link>{' '}
+      (
+      <Link href={CC_BY_SA_URL} className={link}>
+        CC BY-SA 4.0
+      </Link>
+      )
+    </Text>
   );
 }
 

@@ -81,11 +81,11 @@
     { "binding": "RAW", "bucket_name": "voidbinder-raw", "jurisdiction": "eu" },
   ],
   // Catalog import (VB-26, VB-27, VB-28) and TCGCSV prices (VB-30): one Workflow per source
-  // (Scryfall, YGOPRODeck, TCGdex, TCGCSV); each cron starts one daily (CRON_SOURCES in
-  // src/import/schedule.ts maps the expression) and POST /admin/import/<source> on demand; dev has
-  // no TCGCSV cron (TCGCSV asks for one pull a day; prod's 22:30 run only reads last-updated.txt
-  // when 20:30 imported the build). Splitting the 2 GB Scryfall all_cards dump
-  // needs more than the default 30 s of CPU in one step.
+  // (Scryfall, YGOPRODeck, TCGdex, TCGCSV, Yugipedia's translations, VB-93); each cron starts one
+  // daily, Yugipedia's weekly (CRON_SOURCES in src/import/schedule.ts maps the expression), and
+  // POST /admin/import/<source> on demand; dev has no TCGCSV cron (TCGCSV asks for one pull a day;
+  // prod's 22:30 run only reads last-updated.txt when 20:30 imported the build). Splitting the
+  // 2 GB Scryfall all_cards dump needs more than the default 30 s of CPU in one step.
   "workflows": [
     {
       "binding": "SCRYFALL_IMPORT",
@@ -108,12 +108,19 @@
       "class_name": "TcgcsvImportWorkflow",
     },
     {
+      "binding": "YUGIPEDIA_IMPORT",
+      "name": "voidbinder-yugipedia-import",
+      "class_name": "YugipediaImportWorkflow",
+    },
+    {
       "binding": "SEARCH_INDEX_REFRESH",
       "name": "voidbinder-search-index-refresh",
       "class_name": "SearchIndexRefreshWorkflow",
     },
   ],
-  "triggers": { "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *", "30 20 * * *", "30 22 * * *"] },
+  "triggers": {
+    "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *", "30 20 * * *", "30 22 * * *", "30 4 * * 1"],
+  },
   // The image delta adds up to ~4000 subrequests (a fetch and an R2 put per image) to an import
   // instance on top of the import's own; the default is 10,000 per instance.
   "limits": { "cpu_ms": 300000, "subrequests": 50000 },
@@ -190,12 +197,17 @@
           "class_name": "TcgcsvImportWorkflow",
         },
         {
+          "binding": "YUGIPEDIA_IMPORT",
+          "name": "voidbinder-yugipedia-import-dev",
+          "class_name": "YugipediaImportWorkflow",
+        },
+        {
           "binding": "SEARCH_INDEX_REFRESH",
           "name": "voidbinder-search-index-refresh-dev",
           "class_name": "SearchIndexRefreshWorkflow",
         },
       ],
-      "triggers": { "crons": ["30 4 * * *", "0 5 * * *", "30 5 * * *"] },
+      "triggers": { "crons": ["30 4 * * *", "0 5 * * *", "30 5 * * *", "0 6 * * 1"] },
       "limits": { "cpu_ms": 300000, "subrequests": 50000 },
     },
     "prod": {
@@ -270,13 +282,25 @@
           "class_name": "TcgcsvImportWorkflow",
         },
         {
+          "binding": "YUGIPEDIA_IMPORT",
+          "name": "voidbinder-yugipedia-import",
+          "class_name": "YugipediaImportWorkflow",
+        },
+        {
           "binding": "SEARCH_INDEX_REFRESH",
           "name": "voidbinder-search-index-refresh",
           "class_name": "SearchIndexRefreshWorkflow",
         },
       ],
       "triggers": {
-        "crons": ["0 3 * * *", "30 3 * * *", "0 4 * * *", "30 20 * * *", "30 22 * * *"],
+        "crons": [
+          "0 3 * * *",
+          "30 3 * * *",
+          "0 4 * * *",
+          "30 20 * * *",
+          "30 22 * * *",
+          "30 4 * * 1",
+        ],
       },
       "limits": { "cpu_ms": 300000, "subrequests": 50000 },
     },

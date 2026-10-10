@@ -5,6 +5,7 @@ import { Pressable, Text, View } from 'react-native';
 import Svg, { Circle, Defs, Pattern, Rect } from 'react-native-svg';
 import { fmt, useLocale, useT } from '../../i18n';
 import { usePalette } from '../palette';
+import { YugipediaCredit } from '../ui';
 import { CardImage } from './CardImage';
 import { fieldClass, fieldColor } from './game';
 
@@ -102,7 +103,7 @@ export function PrintThumbs({
 
 /**
  * The game's rights notice (@voidbinder/shared/notices) with the print's artist and the game's
- * copyright line, plus Scryfall's attribution for Magic. Wizards' notice is English in both locales.
+ * copyright line, plus Scryfall's attribution for Magic and Yugipedia's for Yu-Gi-Oh!. Wizards' notice is English in both locales.
  */
 export function RightsNotice({
   game,
@@ -125,6 +126,7 @@ export function RightsNotice({
         {[artist && fmt(t.card.artist, { artist }), copyright].filter(Boolean).join(' · ')}
       </Text>
       {game === 'mtg' && <Text className={text}>{SCRYFALL_ATTRIBUTION[locale]}</Text>}
+      {game === 'yugioh' && <YugipediaCredit className={text} />}
     </View>
   );
 }

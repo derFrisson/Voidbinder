@@ -1,0 +1,190 @@
+{
+  "query": {
+    "printrequests": [
+      { "label": "", "key": "", "redi": "", "typeid": "_wpg", "mode": 2 },
+      {
+        "label": "Password",
+        "key": "Password",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "English name",
+        "key": "English_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "German name",
+        "key": "German_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "German lore",
+        "key": "German_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "German Pendulum Effect",
+        "key": "German_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "French name",
+        "key": "French_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "French lore",
+        "key": "French_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "French Pendulum Effect",
+        "key": "French_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Italian name",
+        "key": "Italian_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Italian lore",
+        "key": "Italian_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Italian Pendulum Effect",
+        "key": "Italian_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Spanish name",
+        "key": "Spanish_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Spanish lore",
+        "key": "Spanish_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Spanish Pendulum Effect",
+        "key": "Spanish_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Portuguese name",
+        "key": "Portuguese_name",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Portuguese lore",
+        "key": "Portuguese_lore",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      },
+      {
+        "label": "Portuguese Pendulum Effect",
+        "key": "Portuguese_Pendulum_Effect",
+        "redi": "",
+        "typeid": "_txt",
+        "mode": 1,
+        "format": ""
+      }
+    ],
+    "results": {
+      "Cocoon of Ultra Evolution (Skill Card)": {
+        "printouts": {
+          "Password": [],
+          "English name": ["Cocoon of Ultra Evolution"],
+          "German name": ["Kokon der Ultra-Evolution"],
+          "German lore": [
+            "Aktiviere die folgende/n F\u00e4higkeit/en w\u00e4hrend deiner Main Phase.<br />\u25cf Du kannst 1 Insekt-Monster, das mit einer Ausr\u00fcstungskarte ausger\u00fcstet ist, von einer beliebigen Spielfeldseite als Tribut an und falls du dies tust, beschw\u00f6re 1 Insekt-Monster als Spezialbeschw\u00f6rung von deinem Deck ungeachtet seiner Beschw\u00f6rungsbedinugungen, zus\u00e4tzlich drehe diese Karte um.<br />\u25cf Du kannst 1 Insekt-Monster von deinem Friedhof ins Deck mischen, dann ziehe 1 Karte, zus\u00e4tzlich drehe diese Karte um.<br />Jede dieser F\u00e4higkeiten kann nur einmal pro Duell verwendet werden."
+          ],
+          "German Pendulum Effect": [],
+          "French name": ["Cocon de l'Ultra \u00c9volution"],
+          "French lore": [
+            "Une fois par tour, durant votre Main Phase, vous pouvez utiliser 1 des Comp\u00e9tences suivantes.<br />\u25cf Vous pouvez Sacrifier 1 monstre Insecte \u00e9quip\u00e9 avec une Carte d'\u00c9quipement depuis le Terrain, et si vous le faites, Invoquez Sp\u00e9cialement 1 monstre Insecte depuis votre Deck, en ignorant ses conditions d'Invocation. Vous ne pouvez Invoquer ni Normalement ni Sp\u00e9cialement d'autres monstres le tour o\u00f9 vous activez cette Comp\u00e9tence. \u00c0 la fin de votre tour, retournez cette carte.<br />\u25cf Vous pouvez m\u00e9langer 1 monstre Insecte depuis votre Cimeti\u00e8re dans le Deck, puis piochez 1 carte. \u00c0 la fin de votre tour, retournez cette carte.<br />Chacune de ces Comp\u00e9tences ne peut \u00eatre utilis\u00e9e qu'une fois par Duel."
+          ],
+          "French Pendulum Effect": [],
+          "Italian name": ["Bozzolo dell'Ultra Evoluzione"],
+          "Italian lore": [
+            "Attiva uno pi\u00f9 delle seguenti Abilit\u00e0 durante la tua Main Phase.<br />\u25cf Puoi offrire come Tributo dal qualsiasi Terreno 1 mostro Insetto equipaggiato con una Carta Equipaggiamento e, se lo fai, Evoca Specialmente 1 mostro Insetto dal tuo Deck, ignorando le sue condizioni di Evocazione, inoltre gira questa carta.<br />\u25cf Puoi mischiare 1 mostro Insetto dal tuo Cimitero nel Deck, poi pescare 1 carta, inoltre gira questa carta.<br />Ognuna di questa Abilit\u00e0 pu\u00f2 essere utilizzata una sola volta per Duello."
+          ],
+          "Italian Pendulum Effect": [],
+          "Spanish name": ["Capullo Ultra Evolutivo"],
+          "Spanish lore": [
+            "Activa la o las siguientes Habilidades durante tu Main Phase.<br />\u25cf Puedes Sacrificar 1 monstruo Insecto en cualquier Campo equipado con una Carta de Equipo y, si lo haces, Invoca de Modo Especial 1 monstruo Insecto desde tu Deck, ignorando sus condiciones de Invocaci\u00f3n, y tambi\u00e9n voltea esta carta.<br />\u25cf Puedes barajar al Deck 1 monstruo Insecto en tu Cementerio, y despu\u00e9s roba 1 carta, y tambi\u00e9n voltea esta carta.<br />Cada una de estas Habilidades s\u00f3lo puede ser usada una vez por Duelo."
+          ],
+          "Spanish Pendulum Effect": [],
+          "Portuguese name": ["Casulo de Ultra Evolu\u00e7\u00e3o"],
+          "Portuguese lore": [
+            "Ative a(s) seguinte(s) Habilidade(s) durante sua Fase Principal.<br />\u25cf Voc\u00ea pode oferecer como Tributo 1 monstro Inseto de qualquer campo equipado com um Card de Equipamento e, se isso acontecer, Invoque por Invoca\u00e7\u00e3o-Especial 1 monstro Inseto do seu Deck, ignorando suas condi\u00e7\u00f5es de Invoca\u00e7\u00e3o e, al\u00e9m disso, vire este card.<br />\u25cf Voc\u00ea pode embaralhar no Deck 1 monstro Inseto do seu Cemit\u00e9rio e, depois, compre 1 card e, al\u00e9m disso, vire este card.<br/>Cada uma dessas Habilidades s\u00f3 pode ser usada uma vez por Duelo."
+          ],
+          "Portuguese Pendulum Effect": []
+        },
+        "fulltext": "Cocoon of Ultra Evolution (Skill Card)",
+        "fullurl": "https://yugipedia.com/wiki/Cocoon_of_Ultra_Evolution_(Skill_Card)",
+        "namespace": 0,
+        "exists": "1",
+        "displaytitle": ""
+      }
+    },
+    "serializer": "SMW\\Serializers\\QueryResultSerializer",
+    "version": 2,
+    "meta": {
+      "hash": "9820c2fbdf39aac6c7b7c0440e9ed5d5",
+      "count": 1,
+      "offset": 0,
+      "source": "",
+      "time": "0.146306"
+    }
+  }
+}

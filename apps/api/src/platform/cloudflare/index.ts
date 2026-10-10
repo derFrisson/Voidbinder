@@ -70,6 +70,7 @@ export function createPlatform(env: Env): Platform {
       'tcgdex-import': env.TCGDEX_IMPORT,
       'ygoprodeck-import': env.YGOPRODECK_IMPORT,
       'tcgcsv-import': env.TCGCSV_IMPORT,
+      'yugipedia-import': env.YUGIPEDIA_IMPORT,
       'search-index-refresh': env.SEARCH_INDEX_REFRESH,
     }),
     db,
@@ -189,6 +190,26 @@ export function startTcgcsvCron(
   platform: Pick<Platform, 'cardStore' | 'close'> = createPlatform(env),
 ): Promise<void> {
   return startUnlessRunning('tcgcsv', () => startTcgcsvImport(env, id), platform);
+}
+
+/** The weekly Yugipedia cron's start (VB-93): skipped while a Yugipedia run is still going. */
+export function startYugipediaCron(
+  env: Env,
+  id: string,
+  platform: Pick<Platform, 'cardStore' | 'close'> = createPlatform(env),
+): Promise<void> {
+  return startUnlessRunning(
+    'yugipedia',
+    async () => {
+      const instance = await env.YUGIPEDIA_IMPORT.create({ id });
+      log('info', {
+        message: 'workflow started',
+        job: 'yugipedia-import',
+        instanceId: instance.id,
+      });
+    },
+    platform,
+  );
 }
 
 async function startUnlessRunning(
