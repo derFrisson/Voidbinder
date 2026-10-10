@@ -310,9 +310,12 @@ export type ImportRun = z.infer<typeof ImportRunSchema>;
 
 /** `GET /admin/imports/health`: the scheduled imports against their cadence (VB-83). */
 export const ImportHealthSchema = z.object({
-  /** No source missing or failed. */
+  /** No source missing or failed, no stale prices. */
   ok: z.boolean(),
-  /** One line: `OK`, or the missing and the failed sources (the Uptime Kuma push message). */
+  /**
+   * One line: `OK`, or the missing and the failed sources and the stale prices per source and game
+   * (the Uptime Kuma push message).
+   */
   message: z.string(),
   sources: z.array(
     z.object({
@@ -326,6 +329,11 @@ export const ImportHealthSchema = z.object({
       missing: z.boolean(),
       /** The newest finished run failed. */
       failed: z.boolean(),
+      /**
+       * Price runs (VB-116): fewer than 95 % of a game's priced prints refreshed in 24 h, or more
+       * stale prints (newest price older than 36 h) than the day before; the message names them.
+       */
+      stale: z.boolean(),
     }),
   ),
 });

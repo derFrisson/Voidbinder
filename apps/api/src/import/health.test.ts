@@ -4,12 +4,30 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { importRuns } from '../db/schema';
 import { databaseUrl, freshDatabase, testApp } from '../test-helpers';
-import { importHealth, IMPORT_CADENCE, type SourceSummary } from './health';
+import {
+  freshnessProblems,
+  importHealth,
+  IMPORT_CADENCE,
+  type Freshness,
+  type SourceSummary,
+} from './health';
 
 const now = Date.parse('2026-10-10T07:30:00Z');
 const hoursAgo = (h: number) => new Date(now - h * 3_600_000);
 const all = (summary: SourceSummary) =>
   new Map(Object.keys(IMPORT_CADENCE).map((s) => [s, summary]));
+/** One game's freshness of `tcgplayer`: `priced` prints, `fresh` of them refreshed in 24 h. */
+const fresh = (game: string, priced: number, freshCount: number, stale = 0): Freshness => ({
+  game,
+  source: 'tcgplayer',
+  prints: priced + 10,
+  mapped: priced,
+  unmapped: 10,
+  priced,
+  fresh: freshCount,
+  stale,
+  share: priced ? freshCount / priced : null,
+});
 
 describe('importHealth', () => {
   it('is ok when every source succeeded within its cadence plus 2 h', () => {
@@ -61,6 +79,42 @@ describe('importHealth', () => {
     });
     const health = importHealth(summaries, 'prod', now);
     expect(health.message).toBe('missing: scryfall');
+  });
+
+  it('names the price sources whose prints were not refreshed (VB-116)', () => {
+    // 95 % refreshed is fine, 94.9 % is not; a game without a priced print says nothing.
+    expect(freshnessProblems([fresh('mtg', 1000, 950), fresh('yugioh', 0, 0)])).toEqual([]);
+    expect(freshnessProblems([fresh('mtg', 1000, 949)])).toEqual([
+      'tcgplayer/mtg 94.9% refreshed in 24 h',
+    ]);
+    // More stale prints than the day before, though the share is fine.
+    expect(freshnessProblems([fresh('mtg', 1000, 990, 12)], [fresh('mtg', 1000, 990, 10)])).toEqual(
+      ['tcgplayer/mtg 12 stale (was 10)'],
+    );
+    expect(freshnessProblems([fresh('mtg', 1000, 990, 9)], [fresh('mtg', 1000, 990, 10)])).toEqual(
+      [],
+    );
+
+    const summaries = all({ lastSuccessAt: hoursAgo(3), lastStatus: 'ok' });
+    summaries.set('tcgcsv', {
+      lastSuccessAt: hoursAgo(3),
+      lastStatus: 'ok',
+      freshness: {
+        latest: [fresh('mtg', 1000, 990, 12), fresh('pokemon', 100, 80)],
+        previous: [fresh('mtg', 1000, 990, 10), fresh('pokemon', 100, 100)],
+      },
+    });
+    const health = importHealth(summaries, 'prod', now);
+    expect(health).toMatchObject({
+      ok: false,
+      message: 'stale: tcgplayer/mtg 12 stale (was 10), tcgplayer/pokemon 80.0% refreshed in 24 h',
+    });
+    expect(health.sources.find((s) => s.source === 'tcgcsv')).toMatchObject({
+      missing: false,
+      failed: false,
+      stale: true,
+    });
+    expect(health.sources.find((s) => s.source === 'scryfall')).toMatchObject({ stale: false });
   });
 
   it('leaves out what dev does not schedule (TCGCSV)', () => {
@@ -138,5 +192,37 @@ describe.skipIf(!databaseUrl)('GET /admin/imports (Postgres)', () => {
 
     expect((await get('/admin/imports/health', 'wrong')).status).toBe(401);
     expect((await testApp({ db }).request('/admin/imports/health')).status).toBe(404);
+  });
+
+  it('compares the freshness of the newest price run with the day before (VB-116)', async () => {
+    const at = (h: number) => sql`now() - make_interval(secs => ${h * 3600})`;
+    const run = (h: number, stale: number | null, status = 'ok') => ({
+      source: 'tcgcsv',
+      kind: 'prices',
+      status,
+      startedAt: at(h),
+      finishedAt: at(h - 0.2),
+      stats: stale === null ? {} : { freshness: [fresh('mtg', 1000, 1000, stale)] },
+    });
+    await db.insert(importRuns).values([
+      // Newest first: a failed run (never compared), the latest ok one, one of the same evening
+      // (too recent to be the day before), the day before, and the day before that.
+      run(0.5, 50, 'failed'),
+      run(1, 12),
+      run(3, 1),
+      run(23, 10),
+      run(47, 99),
+      // A run from before VB-116 without freshness.
+      run(70, null),
+    ]);
+    const health = ImportHealthSchema.parse(
+      await (
+        await testApp({ adminToken: 't', db }).request('/admin/imports/health', {
+          headers: { Authorization: 'Bearer t' },
+        })
+      ).json(),
+    );
+    expect(health.message).toContain('stale: tcgplayer/mtg 12 stale (was 10)');
+    expect(health.sources.find((s) => s.source === 'tcgcsv')).toMatchObject({ stale: true });
   });
 });
