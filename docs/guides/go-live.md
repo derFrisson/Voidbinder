@@ -361,7 +361,7 @@ to the end of step 8.
 in the dashboard (Workers → voidbinder-app → Settings → Domains) or `wrangler delete --env prod`
 from `apps/app`. Later: `wrangler rollback --env prod`.
 
-### 7. Catalog imports (about 90 min, mostly waiting)
+### 7. Catalog imports (about 45 min, mostly waiting)
 
 Magic and Yu-Gi-Oh! come from the import Workflows. Pokémon is different: **if the other database
 already holds the Pokémon catalog (dev does), copy it instead of importing it.** The TCGdex full
@@ -615,7 +615,7 @@ go, but before the URL is shared widely.
 
 ## Time
 
-About 2.5 hours from step 1 to step 12, mostly waiting. Step 7 runs first: the Magic and
+About 2.5 hours from step 1 to step 12, mostly waiting. The long part is step 7: the Magic and
 Yu-Gi-Oh! Workflows (about 30 min each with the prices, the purge wait and their mirror step, side
 by side) while the Pokémon copy runs on the VPS (minutes), followed by the TCGdex incremental
 (about 15 min with its purge wait and mirror step). Step 8, the VPS mirror at about 180 rows/s
