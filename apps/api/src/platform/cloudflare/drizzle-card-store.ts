@@ -157,7 +157,7 @@ export function parseCodeQuery(q: string): CodeQuery {
 const alnum = (number: SQLWrapper) => sql`regexp_replace(lower(${number}), '[^a-z0-9]+', '', 'g')`;
 
 /** Prints a pure-number query lists at most (`121` matches that number in every set). */
-const NUMBER_HITS = 50;
+export const NUMBER_HITS = 50;
 
 /**
  * `(print_id, rank)` of the prints `q` names by code (VB-79), null when `q` cannot be one. Every
@@ -212,7 +212,7 @@ function codeHits(q: string, game: Game | undefined): SQL | null {
  * Whether names similar to `q` are worth looking for: below 4 characters nearly every name shares
  * a trigram with it, and a typo in so few letters is no typo.
  */
-const fuzzyQuery = (q: string) => q.length >= 4;
+export const fuzzyQuery = (q: string) => q.length >= 4;
 
 /** `q` as an ILIKE prefix pattern, its wildcards escaped. */
 const prefixPattern = (q: string) => `${q.replace(/[\\%_]/g, '\\$&')}%`;
