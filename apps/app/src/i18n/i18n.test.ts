@@ -17,6 +17,8 @@ function leaves(value: unknown, prefix = ''): [string, string][] {
 
 // Proper names and words both languages share.
 const SAME_IN_BOTH = new Set([
+  // Ban-list badge: a placeholder-only template, the same in both languages (VB-81).
+  '{format}: {status}',
   'Pokémon',
   'Yu‑Gi‑Oh!',
   'Magic: The Gathering',
