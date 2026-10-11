@@ -97,7 +97,7 @@ describe('matchSets', () => {
 
   it('matches our picture-less sets by alias, code and name, or name and date', () => {
     expect(Object.fromEntries(matched)).toEqual({
-      // aliases: McDonald's years, EX trainer kits, the Unown collection, the SV promos
+      // aliases: McDonald's years, EX trainer kits, the Unown collection, the SV promos, 30th-c
       '2011bw': 'mcd11',
       '2012bw': 'mcd12',
       '2014xy': 'mcd14',
@@ -114,6 +114,7 @@ describe('matchSets', () => {
       'tk-ex-m': 'tk2b',
       exu: 'ex10',
       svp: 'svp',
+      '30th-c': 'me55c',
       // a shared code and the name (SHF, CEL, the gallery codes, 30C)
       'swsh4.5': 'swsh45',
       'swsh4.5sv': 'swsh45sv',
@@ -154,8 +155,6 @@ describe('matchSets', () => {
     expect(unmatched).toEqual([
       '2023sv',
       '2024sv',
-      // 30C is ours twice: the Classic Collection does not take 30th Celebration's set
-      '30th-c',
       'ex5.5',
       'mee',
       'mep',

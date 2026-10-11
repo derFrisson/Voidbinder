@@ -17,7 +17,8 @@ export interface OurSet {
 /**
  * TCGdex id → pokemontcg.io id where neither code, name nor date agree: the McDonald's years
  * (TCGdex names them by series, some dates differ), the EX trainer kits (dates differ), the
- * Unown collection (part of Unseen Forces there) and the SV promos (renamed and redated).
+ * Unown collection (part of Unseen Forces there), the SV promos (renamed and redated) and the
+ * 30th Classic Collection (both 30th sets carry the code 30C and the names differ).
  */
 export const SET_ALIASES: Record<string, string> = {
   '2011bw': 'mcd11',
@@ -35,6 +36,7 @@ export const SET_ALIASES: Record<string, string> = {
   'tk-ex-p': 'tk2a',
   'tk-ex-m': 'tk2b',
   exu: 'ex10',
+  '30th-c': 'me55c',
   svp: 'svp',
 };
 
