@@ -47,7 +47,8 @@ const sourceOf = (game: string, url: string) => {
   const host = new URL(url).hostname;
   if (host.endsWith('yugipedia.com')) return 'yugipedia';
   if (host.endsWith('tcgplayer.com')) return 'tcgplayer';
-  return host === 'images.pokemontcg.io' ? 'pokemontcg' : game;
+  // pokemontcg.io's data repo links images.scrydex.com for the 2025+ sets.
+  return host === 'images.pokemontcg.io' || host === 'images.scrydex.com' ? 'pokemontcg' : game;
 };
 
 const CONTENT_TYPES: Record<string, string> = {
